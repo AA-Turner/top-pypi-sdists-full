@@ -24,6 +24,12 @@ summary::-webkit-details-marker { color: #00ACF3; font-size: 125%; margin-right:
 summary:focus { outline-style: none; }
 article > details > summary { font-size: 28px; margin-top: 16px; }
 details > p { margin-left: 24px; }
+        .warning-box {
+            background-color:rgb(249, 178, 178);
+            border: 1px solidrgb(251, 251, 251);
+            padding: 12px 16px;
+            margin: 16px 0;
+        }
 details details summary { font-size: 16px; }
 "#;
 
@@ -186,7 +192,7 @@ Build products below:
     <li><a id="{compile_directory.0}">{compile_directory.0}</a>
     <ul>
         {{ for path_idx in compile_directory.1 }}
-            <li><a href="{path_idx.url}">{path_idx.name}</a> {path_idx.suffix} ({path_idx.number})</li>
+            <li><a href="{path_idx.url}">{path_idx.name}</a>{{ if path_idx.readable_url }} (<a href="{path_idx.readable_url}">readable_html</a>){{ endif }} {path_idx.suffix} ({path_idx.number})</li>
         {{ endfor }}
     </ul>
     </li>
@@ -529,3 +535,109 @@ pub static TEMPLATE_SYMBOLIC_GUARD_INFO: &str = r#"
 pub static PROVENANCE_CSS: &str = include_str!("provenance.css");
 pub static PROVENANCE_JS: &str = include_str!("provenance.js");
 pub static TEMPLATE_PROVENANCE_TRACKING: &str = include_str!("provenance.html");
+
+pub static TEMPLATE_MULTI_RANK_INDEX: &str = r#"
+<html>
+<head>
+  <meta charset="UTF-8">
+</head>
+<style>
+{css | format_unescaped}
+</style>
+<body>
+<div>
+{custom_header_html | format_unescaped}
+{{ if show_desync_warning }}
+<div class="warning-box">
+    {{ if compile_id_divergence }}
+    <p><strong>Warning:</strong> Diverging Compilation IDs detected across ranks. This may lead to hangs or timeouts during distributed execution.</p>
+    {{ endif }}
+    {{ if diagnostics.divergence.cache }}
+    <p><strong>Warning:</strong> Diverging Cache hit/miss patterns detected across ranks. Cache hit/miss pattern groups:</p>
+    <ul>
+        {{ for group in diagnostics.cache_groups }}
+            <li>Ranks: {group.ranks}</li>
+        {{ endfor }}
+    </ul>
+    {{ endif }}
+    {{ if diagnostics.divergence.collective }}
+    <p><strong>Warning:</strong> Diverging collective operation sequences detected across ranks. This can lead to hangs or timeouts during distributed execution.</p>
+    <p>Collective operation sequence groups:</p>
+    <ul>
+        {{ for group in diagnostics.collective_groups }}
+            <li>Ranks: {group.ranks}</li>
+        {{ endfor }}
+    </ul>
+    {{ endif }}
+</div>
+{{ endif }}
+<h2>Multi-Rank TLParse Report</h2>
+<p>
+This report contains TLParse links from <strong>{num_ranks}</strong> rank(s). Click on any rank below
+to view its detailed compilation report.
+</p>
+{{ if has_chromium_events }}
+<h3> Chromium Events </h3>
+<p>
+PT2 generates <a href='chromium_events.json'>Chromium Trace Events</a> in JSON on specific events during compilation.
+You can download and view them in a tool like <a href='https://ui.perfetto.dev/'>Perfetto</a>.
+This is a combined trace from all ranks.
+</p>
+{{ endif }}
+{{ if diagnostics.artifacts.runtime_trace }}
+<h3> Runtime Trace Visualization </h3>
+<p>
+<a href='chromium_trace_with_runtime.json'>Runtime Estimation Chromium Trace</a> shows estimated runtime per operation across all ranks and graphs.
+Each rank appears as a separate process (PID) in the trace; within each process, each compiled graph is visualized as its own thread (TID). Operations are laid out sequentially by estimated duration on that thread.
+You can download and view this trace in <a href='https://ui.perfetto.dev/'>Perfetto</a> to visualize performance differences across ranks.
+</p>
+{{ endif }}
+<p>
+Individual rank reports:
+</p>
+<ul>
+{{ for rank in ranks }}
+    <li><a href="rank_{rank}/index.html">Rank {rank}</a></li>
+{{ endfor }}
+</ul>
+{{ if diagnostics.analysis }}
+{{ if diagnostics.analysis.has_mismatched_graph_counts }}
+<h3>Graph Runtime Analysis</h3>
+<p>
+<strong>Runtime analysis not available:</strong> Ranks have different numbers of compiled graphs, preventing cross-rank comparison. This mismatch may indicate compilation divergence between ranks.
+</p>
+{{ else }}
+<h3>Graph Runtime Analysis</h3>
+<p>
+Runtime variance analysis across all <strong>{num_ranks}</strong> rank(s) for each compiled graph based on inductor runtime estimates. Shows the delta between the fastest and slowest ranks,
+helping identify performance imbalances that could impact distributed training efficiency. Large deltas indicate potential
+desync issues on specific ranks.
+</p>
+{{ for graph in diagnostics.analysis.graphs }}
+<p><strong>Graph {graph.graph_id}:</strong> {graph.delta_ms} ms delta (Fastest: Rank {graph.rank_details.0.rank} - {graph.rank_details.0.runtime_ms} ms, Slowest: Rank {graph.rank_details.1.rank} - {graph.rank_details.1.runtime_ms} ms)</p>
+{{ endfor }}
+{{ endif }}
+{{ endif }}
+<h3>Tensor Metadata Analysis</h3>
+<p>
+Compares inductor tensor metadata (shapes, dtypes, strides) across ranks to detect compilation divergence.
+</p>
+{{ if diagnostics.divergence.tensor_meta }}
+<p>
+Ranks exhibit divergent inductor tensor metadata across graphs. Groups with identical signatures:
+</p>
+<ul>
+    {{ for group in diagnostics.tensor_meta_groups }}
+        <li>Ranks: {group.ranks}</li>
+    {{ endfor }}
+    </ul>
+{{ else }}
+<p>
+All ranks have matching tensor meta signatures across graphs.
+</p>
+{{ endif }}
+</div>
+{qps | format_unescaped}
+</body>
+</html>
+"#;

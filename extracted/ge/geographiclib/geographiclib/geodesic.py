@@ -63,7 +63,7 @@ The public attributes for this class are
 # This is a rather literal translation of the GeographicLib::Geodesic class to
 # python.  See the documentation for the C++ class for more information at
 #
-#    https://geographiclib.sourceforge.io/html/annotated.html
+#    https://geographiclib.sourceforge.io/C++/doc/annotated.html
 #
 # The algorithms are derived in
 #
@@ -72,7 +72,7 @@ The public attributes for this class are
 #    https://doi.org/10.1007/s00190-012-0578-z
 #    Addenda: https://geographiclib.sourceforge.io/geod-addenda.html
 #
-# Copyright (c) Charles Karney (2011-2022) <charles@karney.com> and licensed
+# Copyright (c) Charles Karney (2011-2022) <karney@alum.mit.edu> and licensed
 # under the MIT/X11 License.  For more information, see
 # https://geographiclib.sourceforge.io/
 ######################################################################
@@ -86,6 +86,7 @@ from geographiclib.geodesiccapability import GeodesicCapability
 class Geodesic:
   """Solve geodesic problems"""
 
+  WGS84: "Geodesic"
   GEOGRAPHICLIB_GEODESIC_ORDER = 6
   nA1_ = GEOGRAPHICLIB_GEODESIC_ORDER
   nC1_ = GEOGRAPHICLIB_GEODESIC_ORDER
@@ -105,7 +106,7 @@ class Geodesic:
   tol0_ = sys.float_info.epsilon
   tol1_ = 200 * tol0_
   tol2_ = math.sqrt(tol0_)
-  tolb_ = tol0_ * tol2_
+  tolb_ = tol0_
   xthresh_ = 1000 * tol2_
 
   CAP_NONE = GeodesicCapability.CAP_NONE
@@ -440,7 +441,7 @@ class Geodesic:
     # outmask & REDUCEDLENGTH: set m12b & m0
     # outmask & GEODESICSCALE: set M12 & M21
 
-    s12b = m12b = m0 = M12 = M21 = math.nan
+    s12b = m12b = m0 = m0x = J12 = M12 = M21 = math.nan
     if outmask & (Geodesic.DISTANCE | Geodesic.REDUCEDLENGTH |
                   Geodesic.GEODESICSCALE):
       A1 = Geodesic._A1m1f(eps)
@@ -803,7 +804,7 @@ class Geodesic:
       #
       # In fact, we will have sig12 > pi/2 for meridional geodesic which is
       # not a shortest path.
-      if sig12 < 1 or m12x >= 0:
+      if sig12 < Geodesic.tol2_ or m12x >= 0:
         if (sig12 < 3 * Geodesic.tiny_ or
             # Prevent negative s12 or m12 for short lines
             (sig12 < Geodesic.tol0_ and (s12x < 0 or m12x < 0))):
@@ -869,7 +870,7 @@ class Geodesic:
         salp1a = Geodesic.tiny_; calp1a = 1.0
         salp1b = Geodesic.tiny_; calp1b = -1.0
 
-        while numit < Geodesic.maxit2_:
+        while True:
           # the WGS84 test set: mean = 1.47, sd = 1.25, max = 16
           # WGS84 and random input: mean = 2.85, sd = 0.60
           (v, salp2, calp2, sig12, ssig1, csig1, ssig2, csig2,
@@ -878,7 +879,8 @@ class Geodesic:
              salp1, calp1, slam12, clam12, numit < Geodesic.maxit1_,
              C1a, C2a, C3a)
           # Reversed test to allow escape with NaNs
-          if tripb or not (abs(v) >= (8 if tripn else 1) * Geodesic.tol0_):
+          if (tripb or not (abs(v) >= (8 if tripn else 1) * Geodesic.tol0_) or
+              numit == Geodesic.maxit2_):
             break
           # Update bracketing values
           if v > 0 and (numit > Geodesic.maxit1_ or
@@ -891,17 +893,18 @@ class Geodesic:
           numit += 1
           if numit < Geodesic.maxit1_ and dv > 0:
             dalp1 = -v/dv
-            sdalp1 = math.sin(dalp1); cdalp1 = math.cos(dalp1)
-            nsalp1 = salp1 * cdalp1 + calp1 * sdalp1
-            if nsalp1 > 0 and abs(dalp1) < math.pi:
-              calp1 = calp1 * cdalp1 - salp1 * sdalp1
-              salp1 = nsalp1
-              salp1, calp1 = Math.norm(salp1, calp1)
-              # In some regimes we don't get quadratic convergence because
-              # slope -> 0.  So use convergence conditions based on epsilon
-              # instead of sqrt(epsilon).
-              tripn = abs(v) <= 16 * Geodesic.tol0_
-              continue
+            if abs(dalp1) < math.pi:
+              sdalp1 = math.sin(dalp1); cdalp1 = math.cos(dalp1)
+              nsalp1 = salp1 * cdalp1 + calp1 * sdalp1
+              if nsalp1 > 0:
+                calp1 = calp1 * cdalp1 - salp1 * sdalp1
+                salp1 = nsalp1
+                salp1, calp1 = Math.norm(salp1, calp1)
+                # In some regimes we don't get quadratic convergence because
+                # slope -> 0.  So use convergence conditions based on epsilon
+                # instead of sqrt(epsilon).
+                tripn = abs(v) <= 16 * Geodesic.tol0_
+                continue
           # Either dv was not positive or updated value was outside
           # legal range.  Use the midpoint of the bracket as the next
           # estimate.  This mechanism is not needed for the WGS84

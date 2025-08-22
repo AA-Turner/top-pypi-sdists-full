@@ -4,7 +4,6 @@ import os
 import sys
 from orionis.console.output.enums import ANSIColors
 from orionis.console.output.contracts.console import IConsole
-from orionis.support.formatter.serializer import Parser
 
 class Console(IConsole):
     """
@@ -512,31 +511,12 @@ class Console(IConsole):
         -----
         This method prints the exception type, message, and a detailed stack trace.
         """
+        from rich.console import Console as RichConsole
+        from rich.traceback import Traceback
 
-        errors = Parser.exception(e).toDict()
-        error_type = str(errors.get("error_type")).split(".")[-1]
-        error_message = str(errors.get("error_message")).replace(error_type, "").replace("[]", "").strip()
-        stack_trace = errors.get("stack_trace")
-
-        # Format the output with a more eye-catching appearance
-        message = f"{ANSIColors.BG_ERROR.value}{ANSIColors.TEXT_WHITE.value}[{error_type}]{ANSIColors.TEXT_RESET.value}: {ANSIColors.TEXT_WARNING.value}{error_message}{ANSIColors.TEXT_RESET.value}"
-        print("▬" * len(f" [{error_type}] : {error_message}"))
-        print(message)
-
-        real_count = len(stack_trace)
-        count_error = real_count
-        for frame in stack_trace:
-            filename = frame["filename"]
-            lineno = frame["lineno"]
-            name = frame["name"]
-            line = frame["line"]
-
-            # Print the stack trace with enhanced styling
-            print(f"{ANSIColors.TEXT_MUTED.value}Trace Call ({count_error}/{real_count}){ANSIColors.TEXT_RESET.value} - {ANSIColors.TEXT_WHITE.value}{filename}:{lineno}{ANSIColors.TEXT_RESET.value}")
-            print(f"  {ANSIColors.DIM.value}{ANSIColors.ITALIC.value}{ANSIColors.TEXT_WARNING.value}{name}{ANSIColors.TEXT_RESET.value} : {ANSIColors.CYAN.value}{line}{ANSIColors.TEXT_RESET.value}")
-            count_error -= 1
-
-        print("▬" * len(f" [{error_type}] : {error_message}"))
+        rc = RichConsole()
+        tb = Traceback.from_exception(type(e), e, e.__traceback__, max_frames=1)
+        rc.print(tb)
 
     def exitSuccess(self, message: str = None) -> None:
         """

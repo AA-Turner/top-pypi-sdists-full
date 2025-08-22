@@ -1,7 +1,7 @@
 r'''
 # `azurerm_iothub`
 
-Refer to the Terraform Registry for docs: [`azurerm_iothub`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub).
+Refer to the Terraform Registry for docs: [`azurerm_iothub`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Iothub(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.iothub.Iothub",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub azurerm_iothub}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub azurerm_iothub}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class Iothub(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub azurerm_iothub} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub azurerm_iothub} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#location Iothub#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.
-        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#sku Iothub#sku}
-        :param cloud_to_device: cloud_to_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#cloud_to_device Iothub#cloud_to_device}
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint Iothub#endpoint}.
-        :param enrichment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#enrichment Iothub#enrichment}.
-        :param event_hub_partition_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#event_hub_partition_count Iothub#event_hub_partition_count}.
-        :param event_hub_retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#event_hub_retention_in_days Iothub#event_hub_retention_in_days}.
-        :param fallback_route: fallback_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#fallback_route Iothub#fallback_route}
-        :param file_upload: file_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#file_upload Iothub#file_upload}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#id Iothub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity Iothub#identity}
-        :param local_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#local_authentication_enabled Iothub#local_authentication_enabled}.
-        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#min_tls_version Iothub#min_tls_version}.
-        :param network_rule_set: network_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#network_rule_set Iothub#network_rule_set}
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#public_network_access_enabled Iothub#public_network_access_enabled}.
-        :param route: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#route Iothub#route}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#tags Iothub#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#timeouts Iothub#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#location Iothub#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.
+        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#sku Iothub#sku}
+        :param cloud_to_device: cloud_to_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#cloud_to_device Iothub#cloud_to_device}
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint Iothub#endpoint}.
+        :param enrichment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#enrichment Iothub#enrichment}.
+        :param event_hub_partition_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#event_hub_partition_count Iothub#event_hub_partition_count}.
+        :param event_hub_retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#event_hub_retention_in_days Iothub#event_hub_retention_in_days}.
+        :param fallback_route: fallback_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#fallback_route Iothub#fallback_route}
+        :param file_upload: file_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#file_upload Iothub#file_upload}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#id Iothub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity Iothub#identity}
+        :param local_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#local_authentication_enabled Iothub#local_authentication_enabled}.
+        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#min_tls_version Iothub#min_tls_version}.
+        :param network_rule_set: network_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#network_rule_set Iothub#network_rule_set}
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#public_network_access_enabled Iothub#public_network_access_enabled}.
+        :param route: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#route Iothub#route}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#tags Iothub#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#timeouts Iothub#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class Iothub(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Iothub to import.
-        :param import_from_id: The id of the existing Iothub that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Iothub that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Iothub to import is found.
         '''
         if __debug__:
@@ -180,9 +180,9 @@ class Iothub(
         max_delivery_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.
-        :param feedback: feedback block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#feedback Iothub#feedback}
-        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
+        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.
+        :param feedback: feedback block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#feedback Iothub#feedback}
+        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
         '''
         value = IothubCloudToDevice(
             default_ttl=default_ttl,
@@ -228,10 +228,10 @@ class Iothub(
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#condition Iothub#condition}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#enabled Iothub#enabled}.
-        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#source Iothub#source}.
+        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#condition Iothub#condition}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#enabled Iothub#enabled}.
+        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#source Iothub#source}.
         '''
         value = IothubFallbackRoute(
             condition=condition,
@@ -257,15 +257,15 @@ class Iothub(
         sas_ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#connection_string Iothub#connection_string}.
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#container_name Iothub#container_name}.
-        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.
-        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.
-        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity_id Iothub#identity_id}.
-        :param lock_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.
-        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
-        :param notifications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#notifications Iothub#notifications}.
-        :param sas_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#sas_ttl Iothub#sas_ttl}.
+        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#connection_string Iothub#connection_string}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#container_name Iothub#container_name}.
+        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.
+        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.
+        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity_id Iothub#identity_id}.
+        :param lock_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.
+        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
+        :param notifications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#notifications Iothub#notifications}.
+        :param sas_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#sas_ttl Iothub#sas_ttl}.
         '''
         value = IothubFileUpload(
             connection_string=connection_string,
@@ -289,8 +289,8 @@ class Iothub(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#type Iothub#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity_ids Iothub#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#type Iothub#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity_ids Iothub#identity_ids}.
         '''
         value = IothubIdentity(type=type, identity_ids=identity_ids)
 
@@ -325,8 +325,8 @@ class Iothub(
     @jsii.member(jsii_name="putSku")
     def put_sku(self, *, capacity: jsii.Number, name: builtins.str) -> None:
         '''
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#capacity Iothub#capacity}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#capacity Iothub#capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.
         '''
         value = IothubSku(capacity=capacity, name=name)
 
@@ -342,10 +342,10 @@ class Iothub(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#create Iothub#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#delete Iothub#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#read Iothub#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#update Iothub#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#create Iothub#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#delete Iothub#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#read Iothub#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#update Iothub#update}.
         '''
         value = IothubTimeouts(create=create, delete=delete, read=read, update=update)
 
@@ -781,9 +781,9 @@ class IothubCloudToDevice:
         max_delivery_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.
-        :param feedback: feedback block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#feedback Iothub#feedback}
-        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
+        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.
+        :param feedback: feedback block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#feedback Iothub#feedback}
+        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24e03cb302437d95254ff61254b072114645556c46b2ff446f23cee4cef02c45)
@@ -800,7 +800,7 @@ class IothubCloudToDevice:
 
     @builtins.property
     def default_ttl(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.'''
         result = self._values.get("default_ttl")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -810,14 +810,14 @@ class IothubCloudToDevice:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubCloudToDeviceFeedback"]]]:
         '''feedback block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#feedback Iothub#feedback}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#feedback Iothub#feedback}
         '''
         result = self._values.get("feedback")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubCloudToDeviceFeedback"]]], result)
 
     @builtins.property
     def max_delivery_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.'''
         result = self._values.get("max_delivery_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -851,9 +851,9 @@ class IothubCloudToDeviceFeedback:
         time_to_live: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lock_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.
-        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
-        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#time_to_live Iothub#time_to_live}.
+        :param lock_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.
+        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
+        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#time_to_live Iothub#time_to_live}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0365fa1f162d5bca31f4c332d848ce251daeb5bafee9f762404d7e235d4e0560)
@@ -870,19 +870,19 @@ class IothubCloudToDeviceFeedback:
 
     @builtins.property
     def lock_duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.'''
         result = self._values.get("lock_duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_delivery_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.'''
         result = self._values.get("max_delivery_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def time_to_live(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#time_to_live Iothub#time_to_live}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#time_to_live Iothub#time_to_live}.'''
         result = self._values.get("time_to_live")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1272,26 +1272,26 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#location Iothub#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.
-        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#sku Iothub#sku}
-        :param cloud_to_device: cloud_to_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#cloud_to_device Iothub#cloud_to_device}
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint Iothub#endpoint}.
-        :param enrichment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#enrichment Iothub#enrichment}.
-        :param event_hub_partition_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#event_hub_partition_count Iothub#event_hub_partition_count}.
-        :param event_hub_retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#event_hub_retention_in_days Iothub#event_hub_retention_in_days}.
-        :param fallback_route: fallback_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#fallback_route Iothub#fallback_route}
-        :param file_upload: file_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#file_upload Iothub#file_upload}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#id Iothub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity Iothub#identity}
-        :param local_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#local_authentication_enabled Iothub#local_authentication_enabled}.
-        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#min_tls_version Iothub#min_tls_version}.
-        :param network_rule_set: network_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#network_rule_set Iothub#network_rule_set}
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#public_network_access_enabled Iothub#public_network_access_enabled}.
-        :param route: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#route Iothub#route}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#tags Iothub#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#timeouts Iothub#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#location Iothub#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.
+        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#sku Iothub#sku}
+        :param cloud_to_device: cloud_to_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#cloud_to_device Iothub#cloud_to_device}
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint Iothub#endpoint}.
+        :param enrichment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#enrichment Iothub#enrichment}.
+        :param event_hub_partition_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#event_hub_partition_count Iothub#event_hub_partition_count}.
+        :param event_hub_retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#event_hub_retention_in_days Iothub#event_hub_retention_in_days}.
+        :param fallback_route: fallback_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#fallback_route Iothub#fallback_route}
+        :param file_upload: file_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#file_upload Iothub#file_upload}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#id Iothub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity Iothub#identity}
+        :param local_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#local_authentication_enabled Iothub#local_authentication_enabled}.
+        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#min_tls_version Iothub#min_tls_version}.
+        :param network_rule_set: network_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#network_rule_set Iothub#network_rule_set}
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#public_network_access_enabled Iothub#public_network_access_enabled}.
+        :param route: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#route Iothub#route}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#tags Iothub#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#timeouts Iothub#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1455,21 +1455,21 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#location Iothub#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#location Iothub#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1478,7 +1478,7 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sku(self) -> "IothubSku":
         '''sku block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#sku Iothub#sku}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#sku Iothub#sku}
         '''
         result = self._values.get("sku")
         assert result is not None, "Required property 'sku' is missing"
@@ -1488,7 +1488,7 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cloud_to_device(self) -> typing.Optional[IothubCloudToDevice]:
         '''cloud_to_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#cloud_to_device Iothub#cloud_to_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#cloud_to_device Iothub#cloud_to_device}
         '''
         result = self._values.get("cloud_to_device")
         return typing.cast(typing.Optional[IothubCloudToDevice], result)
@@ -1497,7 +1497,7 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def endpoint(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubEndpoint"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint Iothub#endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint Iothub#endpoint}.'''
         result = self._values.get("endpoint")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubEndpoint"]]], result)
 
@@ -1505,19 +1505,19 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enrichment(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubEnrichment"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#enrichment Iothub#enrichment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#enrichment Iothub#enrichment}.'''
         result = self._values.get("enrichment")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubEnrichment"]]], result)
 
     @builtins.property
     def event_hub_partition_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#event_hub_partition_count Iothub#event_hub_partition_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#event_hub_partition_count Iothub#event_hub_partition_count}.'''
         result = self._values.get("event_hub_partition_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def event_hub_retention_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#event_hub_retention_in_days Iothub#event_hub_retention_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#event_hub_retention_in_days Iothub#event_hub_retention_in_days}.'''
         result = self._values.get("event_hub_retention_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1525,7 +1525,7 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fallback_route(self) -> typing.Optional["IothubFallbackRoute"]:
         '''fallback_route block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#fallback_route Iothub#fallback_route}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#fallback_route Iothub#fallback_route}
         '''
         result = self._values.get("fallback_route")
         return typing.cast(typing.Optional["IothubFallbackRoute"], result)
@@ -1534,14 +1534,14 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def file_upload(self) -> typing.Optional["IothubFileUpload"]:
         '''file_upload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#file_upload Iothub#file_upload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#file_upload Iothub#file_upload}
         '''
         result = self._values.get("file_upload")
         return typing.cast(typing.Optional["IothubFileUpload"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#id Iothub#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#id Iothub#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1553,7 +1553,7 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["IothubIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity Iothub#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity Iothub#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["IothubIdentity"], result)
@@ -1562,13 +1562,13 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def local_authentication_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#local_authentication_enabled Iothub#local_authentication_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#local_authentication_enabled Iothub#local_authentication_enabled}.'''
         result = self._values.get("local_authentication_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def min_tls_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#min_tls_version Iothub#min_tls_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#min_tls_version Iothub#min_tls_version}.'''
         result = self._values.get("min_tls_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1578,7 +1578,7 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubNetworkRuleSet"]]]:
         '''network_rule_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#network_rule_set Iothub#network_rule_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#network_rule_set Iothub#network_rule_set}
         '''
         result = self._values.get("network_rule_set")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubNetworkRuleSet"]]], result)
@@ -1587,7 +1587,7 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_network_access_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#public_network_access_enabled Iothub#public_network_access_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#public_network_access_enabled Iothub#public_network_access_enabled}.'''
         result = self._values.get("public_network_access_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1595,13 +1595,13 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def route(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubRoute"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#route Iothub#route}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#route Iothub#route}.'''
         result = self._values.get("route")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubRoute"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#tags Iothub#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#tags Iothub#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1609,7 +1609,7 @@ class IothubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IothubTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#timeouts Iothub#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#timeouts Iothub#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IothubTimeouts"], result)
@@ -1664,19 +1664,19 @@ class IothubEndpoint:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.
-        :param batch_frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#batch_frequency_in_seconds Iothub#batch_frequency_in_seconds}.
-        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#connection_string Iothub#connection_string}.
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#container_name Iothub#container_name}.
-        :param encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#encoding Iothub#encoding}.
-        :param endpoint_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint_uri Iothub#endpoint_uri}.
-        :param entity_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#entity_path Iothub#entity_path}.
-        :param file_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#file_name_format Iothub#file_name_format}.
-        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity_id Iothub#identity_id}.
-        :param max_chunk_size_in_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_chunk_size_in_bytes Iothub#max_chunk_size_in_bytes}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#type Iothub#type}.
+        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.
+        :param batch_frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#batch_frequency_in_seconds Iothub#batch_frequency_in_seconds}.
+        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#connection_string Iothub#connection_string}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#container_name Iothub#container_name}.
+        :param encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#encoding Iothub#encoding}.
+        :param endpoint_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint_uri Iothub#endpoint_uri}.
+        :param entity_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#entity_path Iothub#entity_path}.
+        :param file_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#file_name_format Iothub#file_name_format}.
+        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity_id Iothub#identity_id}.
+        :param max_chunk_size_in_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_chunk_size_in_bytes Iothub#max_chunk_size_in_bytes}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#type Iothub#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f2a568597e92070f3f88542db4d6ad065faedc95ae66e33f55a98b216823447)
@@ -1723,79 +1723,79 @@ class IothubEndpoint:
 
     @builtins.property
     def authentication_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.'''
         result = self._values.get("authentication_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def batch_frequency_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#batch_frequency_in_seconds Iothub#batch_frequency_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#batch_frequency_in_seconds Iothub#batch_frequency_in_seconds}.'''
         result = self._values.get("batch_frequency_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def connection_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#connection_string Iothub#connection_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#connection_string Iothub#connection_string}.'''
         result = self._values.get("connection_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def container_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#container_name Iothub#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#container_name Iothub#container_name}.'''
         result = self._values.get("container_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def encoding(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#encoding Iothub#encoding}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#encoding Iothub#encoding}.'''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def endpoint_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint_uri Iothub#endpoint_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint_uri Iothub#endpoint_uri}.'''
         result = self._values.get("endpoint_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def entity_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#entity_path Iothub#entity_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#entity_path Iothub#entity_path}.'''
         result = self._values.get("entity_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def file_name_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#file_name_format Iothub#file_name_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#file_name_format Iothub#file_name_format}.'''
         result = self._values.get("file_name_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def identity_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity_id Iothub#identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity_id Iothub#identity_id}.'''
         result = self._values.get("identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_chunk_size_in_bytes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_chunk_size_in_bytes Iothub#max_chunk_size_in_bytes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_chunk_size_in_bytes Iothub#max_chunk_size_in_bytes}.'''
         result = self._values.get("max_chunk_size_in_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#resource_group_name Iothub#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#type Iothub#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#type Iothub#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2232,9 +2232,9 @@ class IothubEnrichment:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#key Iothub#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#value Iothub#value}.
+        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#key Iothub#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#value Iothub#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f988ff4ac8a03a1f1e837766d28f7f5c8fdf6ec6a3aa8f2b5c5831399cdd1d02)
@@ -2251,19 +2251,19 @@ class IothubEnrichment:
 
     @builtins.property
     def endpoint_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.'''
         result = self._values.get("endpoint_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#key Iothub#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#key Iothub#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#value Iothub#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#value Iothub#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2496,10 +2496,10 @@ class IothubFallbackRoute:
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#condition Iothub#condition}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#enabled Iothub#enabled}.
-        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#source Iothub#source}.
+        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#condition Iothub#condition}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#enabled Iothub#enabled}.
+        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#source Iothub#source}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6facc2dcccf8036970982ca0f497867e25fb0d13180ab2d67a916e239f860d5f)
@@ -2519,7 +2519,7 @@ class IothubFallbackRoute:
 
     @builtins.property
     def condition(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#condition Iothub#condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#condition Iothub#condition}.'''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2527,19 +2527,19 @@ class IothubFallbackRoute:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#enabled Iothub#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#enabled Iothub#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def endpoint_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.'''
         result = self._values.get("endpoint_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#source Iothub#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#source Iothub#source}.'''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2707,15 +2707,15 @@ class IothubFileUpload:
         sas_ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#connection_string Iothub#connection_string}.
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#container_name Iothub#container_name}.
-        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.
-        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.
-        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity_id Iothub#identity_id}.
-        :param lock_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.
-        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
-        :param notifications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#notifications Iothub#notifications}.
-        :param sas_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#sas_ttl Iothub#sas_ttl}.
+        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#connection_string Iothub#connection_string}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#container_name Iothub#container_name}.
+        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.
+        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.
+        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity_id Iothub#identity_id}.
+        :param lock_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.
+        :param max_delivery_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.
+        :param notifications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#notifications Iothub#notifications}.
+        :param sas_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#sas_ttl Iothub#sas_ttl}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24f4d12ff14068be5616850e6768283746a13b60c7793f3f60a54af9cccf68cf)
@@ -2749,45 +2749,45 @@ class IothubFileUpload:
 
     @builtins.property
     def connection_string(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#connection_string Iothub#connection_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#connection_string Iothub#connection_string}.'''
         result = self._values.get("connection_string")
         assert result is not None, "Required property 'connection_string' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def container_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#container_name Iothub#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#container_name Iothub#container_name}.'''
         result = self._values.get("container_name")
         assert result is not None, "Required property 'container_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def authentication_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#authentication_type Iothub#authentication_type}.'''
         result = self._values.get("authentication_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_ttl(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#default_ttl Iothub#default_ttl}.'''
         result = self._values.get("default_ttl")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def identity_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity_id Iothub#identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity_id Iothub#identity_id}.'''
         result = self._values.get("identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lock_duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#lock_duration Iothub#lock_duration}.'''
         result = self._values.get("lock_duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_delivery_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#max_delivery_count Iothub#max_delivery_count}.'''
         result = self._values.get("max_delivery_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2795,13 +2795,13 @@ class IothubFileUpload:
     def notifications(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#notifications Iothub#notifications}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#notifications Iothub#notifications}.'''
         result = self._values.get("notifications")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def sas_ttl(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#sas_ttl Iothub#sas_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#sas_ttl Iothub#sas_ttl}.'''
         result = self._values.get("sas_ttl")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3049,8 +3049,8 @@ class IothubIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#type Iothub#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity_ids Iothub#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#type Iothub#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity_ids Iothub#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3ee08e6d107b84fa2dd24f18070f225d32b10940dd5b371b93d92d36ab6cb5f)
@@ -3064,14 +3064,14 @@ class IothubIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#type Iothub#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#type Iothub#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#identity_ids Iothub#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#identity_ids Iothub#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3186,9 +3186,9 @@ class IothubNetworkRuleSet:
         ip_rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IothubNetworkRuleSetIpRule", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param apply_to_builtin_eventhub_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#apply_to_builtin_eventhub_endpoint Iothub#apply_to_builtin_eventhub_endpoint}.
-        :param default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#default_action Iothub#default_action}.
-        :param ip_rule: ip_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#ip_rule Iothub#ip_rule}
+        :param apply_to_builtin_eventhub_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#apply_to_builtin_eventhub_endpoint Iothub#apply_to_builtin_eventhub_endpoint}.
+        :param default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#default_action Iothub#default_action}.
+        :param ip_rule: ip_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#ip_rule Iothub#ip_rule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__518b1ec2db569acc63055c064fb23d340ac870b06200485947b8629f90f5230d)
@@ -3207,13 +3207,13 @@ class IothubNetworkRuleSet:
     def apply_to_builtin_eventhub_endpoint(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#apply_to_builtin_eventhub_endpoint Iothub#apply_to_builtin_eventhub_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#apply_to_builtin_eventhub_endpoint Iothub#apply_to_builtin_eventhub_endpoint}.'''
         result = self._values.get("apply_to_builtin_eventhub_endpoint")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def default_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#default_action Iothub#default_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#default_action Iothub#default_action}.'''
         result = self._values.get("default_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3223,7 +3223,7 @@ class IothubNetworkRuleSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubNetworkRuleSetIpRule"]]]:
         '''ip_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#ip_rule Iothub#ip_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#ip_rule Iothub#ip_rule}
         '''
         result = self._values.get("ip_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IothubNetworkRuleSetIpRule"]]], result)
@@ -3254,9 +3254,9 @@ class IothubNetworkRuleSetIpRule:
         action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip_mask: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#ip_mask Iothub#ip_mask}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#action Iothub#action}.
+        :param ip_mask: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#ip_mask Iothub#ip_mask}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#action Iothub#action}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bcd7b3c308b0c352867def213f96005cfa4e5e9c011b3083fe8466d4a4053453)
@@ -3272,21 +3272,21 @@ class IothubNetworkRuleSetIpRule:
 
     @builtins.property
     def ip_mask(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#ip_mask Iothub#ip_mask}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#ip_mask Iothub#ip_mask}.'''
         result = self._values.get("ip_mask")
         assert result is not None, "Required property 'ip_mask' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#action Iothub#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#action Iothub#action}.'''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3725,11 +3725,11 @@ class IothubRoute:
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#condition Iothub#condition}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#enabled Iothub#enabled}.
-        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#source Iothub#source}.
+        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#condition Iothub#condition}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#enabled Iothub#enabled}.
+        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#source Iothub#source}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f5a0fb6a5ab4c6f3da702172815300fd6dbf9e643a75ad714dd0ca70d65cf1d)
@@ -3752,7 +3752,7 @@ class IothubRoute:
 
     @builtins.property
     def condition(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#condition Iothub#condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#condition Iothub#condition}.'''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3760,25 +3760,25 @@ class IothubRoute:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#enabled Iothub#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#enabled Iothub#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def endpoint_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#endpoint_names Iothub#endpoint_names}.'''
         result = self._values.get("endpoint_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#source Iothub#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#source Iothub#source}.'''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4199,8 +4199,8 @@ class IothubSharedAccessPolicyOutputReference(
 class IothubSku:
     def __init__(self, *, capacity: jsii.Number, name: builtins.str) -> None:
         '''
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#capacity Iothub#capacity}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#capacity Iothub#capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__170eff7af1a1f8104607a2594a89b1d4ba783380e4ca7bbde30447f4f8dd3e3b)
@@ -4213,14 +4213,14 @@ class IothubSku:
 
     @builtins.property
     def capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#capacity Iothub#capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#capacity Iothub#capacity}.'''
         result = self._values.get("capacity")
         assert result is not None, "Required property 'capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#name Iothub#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#name Iothub#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -4324,10 +4324,10 @@ class IothubTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#create Iothub#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#delete Iothub#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#read Iothub#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#update Iothub#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#create Iothub#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#delete Iothub#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#read Iothub#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#update Iothub#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70ff139a57a36b5c7645c64762da05e4a799620d19dc3aeeb3826430569adc44)
@@ -4347,25 +4347,25 @@ class IothubTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#create Iothub#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#create Iothub#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#delete Iothub#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#delete Iothub#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#read Iothub#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#read Iothub#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub#update Iothub#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub#update Iothub#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

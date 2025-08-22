@@ -1,7 +1,7 @@
 r'''
 # `azurerm_managed_lustre_file_system`
 
-Refer to the Terraform Registry for docs: [`azurerm_managed_lustre_file_system`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system).
+Refer to the Terraform Registry for docs: [`azurerm_managed_lustre_file_system`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ManagedLustreFileSystem(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.managedLustreFileSystem.ManagedLustreFileSystem",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system azurerm_managed_lustre_file_system}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system azurerm_managed_lustre_file_system}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class ManagedLustreFileSystem(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system azurerm_managed_lustre_file_system} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system azurerm_managed_lustre_file_system} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#location ManagedLustreFileSystem#location}.
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#maintenance_window ManagedLustreFileSystem#maintenance_window}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#name ManagedLustreFileSystem#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#resource_group_name ManagedLustreFileSystem#resource_group_name}.
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#sku_name ManagedLustreFileSystem#sku_name}.
-        :param storage_capacity_in_tb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#storage_capacity_in_tb ManagedLustreFileSystem#storage_capacity_in_tb}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#subnet_id ManagedLustreFileSystem#subnet_id}.
-        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#zones ManagedLustreFileSystem#zones}.
-        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#encryption_key ManagedLustreFileSystem#encryption_key}
-        :param hsm_setting: hsm_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#hsm_setting ManagedLustreFileSystem#hsm_setting}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#id ManagedLustreFileSystem#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#identity ManagedLustreFileSystem#identity}
-        :param root_squash: root_squash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#root_squash ManagedLustreFileSystem#root_squash}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#tags ManagedLustreFileSystem#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#timeouts ManagedLustreFileSystem#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#location ManagedLustreFileSystem#location}.
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#maintenance_window ManagedLustreFileSystem#maintenance_window}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#name ManagedLustreFileSystem#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#resource_group_name ManagedLustreFileSystem#resource_group_name}.
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#sku_name ManagedLustreFileSystem#sku_name}.
+        :param storage_capacity_in_tb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#storage_capacity_in_tb ManagedLustreFileSystem#storage_capacity_in_tb}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#subnet_id ManagedLustreFileSystem#subnet_id}.
+        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#zones ManagedLustreFileSystem#zones}.
+        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#encryption_key ManagedLustreFileSystem#encryption_key}
+        :param hsm_setting: hsm_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#hsm_setting ManagedLustreFileSystem#hsm_setting}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#id ManagedLustreFileSystem#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#identity ManagedLustreFileSystem#identity}
+        :param root_squash: root_squash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#root_squash ManagedLustreFileSystem#root_squash}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#tags ManagedLustreFileSystem#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#timeouts ManagedLustreFileSystem#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class ManagedLustreFileSystem(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ManagedLustreFileSystem to import.
-        :param import_from_id: The id of the existing ManagedLustreFileSystem that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ManagedLustreFileSystem that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ManagedLustreFileSystem to import is found.
         '''
         if __debug__:
@@ -164,8 +164,8 @@ class ManagedLustreFileSystem(
         source_vault_id: builtins.str,
     ) -> None:
         '''
-        :param key_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#key_url ManagedLustreFileSystem#key_url}.
-        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#source_vault_id ManagedLustreFileSystem#source_vault_id}.
+        :param key_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#key_url ManagedLustreFileSystem#key_url}.
+        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#source_vault_id ManagedLustreFileSystem#source_vault_id}.
         '''
         value = ManagedLustreFileSystemEncryptionKey(
             key_url=key_url, source_vault_id=source_vault_id
@@ -182,9 +182,9 @@ class ManagedLustreFileSystem(
         import_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#container_id ManagedLustreFileSystem#container_id}.
-        :param logging_container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#logging_container_id ManagedLustreFileSystem#logging_container_id}.
-        :param import_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#import_prefix ManagedLustreFileSystem#import_prefix}.
+        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#container_id ManagedLustreFileSystem#container_id}.
+        :param logging_container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#logging_container_id ManagedLustreFileSystem#logging_container_id}.
+        :param import_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#import_prefix ManagedLustreFileSystem#import_prefix}.
         '''
         value = ManagedLustreFileSystemHsmSetting(
             container_id=container_id,
@@ -202,8 +202,8 @@ class ManagedLustreFileSystem(
         type: builtins.str,
     ) -> None:
         '''
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#identity_ids ManagedLustreFileSystem#identity_ids}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#type ManagedLustreFileSystem#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#identity_ids ManagedLustreFileSystem#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#type ManagedLustreFileSystem#type}.
         '''
         value = ManagedLustreFileSystemIdentity(identity_ids=identity_ids, type=type)
 
@@ -217,8 +217,8 @@ class ManagedLustreFileSystem(
         time_of_day_in_utc: builtins.str,
     ) -> None:
         '''
-        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#day_of_week ManagedLustreFileSystem#day_of_week}.
-        :param time_of_day_in_utc: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#time_of_day_in_utc ManagedLustreFileSystem#time_of_day_in_utc}.
+        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#day_of_week ManagedLustreFileSystem#day_of_week}.
+        :param time_of_day_in_utc: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#time_of_day_in_utc ManagedLustreFileSystem#time_of_day_in_utc}.
         '''
         value = ManagedLustreFileSystemMaintenanceWindow(
             day_of_week=day_of_week, time_of_day_in_utc=time_of_day_in_utc
@@ -236,10 +236,10 @@ class ManagedLustreFileSystem(
         squash_uid: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#mode ManagedLustreFileSystem#mode}.
-        :param no_squash_nids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#no_squash_nids ManagedLustreFileSystem#no_squash_nids}.
-        :param squash_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#squash_gid ManagedLustreFileSystem#squash_gid}.
-        :param squash_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#squash_uid ManagedLustreFileSystem#squash_uid}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#mode ManagedLustreFileSystem#mode}.
+        :param no_squash_nids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#no_squash_nids ManagedLustreFileSystem#no_squash_nids}.
+        :param squash_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#squash_gid ManagedLustreFileSystem#squash_gid}.
+        :param squash_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#squash_uid ManagedLustreFileSystem#squash_uid}.
         '''
         value = ManagedLustreFileSystemRootSquash(
             mode=mode,
@@ -260,10 +260,10 @@ class ManagedLustreFileSystem(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#create ManagedLustreFileSystem#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#delete ManagedLustreFileSystem#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#read ManagedLustreFileSystem#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#update ManagedLustreFileSystem#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#create ManagedLustreFileSystem#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#delete ManagedLustreFileSystem#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#read ManagedLustreFileSystem#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#update ManagedLustreFileSystem#update}.
         '''
         value = ManagedLustreFileSystemTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -602,21 +602,21 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#location ManagedLustreFileSystem#location}.
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#maintenance_window ManagedLustreFileSystem#maintenance_window}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#name ManagedLustreFileSystem#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#resource_group_name ManagedLustreFileSystem#resource_group_name}.
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#sku_name ManagedLustreFileSystem#sku_name}.
-        :param storage_capacity_in_tb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#storage_capacity_in_tb ManagedLustreFileSystem#storage_capacity_in_tb}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#subnet_id ManagedLustreFileSystem#subnet_id}.
-        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#zones ManagedLustreFileSystem#zones}.
-        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#encryption_key ManagedLustreFileSystem#encryption_key}
-        :param hsm_setting: hsm_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#hsm_setting ManagedLustreFileSystem#hsm_setting}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#id ManagedLustreFileSystem#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#identity ManagedLustreFileSystem#identity}
-        :param root_squash: root_squash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#root_squash ManagedLustreFileSystem#root_squash}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#tags ManagedLustreFileSystem#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#timeouts ManagedLustreFileSystem#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#location ManagedLustreFileSystem#location}.
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#maintenance_window ManagedLustreFileSystem#maintenance_window}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#name ManagedLustreFileSystem#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#resource_group_name ManagedLustreFileSystem#resource_group_name}.
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#sku_name ManagedLustreFileSystem#sku_name}.
+        :param storage_capacity_in_tb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#storage_capacity_in_tb ManagedLustreFileSystem#storage_capacity_in_tb}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#subnet_id ManagedLustreFileSystem#subnet_id}.
+        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#zones ManagedLustreFileSystem#zones}.
+        :param encryption_key: encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#encryption_key ManagedLustreFileSystem#encryption_key}
+        :param hsm_setting: hsm_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#hsm_setting ManagedLustreFileSystem#hsm_setting}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#id ManagedLustreFileSystem#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#identity ManagedLustreFileSystem#identity}
+        :param root_squash: root_squash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#root_squash ManagedLustreFileSystem#root_squash}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#tags ManagedLustreFileSystem#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#timeouts ManagedLustreFileSystem#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -761,7 +761,7 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#location ManagedLustreFileSystem#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#location ManagedLustreFileSystem#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
@@ -770,7 +770,7 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def maintenance_window(self) -> "ManagedLustreFileSystemMaintenanceWindow":
         '''maintenance_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#maintenance_window ManagedLustreFileSystem#maintenance_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#maintenance_window ManagedLustreFileSystem#maintenance_window}
         '''
         result = self._values.get("maintenance_window")
         assert result is not None, "Required property 'maintenance_window' is missing"
@@ -778,42 +778,42 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#name ManagedLustreFileSystem#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#name ManagedLustreFileSystem#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#resource_group_name ManagedLustreFileSystem#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#resource_group_name ManagedLustreFileSystem#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sku_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#sku_name ManagedLustreFileSystem#sku_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#sku_name ManagedLustreFileSystem#sku_name}.'''
         result = self._values.get("sku_name")
         assert result is not None, "Required property 'sku_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_capacity_in_tb(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#storage_capacity_in_tb ManagedLustreFileSystem#storage_capacity_in_tb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#storage_capacity_in_tb ManagedLustreFileSystem#storage_capacity_in_tb}.'''
         result = self._values.get("storage_capacity_in_tb")
         assert result is not None, "Required property 'storage_capacity_in_tb' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#subnet_id ManagedLustreFileSystem#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#subnet_id ManagedLustreFileSystem#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def zones(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#zones ManagedLustreFileSystem#zones}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#zones ManagedLustreFileSystem#zones}.'''
         result = self._values.get("zones")
         assert result is not None, "Required property 'zones' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -822,7 +822,7 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_key(self) -> typing.Optional["ManagedLustreFileSystemEncryptionKey"]:
         '''encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#encryption_key ManagedLustreFileSystem#encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#encryption_key ManagedLustreFileSystem#encryption_key}
         '''
         result = self._values.get("encryption_key")
         return typing.cast(typing.Optional["ManagedLustreFileSystemEncryptionKey"], result)
@@ -831,14 +831,14 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def hsm_setting(self) -> typing.Optional["ManagedLustreFileSystemHsmSetting"]:
         '''hsm_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#hsm_setting ManagedLustreFileSystem#hsm_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#hsm_setting ManagedLustreFileSystem#hsm_setting}
         '''
         result = self._values.get("hsm_setting")
         return typing.cast(typing.Optional["ManagedLustreFileSystemHsmSetting"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#id ManagedLustreFileSystem#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#id ManagedLustreFileSystem#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -850,7 +850,7 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["ManagedLustreFileSystemIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#identity ManagedLustreFileSystem#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#identity ManagedLustreFileSystem#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["ManagedLustreFileSystemIdentity"], result)
@@ -859,14 +859,14 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def root_squash(self) -> typing.Optional["ManagedLustreFileSystemRootSquash"]:
         '''root_squash block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#root_squash ManagedLustreFileSystem#root_squash}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#root_squash ManagedLustreFileSystem#root_squash}
         '''
         result = self._values.get("root_squash")
         return typing.cast(typing.Optional["ManagedLustreFileSystemRootSquash"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#tags ManagedLustreFileSystem#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#tags ManagedLustreFileSystem#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -874,7 +874,7 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ManagedLustreFileSystemTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#timeouts ManagedLustreFileSystem#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#timeouts ManagedLustreFileSystem#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ManagedLustreFileSystemTimeouts"], result)
@@ -899,8 +899,8 @@ class ManagedLustreFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ManagedLustreFileSystemEncryptionKey:
     def __init__(self, *, key_url: builtins.str, source_vault_id: builtins.str) -> None:
         '''
-        :param key_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#key_url ManagedLustreFileSystem#key_url}.
-        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#source_vault_id ManagedLustreFileSystem#source_vault_id}.
+        :param key_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#key_url ManagedLustreFileSystem#key_url}.
+        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#source_vault_id ManagedLustreFileSystem#source_vault_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb10c88055d971dd0dcc45ea75eba890410c344753bcfe2a1a9d27f891e5741e)
@@ -913,14 +913,14 @@ class ManagedLustreFileSystemEncryptionKey:
 
     @builtins.property
     def key_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#key_url ManagedLustreFileSystem#key_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#key_url ManagedLustreFileSystem#key_url}.'''
         result = self._values.get("key_url")
         assert result is not None, "Required property 'key_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_vault_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#source_vault_id ManagedLustreFileSystem#source_vault_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#source_vault_id ManagedLustreFileSystem#source_vault_id}.'''
         result = self._values.get("source_vault_id")
         assert result is not None, "Required property 'source_vault_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1025,9 +1025,9 @@ class ManagedLustreFileSystemHsmSetting:
         import_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#container_id ManagedLustreFileSystem#container_id}.
-        :param logging_container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#logging_container_id ManagedLustreFileSystem#logging_container_id}.
-        :param import_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#import_prefix ManagedLustreFileSystem#import_prefix}.
+        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#container_id ManagedLustreFileSystem#container_id}.
+        :param logging_container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#logging_container_id ManagedLustreFileSystem#logging_container_id}.
+        :param import_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#import_prefix ManagedLustreFileSystem#import_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6dc563bbe08978341ff0d3ba6f2411ebae21ad44fc920167f4ab3e4c7c763904)
@@ -1043,21 +1043,21 @@ class ManagedLustreFileSystemHsmSetting:
 
     @builtins.property
     def container_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#container_id ManagedLustreFileSystem#container_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#container_id ManagedLustreFileSystem#container_id}.'''
         result = self._values.get("container_id")
         assert result is not None, "Required property 'container_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def logging_container_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#logging_container_id ManagedLustreFileSystem#logging_container_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#logging_container_id ManagedLustreFileSystem#logging_container_id}.'''
         result = self._values.get("logging_container_id")
         assert result is not None, "Required property 'logging_container_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def import_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#import_prefix ManagedLustreFileSystem#import_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#import_prefix ManagedLustreFileSystem#import_prefix}.'''
         result = self._values.get("import_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1177,8 +1177,8 @@ class ManagedLustreFileSystemIdentity:
         type: builtins.str,
     ) -> None:
         '''
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#identity_ids ManagedLustreFileSystem#identity_ids}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#type ManagedLustreFileSystem#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#identity_ids ManagedLustreFileSystem#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#type ManagedLustreFileSystem#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__943a92e3b8b82d74428f33a33e4a7afbad6877663c751adc6411405d79ff91a0)
@@ -1191,14 +1191,14 @@ class ManagedLustreFileSystemIdentity:
 
     @builtins.property
     def identity_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#identity_ids ManagedLustreFileSystem#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#identity_ids ManagedLustreFileSystem#identity_ids}.'''
         result = self._values.get("identity_ids")
         assert result is not None, "Required property 'identity_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#type ManagedLustreFileSystem#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#type ManagedLustreFileSystem#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1298,8 +1298,8 @@ class ManagedLustreFileSystemMaintenanceWindow:
         time_of_day_in_utc: builtins.str,
     ) -> None:
         '''
-        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#day_of_week ManagedLustreFileSystem#day_of_week}.
-        :param time_of_day_in_utc: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#time_of_day_in_utc ManagedLustreFileSystem#time_of_day_in_utc}.
+        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#day_of_week ManagedLustreFileSystem#day_of_week}.
+        :param time_of_day_in_utc: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#time_of_day_in_utc ManagedLustreFileSystem#time_of_day_in_utc}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0fa3256cb48a55a0afd5577bab285faf615f8342f4787c68a16c709852f0fc03)
@@ -1312,14 +1312,14 @@ class ManagedLustreFileSystemMaintenanceWindow:
 
     @builtins.property
     def day_of_week(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#day_of_week ManagedLustreFileSystem#day_of_week}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#day_of_week ManagedLustreFileSystem#day_of_week}.'''
         result = self._values.get("day_of_week")
         assert result is not None, "Required property 'day_of_week' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_of_day_in_utc(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#time_of_day_in_utc ManagedLustreFileSystem#time_of_day_in_utc}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#time_of_day_in_utc ManagedLustreFileSystem#time_of_day_in_utc}.'''
         result = self._values.get("time_of_day_in_utc")
         assert result is not None, "Required property 'time_of_day_in_utc' is missing"
         return typing.cast(builtins.str, result)
@@ -1428,10 +1428,10 @@ class ManagedLustreFileSystemRootSquash:
         squash_uid: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#mode ManagedLustreFileSystem#mode}.
-        :param no_squash_nids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#no_squash_nids ManagedLustreFileSystem#no_squash_nids}.
-        :param squash_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#squash_gid ManagedLustreFileSystem#squash_gid}.
-        :param squash_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#squash_uid ManagedLustreFileSystem#squash_uid}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#mode ManagedLustreFileSystem#mode}.
+        :param no_squash_nids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#no_squash_nids ManagedLustreFileSystem#no_squash_nids}.
+        :param squash_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#squash_gid ManagedLustreFileSystem#squash_gid}.
+        :param squash_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#squash_uid ManagedLustreFileSystem#squash_uid}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28ebc1d173e4950b4d629394a3bf5cebd7a79de2bd04c95e7d95c834605e6fe0)
@@ -1450,27 +1450,27 @@ class ManagedLustreFileSystemRootSquash:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#mode ManagedLustreFileSystem#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#mode ManagedLustreFileSystem#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def no_squash_nids(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#no_squash_nids ManagedLustreFileSystem#no_squash_nids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#no_squash_nids ManagedLustreFileSystem#no_squash_nids}.'''
         result = self._values.get("no_squash_nids")
         assert result is not None, "Required property 'no_squash_nids' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def squash_gid(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#squash_gid ManagedLustreFileSystem#squash_gid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#squash_gid ManagedLustreFileSystem#squash_gid}.'''
         result = self._values.get("squash_gid")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def squash_uid(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#squash_uid ManagedLustreFileSystem#squash_uid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#squash_uid ManagedLustreFileSystem#squash_uid}.'''
         result = self._values.get("squash_uid")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1618,10 +1618,10 @@ class ManagedLustreFileSystemTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#create ManagedLustreFileSystem#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#delete ManagedLustreFileSystem#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#read ManagedLustreFileSystem#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#update ManagedLustreFileSystem#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#create ManagedLustreFileSystem#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#delete ManagedLustreFileSystem#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#read ManagedLustreFileSystem#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#update ManagedLustreFileSystem#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59eef7c47fc14e2f3314b1562e5d9bf7543dee6e27ec1c9eec7929447826fd5d)
@@ -1641,25 +1641,25 @@ class ManagedLustreFileSystemTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#create ManagedLustreFileSystem#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#create ManagedLustreFileSystem#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#delete ManagedLustreFileSystem#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#delete ManagedLustreFileSystem#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#read ManagedLustreFileSystem#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#read ManagedLustreFileSystem#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/managed_lustre_file_system#update ManagedLustreFileSystem#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/managed_lustre_file_system#update ManagedLustreFileSystem#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

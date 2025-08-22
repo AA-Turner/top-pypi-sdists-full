@@ -1,7 +1,7 @@
 r'''
 # `azurerm_purview_account`
 
-Refer to the Terraform Registry for docs: [`azurerm_purview_account`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account).
+Refer to the Terraform Registry for docs: [`azurerm_purview_account`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PurviewAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.purviewAccount.PurviewAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account azurerm_purview_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account azurerm_purview_account}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class PurviewAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account azurerm_purview_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account azurerm_purview_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#identity PurviewAccount#identity}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#location PurviewAccount#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#name PurviewAccount#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#resource_group_name PurviewAccount#resource_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#id PurviewAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param managed_event_hub_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#managed_event_hub_enabled PurviewAccount#managed_event_hub_enabled}.
-        :param managed_resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#managed_resource_group_name PurviewAccount#managed_resource_group_name}.
-        :param public_network_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#public_network_enabled PurviewAccount#public_network_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#tags PurviewAccount#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#timeouts PurviewAccount#timeouts}
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#identity PurviewAccount#identity}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#location PurviewAccount#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#name PurviewAccount#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#resource_group_name PurviewAccount#resource_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#id PurviewAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param managed_event_hub_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#managed_event_hub_enabled PurviewAccount#managed_event_hub_enabled}.
+        :param managed_resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#managed_resource_group_name PurviewAccount#managed_resource_group_name}.
+        :param public_network_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#public_network_enabled PurviewAccount#public_network_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#tags PurviewAccount#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#timeouts PurviewAccount#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class PurviewAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PurviewAccount to import.
-        :param import_from_id: The id of the existing PurviewAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PurviewAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PurviewAccount to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class PurviewAccount(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#type PurviewAccount#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#identity_ids PurviewAccount#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#type PurviewAccount#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#identity_ids PurviewAccount#identity_ids}.
         '''
         value = PurviewAccountIdentity(type=type, identity_ids=identity_ids)
 
@@ -166,10 +166,10 @@ class PurviewAccount(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#create PurviewAccount#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#delete PurviewAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#read PurviewAccount#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#update PurviewAccount#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#create PurviewAccount#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#delete PurviewAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#read PurviewAccount#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#update PurviewAccount#update}.
         '''
         value = PurviewAccountTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -475,16 +475,16 @@ class PurviewAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#identity PurviewAccount#identity}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#location PurviewAccount#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#name PurviewAccount#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#resource_group_name PurviewAccount#resource_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#id PurviewAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param managed_event_hub_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#managed_event_hub_enabled PurviewAccount#managed_event_hub_enabled}.
-        :param managed_resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#managed_resource_group_name PurviewAccount#managed_resource_group_name}.
-        :param public_network_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#public_network_enabled PurviewAccount#public_network_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#tags PurviewAccount#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#timeouts PurviewAccount#timeouts}
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#identity PurviewAccount#identity}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#location PurviewAccount#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#name PurviewAccount#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#resource_group_name PurviewAccount#resource_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#id PurviewAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param managed_event_hub_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#managed_event_hub_enabled PurviewAccount#managed_event_hub_enabled}.
+        :param managed_resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#managed_resource_group_name PurviewAccount#managed_resource_group_name}.
+        :param public_network_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#public_network_enabled PurviewAccount#public_network_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#tags PurviewAccount#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#timeouts PurviewAccount#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -612,7 +612,7 @@ class PurviewAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> "PurviewAccountIdentity":
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#identity PurviewAccount#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#identity PurviewAccount#identity}
         '''
         result = self._values.get("identity")
         assert result is not None, "Required property 'identity' is missing"
@@ -620,28 +620,28 @@ class PurviewAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#location PurviewAccount#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#location PurviewAccount#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#name PurviewAccount#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#name PurviewAccount#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#resource_group_name PurviewAccount#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#resource_group_name PurviewAccount#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#id PurviewAccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#id PurviewAccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -653,13 +653,13 @@ class PurviewAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def managed_event_hub_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#managed_event_hub_enabled PurviewAccount#managed_event_hub_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#managed_event_hub_enabled PurviewAccount#managed_event_hub_enabled}.'''
         result = self._values.get("managed_event_hub_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def managed_resource_group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#managed_resource_group_name PurviewAccount#managed_resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#managed_resource_group_name PurviewAccount#managed_resource_group_name}.'''
         result = self._values.get("managed_resource_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -667,13 +667,13 @@ class PurviewAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_network_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#public_network_enabled PurviewAccount#public_network_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#public_network_enabled PurviewAccount#public_network_enabled}.'''
         result = self._values.get("public_network_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#tags PurviewAccount#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#tags PurviewAccount#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -681,7 +681,7 @@ class PurviewAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PurviewAccountTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#timeouts PurviewAccount#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#timeouts PurviewAccount#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PurviewAccountTimeouts"], result)
@@ -711,8 +711,8 @@ class PurviewAccountIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#type PurviewAccount#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#identity_ids PurviewAccount#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#type PurviewAccount#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#identity_ids PurviewAccount#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e660d1013409391f1d4246abbbc67dd39fd208cb40f9970490f6787a9a852785)
@@ -726,14 +726,14 @@ class PurviewAccountIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#type PurviewAccount#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#type PurviewAccount#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#identity_ids PurviewAccount#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#identity_ids PurviewAccount#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1004,10 +1004,10 @@ class PurviewAccountTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#create PurviewAccount#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#delete PurviewAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#read PurviewAccount#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#update PurviewAccount#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#create PurviewAccount#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#delete PurviewAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#read PurviewAccount#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#update PurviewAccount#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b100d358be97b918c37036b288d2901356443bba4849623ed85e84443c417253)
@@ -1027,25 +1027,25 @@ class PurviewAccountTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#create PurviewAccount#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#create PurviewAccount#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#delete PurviewAccount#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#delete PurviewAccount#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#read PurviewAccount#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#read PurviewAccount#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/purview_account#update PurviewAccount#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/purview_account#update PurviewAccount#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

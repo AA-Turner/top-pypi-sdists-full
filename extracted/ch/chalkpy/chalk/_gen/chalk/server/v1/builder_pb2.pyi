@@ -1,3 +1,4 @@
+from chalk._gen.chalk.artifacts.v1 import export_pb2 as _export_pb2
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
@@ -271,10 +272,12 @@ class GetDeploymentLogsResponse(_message.Message):
     def __init__(self, logs: _Optional[_Iterable[_Union[_log_pb2.LogEntry, _Mapping]]] = ...) -> None: ...
 
 class GetClusterTimescaleDBRequest(_message.Message):
-    __slots__ = ("environment_id",)
+    __slots__ = ("environment_id", "cluster_timescale_id")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_TIMESCALE_ID_FIELD_NUMBER: _ClassVar[int]
     environment_id: str
-    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+    cluster_timescale_id: str
+    def __init__(self, environment_id: _Optional[str] = ..., cluster_timescale_id: _Optional[str] = ...) -> None: ...
 
 class GetClusterTimescaleDBResponse(_message.Message):
     __slots__ = ("id", "specs_string", "created_at", "updated_at", "specs")
@@ -323,6 +326,16 @@ class GetClusterGatewayResponse(_message.Message):
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         specs: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...,
     ) -> None: ...
+
+class GetClusterGatewayDefaultRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetClusterGatewayDefaultResponse(_message.Message):
+    __slots__ = ("specs",)
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    specs: EnvoyGatewaySpecs
+    def __init__(self, specs: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...) -> None: ...
 
 class BackgroundPersistence(_message.Message):
     __slots__ = ("id", "kind", "specs_string", "created_at", "updated_at", "specs")
@@ -378,6 +391,26 @@ class CreateClusterTimescaleDBRequest(_message.Message):
         specs: _Optional[_Union[ClusterTimescaleSpecs, _Mapping]] = ...,
     ) -> None: ...
 
+class DeleteClusterTimescaleDBRequest(_message.Message):
+    __slots__ = ("cluster_timescale_id",)
+    CLUSTER_TIMESCALE_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_timescale_id: str
+    def __init__(self, cluster_timescale_id: _Optional[str] = ...) -> None: ...
+
+class DeleteClusterTimescaleDBResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetClusterTimescaleDefaultRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetClusterTimescaleDefaultResponse(_message.Message):
+    __slots__ = ("specs",)
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    specs: ClusterTimescaleSpecs
+    def __init__(self, specs: _Optional[_Union[ClusterTimescaleSpecs, _Mapping]] = ...) -> None: ...
+
 class KubeResourceConfig(_message.Message):
     __slots__ = ("cpu", "memory", "ephemeral_storage", "storage")
     CPU_FIELD_NUMBER: _ClassVar[int]
@@ -419,8 +452,20 @@ class ClusterTimescaleSpecs(_message.Message):
         "include_chalk_node_selector",
         "backup_gcp_service_account",
         "instance_type",
+        "nodepool",
+        "node_selector",
+        "dns_hostname",
+        "bootstrap_cloud_resources",
     )
     class PostgresParametersEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class NodeSelectorEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -449,6 +494,10 @@ class ClusterTimescaleSpecs(_message.Message):
     INCLUDE_CHALK_NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     BACKUP_GCP_SERVICE_ACCOUNT_FIELD_NUMBER: _ClassVar[int]
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    DNS_HOSTNAME_FIELD_NUMBER: _ClassVar[int]
+    BOOTSTRAP_CLOUD_RESOURCES_FIELD_NUMBER: _ClassVar[int]
     timescale_image: str
     database_name: str
     database_replicas: int
@@ -470,6 +519,10 @@ class ClusterTimescaleSpecs(_message.Message):
     include_chalk_node_selector: bool
     backup_gcp_service_account: str
     instance_type: str
+    nodepool: str
+    node_selector: _containers.ScalarMap[str, str]
+    dns_hostname: str
+    bootstrap_cloud_resources: bool
     def __init__(
         self,
         timescale_image: _Optional[str] = ...,
@@ -493,11 +546,17 @@ class ClusterTimescaleSpecs(_message.Message):
         include_chalk_node_selector: bool = ...,
         backup_gcp_service_account: _Optional[str] = ...,
         instance_type: _Optional[str] = ...,
+        nodepool: _Optional[str] = ...,
+        node_selector: _Optional[_Mapping[str, str]] = ...,
+        dns_hostname: _Optional[str] = ...,
+        bootstrap_cloud_resources: bool = ...,
     ) -> None: ...
 
 class CreateClusterTimescaleDBResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("cluster_timescale_id",)
+    CLUSTER_TIMESCALE_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_timescale_id: str
+    def __init__(self, cluster_timescale_id: _Optional[str] = ...) -> None: ...
 
 class MigrateClusterTimescaleDBRequest(_message.Message):
     __slots__ = ("cluster_timescale_id", "migration_image", "environment_ids")
@@ -548,6 +607,7 @@ class EnvoyGatewaySpecs(_message.Message):
         "tls_certificate",
         "service_annotations",
         "load_balancer_class",
+        "cluster_gateway_id",
     )
     class ServiceAnnotationsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -567,6 +627,7 @@ class EnvoyGatewaySpecs(_message.Message):
     TLS_CERTIFICATE_FIELD_NUMBER: _ClassVar[int]
     SERVICE_ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
     LOAD_BALANCER_CLASS_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     gateway_name: str
     gateway_class_name: str
@@ -577,6 +638,7 @@ class EnvoyGatewaySpecs(_message.Message):
     tls_certificate: TLSCertificateConfig
     service_annotations: _containers.ScalarMap[str, str]
     load_balancer_class: str
+    cluster_gateway_id: str
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -589,6 +651,7 @@ class EnvoyGatewaySpecs(_message.Message):
         tls_certificate: _Optional[_Union[TLSCertificateConfig, _Mapping]] = ...,
         service_annotations: _Optional[_Mapping[str, str]] = ...,
         load_balancer_class: _Optional[str] = ...,
+        cluster_gateway_id: _Optional[str] = ...,
     ) -> None: ...
 
 class EnvoyGatewayListener(_message.Message):
@@ -633,21 +696,54 @@ class GatewayProviderConfig(_message.Message):
     ) -> None: ...
 
 class EnvoyGatewayProviderConfig(_message.Message):
-    __slots__ = ("timeout_duration", "dns_hostname", "replicas", "min_available")
+    __slots__ = (
+        "timeout_duration",
+        "dns_hostname",
+        "replicas",
+        "min_available",
+        "letsencrypt_cluster_issuer",
+        "additional_dns_names",
+        "instance_type",
+        "nodepool",
+        "node_selector",
+    )
+    class NodeSelectorEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     TIMEOUT_DURATION_FIELD_NUMBER: _ClassVar[int]
     DNS_HOSTNAME_FIELD_NUMBER: _ClassVar[int]
     REPLICAS_FIELD_NUMBER: _ClassVar[int]
     MIN_AVAILABLE_FIELD_NUMBER: _ClassVar[int]
+    LETSENCRYPT_CLUSTER_ISSUER_FIELD_NUMBER: _ClassVar[int]
+    ADDITIONAL_DNS_NAMES_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     timeout_duration: str
     dns_hostname: str
     replicas: int
     min_available: int
+    letsencrypt_cluster_issuer: str
+    additional_dns_names: _containers.RepeatedScalarFieldContainer[str]
+    instance_type: str
+    nodepool: str
+    node_selector: _containers.ScalarMap[str, str]
     def __init__(
         self,
         timeout_duration: _Optional[str] = ...,
         dns_hostname: _Optional[str] = ...,
         replicas: _Optional[int] = ...,
         min_available: _Optional[int] = ...,
+        letsencrypt_cluster_issuer: _Optional[str] = ...,
+        additional_dns_names: _Optional[_Iterable[str]] = ...,
+        instance_type: _Optional[str] = ...,
+        nodepool: _Optional[str] = ...,
+        node_selector: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class GCPGatewayProviderConfig(_message.Message):
@@ -854,7 +950,18 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
         "usage_store_uri",
         "results_writer_skip_producing_feature_metrics",
         "query_table_write_drop_ratio",
+        "instance_type",
+        "nodepool",
+        "node_selector",
     )
+    class NodeSelectorEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     NAME_FIELD_NUMBER: _ClassVar[int]
     IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     HPA_SPECS_FIELD_NUMBER: _ClassVar[int]
@@ -877,6 +984,9 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
     USAGE_STORE_URI_FIELD_NUMBER: _ClassVar[int]
     RESULTS_WRITER_SKIP_PRODUCING_FEATURE_METRICS_FIELD_NUMBER: _ClassVar[int]
     QUERY_TABLE_WRITE_DROP_RATIO_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     name: str
     image_override: str
     hpa_specs: BackgroundPersistenceWriterHpaSpecs
@@ -899,6 +1009,9 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
     usage_store_uri: str
     results_writer_skip_producing_feature_metrics: bool
     query_table_write_drop_ratio: str
+    instance_type: str
+    nodepool: str
+    node_selector: _containers.ScalarMap[str, str]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -923,6 +1036,9 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
         usage_store_uri: _Optional[str] = ...,
         results_writer_skip_producing_feature_metrics: bool = ...,
         query_table_write_drop_ratio: _Optional[str] = ...,
+        instance_type: _Optional[str] = ...,
+        nodepool: _Optional[str] = ...,
+        node_selector: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class BackgroundPersistenceDeploymentSpecs(_message.Message):
@@ -939,6 +1055,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         "redis_lightning_supports_has_many",
         "insecure",
         "writers",
+        "bootstrap_cloud_resources",
     )
     COMMON_PERSISTENCE_SPECS_FIELD_NUMBER: _ClassVar[int]
     API_SERVER_HOST_FIELD_NUMBER: _ClassVar[int]
@@ -952,6 +1069,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     REDIS_LIGHTNING_SUPPORTS_HAS_MANY_FIELD_NUMBER: _ClassVar[int]
     INSECURE_FIELD_NUMBER: _ClassVar[int]
     WRITERS_FIELD_NUMBER: _ClassVar[int]
+    BOOTSTRAP_CLOUD_RESOURCES_FIELD_NUMBER: _ClassVar[int]
     common_persistence_specs: BackgroundPersistenceCommonSpecs
     api_server_host: str
     kafka_sasl_secret: str
@@ -964,6 +1082,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     redis_lightning_supports_has_many: bool
     insecure: bool
     writers: _containers.RepeatedCompositeFieldContainer[BackgroundPersistenceWriterSpecs]
+    bootstrap_cloud_resources: bool
     def __init__(
         self,
         common_persistence_specs: _Optional[_Union[BackgroundPersistenceCommonSpecs, _Mapping]] = ...,
@@ -978,6 +1097,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         redis_lightning_supports_has_many: bool = ...,
         insecure: bool = ...,
         writers: _Optional[_Iterable[_Union[BackgroundPersistenceWriterSpecs, _Mapping]]] = ...,
+        bootstrap_cloud_resources: bool = ...,
     ) -> None: ...
 
 class CreateClusterBackgroundPersistenceResponse(_message.Message):
@@ -1280,3 +1400,60 @@ class SetTagWeightsResponse(_message.Message):
     TAGS_FIELD_NUMBER: _ClassVar[int]
     tags: _containers.RepeatedCompositeFieldContainer[DeploymentTag]
     def __init__(self, tags: _Optional[_Iterable[_Union[DeploymentTag, _Mapping]]] = ...) -> None: ...
+
+class RequirementsFile(_message.Message):
+    __slots__ = ("filename", "contents")
+    FILENAME_FIELD_NUMBER: _ClassVar[int]
+    CONTENTS_FIELD_NUMBER: _ClassVar[int]
+    filename: str
+    contents: str
+    def __init__(self, filename: _Optional[str] = ..., contents: _Optional[str] = ...) -> None: ...
+
+class CreateDeploymentRequest(_message.Message):
+    __slots__ = (
+        "git_branch",
+        "git_commit",
+        "git_pr",
+        "git_author",
+        "git_tag",
+        "branch",
+        "requirements",
+        "customer_deployment_tags",
+        "project_settings",
+    )
+    GIT_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    GIT_COMMIT_FIELD_NUMBER: _ClassVar[int]
+    GIT_PR_FIELD_NUMBER: _ClassVar[int]
+    GIT_AUTHOR_FIELD_NUMBER: _ClassVar[int]
+    GIT_TAG_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENTS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_DEPLOYMENT_TAGS_FIELD_NUMBER: _ClassVar[int]
+    PROJECT_SETTINGS_FIELD_NUMBER: _ClassVar[int]
+    git_branch: str
+    git_commit: str
+    git_pr: str
+    git_author: str
+    git_tag: str
+    branch: str
+    requirements: _containers.RepeatedCompositeFieldContainer[RequirementsFile]
+    customer_deployment_tags: _containers.RepeatedScalarFieldContainer[str]
+    project_settings: _export_pb2.ProjectSettings
+    def __init__(
+        self,
+        git_branch: _Optional[str] = ...,
+        git_commit: _Optional[str] = ...,
+        git_pr: _Optional[str] = ...,
+        git_author: _Optional[str] = ...,
+        git_tag: _Optional[str] = ...,
+        branch: _Optional[str] = ...,
+        requirements: _Optional[_Iterable[_Union[RequirementsFile, _Mapping]]] = ...,
+        customer_deployment_tags: _Optional[_Iterable[str]] = ...,
+        project_settings: _Optional[_Union[_export_pb2.ProjectSettings, _Mapping]] = ...,
+    ) -> None: ...
+
+class CreateDeploymentResponse(_message.Message):
+    __slots__ = ("deployment_id",)
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...

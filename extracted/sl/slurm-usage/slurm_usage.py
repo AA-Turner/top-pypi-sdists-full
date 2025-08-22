@@ -19,6 +19,7 @@ Part of the [slurm-usage](https://github.com/basnijholt/slurm-usage) library.
 from __future__ import annotations
 
 import contextlib
+import functools
 import json
 import os
 import re
@@ -156,9 +157,7 @@ def _load_config_file() -> tuple[dict[str, Any], Path | None]:
             if config:
                 console.print(f"[green]Loaded configuration from {config_path}[/green]")
                 return config, config_path
-            console.print(
-                f"[yellow]Warning: Empty configuration file at {config_path}[/yellow]",
-            )
+            console.print(f"[yellow]Warning: Empty configuration file at {config_path}[/yellow]")
             return {}, config_path
     except (OSError, yaml.YAMLError) as e:
         console.print(f"[yellow]Warning: Failed to load {config_path}: {e}[/yellow]")
@@ -533,7 +532,8 @@ class RawJobRecord(BaseModel):
         try:
             data = {fields[i]: parts[i] for i in range(len(fields))}
             return cls(**data)
-        except Exception:  # noqa: BLE001
+        except (ValueError, KeyError, IndexError, TypeError):
+            # Expected parsing errors - invalid field values or missing fields
             return None
 
 
@@ -548,9 +548,9 @@ class ProcessedJob(BaseModel):
     # Job info
     partition: str
     state: str
-    submit_time: str | None  # ISO format datetime string
-    start_time: str | None  # ISO format datetime string
-    end_time: str | None  # ISO format datetime string
+    submit_time: datetime | None
+    start_time: datetime | None
+    end_time: datetime | None
     node_list: str  # Nodes where job ran
 
     # Resources
@@ -648,9 +648,9 @@ class ProcessedJob(BaseModel):
             job_name=main_job.JobName[:50],
             partition=main_job.Partition,
             state=state,
-            submit_time=submit_dt.isoformat() if submit_dt else None,
-            start_time=start_dt.isoformat() if start_dt else None,
-            end_time=end_dt.isoformat() if end_dt else None,
+            submit_time=submit_dt,
+            start_time=start_dt,
+            end_time=end_dt,
             node_list=main_job.NodeList,
             elapsed_seconds=elapsed_seconds,
             alloc_cpus=alloc_cpus,
@@ -769,10 +769,9 @@ def _parse_cpu_seconds(time_str: str) -> float:
 
 def _parse_int(value: str) -> int:
     """Safely parse string to int."""
-    try:
-        return int(value) if value and value.isdigit() else 0
-    except (ValueError, AttributeError):
-        return 0
+    if value and value.isdigit():
+        return int(value)
+    return 0
 
 
 def _parse_datetime(date_str: str | None) -> datetime | None:
@@ -797,13 +796,14 @@ def _parse_gpu_count(alloc_tres: str) -> int:
     # Look for gres/gpu in the TRES string
     for item in alloc_tres.split(","):
         if "gres/gpu=" in item:
-            try:
-                return int(item.split("=")[1])
-            except (ValueError, IndexError):
-                return 0
+            parts = item.split("=")
+            if len(parts) > 1 and parts[1].isdigit():
+                return int(parts[1])
+            return 0
     return 0
 
 
+@functools.lru_cache(maxsize=256)
 def parse_node_list(node_list: str) -> list[str]:
     """Parse SLURM node list format into individual node names.
 
@@ -1094,11 +1094,12 @@ def _load_raw_records_from_parquet(raw_file: Path, date_str: str) -> list[RawJob
                 job_date = _extract_job_date(record.Start, record.Submit)
                 if job_date == date_str:
                     raw_records.append(record)
-            except Exception:  # noqa: BLE001, PERF203, S112
-                continue  # Skip invalid records
+            except (ValueError, KeyError, TypeError):  # noqa: PERF203
+                # Skip records with invalid field types or missing fields
+                continue
 
         console.print(f"[cyan]Loaded {len(raw_records)} valid records for {date_str}[/cyan]")
-    except Exception as e:  # noqa: BLE001
+    except (OSError, pl.exceptions.ComputeError) as e:
         console.print(f"[yellow]Could not load raw file for {date_str}: {e}[/yellow]")
         return []
     else:
@@ -1145,7 +1146,7 @@ def _load_recent_data(
         try:
             df = pl.read_parquet(f)
             dfs.append(df)
-        except Exception as e:  # noqa: BLE001, PERF203
+        except (OSError, pl.exceptions.ComputeError) as e:  # noqa: PERF203
             console.print(f"[yellow]Warning: Could not read {f}: {e}[/yellow]")
             continue
 
@@ -1156,10 +1157,7 @@ def _load_recent_data(
 
     # Deduplicate by job_id if processing processed data
     if data_type == "processed" and "job_id" in combined.columns:
-        return combined.sort("processed_date", descending=True).unique(
-            subset=["job_id"],
-            keep="first",
-        )
+        return combined.sort("processed_date", descending=True).unique(subset=["job_id"], keep="first")
     if data_type == "raw" and "JobIDRaw" in combined.columns:
         # Deduplicate raw data by JobIDRaw
         return combined.unique(subset=["JobIDRaw"], keep="last")
@@ -1320,12 +1318,53 @@ def _extract_job_date(start_time: str | None, submit_time: str | None) -> str | 
     return None
 
 
+def _processed_jobs_to_dataframe(
+    processed_jobs: list[ProcessedJob],
+) -> pl.DataFrame:
+    """Convert a list of ProcessedJob objects to a DataFrame.
+
+    Args:
+        processed_jobs: List of ProcessedJob objects
+
+    Returns:
+        DataFrame with job data
+
+    """
+    return pl.DataFrame(
+        [j.to_dict() for j in processed_jobs],
+        infer_schema_length=None,
+    )
+
+
+def _save_processed_jobs_to_parquet(
+    processed_jobs: list[ProcessedJob],
+    file_path: Path,
+) -> None:
+    """Save a list of ProcessedJob objects to a parquet file.
+
+    Args:
+        processed_jobs: List of ProcessedJob objects to save
+        file_path: Path to the parquet file
+
+    """
+    df = _processed_jobs_to_dataframe(processed_jobs)
+    df.write_parquet(file_path)
+
+
+class FetchJobsResult(NamedTuple):
+    """Result from fetching jobs for a date."""
+
+    raw_records: list[RawJobRecord]
+    processed_jobs: list[ProcessedJob]
+    is_complete: bool
+
+
 def _fetch_jobs_for_date(  # noqa: PLR0912
     date_str: str,
     config: Config,
     skip_if_complete: bool = True,  # noqa: FBT001, FBT002
     completion_tracker: DateCompletionTracker | None = None,
-) -> tuple[list[RawJobRecord], list[ProcessedJob], bool]:
+) -> FetchJobsResult:
     """Fetch and process jobs for a specific date.
 
     Args:
@@ -1343,7 +1382,7 @@ def _fetch_jobs_for_date(  # noqa: PLR0912
 
     # Check if this date is already marked as complete
     if skip_if_complete and completion_tracker and completion_tracker.is_complete(date_str):
-        return [], [], True
+        return FetchJobsResult(raw_records=[], processed_jobs=[], is_complete=True)
 
     # Check if we need to re-collect this date
     if skip_if_complete and processed_file.exists():
@@ -1353,9 +1392,10 @@ def _fetch_jobs_for_date(  # noqa: PLR0912
             if incomplete == 0:
                 if completion_tracker:
                     completion_tracker.mark_complete(date_str)
-                return [], [], True
-        except Exception:  # noqa: BLE001, S110
-            pass  # If we can't read it, re-collect
+                return FetchJobsResult(raw_records=[], processed_jobs=[], is_complete=True)
+        except (OSError, pl.exceptions.ComputeError):
+            # If we can't read the file, re-collect
+            pass
 
     # Load existing processed data to track what we've seen
     existing_job_states: dict[str, str] = {}
@@ -1364,7 +1404,8 @@ def _fetch_jobs_for_date(  # noqa: PLR0912
             existing_df = pl.read_parquet(processed_file)
             for row in existing_df.iter_rows(named=True):
                 existing_job_states[row["job_id"]] = row["state"]
-        except Exception:  # noqa: BLE001, S110
+        except (OSError, pl.exceptions.ComputeError):
+            # Failed to read existing data - continue with empty state
             pass
 
     # Get raw records - try raw file first if processed is missing
@@ -1378,7 +1419,7 @@ def _fetch_jobs_for_date(  # noqa: PLR0912
         raw_records_unfiltered = _fetch_raw_records_from_slurm(date_str)
         if not raw_records_unfiltered:
             # SLURM error occurred
-            return [], [], False
+            return FetchJobsResult(raw_records=[], processed_jobs=[], is_complete=False)
 
     # Apply incremental filtering
     raw_records, skipped_count = _apply_incremental_filtering(
@@ -1396,9 +1437,10 @@ def _fetch_jobs_for_date(  # noqa: PLR0912
                 is_complete = incomplete == 0
                 if is_complete and completion_tracker:
                     completion_tracker.mark_complete(date_str)
-            except Exception:  # noqa: BLE001, S110
+            except (OSError, pl.exceptions.ComputeError):
+                # Failed to check completion status - assume incomplete
                 pass
-        return [], [], is_complete
+        return FetchJobsResult(raw_records=[], processed_jobs=[], is_complete=is_complete)
 
     # Process raw records into jobs
     processed_jobs, is_complete = _process_raw_records_into_jobs(raw_records)
@@ -1406,7 +1448,7 @@ def _fetch_jobs_for_date(  # noqa: PLR0912
     if is_complete and completion_tracker:
         completion_tracker.mark_complete(date_str)
 
-    return raw_records, processed_jobs, is_complete
+    return FetchJobsResult(raw_records=raw_records, processed_jobs=processed_jobs, is_complete=is_complete)
 
 
 # ============================================================================
@@ -1414,63 +1456,69 @@ def _fetch_jobs_for_date(  # noqa: PLR0912
 # ============================================================================
 
 
-def _extract_node_usage_data(df: pl.DataFrame) -> list[dict[str, float | str]]:
+def _extract_node_usage_data(df: pl.DataFrame) -> pl.DataFrame:
     """Extract node usage data from job dataframe.
 
     Args:
         df: DataFrame with job data including node_list column
 
     Returns:
-        List of node usage records with node, cpu_hours, gpu_hours, elapsed_hours
+        DataFrame with columns: node, cpu_hours, gpu_hours, elapsed_hours
 
     """
     if df.is_empty() or "node_list" not in df.columns:
-        return []
+        return pl.DataFrame()
 
     # Filter out jobs without node assignments
     jobs_with_nodes = df.filter(pl.col("node_list") != "")
 
     if jobs_with_nodes.is_empty():
-        return []
+        return pl.DataFrame()
 
-    node_usage: list[dict[str, float | str]] = []
+    # OPTIMIZATION: Pre-compute parsing for unique node patterns only
+    # This is much faster than calling parse_node_list for every row
+    unique_node_lists = jobs_with_nodes["node_list"].unique().to_list()
+    node_list_mapping = {node_list: parse_node_list(node_list) for node_list in unique_node_lists}
 
-    for row in jobs_with_nodes.iter_rows(named=True):
-        nodes = row["node_list"]
-        cpu_hours = row["cpu_hours_reserved"]
-        gpu_hours = row["gpu_hours_reserved"]
-        elapsed_hours = row["elapsed_seconds"] / 3600
+    # Create a DataFrame with the mapping for joining
+    mapping_df = pl.DataFrame(
+        {
+            "node_list": list(node_list_mapping.keys()),
+            "parsed_nodes": list(node_list_mapping.values()),
+        },
+    )
 
-        # Use our robust parser to handle all formats including compound ranges
-        parsed_nodes = parse_node_list(nodes)
+    # Join to get parsed nodes and continue with vectorized operations
+    jobs_with_nodes = (
+        jobs_with_nodes.join(mapping_df, on="node_list", how="left")
+        .with_columns(
+            pl.col("elapsed_seconds").truediv(3600).alias("elapsed_hours"),
+        )
+        .with_columns(
+            pl.col("parsed_nodes").list.len().alias("num_nodes"),
+        )
+        .filter(pl.col("num_nodes") > 0)
+        .with_columns(
+            [
+                (pl.col("cpu_hours_reserved") / pl.col("num_nodes")).alias("cpu_hours_per_node"),
+                (pl.col("gpu_hours_reserved") / pl.col("num_nodes")).alias("gpu_hours_per_node"),
+                (pl.col("elapsed_hours") / pl.col("num_nodes")).alias("elapsed_hours_per_node"),
+            ],
+        )
+    )
 
-        # Divide hours by number of nodes (job's resources are split across nodes)
-        num_nodes = len(parsed_nodes)
-        if num_nodes > 0:
-            cpu_hours_per_node = cpu_hours / num_nodes
-            gpu_hours_per_node = gpu_hours / num_nodes
-            elapsed_hours_per_node = elapsed_hours / num_nodes
-        else:
-            continue
-
-        # Add usage data for each parsed node
-        for node in parsed_nodes:
-            node_usage.append(  # noqa: PERF401
-                {
-                    "node": node,
-                    "cpu_hours": cpu_hours_per_node,
-                    "gpu_hours": gpu_hours_per_node,
-                    "elapsed_hours": elapsed_hours_per_node,
-                },
-            )
-
-    return node_usage
+    # Explode the parsed_nodes list to create one row per node
+    return jobs_with_nodes.explode("parsed_nodes").select(
+        [
+            pl.col("parsed_nodes").alias("node"),
+            pl.col("cpu_hours_per_node").alias("cpu_hours"),
+            pl.col("gpu_hours_per_node").alias("gpu_hours"),
+            pl.col("elapsed_hours_per_node").alias("elapsed_hours"),
+        ],
+    )
 
 
-# Cache for node information to avoid repeated sinfo calls
-_NODE_INFO_CACHE: dict[str, dict[str, int]] = {}
-
-
+@functools.lru_cache
 def _get_node_info_from_slurm() -> dict[str, dict[str, int]]:  # noqa: PLR0912
     """Get node CPU and GPU information from SLURM using sinfo.
 
@@ -1478,12 +1526,6 @@ def _get_node_info_from_slurm() -> dict[str, dict[str, int]]:  # noqa: PLR0912
         Dictionary mapping node names to their CPU and GPU counts
 
     """
-    global _NODE_INFO_CACHE
-
-    # Return cached data if available
-    if _NODE_INFO_CACHE:
-        return _NODE_INFO_CACHE
-
     node_info = {}
 
     try:
@@ -1517,40 +1559,33 @@ def _get_node_info_from_slurm() -> dict[str, dict[str, int]]:  # noqa: PLR0912
 
                         # Parse GRES string (e.g., "gpu:4" or "gpu:v100:4")
                         if "gpu:" in gres:
-                            try:
-                                # Handle formats like "gpu:4" or "gpu:v100:4"
-                                gpu_parts = gres.split(":")
-                                # The GPU count is always the last number
+                            # Handle formats like "gpu:4" or "gpu:v100:4"
+                            gpu_parts = gres.split(":")
+                            # The GPU count is always the last number
+                            if gpu_parts and gpu_parts[-1].isdigit():
                                 gpu_count = int(gpu_parts[-1])
-
                                 if node_name in node_info:
                                     node_info[node_name]["gpus"] = gpu_count
                                 else:
                                     # Shouldn't happen, but handle gracefully
                                     node_info[node_name] = {"cpus": 64, "gpus": gpu_count}
-                            except (ValueError, IndexError):
-                                continue
 
-        # Cache the results
-        _NODE_INFO_CACHE = node_info
-
-    except Exception as e:  # noqa: BLE001
+    except subprocess.SubprocessError as e:
         console.print(f"[yellow]Warning: Could not get node info from sinfo: {e}[/yellow]")
 
     return node_info
 
 
-def _get_node_cpus(node_name: str) -> int:
+@functools.lru_cache(maxsize=256)
+def _get_node_cpus(node_name: str) -> int | None:
     """Get number of CPUs for a node from SLURM.
 
     Args:
         node_name: Name of the node
 
     Returns:
-        Number of CPUs
+        Number of CPUs or None if not found.
 
-    Raises:
-        ValueError: If node information cannot be retrieved from SLURM
 
     """
     node_info = _get_node_info_from_slurm()
@@ -1558,22 +1593,18 @@ def _get_node_cpus(node_name: str) -> int:
     if node_name in node_info:
         return node_info[node_name]["cpus"]
 
-    # No fallback - fail if we can't get info from SLURM
-    msg = f"Could not get CPU count for node '{node_name}' from SLURM"
-    raise ValueError(msg)
+    return None
 
 
-def _get_node_gpus(node_name: str) -> int:
+@functools.lru_cache(maxsize=256)
+def _get_node_gpus(node_name: str) -> int | None:
     """Get number of GPUs for a node from SLURM.
 
     Args:
         node_name: Name of the node
 
     Returns:
-        Number of GPUs
-
-    Raises:
-        ValueError: If node information cannot be retrieved from SLURM
+        Number of GPUs or None if not found.
 
     """
     node_info = _get_node_info_from_slurm()
@@ -1581,9 +1612,10 @@ def _get_node_gpus(node_name: str) -> int:
     if node_name in node_info:
         return node_info[node_name]["gpus"]
 
-    # No fallback - fail if we can't get info from SLURM
-    msg = f"Could not get GPU count for node '{node_name}' from SLURM"
-    raise ValueError(msg)
+    console.print(
+        f"[yellow]Warning: Could not get GPU info for node {node_name}[/yellow]",
+    )
+    return None
 
 
 def _calculate_analysis_period_days(df: pl.DataFrame) -> int:
@@ -1596,40 +1628,34 @@ def _calculate_analysis_period_days(df: pl.DataFrame) -> int:
         Number of days in the analysis period
 
     """
-    min_date_str = df["submit_time"].min()
-    max_date_str = df["end_time"].max()
+    min_date = df["submit_time"].min()
+    max_date = df["end_time"].max()
 
-    if min_date_str and max_date_str:
-        # Parse ISO format strings to datetime
-        min_date = datetime.fromisoformat(min_date_str)
-        max_date = datetime.fromisoformat(max_date_str)
-        return max((max_date - min_date).days + 1, 1)
+    if min_date and max_date:
+        return int(max((max_date - min_date).days + 1, 1))
 
     return 7  # Default
 
 
 def _aggregate_node_statistics(
-    node_usage_data: list[dict[str, float | str]],
+    node_df: pl.DataFrame,
     period_days: int,
 ) -> pl.DataFrame:
     """Aggregate node usage data and calculate statistics.
 
     Args:
-        node_usage_data: List of node usage records
+        node_df: DataFrame with node usage data (columns: node, cpu_hours, gpu_hours, elapsed_hours)
         period_days: Number of days in the analysis period
 
     Returns:
         DataFrame with aggregated node statistics including utilization
 
     """
-    if not node_usage_data:
+    if node_df.is_empty():
         return pl.DataFrame()
 
-    # Create DataFrame from node usage
-    node_df = pl.DataFrame(node_usage_data)
-
-    # Aggregate by node
-    node_stats = (
+    # Aggregate by node and chain all operations for better performance
+    return (
         node_df.group_by("node")
         .agg(
             [
@@ -1640,30 +1666,18 @@ def _aggregate_node_statistics(
             ],
         )
         .sort("total_cpu_hours", descending=True)
-    )
-
-    # Add actual CPUs per node from SLURM
-    def safe_get_node_cpus(node_name: str) -> int | None:
-        try:
-            return _get_node_cpus(node_name)
-        except ValueError:
-            return None  # Don't print here, will be handled in display
-
-    node_stats = node_stats.with_columns(
-        pl.col("node").map_elements(safe_get_node_cpus, return_dtype=pl.Int64).alias("est_cpus"),
-    )
-
-    # Calculate total CPU hours available per node (only for nodes with CPU info)
-    node_stats = node_stats.with_columns(
-        pl.when(pl.col("est_cpus").is_not_null()).then(pl.col("est_cpus") * period_days * 24).otherwise(None).alias("cpu_hours_available"),
-    )
-
-    # Add utilization percentage (null for nodes without CPU info)
-    return node_stats.with_columns(
-        pl.when(pl.col("cpu_hours_available").is_not_null())
-        .then(pl.col("total_cpu_hours") / pl.col("cpu_hours_available") * 100)
-        .otherwise(None)
-        .alias("cpu_utilization_pct"),
+        .with_columns(
+            pl.col("node").map_elements(_get_node_cpus, return_dtype=pl.Int64).alias("est_cpus"),
+        )
+        .with_columns(
+            pl.when(pl.col("est_cpus").is_not_null()).then(pl.col("est_cpus") * period_days * 24).otherwise(None).alias("cpu_hours_available"),
+        )
+        .with_columns(
+            pl.when(pl.col("cpu_hours_available").is_not_null())
+            .then(pl.col("total_cpu_hours") / pl.col("cpu_hours_available") * 100)
+            .otherwise(None)
+            .alias("cpu_utilization_pct"),
+        )
     )
 
 
@@ -1738,18 +1752,8 @@ def _display_node_utilization_charts(node_stats: pl.DataFrame, period_days: int)
     # Show GPU node utilization if any
     gpu_nodes = node_stats.filter(pl.col("total_gpu_hours") > 0)
     if not gpu_nodes.is_empty():
-
-        def safe_get_node_gpus(node_name: str) -> int | None:
-            try:
-                return _get_node_gpus(node_name)
-            except ValueError:
-                console.print(
-                    f"[yellow]Warning: Could not get GPU info for node {node_name}[/yellow]",
-                )
-                return None
-
         gpu_nodes = gpu_nodes.with_columns(
-            pl.col("node").map_elements(safe_get_node_gpus, return_dtype=pl.Int64).alias("est_gpus"),
+            pl.col("node").map_elements(_get_node_gpus, return_dtype=pl.Int64).alias("est_gpus"),
         )
 
         # Filter out nodes where we couldn't get GPU info or have 0 GPUs
@@ -1796,12 +1800,12 @@ def _create_node_usage_stats(df: pl.DataFrame) -> None:
     if df.is_empty() or "node_list" not in df.columns:
         return
 
-    console.print("\n[bold cyan]═══ Node Usage Analysis ═══[/bold cyan]\n")
+    console.print(Panel.fit("Node Usage Analysis", style="bold cyan", box=box.DOUBLE_EDGE))
 
     # Step 1: Extract node usage data from jobs
-    node_usage_data = _extract_node_usage_data(df)
+    node_usage_df = _extract_node_usage_data(df)
 
-    if not node_usage_data:
+    if node_usage_df.is_empty():
         console.print("[yellow]No node usage data available[/yellow]")
         return
 
@@ -1809,7 +1813,7 @@ def _create_node_usage_stats(df: pl.DataFrame) -> None:
     period_days = _calculate_analysis_period_days(df)
 
     # Step 3: Aggregate node statistics with utilization calculations
-    node_stats = _aggregate_node_statistics(node_usage_data, period_days)
+    node_stats = _aggregate_node_statistics(node_usage_df, period_days)
 
     if node_stats.is_empty():
         console.print("[yellow]Could not calculate node statistics[/yellow]")
@@ -1827,49 +1831,61 @@ def _create_node_usage_stats(df: pl.DataFrame) -> None:
 # ============================================================================
 
 
-def _create_summary_stats(df: pl.DataFrame, config: Config) -> None:  # noqa: PLR0915
-    """Create and display comprehensive resource usage statistics.
+def _prepare_dataframe_for_analysis(df: pl.DataFrame, config: Config) -> pl.DataFrame:
+    """Prepare DataFrame with additional columns needed for analysis.
 
     Args:
         df: DataFrame with job data
         config: Config object for group mappings
 
+    Returns:
+        DataFrame with group, reserved resource, and wait time columns added
+
     """
     if df.is_empty():
-        return
+        return df
 
     # Check which columns are available
     has_reserved_cols = all(col in df.columns for col in ["cpu_hours_reserved", "memory_gb_hours_reserved", "gpu_hours_reserved"])
 
     # Add group column for aggregation
-    df = df.with_columns(
-        pl.col("user").map_elements(lambda u: config.get_user_group(u), return_dtype=pl.Utf8).alias("group"),
+    # OPTIMIZATION: Pre-compute user-to-group mapping for unique users only
+    unique_users = df["user"].unique().to_list()
+    user_group_mapping = {user: config.get_user_group(user) for user in unique_users}
+
+    # Create mapping DataFrame and join
+    mapping_df = pl.DataFrame(
+        {"user": list(user_group_mapping.keys()), "group": list(user_group_mapping.values())},
     )
+
+    df = df.join(mapping_df, on="user", how="left")
 
     # If we don't have the new columns, calculate them from existing data
     if not has_reserved_cols:
         df = df.with_columns(
             [
-                (pl.col("elapsed_seconds") * pl.col("alloc_cpus") / 3600).alias(
-                    "cpu_hours_reserved",
-                ),
-                (pl.col("req_mem_mb") * pl.col("elapsed_seconds") / (1024 * 3600)).alias(
-                    "memory_gb_hours_reserved",
-                ),
+                (pl.col("elapsed_seconds") * pl.col("alloc_cpus") / 3600).alias("cpu_hours_reserved"),
+                (pl.col("req_mem_mb") * pl.col("elapsed_seconds") / (1024 * 3600)).alias("memory_gb_hours_reserved"),
                 pl.lit(0.0).alias("gpu_hours_reserved"),  # No GPU data in old files
             ],
         )
 
     # Calculate wait time (in seconds) for jobs that have both submit and start times
-    df = df.with_columns(
+    return df.with_columns(
         pl.when((pl.col("submit_time").is_not_null()) & (pl.col("start_time").is_not_null()))
-        .then(
-            (pl.col("start_time").str.to_datetime() - pl.col("submit_time").str.to_datetime()).dt.total_seconds(),
-        )
+        .then((pl.col("start_time") - pl.col("submit_time")).dt.total_seconds())
         .otherwise(None)
         .alias("wait_seconds"),
     )
 
+
+def _create_user_statistics_section(df: pl.DataFrame) -> None:
+    """Create and display user statistics table and charts.
+
+    Args:
+        df: Prepared DataFrame with user and resource data
+
+    """
     # Calculate per-user statistics
     user_stats = (
         df.group_by("user")
@@ -1894,7 +1910,7 @@ def _create_summary_stats(df: pl.DataFrame, config: Config) -> None:  # noqa: PL
     )
 
     # Display per-user resource usage
-    console.print("\n[bold cyan]═══ Resource Usage by User ═══[/bold cyan]\n")
+    console.print(Panel.fit("Resource Usage by User", style="bold cyan", box=box.DOUBLE_EDGE))
 
     user_table = Table(title="Top 15 Users by CPU Hours", box=box.ROUNDED)
     user_table.add_column("User", style="cyan")
@@ -1984,6 +2000,14 @@ def _create_summary_stats(df: pl.DataFrame, config: Config) -> None:  # noqa: PL
             item_type="users",
         )
 
+
+def _create_group_statistics_section(df: pl.DataFrame) -> None:
+    """Create and display group statistics table and charts.
+
+    Args:
+        df: Prepared DataFrame with group and resource data
+
+    """
     # Calculate per-group statistics
     group_stats = (
         df.group_by("group")
@@ -2005,7 +2029,7 @@ def _create_summary_stats(df: pl.DataFrame, config: Config) -> None:  # noqa: PL
     groups = group_stats["group"].to_list()
     if len(groups) > 1 or (len(groups) == 1 and groups[0] != "ungrouped"):
         # Display per-group resource usage
-        console.print("\n[bold cyan]═══ Resource Usage by Group ═══[/bold cyan]\n")
+        console.print(Panel.fit("Resource Usage by Group", style="bold cyan", box=box.DOUBLE_EDGE))
 
         group_table = Table(title="Research Group Statistics", box=box.ROUNDED)
         group_table.add_column("Group", style="magenta")
@@ -2058,14 +2082,19 @@ def _create_summary_stats(df: pl.DataFrame, config: Config) -> None:  # noqa: PL
                 item_type="groups",
             )
 
-    # Analyze node usage
-    _create_node_usage_stats(df)
 
+def _create_efficiency_analysis_section(df: pl.DataFrame) -> None:
+    """Create and display efficiency analysis for completed jobs.
+
+    Args:
+        df: DataFrame with job data
+
+    """
     # Show efficiency summary for completed jobs
     completed = df.filter(pl.col("state") == "COMPLETED")
 
     if not completed.is_empty():
-        console.print("\n[bold cyan]═══ Efficiency Analysis (Completed Jobs) ═══[/bold cyan]\n")
+        console.print(Panel.fit("Efficiency Analysis (Completed Jobs)", style="bold cyan", box=box.DOUBLE_EDGE))
 
         # Calculate stats in one pass
         stats = completed.select(
@@ -2131,8 +2160,16 @@ def _create_summary_stats(df: pl.DataFrame, config: Config) -> None:  # noqa: PL
 
             console.print(waste_table)
 
+
+def _create_cluster_summary_section(df: pl.DataFrame) -> None:
+    """Create and display cluster-wide summary statistics.
+
+    Args:
+        df: DataFrame with job data
+
+    """
     # Display cluster-wide summary statistics
-    console.print("\n[bold cyan]═══ Cluster-Wide Summary ═══[/bold cyan]\n")
+    console.print(Panel.fit("Cluster-Wide Summary", style="bold cyan", box=box.DOUBLE_EDGE))
 
     cluster_summary = Table(title="Total Resource Usage", box=box.ROUNDED)
     cluster_summary.add_column("Metric", style="cyan")
@@ -2165,6 +2202,25 @@ def _create_summary_stats(df: pl.DataFrame, config: Config) -> None:  # noqa: PL
     console.print(cluster_summary)
 
 
+def _create_summary_stats(df: pl.DataFrame, config: Config) -> None:
+    """Create and display comprehensive resource usage statistics.
+
+    Args:
+        df: DataFrame with job data
+        config: Config object for group mappings
+
+    """
+    if df.is_empty():
+        return
+
+    prepared_df = _prepare_dataframe_for_analysis(df, config)
+    _create_user_statistics_section(prepared_df)
+    _create_group_statistics_section(prepared_df)
+    _create_node_usage_stats(prepared_df)
+    _create_efficiency_analysis_section(prepared_df)
+    _create_cluster_summary_section(prepared_df)
+
+
 def _create_daily_usage_chart(df: pl.DataFrame) -> None:
     """Create and display daily resource usage bar chart.
 
@@ -2176,10 +2232,11 @@ def _create_daily_usage_chart(df: pl.DataFrame) -> None:
         return
 
     # Extract date from start_time (or submit_time if start_time is null)
+    # Now working with datetime objects directly
     df_with_date = df.with_columns(
         pl.when(pl.col("start_time").is_not_null())
-        .then(pl.col("start_time").str.slice(0, 10))  # Extract YYYY-MM-DD
-        .otherwise(pl.col("submit_time").str.slice(0, 10))
+        .then(pl.col("start_time").dt.date())  # Extract date from datetime
+        .otherwise(pl.col("submit_time").dt.date())
         .alias("job_date"),
     ).filter(pl.col("job_date").is_not_null())
 
@@ -2204,7 +2261,7 @@ def _create_daily_usage_chart(df: pl.DataFrame) -> None:
     if daily_stats.is_empty():
         return
 
-    console.print("\n[bold cyan]═══ Daily Resource Usage ═══[/bold cyan]\n")
+    console.print(Panel.fit("Daily Resource Usage", style="bold cyan", box=box.DOUBLE_EDGE))
 
     # Display daily usage table
     daily_table = Table(title="Resource Usage by Day", box=box.ROUNDED)
@@ -2217,7 +2274,7 @@ def _create_daily_usage_chart(df: pl.DataFrame) -> None:
 
     for row in daily_stats.tail(14).iter_rows(named=True):  # Show last 14 days max
         daily_table.add_row(
-            row["job_date"],
+            str(row["job_date"]),  # Convert date object to string for display
             f"{row['job_count']:,}",
             str(row["unique_users"]),
             f"{row['cpu_hours']:,.0f}",
@@ -2228,7 +2285,7 @@ def _create_daily_usage_chart(df: pl.DataFrame) -> None:
     console.print(daily_table)
 
     # Create bar chart for CPU hours per day
-    dates = daily_stats["job_date"].to_list()
+    dates = [str(d) for d in daily_stats["job_date"].to_list()]  # Convert dates to strings
     cpu_hours = daily_stats["cpu_hours"].to_list()
 
     if len(dates) > 1:
@@ -2277,10 +2334,6 @@ def collect(  # noqa: PLR0912, PLR0915
             border_style="cyan",
         ),
     )
-
-    # Clear node info cache to get fresh data
-    global _NODE_INFO_CACHE
-    _NODE_INFO_CACHE = {}
 
     # Create config and ensure directories exist
     config = Config.create(data_dir=data_dir)
@@ -2343,57 +2396,62 @@ def collect(  # noqa: PLR0912, PLR0915
             for future in as_completed(future_to_date):
                 date_str = future_to_date[future]
                 try:
-                    raw_records, processed_jobs, is_complete = future.result()
-
-                    if raw_records:
+                    result = future.result()
+                    if result.raw_records:
                         # Save raw data (keeping for archival - SLURM might purge old data)
                         raw_file = config.raw_data_dir / f"{date_str}.parquet"
-                        raw_df = pl.DataFrame([r.model_dump() for r in raw_records])
+                        raw_df = pl.DataFrame([r.model_dump() for r in result.raw_records])
                         raw_df.write_parquet(raw_file)
-                        total_raw += len(raw_records)
+                        total_raw += len(result.raw_records)
 
-                    if processed_jobs:
-                        # Smart merge with existing data if re-collecting
-                        processed_file = config.processed_data_dir / f"{date_str}.parquet"
+                    # Always ensure processed file exists if we have any data (raw or processed)
+                    processed_file = config.processed_data_dir / f"{date_str}.parquet"
+                    raw_file = config.raw_data_dir / f"{date_str}.parquet"
 
+                    if result.processed_jobs:
+                        # We have new processed jobs to save/merge
                         if processed_file.exists():
                             # Load existing data
                             existing_df = pl.read_parquet(processed_file)
-                            new_df = pl.DataFrame(
-                                [j.to_dict() for j in processed_jobs],
-                                infer_schema_length=None,
-                            )
+                            new_df = _processed_jobs_to_dataframe(result.processed_jobs)
 
                             # Merge: keep the most recent version of each job
                             # This updates job states for existing jobs and adds new ones
                             merged_df = pl.concat([existing_df, new_df])
-                            merged_df = merged_df.sort("processed_date", descending=True).unique(
-                                subset=["job_id"],
-                                keep="first",
-                            )
+                            merged_df = merged_df.sort("processed_date", descending=True).unique(subset=["job_id"], keep="first")
                             merged_df.write_parquet(processed_file)
                             total_processed += len(new_df) - len(existing_df) + len(merged_df)
                         else:
                             # First time collecting this date
-                            processed_df = pl.DataFrame(
-                                [j.to_dict() for j in processed_jobs],
-                                infer_schema_length=None,
-                            )
-                            processed_df.write_parquet(processed_file)
-                            total_processed += len(processed_jobs)
+                            _save_processed_jobs_to_parquet(result.processed_jobs, processed_file)
+                            total_processed += len(result.processed_jobs)
 
                         successful_dates.append(date_str)
+                    elif not processed_file.exists() and raw_file.exists():
+                        # No new jobs, but we have a raw file and no processed file
+                        # Process the raw file to create the processed file
+                        loaded_raw_records = _load_raw_records_from_parquet(raw_file, date_str)
+                        if loaded_raw_records:
+                            jobs, _ = _process_raw_records_into_jobs(loaded_raw_records)
+                            if jobs:
+                                _save_processed_jobs_to_parquet(jobs, processed_file)
+                                total_processed += len(jobs)
 
-                    if is_complete:
+                    if result.is_complete:
                         completed_dates += 1
                         status_icon = "✓"
                     else:
                         status_icon = "↻"
 
-                    status = f"[green]{len(processed_jobs)} jobs {status_icon}[/green]" if processed_jobs else f"[dim]skipped {status_icon}[/dim]"
+                    status = (
+                        f"[green]{len(result.processed_jobs)} jobs {status_icon}[/green]"
+                        if result.processed_jobs
+                        else f"[dim]skipped {status_icon}[/dim]"
+                    )
                     progress.update(task, advance=1, description=f"Collected {date_str}: {status}")
 
-                except Exception as e:  # noqa: BLE001
+                except (OSError, pl.exceptions.ComputeError, ValueError) as e:
+                    # Expected errors: I/O issues, corrupt parquet files, data parsing
                     console.print(f"[red]Error collecting {date_str}: {e}[/red]")
                     progress.update(task, advance=1)
 
@@ -2439,10 +2497,6 @@ def analyze(
             border_style="cyan",
         ),
     )
-
-    # Clear node info cache to get fresh data
-    global _NODE_INFO_CACHE
-    _NODE_INFO_CACHE = {}
 
     config = Config.create(data_dir=data_dir)
     df = _load_recent_data(config, days)
@@ -2552,10 +2606,6 @@ def nodes() -> None:
     """Display node information from SLURM."""
     console.print(Panel.fit("[bold cyan]SLURM Node Information[/bold cyan]", border_style="cyan"))
 
-    # Clear cache to get fresh data
-    global _NODE_INFO_CACHE
-    _NODE_INFO_CACHE = {}
-
     # Get node information
     node_info = _get_node_info_from_slurm()
 
@@ -2622,17 +2672,17 @@ def test() -> None:
     config = Config.create()
     config.ensure_directories_exist()
     today = datetime.now(UTC).strftime("%Y-%m-%d")
-    raw_records, processed_jobs, is_complete = _fetch_jobs_for_date(
+    fetch_result = _fetch_jobs_for_date(
         today,
         config,
         skip_if_complete=False,
     )
 
-    if raw_records:
-        console.print(f"[green]✓ Found {len(raw_records)} raw records[/green]")
-        console.print(f"[green]✓ Processed {len(processed_jobs)} jobs[/green]")
-        if raw_records:
-            sample = raw_records[0]
+    if fetch_result.raw_records:
+        console.print(f"[green]✓ Found {len(fetch_result.raw_records)} raw records[/green]")
+        console.print(f"[green]✓ Processed {len(fetch_result.processed_jobs)} jobs[/green]")
+        if fetch_result.raw_records:
+            sample = fetch_result.raw_records[0]
             console.print(f"  Sample user: {sample.User}")
             console.print(f"  Sample job: {sample.JobName}")
             console.print(f"  Main job: {sample.is_main_job}")

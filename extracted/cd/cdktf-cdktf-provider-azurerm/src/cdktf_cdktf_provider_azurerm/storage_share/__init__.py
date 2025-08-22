@@ -1,7 +1,7 @@
 r'''
 # `azurerm_storage_share`
 
-Refer to the Terraform Registry for docs: [`azurerm_storage_share`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share).
+Refer to the Terraform Registry for docs: [`azurerm_storage_share`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StorageShare(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.storageShare.StorageShare",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share azurerm_storage_share}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share azurerm_storage_share}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class StorageShare(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share azurerm_storage_share} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share azurerm_storage_share} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#name StorageShare#name}.
-        :param quota: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#quota StorageShare#quota}.
-        :param access_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#access_tier StorageShare#access_tier}.
-        :param acl: acl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#acl StorageShare#acl}
-        :param enabled_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#enabled_protocol StorageShare#enabled_protocol}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#id StorageShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#metadata StorageShare#metadata}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#storage_account_id StorageShare#storage_account_id}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#storage_account_name StorageShare#storage_account_name}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#timeouts StorageShare#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#name StorageShare#name}.
+        :param quota: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#quota StorageShare#quota}.
+        :param access_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#access_tier StorageShare#access_tier}.
+        :param acl: acl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#acl StorageShare#acl}
+        :param enabled_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#enabled_protocol StorageShare#enabled_protocol}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#id StorageShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#metadata StorageShare#metadata}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#storage_account_id StorageShare#storage_account_id}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#storage_account_name StorageShare#storage_account_name}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#timeouts StorageShare#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class StorageShare(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StorageShare to import.
-        :param import_from_id: The id of the existing StorageShare that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StorageShare that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StorageShare to import is found.
         '''
         if __debug__:
@@ -164,10 +164,10 @@ class StorageShare(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#create StorageShare#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#delete StorageShare#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#read StorageShare#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#update StorageShare#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#create StorageShare#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#delete StorageShare#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#read StorageShare#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#update StorageShare#update}.
         '''
         value = StorageShareTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -406,8 +406,8 @@ class StorageShareAcl:
         access_policy: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["StorageShareAclAccessPolicy", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#id StorageShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param access_policy: access_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#access_policy StorageShare#access_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#id StorageShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param access_policy: access_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#access_policy StorageShare#access_policy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__657ec541bfd2d6c699f6f0ae7e744193580f2925ced1c1586f13a2b9b35b781e)
@@ -421,7 +421,7 @@ class StorageShareAcl:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#id StorageShare#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#id StorageShare#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -436,7 +436,7 @@ class StorageShareAcl:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageShareAclAccessPolicy"]]]:
         '''access_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#access_policy StorageShare#access_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#access_policy StorageShare#access_policy}
         '''
         result = self._values.get("access_policy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageShareAclAccessPolicy"]]], result)
@@ -467,9 +467,9 @@ class StorageShareAclAccessPolicy:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#permissions StorageShare#permissions}.
-        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#expiry StorageShare#expiry}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#start StorageShare#start}.
+        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#permissions StorageShare#permissions}.
+        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#expiry StorageShare#expiry}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#start StorageShare#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37a669527a9eb925bb7758ba2911aa188a4cbf3658f21b26a18f84fb222e7975)
@@ -486,20 +486,20 @@ class StorageShareAclAccessPolicy:
 
     @builtins.property
     def permissions(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#permissions StorageShare#permissions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#permissions StorageShare#permissions}.'''
         result = self._values.get("permissions")
         assert result is not None, "Required property 'permissions' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expiry(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#expiry StorageShare#expiry}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#expiry StorageShare#expiry}.'''
         result = self._values.get("expiry")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#start StorageShare#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#start StorageShare#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -941,16 +941,16 @@ class StorageShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#name StorageShare#name}.
-        :param quota: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#quota StorageShare#quota}.
-        :param access_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#access_tier StorageShare#access_tier}.
-        :param acl: acl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#acl StorageShare#acl}
-        :param enabled_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#enabled_protocol StorageShare#enabled_protocol}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#id StorageShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#metadata StorageShare#metadata}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#storage_account_id StorageShare#storage_account_id}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#storage_account_name StorageShare#storage_account_name}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#timeouts StorageShare#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#name StorageShare#name}.
+        :param quota: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#quota StorageShare#quota}.
+        :param access_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#access_tier StorageShare#access_tier}.
+        :param acl: acl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#acl StorageShare#acl}
+        :param enabled_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#enabled_protocol StorageShare#enabled_protocol}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#id StorageShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#metadata StorageShare#metadata}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#storage_account_id StorageShare#storage_account_id}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#storage_account_name StorageShare#storage_account_name}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#timeouts StorageShare#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1076,21 +1076,21 @@ class StorageShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#name StorageShare#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#name StorageShare#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def quota(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#quota StorageShare#quota}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#quota StorageShare#quota}.'''
         result = self._values.get("quota")
         assert result is not None, "Required property 'quota' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def access_tier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#access_tier StorageShare#access_tier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#access_tier StorageShare#access_tier}.'''
         result = self._values.get("access_tier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1100,20 +1100,20 @@ class StorageShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[StorageShareAcl]]]:
         '''acl block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#acl StorageShare#acl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#acl StorageShare#acl}
         '''
         result = self._values.get("acl")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[StorageShareAcl]]], result)
 
     @builtins.property
     def enabled_protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#enabled_protocol StorageShare#enabled_protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#enabled_protocol StorageShare#enabled_protocol}.'''
         result = self._values.get("enabled_protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#id StorageShare#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#id StorageShare#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1123,19 +1123,19 @@ class StorageShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#metadata StorageShare#metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#metadata StorageShare#metadata}.'''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def storage_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#storage_account_id StorageShare#storage_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#storage_account_id StorageShare#storage_account_id}.'''
         result = self._values.get("storage_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_account_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#storage_account_name StorageShare#storage_account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#storage_account_name StorageShare#storage_account_name}.'''
         result = self._values.get("storage_account_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1143,7 +1143,7 @@ class StorageShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["StorageShareTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#timeouts StorageShare#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#timeouts StorageShare#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StorageShareTimeouts"], result)
@@ -1180,10 +1180,10 @@ class StorageShareTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#create StorageShare#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#delete StorageShare#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#read StorageShare#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#update StorageShare#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#create StorageShare#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#delete StorageShare#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#read StorageShare#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#update StorageShare#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__587bfb2d69ada874f14f7b5bdd17c99a87d8333e79b2a4a7f193af5b21e66adf)
@@ -1203,25 +1203,25 @@ class StorageShareTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#create StorageShare#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#create StorageShare#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#delete StorageShare#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#delete StorageShare#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#read StorageShare#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#read StorageShare#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_share#update StorageShare#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_share#update StorageShare#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

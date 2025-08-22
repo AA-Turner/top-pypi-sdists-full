@@ -31,10 +31,10 @@ class OfflineQueryMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_performance__summary__pb2.ListOfflineQueryShardPerformanceSummariesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_performance__summary__pb2.ListOfflineQueryShardPerformanceSummariesResponse.FromString,
         )
-        self.ListRelevantJobQueueConsumers = channel.unary_unary(
-            "/chalk.server.v1.OfflineQueryMetadataService/ListRelevantJobQueueConsumers",
-            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListRelevantJobQueueConsumersRequest.SerializeToString,
-            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListRelevantJobQueueConsumersResponse.FromString,
+        self.CreateOfflineQueryJob = channel.unary_unary(
+            "/chalk.server.v1.OfflineQueryMetadataService/CreateOfflineQueryJob",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.CreateOfflineQueryJobRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.CreateOfflineQueryJobResponse.FromString,
         )
 
 
@@ -64,7 +64,7 @@ class OfflineQueryMetadataServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def ListRelevantJobQueueConsumers(self, request, context):
+    def CreateOfflineQueryJob(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -88,10 +88,10 @@ def add_OfflineQueryMetadataServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_performance__summary__pb2.ListOfflineQueryShardPerformanceSummariesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_performance__summary__pb2.ListOfflineQueryShardPerformanceSummariesResponse.SerializeToString,
         ),
-        "ListRelevantJobQueueConsumers": grpc.unary_unary_rpc_method_handler(
-            servicer.ListRelevantJobQueueConsumers,
-            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListRelevantJobQueueConsumersRequest.FromString,
-            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListRelevantJobQueueConsumersResponse.SerializeToString,
+        "CreateOfflineQueryJob": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateOfflineQueryJob,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.CreateOfflineQueryJobRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.CreateOfflineQueryJobResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -192,7 +192,7 @@ class OfflineQueryMetadataService(object):
         )
 
     @staticmethod
-    def ListRelevantJobQueueConsumers(
+    def CreateOfflineQueryJob(
         request,
         target,
         options=(),
@@ -207,9 +207,9 @@ class OfflineQueryMetadataService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            "/chalk.server.v1.OfflineQueryMetadataService/ListRelevantJobQueueConsumers",
-            chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListRelevantJobQueueConsumersRequest.SerializeToString,
-            chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListRelevantJobQueueConsumersResponse.FromString,
+            "/chalk.server.v1.OfflineQueryMetadataService/CreateOfflineQueryJob",
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.CreateOfflineQueryJobRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.CreateOfflineQueryJobResponse.FromString,
             options,
             channel_credentials,
             insecure,

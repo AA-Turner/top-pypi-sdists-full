@@ -572,6 +572,29 @@ class GeodSolveTest(unittest.TestCase):
     inv = geod.Inverse(0, 0, 60.0832522871723, 89.8492185074635, Geodesic.AREA)
     self.assertAlmostEqual(inv["S12"], 42426932221845, delta = 0.5)
 
+  def test_GeodSolve99(self):
+    """Test case
+    https://github.com/geographiclib/geographiclib-js/issues/3
+    Problem was that output of sincosd(+/-45) was inconsistent because
+    of directed rounding by Javascript's Math.round.  Python
+    implementation was OK."""
+    inv = Geodesic.WGS84.Inverse(45.0, 0.0, -45.0, 179.572719)
+    self.assertAlmostEqual(inv["azi1"],  90.00000028, delta = 1e-8  )
+    self.assertAlmostEqual(inv["azi2"],  90.00000028, delta = 1e-8  )
+    self.assertAlmostEqual(inv["s12"],  19987083.007, delta = 0.5e-3)
+
+  def test_GeodSolve100(self):
+    """Check fix for meridional failure for a strongly prolate ellipsoid.
+       This was caused by assuming that sig12 < 1 guarantees the meridional
+       geodesic is shortest (even though m12 < 0).  Counter example is tested
+       here.  Bug is not present for f >= -2, b < 3*a.  For f = -2.1 the
+       inverse calculation for 30.61 0 30.61 180 exhibits the bug."""
+    geod = Geodesic(1e6, -3)
+    inv = geod.Inverse(30, 0, 30, 180)
+    self.assertAlmostEqual(inv["azi1"],  22.368806, delta = 1.0)
+    self.assertAlmostEqual(inv["azi2"], 157.631194, delta = 1.0)
+    self.assertAlmostEqual(inv["s12"],   1074081.6, delta = 1e3)
+
 class PlanimeterTest(unittest.TestCase):
   """Planimeter tests"""
 

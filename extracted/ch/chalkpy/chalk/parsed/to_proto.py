@@ -774,6 +774,7 @@ class ToProtoConverter:
         if mat is None:
             raise ValueError("Feature is missing window materialization")
 
+        aggregation_kwargs = dict(mat.aggregation_kwargs)
         res = pb.FeatureType(
             group_by=pb.GroupByFeatureType(
                 name=f.name,
@@ -818,6 +819,7 @@ class ToProtoConverter:
                     if mat.backfill_start_time is not None
                     else None,
                     backfill_schedule=mat.backfill_schedule,
+                    approx_top_k_arg_k=aggregation_kwargs.get("k"),
                 ),
                 tags=f.tags,
                 validations=ToProtoConverter.convert_validations(f.all_validations),
@@ -863,6 +865,7 @@ class ToProtoConverter:
 
         wmp = f.window_materialization_parsed
         rich_type_info = cls.convert_rich_type_info(f)
+        aggregation_kwargs = {} if wmp is None else dict(wmp.aggregation_kwargs)
         res = pb.FeatureType(
             scalar=pb.ScalarFeatureType(
                 name=f.name,
@@ -910,6 +913,7 @@ class ToProtoConverter:
                             if wmp.continuous_buffer_duration_seconds is not None
                             else None,
                             continuous_resolver=wmp.continuous_resolver,
+                            approx_top_k_arg_k=aggregation_kwargs.get("k"),
                         )
                         if wmp is not None
                         else None,

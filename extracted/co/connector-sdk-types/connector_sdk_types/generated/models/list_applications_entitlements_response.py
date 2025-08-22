@@ -19,7 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List, Optional
-from connector_sdk_types.generated.models.found_application_entitlement_data import FoundApplicationEntitlementData
+from connector_sdk_types.generated.models.application_entitlement_data import ApplicationEntitlementData
 from connector_sdk_types.generated.models.page import Page
 from typing import Optional, Set
 from typing_extensions import Self
@@ -28,7 +28,7 @@ class ListApplicationsEntitlementsResponse(BaseModel):
     """
     Response containing the list of available entitlements and their details
     """ # noqa: E501
-    response: List[FoundApplicationEntitlementData]
+    response: List[ApplicationEntitlementData]
     raw_data: Optional[Any] = None
     page: Optional[Page] = None
     __properties: ClassVar[List[str]] = ["response", "raw_data", "page"]
@@ -99,7 +99,7 @@ class ListApplicationsEntitlementsResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "response": [FoundApplicationEntitlementData.from_dict(_item) for _item in obj["response"]] if obj.get("response") is not None else None,
+            "response": [ApplicationEntitlementData.from_dict(_item) for _item in obj["response"]] if obj.get("response") is not None else None,
             "raw_data": obj.get("raw_data"),
             "page": Page.from_dict(obj["page"]) if obj.get("page") is not None else None
         })

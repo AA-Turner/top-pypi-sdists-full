@@ -1,7 +1,7 @@
 r'''
 # `azurerm_spring_cloud_connection`
 
-Refer to the Terraform Registry for docs: [`azurerm_spring_cloud_connection`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection).
+Refer to the Terraform Registry for docs: [`azurerm_spring_cloud_connection`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SpringCloudConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.springCloudConnection.SpringCloudConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection azurerm_spring_cloud_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection azurerm_spring_cloud_connection}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class SpringCloudConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection azurerm_spring_cloud_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection azurerm_spring_cloud_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#authentication SpringCloudConnection#authentication}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.
-        :param spring_cloud_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#spring_cloud_id SpringCloudConnection#spring_cloud_id}.
-        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#target_resource_id SpringCloudConnection#target_resource_id}.
-        :param client_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#client_type SpringCloudConnection#client_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#id SpringCloudConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param secret_store: secret_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#secret_store SpringCloudConnection#secret_store}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#timeouts SpringCloudConnection#timeouts}
-        :param vnet_solution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#vnet_solution SpringCloudConnection#vnet_solution}.
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#authentication SpringCloudConnection#authentication}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.
+        :param spring_cloud_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#spring_cloud_id SpringCloudConnection#spring_cloud_id}.
+        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#target_resource_id SpringCloudConnection#target_resource_id}.
+        :param client_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#client_type SpringCloudConnection#client_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#id SpringCloudConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param secret_store: secret_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#secret_store SpringCloudConnection#secret_store}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#timeouts SpringCloudConnection#timeouts}
+        :param vnet_solution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#vnet_solution SpringCloudConnection#vnet_solution}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class SpringCloudConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SpringCloudConnection to import.
-        :param import_from_id: The id of the existing SpringCloudConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SpringCloudConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SpringCloudConnection to import is found.
         '''
         if __debug__:
@@ -151,13 +151,13 @@ class SpringCloudConnection(
         subscription_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#type SpringCloudConnection#type}.
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#certificate SpringCloudConnection#certificate}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#client_id SpringCloudConnection#client_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.
-        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#principal_id SpringCloudConnection#principal_id}.
-        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#secret SpringCloudConnection#secret}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#subscription_id SpringCloudConnection#subscription_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#type SpringCloudConnection#type}.
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#certificate SpringCloudConnection#certificate}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#client_id SpringCloudConnection#client_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.
+        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#principal_id SpringCloudConnection#principal_id}.
+        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#secret SpringCloudConnection#secret}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#subscription_id SpringCloudConnection#subscription_id}.
         '''
         value = SpringCloudConnectionAuthentication(
             type=type,
@@ -174,7 +174,7 @@ class SpringCloudConnection(
     @jsii.member(jsii_name="putSecretStore")
     def put_secret_store(self, *, key_vault_id: builtins.str) -> None:
         '''
-        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#key_vault_id SpringCloudConnection#key_vault_id}.
+        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#key_vault_id SpringCloudConnection#key_vault_id}.
         '''
         value = SpringCloudConnectionSecretStore(key_vault_id=key_vault_id)
 
@@ -190,10 +190,10 @@ class SpringCloudConnection(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#create SpringCloudConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#delete SpringCloudConnection#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#read SpringCloudConnection#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#update SpringCloudConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#create SpringCloudConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#delete SpringCloudConnection#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#read SpringCloudConnection#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#update SpringCloudConnection#update}.
         '''
         value = SpringCloudConnectionTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -397,13 +397,13 @@ class SpringCloudConnectionAuthentication:
         subscription_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#type SpringCloudConnection#type}.
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#certificate SpringCloudConnection#certificate}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#client_id SpringCloudConnection#client_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.
-        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#principal_id SpringCloudConnection#principal_id}.
-        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#secret SpringCloudConnection#secret}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#subscription_id SpringCloudConnection#subscription_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#type SpringCloudConnection#type}.
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#certificate SpringCloudConnection#certificate}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#client_id SpringCloudConnection#client_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.
+        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#principal_id SpringCloudConnection#principal_id}.
+        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#secret SpringCloudConnection#secret}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#subscription_id SpringCloudConnection#subscription_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebb4eb6c65ead72f5217a6789d1960d6e4e0af6a31c0e8655ee02a430b9ebcf1)
@@ -432,44 +432,44 @@ class SpringCloudConnectionAuthentication:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#type SpringCloudConnection#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#type SpringCloudConnection#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def certificate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#certificate SpringCloudConnection#certificate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#certificate SpringCloudConnection#certificate}.'''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def client_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#client_id SpringCloudConnection#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#client_id SpringCloudConnection#client_id}.'''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def principal_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#principal_id SpringCloudConnection#principal_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#principal_id SpringCloudConnection#principal_id}.'''
         result = self._values.get("principal_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secret(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#secret SpringCloudConnection#secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#secret SpringCloudConnection#secret}.'''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subscription_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#subscription_id SpringCloudConnection#subscription_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#subscription_id SpringCloudConnection#subscription_id}.'''
         result = self._values.get("subscription_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -715,15 +715,15 @@ class SpringCloudConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#authentication SpringCloudConnection#authentication}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.
-        :param spring_cloud_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#spring_cloud_id SpringCloudConnection#spring_cloud_id}.
-        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#target_resource_id SpringCloudConnection#target_resource_id}.
-        :param client_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#client_type SpringCloudConnection#client_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#id SpringCloudConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param secret_store: secret_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#secret_store SpringCloudConnection#secret_store}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#timeouts SpringCloudConnection#timeouts}
-        :param vnet_solution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#vnet_solution SpringCloudConnection#vnet_solution}.
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#authentication SpringCloudConnection#authentication}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.
+        :param spring_cloud_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#spring_cloud_id SpringCloudConnection#spring_cloud_id}.
+        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#target_resource_id SpringCloudConnection#target_resource_id}.
+        :param client_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#client_type SpringCloudConnection#client_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#id SpringCloudConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param secret_store: secret_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#secret_store SpringCloudConnection#secret_store}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#timeouts SpringCloudConnection#timeouts}
+        :param vnet_solution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#vnet_solution SpringCloudConnection#vnet_solution}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -850,7 +850,7 @@ class SpringCloudConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authentication(self) -> SpringCloudConnectionAuthentication:
         '''authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#authentication SpringCloudConnection#authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#authentication SpringCloudConnection#authentication}
         '''
         result = self._values.get("authentication")
         assert result is not None, "Required property 'authentication' is missing"
@@ -858,34 +858,34 @@ class SpringCloudConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#name SpringCloudConnection#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def spring_cloud_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#spring_cloud_id SpringCloudConnection#spring_cloud_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#spring_cloud_id SpringCloudConnection#spring_cloud_id}.'''
         result = self._values.get("spring_cloud_id")
         assert result is not None, "Required property 'spring_cloud_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_resource_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#target_resource_id SpringCloudConnection#target_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#target_resource_id SpringCloudConnection#target_resource_id}.'''
         result = self._values.get("target_resource_id")
         assert result is not None, "Required property 'target_resource_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#client_type SpringCloudConnection#client_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#client_type SpringCloudConnection#client_type}.'''
         result = self._values.get("client_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#id SpringCloudConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#id SpringCloudConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -897,7 +897,7 @@ class SpringCloudConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def secret_store(self) -> typing.Optional["SpringCloudConnectionSecretStore"]:
         '''secret_store block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#secret_store SpringCloudConnection#secret_store}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#secret_store SpringCloudConnection#secret_store}
         '''
         result = self._values.get("secret_store")
         return typing.cast(typing.Optional["SpringCloudConnectionSecretStore"], result)
@@ -906,14 +906,14 @@ class SpringCloudConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SpringCloudConnectionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#timeouts SpringCloudConnection#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#timeouts SpringCloudConnection#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SpringCloudConnectionTimeouts"], result)
 
     @builtins.property
     def vnet_solution(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#vnet_solution SpringCloudConnection#vnet_solution}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#vnet_solution SpringCloudConnection#vnet_solution}.'''
         result = self._values.get("vnet_solution")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -937,7 +937,7 @@ class SpringCloudConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SpringCloudConnectionSecretStore:
     def __init__(self, *, key_vault_id: builtins.str) -> None:
         '''
-        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#key_vault_id SpringCloudConnection#key_vault_id}.
+        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#key_vault_id SpringCloudConnection#key_vault_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4073ab853e7e4ed2da3ca2575949b2a4465720fb46bf9ac54af8c37beeb2294)
@@ -948,7 +948,7 @@ class SpringCloudConnectionSecretStore:
 
     @builtins.property
     def key_vault_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#key_vault_id SpringCloudConnection#key_vault_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#key_vault_id SpringCloudConnection#key_vault_id}.'''
         result = self._values.get("key_vault_id")
         assert result is not None, "Required property 'key_vault_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1038,10 +1038,10 @@ class SpringCloudConnectionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#create SpringCloudConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#delete SpringCloudConnection#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#read SpringCloudConnection#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#update SpringCloudConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#create SpringCloudConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#delete SpringCloudConnection#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#read SpringCloudConnection#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#update SpringCloudConnection#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b542fd59ed6a25252e34a9ed0cbc422974187a6d5a79a59dbb11503bfc689fa5)
@@ -1061,25 +1061,25 @@ class SpringCloudConnectionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#create SpringCloudConnection#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#create SpringCloudConnection#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#delete SpringCloudConnection#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#delete SpringCloudConnection#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#read SpringCloudConnection#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#read SpringCloudConnection#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_connection#update SpringCloudConnection#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_connection#update SpringCloudConnection#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -52,13 +52,27 @@ class ProcessingContext:
     # Performance tracking
     processing_start: float = field(default_factory=time.time)
     processing_time: Optional[float] = None
+        
+    # Added for latency measurement
+    processing_latency_ms: Optional[float] = None
+    fps: Optional[float] = None
     
     # Additional context
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def mark_completed(self) -> None:
-        """Mark processing as completed and calculate processing time."""
+        """Mark processing as completed and calculate processing time, latency in ms, and fps."""
         self.processing_time = time.time() - self.processing_start
+        if self.processing_time is not None:
+            # Calculate latency in milliseconds and frames per second (fps)
+            self.processing_latency_ms = self.processing_time * 1000.0
+            self.fps = (1.0 / self.processing_time) if self.processing_time > 0 else None
+            # Log the performance metrics using the module-level logger
+            logger.info(
+                "Processing completed in %.2f ms (%.2f fps)",
+                self.processing_latency_ms,
+                self.fps or 0.0,
+            )
 
 
 @dataclass

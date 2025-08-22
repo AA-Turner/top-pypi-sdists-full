@@ -1,7 +1,7 @@
 r'''
 # `azurerm_aadb2c_directory`
 
-Refer to the Terraform Registry for docs: [`azurerm_aadb2c_directory`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory).
+Refer to the Terraform Registry for docs: [`azurerm_aadb2c_directory`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Aadb2CDirectory(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.aadb2CDirectory.Aadb2CDirectory",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory azurerm_aadb2c_directory}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory azurerm_aadb2c_directory}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class Aadb2CDirectory(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory azurerm_aadb2c_directory} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory azurerm_aadb2c_directory} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_residency_location: Location in which the B2C tenant is hosted and data resides. See https://aka.ms/B2CDataResidency for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#data_residency_location Aadb2CDirectory#data_residency_location}
-        :param domain_name: Domain name of the B2C tenant, including onmicrosoft.com suffix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#domain_name Aadb2CDirectory#domain_name}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#resource_group_name Aadb2CDirectory#resource_group_name}.
-        :param sku_name: Billing SKU for the B2C tenant. See https://aka.ms/b2cBilling for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#sku_name Aadb2CDirectory#sku_name}
-        :param country_code: Country code of the B2C tenant. See https://aka.ms/B2CDataResidency for valid country codes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#country_code Aadb2CDirectory#country_code}
-        :param display_name: The initial display name of the B2C tenant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#display_name Aadb2CDirectory#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#id Aadb2CDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#tags Aadb2CDirectory#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#timeouts Aadb2CDirectory#timeouts}
+        :param data_residency_location: Location in which the B2C tenant is hosted and data resides. See https://aka.ms/B2CDataResidency for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#data_residency_location Aadb2CDirectory#data_residency_location}
+        :param domain_name: Domain name of the B2C tenant, including onmicrosoft.com suffix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#domain_name Aadb2CDirectory#domain_name}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#resource_group_name Aadb2CDirectory#resource_group_name}.
+        :param sku_name: Billing SKU for the B2C tenant. See https://aka.ms/b2cBilling for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#sku_name Aadb2CDirectory#sku_name}
+        :param country_code: Country code of the B2C tenant. See https://aka.ms/B2CDataResidency for valid country codes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#country_code Aadb2CDirectory#country_code}
+        :param display_name: The initial display name of the B2C tenant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#display_name Aadb2CDirectory#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#id Aadb2CDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#tags Aadb2CDirectory#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#timeouts Aadb2CDirectory#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class Aadb2CDirectory(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Aadb2CDirectory to import.
-        :param import_from_id: The id of the existing Aadb2CDirectory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Aadb2CDirectory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Aadb2CDirectory to import is found.
         '''
         if __debug__:
@@ -148,10 +148,10 @@ class Aadb2CDirectory(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#create Aadb2CDirectory#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#delete Aadb2CDirectory#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#read Aadb2CDirectory#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#update Aadb2CDirectory#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#create Aadb2CDirectory#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#delete Aadb2CDirectory#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#read Aadb2CDirectory#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#update Aadb2CDirectory#update}.
         '''
         value = Aadb2CDirectoryTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -407,15 +407,15 @@ class Aadb2CDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_residency_location: Location in which the B2C tenant is hosted and data resides. See https://aka.ms/B2CDataResidency for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#data_residency_location Aadb2CDirectory#data_residency_location}
-        :param domain_name: Domain name of the B2C tenant, including onmicrosoft.com suffix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#domain_name Aadb2CDirectory#domain_name}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#resource_group_name Aadb2CDirectory#resource_group_name}.
-        :param sku_name: Billing SKU for the B2C tenant. See https://aka.ms/b2cBilling for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#sku_name Aadb2CDirectory#sku_name}
-        :param country_code: Country code of the B2C tenant. See https://aka.ms/B2CDataResidency for valid country codes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#country_code Aadb2CDirectory#country_code}
-        :param display_name: The initial display name of the B2C tenant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#display_name Aadb2CDirectory#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#id Aadb2CDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#tags Aadb2CDirectory#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#timeouts Aadb2CDirectory#timeouts}
+        :param data_residency_location: Location in which the B2C tenant is hosted and data resides. See https://aka.ms/B2CDataResidency for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#data_residency_location Aadb2CDirectory#data_residency_location}
+        :param domain_name: Domain name of the B2C tenant, including onmicrosoft.com suffix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#domain_name Aadb2CDirectory#domain_name}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#resource_group_name Aadb2CDirectory#resource_group_name}.
+        :param sku_name: Billing SKU for the B2C tenant. See https://aka.ms/b2cBilling for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#sku_name Aadb2CDirectory#sku_name}
+        :param country_code: Country code of the B2C tenant. See https://aka.ms/B2CDataResidency for valid country codes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#country_code Aadb2CDirectory#country_code}
+        :param display_name: The initial display name of the B2C tenant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#display_name Aadb2CDirectory#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#id Aadb2CDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#tags Aadb2CDirectory#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#timeouts Aadb2CDirectory#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -538,7 +538,7 @@ class Aadb2CDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_residency_location(self) -> builtins.str:
         '''Location in which the B2C tenant is hosted and data resides. See https://aka.ms/B2CDataResidency for more information.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#data_residency_location Aadb2CDirectory#data_residency_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#data_residency_location Aadb2CDirectory#data_residency_location}
         '''
         result = self._values.get("data_residency_location")
         assert result is not None, "Required property 'data_residency_location' is missing"
@@ -548,7 +548,7 @@ class Aadb2CDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def domain_name(self) -> builtins.str:
         '''Domain name of the B2C tenant, including onmicrosoft.com suffix.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#domain_name Aadb2CDirectory#domain_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#domain_name Aadb2CDirectory#domain_name}
         '''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
@@ -556,7 +556,7 @@ class Aadb2CDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#resource_group_name Aadb2CDirectory#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#resource_group_name Aadb2CDirectory#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -565,7 +565,7 @@ class Aadb2CDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sku_name(self) -> builtins.str:
         '''Billing SKU for the B2C tenant. See https://aka.ms/b2cBilling for more information.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#sku_name Aadb2CDirectory#sku_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#sku_name Aadb2CDirectory#sku_name}
         '''
         result = self._values.get("sku_name")
         assert result is not None, "Required property 'sku_name' is missing"
@@ -575,7 +575,7 @@ class Aadb2CDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def country_code(self) -> typing.Optional[builtins.str]:
         '''Country code of the B2C tenant. See https://aka.ms/B2CDataResidency for valid country codes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#country_code Aadb2CDirectory#country_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#country_code Aadb2CDirectory#country_code}
         '''
         result = self._values.get("country_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -584,14 +584,14 @@ class Aadb2CDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The initial display name of the B2C tenant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#display_name Aadb2CDirectory#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#display_name Aadb2CDirectory#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#id Aadb2CDirectory#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#id Aadb2CDirectory#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -601,7 +601,7 @@ class Aadb2CDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#tags Aadb2CDirectory#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#tags Aadb2CDirectory#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -609,7 +609,7 @@ class Aadb2CDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Aadb2CDirectoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#timeouts Aadb2CDirectory#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#timeouts Aadb2CDirectory#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Aadb2CDirectoryTimeouts"], result)
@@ -646,10 +646,10 @@ class Aadb2CDirectoryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#create Aadb2CDirectory#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#delete Aadb2CDirectory#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#read Aadb2CDirectory#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#update Aadb2CDirectory#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#create Aadb2CDirectory#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#delete Aadb2CDirectory#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#read Aadb2CDirectory#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#update Aadb2CDirectory#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76313ffcecb51ec38c5d5d1afcb2d4ea078ee291df6968b83e8b108f9767e303)
@@ -669,25 +669,25 @@ class Aadb2CDirectoryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#create Aadb2CDirectory#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#create Aadb2CDirectory#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#delete Aadb2CDirectory#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#delete Aadb2CDirectory#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#read Aadb2CDirectory#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#read Aadb2CDirectory#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/aadb2c_directory#update Aadb2CDirectory#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/aadb2c_directory#update Aadb2CDirectory#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

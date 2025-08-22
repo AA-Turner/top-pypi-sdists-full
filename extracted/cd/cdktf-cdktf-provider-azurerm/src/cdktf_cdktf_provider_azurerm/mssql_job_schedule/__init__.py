@@ -1,7 +1,7 @@
 r'''
 # `azurerm_mssql_job_schedule`
 
-Refer to the Terraform Registry for docs: [`azurerm_mssql_job_schedule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule).
+Refer to the Terraform Registry for docs: [`azurerm_mssql_job_schedule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MssqlJobSchedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.mssqlJobSchedule.MssqlJobSchedule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule azurerm_mssql_job_schedule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule azurerm_mssql_job_schedule}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class MssqlJobSchedule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule azurerm_mssql_job_schedule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule azurerm_mssql_job_schedule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param job_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#job_id MssqlJobSchedule#job_id}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#type MssqlJobSchedule#type}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#enabled MssqlJobSchedule#enabled}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#end_time MssqlJobSchedule#end_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#id MssqlJobSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#interval MssqlJobSchedule#interval}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#start_time MssqlJobSchedule#start_time}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#timeouts MssqlJobSchedule#timeouts}
+        :param job_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#job_id MssqlJobSchedule#job_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#type MssqlJobSchedule#type}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#enabled MssqlJobSchedule#enabled}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#end_time MssqlJobSchedule#end_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#id MssqlJobSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#interval MssqlJobSchedule#interval}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#start_time MssqlJobSchedule#start_time}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#timeouts MssqlJobSchedule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class MssqlJobSchedule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MssqlJobSchedule to import.
-        :param import_from_id: The id of the existing MssqlJobSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MssqlJobSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MssqlJobSchedule to import is found.
         '''
         if __debug__:
@@ -145,10 +145,10 @@ class MssqlJobSchedule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#create MssqlJobSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#delete MssqlJobSchedule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#read MssqlJobSchedule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#update MssqlJobSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#create MssqlJobSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#delete MssqlJobSchedule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#read MssqlJobSchedule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#update MssqlJobSchedule#update}.
         '''
         value = MssqlJobScheduleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -379,14 +379,14 @@ class MssqlJobScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param job_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#job_id MssqlJobSchedule#job_id}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#type MssqlJobSchedule#type}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#enabled MssqlJobSchedule#enabled}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#end_time MssqlJobSchedule#end_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#id MssqlJobSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#interval MssqlJobSchedule#interval}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#start_time MssqlJobSchedule#start_time}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#timeouts MssqlJobSchedule#timeouts}
+        :param job_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#job_id MssqlJobSchedule#job_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#type MssqlJobSchedule#type}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#enabled MssqlJobSchedule#enabled}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#end_time MssqlJobSchedule#end_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#id MssqlJobSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#interval MssqlJobSchedule#interval}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#start_time MssqlJobSchedule#start_time}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#timeouts MssqlJobSchedule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -506,14 +506,14 @@ class MssqlJobScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def job_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#job_id MssqlJobSchedule#job_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#job_id MssqlJobSchedule#job_id}.'''
         result = self._values.get("job_id")
         assert result is not None, "Required property 'job_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#type MssqlJobSchedule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#type MssqlJobSchedule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -522,19 +522,19 @@ class MssqlJobScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#enabled MssqlJobSchedule#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#enabled MssqlJobSchedule#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def end_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#end_time MssqlJobSchedule#end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#end_time MssqlJobSchedule#end_time}.'''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#id MssqlJobSchedule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#id MssqlJobSchedule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -544,13 +544,13 @@ class MssqlJobScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def interval(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#interval MssqlJobSchedule#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#interval MssqlJobSchedule#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#start_time MssqlJobSchedule#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#start_time MssqlJobSchedule#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -558,7 +558,7 @@ class MssqlJobScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MssqlJobScheduleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#timeouts MssqlJobSchedule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#timeouts MssqlJobSchedule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MssqlJobScheduleTimeouts"], result)
@@ -595,10 +595,10 @@ class MssqlJobScheduleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#create MssqlJobSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#delete MssqlJobSchedule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#read MssqlJobSchedule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#update MssqlJobSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#create MssqlJobSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#delete MssqlJobSchedule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#read MssqlJobSchedule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#update MssqlJobSchedule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9c887f735637ff86532ad72c37ce329e77cad4d20d40c91dbbfe50d2f47064b)
@@ -618,25 +618,25 @@ class MssqlJobScheduleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#create MssqlJobSchedule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#create MssqlJobSchedule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#delete MssqlJobSchedule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#delete MssqlJobSchedule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#read MssqlJobSchedule#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#read MssqlJobSchedule#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_job_schedule#update MssqlJobSchedule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_job_schedule#update MssqlJobSchedule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

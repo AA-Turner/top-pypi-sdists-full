@@ -1,7 +1,7 @@
 r'''
 # `azurerm_network_connection_monitor`
 
-Refer to the Terraform Registry for docs: [`azurerm_network_connection_monitor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor).
+Refer to the Terraform Registry for docs: [`azurerm_network_connection_monitor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkConnectionMonitor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.networkConnectionMonitor.NetworkConnectionMonitor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor azurerm_network_connection_monitor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor azurerm_network_connection_monitor}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class NetworkConnectionMonitor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor azurerm_network_connection_monitor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor azurerm_network_connection_monitor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#endpoint NetworkConnectionMonitor#endpoint}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#location NetworkConnectionMonitor#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
-        :param network_watcher_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#network_watcher_id NetworkConnectionMonitor#network_watcher_id}.
-        :param test_configuration: test_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_configuration NetworkConnectionMonitor#test_configuration}
-        :param test_group: test_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_group NetworkConnectionMonitor#test_group}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#id NetworkConnectionMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#notes NetworkConnectionMonitor#notes}.
-        :param output_workspace_resource_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#output_workspace_resource_ids NetworkConnectionMonitor#output_workspace_resource_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#tags NetworkConnectionMonitor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#timeouts NetworkConnectionMonitor#timeouts}
+        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#endpoint NetworkConnectionMonitor#endpoint}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#location NetworkConnectionMonitor#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
+        :param network_watcher_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#network_watcher_id NetworkConnectionMonitor#network_watcher_id}.
+        :param test_configuration: test_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_configuration NetworkConnectionMonitor#test_configuration}
+        :param test_group: test_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_group NetworkConnectionMonitor#test_group}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#id NetworkConnectionMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#notes NetworkConnectionMonitor#notes}.
+        :param output_workspace_resource_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#output_workspace_resource_ids NetworkConnectionMonitor#output_workspace_resource_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#tags NetworkConnectionMonitor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#timeouts NetworkConnectionMonitor#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class NetworkConnectionMonitor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkConnectionMonitor to import.
-        :param import_from_id: The id of the existing NetworkConnectionMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkConnectionMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkConnectionMonitor to import is found.
         '''
         if __debug__:
@@ -193,10 +193,10 @@ class NetworkConnectionMonitor(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#create NetworkConnectionMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#delete NetworkConnectionMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#read NetworkConnectionMonitor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#update NetworkConnectionMonitor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#create NetworkConnectionMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#delete NetworkConnectionMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#read NetworkConnectionMonitor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#update NetworkConnectionMonitor#update}.
         '''
         value = NetworkConnectionMonitorTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -462,17 +462,17 @@ class NetworkConnectionMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#endpoint NetworkConnectionMonitor#endpoint}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#location NetworkConnectionMonitor#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
-        :param network_watcher_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#network_watcher_id NetworkConnectionMonitor#network_watcher_id}.
-        :param test_configuration: test_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_configuration NetworkConnectionMonitor#test_configuration}
-        :param test_group: test_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_group NetworkConnectionMonitor#test_group}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#id NetworkConnectionMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#notes NetworkConnectionMonitor#notes}.
-        :param output_workspace_resource_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#output_workspace_resource_ids NetworkConnectionMonitor#output_workspace_resource_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#tags NetworkConnectionMonitor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#timeouts NetworkConnectionMonitor#timeouts}
+        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#endpoint NetworkConnectionMonitor#endpoint}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#location NetworkConnectionMonitor#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
+        :param network_watcher_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#network_watcher_id NetworkConnectionMonitor#network_watcher_id}.
+        :param test_configuration: test_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_configuration NetworkConnectionMonitor#test_configuration}
+        :param test_group: test_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_group NetworkConnectionMonitor#test_group}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#id NetworkConnectionMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#notes NetworkConnectionMonitor#notes}.
+        :param output_workspace_resource_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#output_workspace_resource_ids NetworkConnectionMonitor#output_workspace_resource_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#tags NetworkConnectionMonitor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#timeouts NetworkConnectionMonitor#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -601,7 +601,7 @@ class NetworkConnectionMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkConnectionMonitorEndpoint"]]:
         '''endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#endpoint NetworkConnectionMonitor#endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#endpoint NetworkConnectionMonitor#endpoint}
         '''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
@@ -609,21 +609,21 @@ class NetworkConnectionMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#location NetworkConnectionMonitor#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#location NetworkConnectionMonitor#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def network_watcher_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#network_watcher_id NetworkConnectionMonitor#network_watcher_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#network_watcher_id NetworkConnectionMonitor#network_watcher_id}.'''
         result = self._values.get("network_watcher_id")
         assert result is not None, "Required property 'network_watcher_id' is missing"
         return typing.cast(builtins.str, result)
@@ -634,7 +634,7 @@ class NetworkConnectionMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkConnectionMonitorTestConfiguration"]]:
         '''test_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_configuration NetworkConnectionMonitor#test_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_configuration NetworkConnectionMonitor#test_configuration}
         '''
         result = self._values.get("test_configuration")
         assert result is not None, "Required property 'test_configuration' is missing"
@@ -646,7 +646,7 @@ class NetworkConnectionMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkConnectionMonitorTestGroup"]]:
         '''test_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_group NetworkConnectionMonitor#test_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_group NetworkConnectionMonitor#test_group}
         '''
         result = self._values.get("test_group")
         assert result is not None, "Required property 'test_group' is missing"
@@ -654,7 +654,7 @@ class NetworkConnectionMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#id NetworkConnectionMonitor#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#id NetworkConnectionMonitor#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -664,7 +664,7 @@ class NetworkConnectionMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def notes(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#notes NetworkConnectionMonitor#notes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#notes NetworkConnectionMonitor#notes}.'''
         result = self._values.get("notes")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -672,13 +672,13 @@ class NetworkConnectionMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def output_workspace_resource_ids(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#output_workspace_resource_ids NetworkConnectionMonitor#output_workspace_resource_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#output_workspace_resource_ids NetworkConnectionMonitor#output_workspace_resource_ids}.'''
         result = self._values.get("output_workspace_resource_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#tags NetworkConnectionMonitor#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#tags NetworkConnectionMonitor#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -686,7 +686,7 @@ class NetworkConnectionMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetworkConnectionMonitorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#timeouts NetworkConnectionMonitor#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#timeouts NetworkConnectionMonitor#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkConnectionMonitorTimeouts"], result)
@@ -731,14 +731,14 @@ class NetworkConnectionMonitorEndpoint:
         target_resource_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#address NetworkConnectionMonitor#address}.
-        :param coverage_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#coverage_level NetworkConnectionMonitor#coverage_level}.
-        :param excluded_ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#excluded_ip_addresses NetworkConnectionMonitor#excluded_ip_addresses}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#filter NetworkConnectionMonitor#filter}
-        :param included_ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#included_ip_addresses NetworkConnectionMonitor#included_ip_addresses}.
-        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#target_resource_id NetworkConnectionMonitor#target_resource_id}.
-        :param target_resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#target_resource_type NetworkConnectionMonitor#target_resource_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#address NetworkConnectionMonitor#address}.
+        :param coverage_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#coverage_level NetworkConnectionMonitor#coverage_level}.
+        :param excluded_ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#excluded_ip_addresses NetworkConnectionMonitor#excluded_ip_addresses}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#filter NetworkConnectionMonitor#filter}
+        :param included_ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#included_ip_addresses NetworkConnectionMonitor#included_ip_addresses}.
+        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#target_resource_id NetworkConnectionMonitor#target_resource_id}.
+        :param target_resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#target_resource_type NetworkConnectionMonitor#target_resource_type}.
         '''
         if isinstance(filter, dict):
             filter = NetworkConnectionMonitorEndpointFilter(**filter)
@@ -772,26 +772,26 @@ class NetworkConnectionMonitorEndpoint:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#address NetworkConnectionMonitor#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#address NetworkConnectionMonitor#address}.'''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def coverage_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#coverage_level NetworkConnectionMonitor#coverage_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#coverage_level NetworkConnectionMonitor#coverage_level}.'''
         result = self._values.get("coverage_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def excluded_ip_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#excluded_ip_addresses NetworkConnectionMonitor#excluded_ip_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#excluded_ip_addresses NetworkConnectionMonitor#excluded_ip_addresses}.'''
         result = self._values.get("excluded_ip_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -799,26 +799,26 @@ class NetworkConnectionMonitorEndpoint:
     def filter(self) -> typing.Optional["NetworkConnectionMonitorEndpointFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#filter NetworkConnectionMonitor#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#filter NetworkConnectionMonitor#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["NetworkConnectionMonitorEndpointFilter"], result)
 
     @builtins.property
     def included_ip_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#included_ip_addresses NetworkConnectionMonitor#included_ip_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#included_ip_addresses NetworkConnectionMonitor#included_ip_addresses}.'''
         result = self._values.get("included_ip_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def target_resource_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#target_resource_id NetworkConnectionMonitor#target_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#target_resource_id NetworkConnectionMonitor#target_resource_id}.'''
         result = self._values.get("target_resource_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_resource_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#target_resource_type NetworkConnectionMonitor#target_resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#target_resource_type NetworkConnectionMonitor#target_resource_type}.'''
         result = self._values.get("target_resource_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -847,8 +847,8 @@ class NetworkConnectionMonitorEndpointFilter:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param item: item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#item NetworkConnectionMonitor#item}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.
+        :param item: item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#item NetworkConnectionMonitor#item}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6782b51724a65dcae9fd5b5b3910f42e1dcf143f02004de0ea6d02fdb75759cc)
@@ -866,14 +866,14 @@ class NetworkConnectionMonitorEndpointFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkConnectionMonitorEndpointFilterItem"]]]:
         '''item block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#item NetworkConnectionMonitor#item}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#item NetworkConnectionMonitor#item}
         '''
         result = self._values.get("item")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkConnectionMonitorEndpointFilterItem"]]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -902,8 +902,8 @@ class NetworkConnectionMonitorEndpointFilterItem:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#address NetworkConnectionMonitor#address}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#address NetworkConnectionMonitor#address}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d28e74df6700aebdfbb91866c019055a453a71ff7dc8542ce35c2819aea35c1)
@@ -917,13 +917,13 @@ class NetworkConnectionMonitorEndpointFilterItem:
 
     @builtins.property
     def address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#address NetworkConnectionMonitor#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#address NetworkConnectionMonitor#address}.'''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1331,8 +1331,8 @@ class NetworkConnectionMonitorEndpointOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param item: item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#item NetworkConnectionMonitor#item}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.
+        :param item: item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#item NetworkConnectionMonitor#item}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#type NetworkConnectionMonitor#type}.
         '''
         value = NetworkConnectionMonitorEndpointFilter(item=item, type=type)
 
@@ -1541,14 +1541,14 @@ class NetworkConnectionMonitorTestConfiguration:
         test_frequency_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#protocol NetworkConnectionMonitor#protocol}.
-        :param http_configuration: http_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#http_configuration NetworkConnectionMonitor#http_configuration}
-        :param icmp_configuration: icmp_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#icmp_configuration NetworkConnectionMonitor#icmp_configuration}
-        :param preferred_ip_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#preferred_ip_version NetworkConnectionMonitor#preferred_ip_version}.
-        :param success_threshold: success_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#success_threshold NetworkConnectionMonitor#success_threshold}
-        :param tcp_configuration: tcp_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#tcp_configuration NetworkConnectionMonitor#tcp_configuration}
-        :param test_frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_frequency_in_seconds NetworkConnectionMonitor#test_frequency_in_seconds}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#protocol NetworkConnectionMonitor#protocol}.
+        :param http_configuration: http_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#http_configuration NetworkConnectionMonitor#http_configuration}
+        :param icmp_configuration: icmp_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#icmp_configuration NetworkConnectionMonitor#icmp_configuration}
+        :param preferred_ip_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#preferred_ip_version NetworkConnectionMonitor#preferred_ip_version}.
+        :param success_threshold: success_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#success_threshold NetworkConnectionMonitor#success_threshold}
+        :param tcp_configuration: tcp_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#tcp_configuration NetworkConnectionMonitor#tcp_configuration}
+        :param test_frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_frequency_in_seconds NetworkConnectionMonitor#test_frequency_in_seconds}.
         '''
         if isinstance(http_configuration, dict):
             http_configuration = NetworkConnectionMonitorTestConfigurationHttpConfiguration(**http_configuration)
@@ -1587,14 +1587,14 @@ class NetworkConnectionMonitorTestConfiguration:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#protocol NetworkConnectionMonitor#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#protocol NetworkConnectionMonitor#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
@@ -1605,7 +1605,7 @@ class NetworkConnectionMonitorTestConfiguration:
     ) -> typing.Optional["NetworkConnectionMonitorTestConfigurationHttpConfiguration"]:
         '''http_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#http_configuration NetworkConnectionMonitor#http_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#http_configuration NetworkConnectionMonitor#http_configuration}
         '''
         result = self._values.get("http_configuration")
         return typing.cast(typing.Optional["NetworkConnectionMonitorTestConfigurationHttpConfiguration"], result)
@@ -1616,14 +1616,14 @@ class NetworkConnectionMonitorTestConfiguration:
     ) -> typing.Optional["NetworkConnectionMonitorTestConfigurationIcmpConfiguration"]:
         '''icmp_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#icmp_configuration NetworkConnectionMonitor#icmp_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#icmp_configuration NetworkConnectionMonitor#icmp_configuration}
         '''
         result = self._values.get("icmp_configuration")
         return typing.cast(typing.Optional["NetworkConnectionMonitorTestConfigurationIcmpConfiguration"], result)
 
     @builtins.property
     def preferred_ip_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#preferred_ip_version NetworkConnectionMonitor#preferred_ip_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#preferred_ip_version NetworkConnectionMonitor#preferred_ip_version}.'''
         result = self._values.get("preferred_ip_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1633,7 +1633,7 @@ class NetworkConnectionMonitorTestConfiguration:
     ) -> typing.Optional["NetworkConnectionMonitorTestConfigurationSuccessThreshold"]:
         '''success_threshold block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#success_threshold NetworkConnectionMonitor#success_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#success_threshold NetworkConnectionMonitor#success_threshold}
         '''
         result = self._values.get("success_threshold")
         return typing.cast(typing.Optional["NetworkConnectionMonitorTestConfigurationSuccessThreshold"], result)
@@ -1644,14 +1644,14 @@ class NetworkConnectionMonitorTestConfiguration:
     ) -> typing.Optional["NetworkConnectionMonitorTestConfigurationTcpConfiguration"]:
         '''tcp_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#tcp_configuration NetworkConnectionMonitor#tcp_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#tcp_configuration NetworkConnectionMonitor#tcp_configuration}
         '''
         result = self._values.get("tcp_configuration")
         return typing.cast(typing.Optional["NetworkConnectionMonitorTestConfigurationTcpConfiguration"], result)
 
     @builtins.property
     def test_frequency_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_frequency_in_seconds NetworkConnectionMonitor#test_frequency_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_frequency_in_seconds NetworkConnectionMonitor#test_frequency_in_seconds}.'''
         result = self._values.get("test_frequency_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1691,12 +1691,12 @@ class NetworkConnectionMonitorTestConfigurationHttpConfiguration:
         valid_status_code_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#method NetworkConnectionMonitor#method}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#path NetworkConnectionMonitor#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.
-        :param prefer_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#prefer_https NetworkConnectionMonitor#prefer_https}.
-        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#request_header NetworkConnectionMonitor#request_header}
-        :param valid_status_code_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#valid_status_code_ranges NetworkConnectionMonitor#valid_status_code_ranges}.
+        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#method NetworkConnectionMonitor#method}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#path NetworkConnectionMonitor#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.
+        :param prefer_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#prefer_https NetworkConnectionMonitor#prefer_https}.
+        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#request_header NetworkConnectionMonitor#request_header}
+        :param valid_status_code_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#valid_status_code_ranges NetworkConnectionMonitor#valid_status_code_ranges}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__55e27ca1a1e2eeb4b2554935e9c7def257929eeb4c2062e6ba996a88ff659ffa)
@@ -1722,19 +1722,19 @@ class NetworkConnectionMonitorTestConfigurationHttpConfiguration:
 
     @builtins.property
     def method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#method NetworkConnectionMonitor#method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#method NetworkConnectionMonitor#method}.'''
         result = self._values.get("method")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#path NetworkConnectionMonitor#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#path NetworkConnectionMonitor#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1742,7 +1742,7 @@ class NetworkConnectionMonitorTestConfigurationHttpConfiguration:
     def prefer_https(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#prefer_https NetworkConnectionMonitor#prefer_https}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#prefer_https NetworkConnectionMonitor#prefer_https}.'''
         result = self._values.get("prefer_https")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1752,14 +1752,14 @@ class NetworkConnectionMonitorTestConfigurationHttpConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkConnectionMonitorTestConfigurationHttpConfigurationRequestHeader"]]]:
         '''request_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#request_header NetworkConnectionMonitor#request_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#request_header NetworkConnectionMonitor#request_header}
         '''
         result = self._values.get("request_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkConnectionMonitorTestConfigurationHttpConfigurationRequestHeader"]]], result)
 
     @builtins.property
     def valid_status_code_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#valid_status_code_ranges NetworkConnectionMonitor#valid_status_code_ranges}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#valid_status_code_ranges NetworkConnectionMonitor#valid_status_code_ranges}.'''
         result = self._values.get("valid_status_code_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1964,8 +1964,8 @@ class NetworkConnectionMonitorTestConfigurationHttpConfigurationOutputReference(
 class NetworkConnectionMonitorTestConfigurationHttpConfigurationRequestHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#value NetworkConnectionMonitor#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#value NetworkConnectionMonitor#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59dbc35a057a35e23e9746ee0b1471d30bc799d32187dd22ee9377dfa2841537)
@@ -1978,14 +1978,14 @@ class NetworkConnectionMonitorTestConfigurationHttpConfigurationRequestHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#value NetworkConnectionMonitor#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#value NetworkConnectionMonitor#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2185,7 +2185,7 @@ class NetworkConnectionMonitorTestConfigurationIcmpConfiguration:
         trace_route_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param trace_route_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.
+        :param trace_route_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2875a43d0c1407942d3755b697d5be7b36248a00ef2a7f0c6fc209d04edb52db)
@@ -2198,7 +2198,7 @@ class NetworkConnectionMonitorTestConfigurationIcmpConfiguration:
     def trace_route_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.'''
         result = self._values.get("trace_route_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2411,12 +2411,12 @@ class NetworkConnectionMonitorTestConfigurationOutputReference(
         valid_status_code_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#method NetworkConnectionMonitor#method}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#path NetworkConnectionMonitor#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.
-        :param prefer_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#prefer_https NetworkConnectionMonitor#prefer_https}.
-        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#request_header NetworkConnectionMonitor#request_header}
-        :param valid_status_code_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#valid_status_code_ranges NetworkConnectionMonitor#valid_status_code_ranges}.
+        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#method NetworkConnectionMonitor#method}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#path NetworkConnectionMonitor#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.
+        :param prefer_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#prefer_https NetworkConnectionMonitor#prefer_https}.
+        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#request_header NetworkConnectionMonitor#request_header}
+        :param valid_status_code_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#valid_status_code_ranges NetworkConnectionMonitor#valid_status_code_ranges}.
         '''
         value = NetworkConnectionMonitorTestConfigurationHttpConfiguration(
             method=method,
@@ -2436,7 +2436,7 @@ class NetworkConnectionMonitorTestConfigurationOutputReference(
         trace_route_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param trace_route_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.
+        :param trace_route_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.
         '''
         value = NetworkConnectionMonitorTestConfigurationIcmpConfiguration(
             trace_route_enabled=trace_route_enabled
@@ -2452,8 +2452,8 @@ class NetworkConnectionMonitorTestConfigurationOutputReference(
         round_trip_time_ms: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param checks_failed_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#checks_failed_percent NetworkConnectionMonitor#checks_failed_percent}.
-        :param round_trip_time_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#round_trip_time_ms NetworkConnectionMonitor#round_trip_time_ms}.
+        :param checks_failed_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#checks_failed_percent NetworkConnectionMonitor#checks_failed_percent}.
+        :param round_trip_time_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#round_trip_time_ms NetworkConnectionMonitor#round_trip_time_ms}.
         '''
         value = NetworkConnectionMonitorTestConfigurationSuccessThreshold(
             checks_failed_percent=checks_failed_percent,
@@ -2471,9 +2471,9 @@ class NetworkConnectionMonitorTestConfigurationOutputReference(
         trace_route_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.
-        :param destination_port_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#destination_port_behavior NetworkConnectionMonitor#destination_port_behavior}.
-        :param trace_route_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.
+        :param destination_port_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#destination_port_behavior NetworkConnectionMonitor#destination_port_behavior}.
+        :param trace_route_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.
         '''
         value = NetworkConnectionMonitorTestConfigurationTcpConfiguration(
             port=port,
@@ -2665,8 +2665,8 @@ class NetworkConnectionMonitorTestConfigurationSuccessThreshold:
         round_trip_time_ms: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param checks_failed_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#checks_failed_percent NetworkConnectionMonitor#checks_failed_percent}.
-        :param round_trip_time_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#round_trip_time_ms NetworkConnectionMonitor#round_trip_time_ms}.
+        :param checks_failed_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#checks_failed_percent NetworkConnectionMonitor#checks_failed_percent}.
+        :param round_trip_time_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#round_trip_time_ms NetworkConnectionMonitor#round_trip_time_ms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f92afb86b807f8a1e9f58c9d58f126e77c858c03bf880c9c9013c84c136684cc)
@@ -2680,13 +2680,13 @@ class NetworkConnectionMonitorTestConfigurationSuccessThreshold:
 
     @builtins.property
     def checks_failed_percent(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#checks_failed_percent NetworkConnectionMonitor#checks_failed_percent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#checks_failed_percent NetworkConnectionMonitor#checks_failed_percent}.'''
         result = self._values.get("checks_failed_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def round_trip_time_ms(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#round_trip_time_ms NetworkConnectionMonitor#round_trip_time_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#round_trip_time_ms NetworkConnectionMonitor#round_trip_time_ms}.'''
         result = self._values.get("round_trip_time_ms")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2800,9 +2800,9 @@ class NetworkConnectionMonitorTestConfigurationTcpConfiguration:
         trace_route_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.
-        :param destination_port_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#destination_port_behavior NetworkConnectionMonitor#destination_port_behavior}.
-        :param trace_route_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.
+        :param destination_port_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#destination_port_behavior NetworkConnectionMonitor#destination_port_behavior}.
+        :param trace_route_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb1f3cd27e3140b5ae9035c85c266a727c61c01bb097cab1e1f8ce075c47f895)
@@ -2819,14 +2819,14 @@ class NetworkConnectionMonitorTestConfigurationTcpConfiguration:
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#port NetworkConnectionMonitor#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def destination_port_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#destination_port_behavior NetworkConnectionMonitor#destination_port_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#destination_port_behavior NetworkConnectionMonitor#destination_port_behavior}.'''
         result = self._values.get("destination_port_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2834,7 +2834,7 @@ class NetworkConnectionMonitorTestConfigurationTcpConfiguration:
     def trace_route_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#trace_route_enabled NetworkConnectionMonitor#trace_route_enabled}.'''
         result = self._values.get("trace_route_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2976,11 +2976,11 @@ class NetworkConnectionMonitorTestGroup:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param destination_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#destination_endpoints NetworkConnectionMonitor#destination_endpoints}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
-        :param source_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#source_endpoints NetworkConnectionMonitor#source_endpoints}.
-        :param test_configuration_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_configuration_names NetworkConnectionMonitor#test_configuration_names}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#enabled NetworkConnectionMonitor#enabled}.
+        :param destination_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#destination_endpoints NetworkConnectionMonitor#destination_endpoints}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.
+        :param source_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#source_endpoints NetworkConnectionMonitor#source_endpoints}.
+        :param test_configuration_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_configuration_names NetworkConnectionMonitor#test_configuration_names}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#enabled NetworkConnectionMonitor#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71669e8612eff2c576fab51058c3c9bbb68b6aa573d01523f7c99b2b6dc6b8b8)
@@ -3000,28 +3000,28 @@ class NetworkConnectionMonitorTestGroup:
 
     @builtins.property
     def destination_endpoints(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#destination_endpoints NetworkConnectionMonitor#destination_endpoints}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#destination_endpoints NetworkConnectionMonitor#destination_endpoints}.'''
         result = self._values.get("destination_endpoints")
         assert result is not None, "Required property 'destination_endpoints' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#name NetworkConnectionMonitor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_endpoints(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#source_endpoints NetworkConnectionMonitor#source_endpoints}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#source_endpoints NetworkConnectionMonitor#source_endpoints}.'''
         result = self._values.get("source_endpoints")
         assert result is not None, "Required property 'source_endpoints' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def test_configuration_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#test_configuration_names NetworkConnectionMonitor#test_configuration_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#test_configuration_names NetworkConnectionMonitor#test_configuration_names}.'''
         result = self._values.get("test_configuration_names")
         assert result is not None, "Required property 'test_configuration_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3030,7 +3030,7 @@ class NetworkConnectionMonitorTestGroup:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#enabled NetworkConnectionMonitor#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#enabled NetworkConnectionMonitor#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3299,10 +3299,10 @@ class NetworkConnectionMonitorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#create NetworkConnectionMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#delete NetworkConnectionMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#read NetworkConnectionMonitor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#update NetworkConnectionMonitor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#create NetworkConnectionMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#delete NetworkConnectionMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#read NetworkConnectionMonitor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#update NetworkConnectionMonitor#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a43be0e9ff8325e92064eeb6ca250ca411edc2def702d16a49fc46f825ead4a)
@@ -3322,25 +3322,25 @@ class NetworkConnectionMonitorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#create NetworkConnectionMonitor#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#create NetworkConnectionMonitor#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#delete NetworkConnectionMonitor#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#delete NetworkConnectionMonitor#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#read NetworkConnectionMonitor#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#read NetworkConnectionMonitor#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/network_connection_monitor#update NetworkConnectionMonitor#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/network_connection_monitor#update NetworkConnectionMonitor#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

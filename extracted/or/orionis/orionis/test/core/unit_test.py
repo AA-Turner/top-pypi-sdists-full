@@ -52,7 +52,7 @@ class UnitTest(IUnitTest):
         self.__app: IApplication = app
 
         # Storage path for test results
-        self.__storage: Optional[str] = self.__app.path('storage_testing')
+        self.__storage: Optional[str] = self.__app.path('testing')
 
         # Configuration values (set via configure)
         self.__verbosity: Optional[int] = None

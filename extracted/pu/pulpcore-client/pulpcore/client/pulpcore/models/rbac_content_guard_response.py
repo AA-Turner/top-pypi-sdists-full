@@ -26,6 +26,14 @@ from pulpcore.client.pulpcore.models.group_user_response import GroupUserRespons
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class RBACContentGuardResponse(BaseModel):
     """
     Base class for content guard serializers.

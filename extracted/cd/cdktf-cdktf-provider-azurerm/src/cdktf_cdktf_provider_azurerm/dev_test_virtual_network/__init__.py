@@ -1,7 +1,7 @@
 r'''
 # `azurerm_dev_test_virtual_network`
 
-Refer to the Terraform Registry for docs: [`azurerm_dev_test_virtual_network`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network).
+Refer to the Terraform Registry for docs: [`azurerm_dev_test_virtual_network`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DevTestVirtualNetwork(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.devTestVirtualNetwork.DevTestVirtualNetwork",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network azurerm_dev_test_virtual_network}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network azurerm_dev_test_virtual_network}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class DevTestVirtualNetwork(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network azurerm_dev_test_virtual_network} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network azurerm_dev_test_virtual_network} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param lab_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#lab_name DevTestVirtualNetwork#lab_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#name DevTestVirtualNetwork#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#resource_group_name DevTestVirtualNetwork#resource_group_name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#description DevTestVirtualNetwork#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#id DevTestVirtualNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param subnet: subnet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#subnet DevTestVirtualNetwork#subnet}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#tags DevTestVirtualNetwork#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#timeouts DevTestVirtualNetwork#timeouts}
+        :param lab_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#lab_name DevTestVirtualNetwork#lab_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#name DevTestVirtualNetwork#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#resource_group_name DevTestVirtualNetwork#resource_group_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#description DevTestVirtualNetwork#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#id DevTestVirtualNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param subnet: subnet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#subnet DevTestVirtualNetwork#subnet}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#tags DevTestVirtualNetwork#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#timeouts DevTestVirtualNetwork#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class DevTestVirtualNetwork(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DevTestVirtualNetwork to import.
-        :param import_from_id: The id of the existing DevTestVirtualNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DevTestVirtualNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DevTestVirtualNetwork to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class DevTestVirtualNetwork(
         use_public_ip_address: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param shared_public_ip_address: shared_public_ip_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#shared_public_ip_address DevTestVirtualNetwork#shared_public_ip_address}
-        :param use_in_virtual_machine_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#use_in_virtual_machine_creation DevTestVirtualNetwork#use_in_virtual_machine_creation}.
-        :param use_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#use_public_ip_address DevTestVirtualNetwork#use_public_ip_address}.
+        :param shared_public_ip_address: shared_public_ip_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#shared_public_ip_address DevTestVirtualNetwork#shared_public_ip_address}
+        :param use_in_virtual_machine_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#use_in_virtual_machine_creation DevTestVirtualNetwork#use_in_virtual_machine_creation}.
+        :param use_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#use_public_ip_address DevTestVirtualNetwork#use_public_ip_address}.
         '''
         value = DevTestVirtualNetworkSubnet(
             shared_public_ip_address=shared_public_ip_address,
@@ -166,10 +166,10 @@ class DevTestVirtualNetwork(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#create DevTestVirtualNetwork#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#delete DevTestVirtualNetwork#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#read DevTestVirtualNetwork#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#update DevTestVirtualNetwork#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#create DevTestVirtualNetwork#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#delete DevTestVirtualNetwork#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#read DevTestVirtualNetwork#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#update DevTestVirtualNetwork#update}.
         '''
         value = DevTestVirtualNetworkTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -389,14 +389,14 @@ class DevTestVirtualNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param lab_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#lab_name DevTestVirtualNetwork#lab_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#name DevTestVirtualNetwork#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#resource_group_name DevTestVirtualNetwork#resource_group_name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#description DevTestVirtualNetwork#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#id DevTestVirtualNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param subnet: subnet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#subnet DevTestVirtualNetwork#subnet}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#tags DevTestVirtualNetwork#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#timeouts DevTestVirtualNetwork#timeouts}
+        :param lab_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#lab_name DevTestVirtualNetwork#lab_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#name DevTestVirtualNetwork#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#resource_group_name DevTestVirtualNetwork#resource_group_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#description DevTestVirtualNetwork#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#id DevTestVirtualNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param subnet: subnet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#subnet DevTestVirtualNetwork#subnet}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#tags DevTestVirtualNetwork#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#timeouts DevTestVirtualNetwork#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -517,34 +517,34 @@ class DevTestVirtualNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def lab_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#lab_name DevTestVirtualNetwork#lab_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#lab_name DevTestVirtualNetwork#lab_name}.'''
         result = self._values.get("lab_name")
         assert result is not None, "Required property 'lab_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#name DevTestVirtualNetwork#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#name DevTestVirtualNetwork#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#resource_group_name DevTestVirtualNetwork#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#resource_group_name DevTestVirtualNetwork#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#description DevTestVirtualNetwork#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#description DevTestVirtualNetwork#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#id DevTestVirtualNetwork#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#id DevTestVirtualNetwork#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -556,14 +556,14 @@ class DevTestVirtualNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def subnet(self) -> typing.Optional["DevTestVirtualNetworkSubnet"]:
         '''subnet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#subnet DevTestVirtualNetwork#subnet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#subnet DevTestVirtualNetwork#subnet}
         '''
         result = self._values.get("subnet")
         return typing.cast(typing.Optional["DevTestVirtualNetworkSubnet"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#tags DevTestVirtualNetwork#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#tags DevTestVirtualNetwork#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -571,7 +571,7 @@ class DevTestVirtualNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DevTestVirtualNetworkTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#timeouts DevTestVirtualNetwork#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#timeouts DevTestVirtualNetwork#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DevTestVirtualNetworkTimeouts"], result)
@@ -606,9 +606,9 @@ class DevTestVirtualNetworkSubnet:
         use_public_ip_address: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param shared_public_ip_address: shared_public_ip_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#shared_public_ip_address DevTestVirtualNetwork#shared_public_ip_address}
-        :param use_in_virtual_machine_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#use_in_virtual_machine_creation DevTestVirtualNetwork#use_in_virtual_machine_creation}.
-        :param use_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#use_public_ip_address DevTestVirtualNetwork#use_public_ip_address}.
+        :param shared_public_ip_address: shared_public_ip_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#shared_public_ip_address DevTestVirtualNetwork#shared_public_ip_address}
+        :param use_in_virtual_machine_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#use_in_virtual_machine_creation DevTestVirtualNetwork#use_in_virtual_machine_creation}.
+        :param use_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#use_public_ip_address DevTestVirtualNetwork#use_public_ip_address}.
         '''
         if isinstance(shared_public_ip_address, dict):
             shared_public_ip_address = DevTestVirtualNetworkSubnetSharedPublicIpAddress(**shared_public_ip_address)
@@ -631,20 +631,20 @@ class DevTestVirtualNetworkSubnet:
     ) -> typing.Optional["DevTestVirtualNetworkSubnetSharedPublicIpAddress"]:
         '''shared_public_ip_address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#shared_public_ip_address DevTestVirtualNetwork#shared_public_ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#shared_public_ip_address DevTestVirtualNetwork#shared_public_ip_address}
         '''
         result = self._values.get("shared_public_ip_address")
         return typing.cast(typing.Optional["DevTestVirtualNetworkSubnetSharedPublicIpAddress"], result)
 
     @builtins.property
     def use_in_virtual_machine_creation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#use_in_virtual_machine_creation DevTestVirtualNetwork#use_in_virtual_machine_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#use_in_virtual_machine_creation DevTestVirtualNetwork#use_in_virtual_machine_creation}.'''
         result = self._values.get("use_in_virtual_machine_creation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def use_public_ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#use_public_ip_address DevTestVirtualNetwork#use_public_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#use_public_ip_address DevTestVirtualNetwork#use_public_ip_address}.'''
         result = self._values.get("use_public_ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -687,7 +687,7 @@ class DevTestVirtualNetworkSubnetOutputReference(
         allowed_ports: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DevTestVirtualNetworkSubnetSharedPublicIpAddressAllowedPorts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed_ports: allowed_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#allowed_ports DevTestVirtualNetwork#allowed_ports}
+        :param allowed_ports: allowed_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#allowed_ports DevTestVirtualNetwork#allowed_ports}
         '''
         value = DevTestVirtualNetworkSubnetSharedPublicIpAddress(
             allowed_ports=allowed_ports
@@ -788,7 +788,7 @@ class DevTestVirtualNetworkSubnetSharedPublicIpAddress:
         allowed_ports: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DevTestVirtualNetworkSubnetSharedPublicIpAddressAllowedPorts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed_ports: allowed_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#allowed_ports DevTestVirtualNetwork#allowed_ports}
+        :param allowed_ports: allowed_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#allowed_ports DevTestVirtualNetwork#allowed_ports}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__597f6e50a598c3faf452556b71d47f01f3269c13b80a8ea81e0658b6b01ed57e)
@@ -803,7 +803,7 @@ class DevTestVirtualNetworkSubnetSharedPublicIpAddress:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevTestVirtualNetworkSubnetSharedPublicIpAddressAllowedPorts"]]]:
         '''allowed_ports block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#allowed_ports DevTestVirtualNetwork#allowed_ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#allowed_ports DevTestVirtualNetwork#allowed_ports}
         '''
         result = self._values.get("allowed_ports")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevTestVirtualNetworkSubnetSharedPublicIpAddressAllowedPorts"]]], result)
@@ -836,8 +836,8 @@ class DevTestVirtualNetworkSubnetSharedPublicIpAddressAllowedPorts:
         transport_protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#backend_port DevTestVirtualNetwork#backend_port}.
-        :param transport_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#transport_protocol DevTestVirtualNetwork#transport_protocol}.
+        :param backend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#backend_port DevTestVirtualNetwork#backend_port}.
+        :param transport_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#transport_protocol DevTestVirtualNetwork#transport_protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29b9f5ee4da885371bed0a71f8cf220328980db02e5ca9e8273f9892e51d2ae0)
@@ -851,13 +851,13 @@ class DevTestVirtualNetworkSubnetSharedPublicIpAddressAllowedPorts:
 
     @builtins.property
     def backend_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#backend_port DevTestVirtualNetwork#backend_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#backend_port DevTestVirtualNetwork#backend_port}.'''
         result = self._values.get("backend_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def transport_protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#transport_protocol DevTestVirtualNetwork#transport_protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#transport_protocol DevTestVirtualNetwork#transport_protocol}.'''
         result = self._values.get("transport_protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1141,10 +1141,10 @@ class DevTestVirtualNetworkTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#create DevTestVirtualNetwork#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#delete DevTestVirtualNetwork#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#read DevTestVirtualNetwork#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#update DevTestVirtualNetwork#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#create DevTestVirtualNetwork#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#delete DevTestVirtualNetwork#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#read DevTestVirtualNetwork#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#update DevTestVirtualNetwork#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4010691491c20f1a2534c61e6ea3f252a444fd3dd977c03ca379f3a435b9f9da)
@@ -1164,25 +1164,25 @@ class DevTestVirtualNetworkTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#create DevTestVirtualNetwork#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#create DevTestVirtualNetwork#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#delete DevTestVirtualNetwork#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#delete DevTestVirtualNetwork#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#read DevTestVirtualNetwork#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#read DevTestVirtualNetwork#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dev_test_virtual_network#update DevTestVirtualNetwork#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dev_test_virtual_network#update DevTestVirtualNetwork#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -5,6 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from orionis.console.contracts.event import IEvent
+from orionis.console.contracts.listener import IEventListener
 from orionis.console.enums.event import Event as EventEntity
 from orionis.console.exceptions import CLIOrionisValueError
 
@@ -247,6 +248,12 @@ class Event(IEvent):
         self.__random_delay = random.randint(1, max_seconds)
 
         # Return self to support method chaining
+        return self
+
+    def listener(
+        self,
+        listener: 'IEventListener'
+    ) -> 'Event':
         return self
 
     def onceAt(

@@ -27,6 +27,14 @@ from pulpcore.client.pulpcore.models.generic_remote_response_policy_enum import 
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class GenericRemoteResponse(BaseModel):
     """
     Every remote defined by a plugin should have a Remote serializer that inherits from this class. Please import from `pulpcore.plugin.serializers` rather than from this module directly.

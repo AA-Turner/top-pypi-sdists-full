@@ -22,11 +22,11 @@ from setuptools import setup, find_packages  # noqa: H301
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 NAME = "pulp_file-client"
-VERSION = "3.85.1"
-PYTHON_REQUIRES = ">= 3.8"
+VERSION = "3.86.0"
+PYTHON_REQUIRES = ">= 3.9"
 REQUIRES = [
-    "urllib3 >= 1.25.3, < 3.0.0",
-    "python-dateutil >= 2.8.1, < 2.10.0",
+    "urllib3 >= 2.1.0, < 3.0.0",
+    "python-dateutil >= 2.8.2, < 3.0.0",
     "pydantic >= 2",
     "typing-extensions >= 4.7.1",
 ]
@@ -40,10 +40,10 @@ setup(
     url="",
     keywords=["pulp", "pulpcore", "client", "Pulp 3 API"],
     install_requires=REQUIRES,
-    python_required=PYTHON_REQUIRES,
+    python_requires=PYTHON_REQUIRES,
     packages=find_packages(exclude=["test", "tests"]),
     include_package_data=True,
-    license="GPLv2+",
+    license="GPL-2.0-or-later",
     long_description_content_type='text/markdown',
     long_description="""\
     Fetch, Upload, Organize, and Distribute Software Packages

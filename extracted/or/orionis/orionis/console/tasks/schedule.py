@@ -80,10 +80,8 @@ class Scheduler(ISchedule):
         self.__jobs: List[dict] = []
 
         # Add a listener to the scheduler to capture job events such as missed jobs or errors.
-        self.__scheduler.add_listener(self.__listener, EVENT_ALL)
-
-        # Log the initialization of the Scheduler.
-        self.__logger.info("Orionis scheduler initialized.")
+        if self.__app.config('app.debug', False):
+            self.__scheduler.add_listener(self.__listener, EVENT_ALL)
 
     def __listener(self, event):
         """

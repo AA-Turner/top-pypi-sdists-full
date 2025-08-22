@@ -758,7 +758,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
 
     # Create a job
     job_spec = {
-        "user_command": " ".join(command),  # don't use shlex because we don't things like `$foo` or `&&` escaped
+        "user_command": coiled.utils.join_command_parts(command),
         "user_files": user_files,
         **job_array_kwargs,
         "scheduler_task_array": scheduler_task_ids,
@@ -806,7 +806,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
 
         if logger:
             message = f"""
-Command:     {" ".join(command)}
+Command:     {coiled.utils.join_command_parts(command)}
 Cluster ID:  {cluster.cluster_id}
 URL:         {cluster.details_url}
 Tasks:       {n_tasks}
@@ -823,7 +823,7 @@ Tasks:       {n_tasks}
             else:
                 status_command = f"coiled.batch.status({cluster.cluster_id})"
             message = f"""
-[bold]Command[/]:     [bright_blue]{" ".join(command)}[/]
+[bold]Command[/]:     [bright_blue]{coiled.utils.join_command_parts(command)}[/]
 [bold]Cluster ID[/]:  [bright_blue]{cluster.cluster_id}[/]
 [bold]URL[/]:         [link][bright_blue]{cluster.details_url}[/bright_blue][/link]
 [bold]Tasks[/]:       [bright_blue]{n_tasks}[/]

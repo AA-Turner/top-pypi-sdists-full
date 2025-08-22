@@ -10,8 +10,9 @@ from sqlglot.helper import ensure_collection, ensure_list
 from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 
 from sqlmesh.core import dialect as d
+from sqlmesh.core.config.common import VirtualEnvironmentMode
 from sqlmesh.core.config.linter import LinterConfig
-from sqlmesh.core.dialect import normalize_model_name, extract_func_call
+from sqlmesh.core.dialect import normalize_model_name
 from sqlmesh.core.model.common import (
     bool_validator,
     default_catalog_validator,
@@ -30,6 +31,7 @@ from sqlmesh.core.model.kind import (
     ViewKind,
     _IncrementalBy,
     model_kind_validator,
+    OnAdditiveChange,
 )
 from sqlmesh.core.node import _Node, str_or_exp_to_str
 from sqlmesh.core.reference import Reference
@@ -83,6 +85,7 @@ class ModelMeta(_Node):
         default=None, exclude=True, alias="ignored_rules"
     )
     formatting: t.Optional[bool] = Field(default=None, exclude=True)
+    virtual_environment_mode: VirtualEnvironmentMode = VirtualEnvironmentMode.default
 
     _bool_validator = bool_validator
     _model_kind_validator = model_kind_validator
@@ -94,37 +97,7 @@ class ModelMeta(_Node):
     def _func_call_validator(cls, v: t.Any, field: t.Any) -> t.Any:
         is_signal = getattr(field, "name" if hasattr(field, "name") else "field_name") == "signals"
 
-        if isinstance(v, (exp.Tuple, exp.Array)):
-            return [extract_func_call(i, allow_tuples=is_signal) for i in v.expressions]
-        if isinstance(v, exp.Paren):
-            return [extract_func_call(v.this, allow_tuples=is_signal)]
-        if isinstance(v, exp.Expression):
-            return [extract_func_call(v, allow_tuples=is_signal)]
-        if isinstance(v, list):
-            audits = []
-
-            for entry in v:
-                if isinstance(entry, dict):
-                    args = entry
-                    name = "" if is_signal else entry.pop("name")
-                elif isinstance(entry, (tuple, list)):
-                    name, args = entry
-                else:
-                    raise ConfigError(f"Audit must be a dictionary or named tuple. Got {entry}.")
-
-                audits.append(
-                    (
-                        name.lower(),
-                        {
-                            key: d.parse_one(value) if isinstance(value, str) else value
-                            for key, value in args.items()
-                        },
-                    )
-                )
-
-            return audits
-
-        return v or []
+        return d.extract_function_calls(v, allow_tuples=is_signal)
 
     @field_validator("tags", mode="before")
     def _value_or_tuple_validator(cls, v: t.Any, info: ValidationInfo) -> t.Any:
@@ -544,6 +517,11 @@ class ModelMeta(_Node):
     @property
     def on_destructive_change(self) -> OnDestructiveChange:
         return getattr(self.kind, "on_destructive_change", OnDestructiveChange.ALLOW)
+
+    @property
+    def on_additive_change(self) -> OnAdditiveChange:
+        """Return the model's additive change setting if it has one."""
+        return getattr(self.kind, "on_additive_change", OnAdditiveChange.ALLOW)
 
     @property
     def ignored_rules(self) -> t.Set[str]:

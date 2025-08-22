@@ -12,7 +12,7 @@ class HFDataset(AbstractDataset):
     using the `datasets <https://pypi.org/project/datasets>`_ library.
 
     Examples:
-        Using the [YAML API](https://docs.kedro.org/en/stable/data/data_catalog_yaml_examples.html):
+        Using the [YAML API](https://docs.kedro.org/en/stable/catalog-data/data_catalog_yaml_examples/):
 
         ```yaml
         yelp_reviews:
@@ -20,7 +20,7 @@ class HFDataset(AbstractDataset):
           dataset_name: yelp_review_full
         ```
 
-        Using the [Python API](https://docs.kedro.org/en/stable/data/advanced_data_catalog_usage.html):
+        Using the [Python API](https://docs.kedro.org/en/stable/catalog-data/advanced_data_catalog_usage/):
 
         >>> from datasets.utils.logging import ERROR, disable_progress_bar, set_verbosity
         >>> from kedro_datasets.huggingface import HFDataset
@@ -29,9 +29,7 @@ class HFDataset(AbstractDataset):
         >>> set_verbosity(ERROR)  # for doctest to pass
         >>>
         >>> dataset = HFDataset(dataset_name="openai_humaneval")
-        >>> ds = dataset.load()  # doctest: +ELLIPSIS
-        Downloading and preparing dataset ...
-        Dataset ...
+        >>> ds = dataset.load()
         >>> assert "test" in ds
         >>> assert len(ds["test"]) == 164
 

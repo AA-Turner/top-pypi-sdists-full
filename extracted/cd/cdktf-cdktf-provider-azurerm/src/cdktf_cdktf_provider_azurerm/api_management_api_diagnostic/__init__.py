@@ -1,7 +1,7 @@
 r'''
 # `azurerm_api_management_api_diagnostic`
 
-Refer to the Terraform Registry for docs: [`azurerm_api_management_api_diagnostic`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic).
+Refer to the Terraform Registry for docs: [`azurerm_api_management_api_diagnostic`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApiManagementApiDiagnostic(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.apiManagementApiDiagnostic.ApiManagementApiDiagnostic",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic azurerm_api_management_api_diagnostic}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic azurerm_api_management_api_diagnostic}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class ApiManagementApiDiagnostic(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic azurerm_api_management_api_diagnostic} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic azurerm_api_management_api_diagnostic} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_management_logger_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#api_management_logger_id ApiManagementApiDiagnostic#api_management_logger_id}.
-        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#api_management_name ApiManagementApiDiagnostic#api_management_name}.
-        :param api_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#api_name ApiManagementApiDiagnostic#api_name}.
-        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#identifier ApiManagementApiDiagnostic#identifier}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#resource_group_name ApiManagementApiDiagnostic#resource_group_name}.
-        :param always_log_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#always_log_errors ApiManagementApiDiagnostic#always_log_errors}.
-        :param backend_request: backend_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#backend_request ApiManagementApiDiagnostic#backend_request}
-        :param backend_response: backend_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#backend_response ApiManagementApiDiagnostic#backend_response}
-        :param frontend_request: frontend_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#frontend_request ApiManagementApiDiagnostic#frontend_request}
-        :param frontend_response: frontend_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#frontend_response ApiManagementApiDiagnostic#frontend_response}
-        :param http_correlation_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#http_correlation_protocol ApiManagementApiDiagnostic#http_correlation_protocol}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#id ApiManagementApiDiagnostic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_client_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#log_client_ip ApiManagementApiDiagnostic#log_client_ip}.
-        :param operation_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#operation_name_format ApiManagementApiDiagnostic#operation_name_format}.
-        :param sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#sampling_percentage ApiManagementApiDiagnostic#sampling_percentage}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#timeouts ApiManagementApiDiagnostic#timeouts}
-        :param verbosity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#verbosity ApiManagementApiDiagnostic#verbosity}.
+        :param api_management_logger_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#api_management_logger_id ApiManagementApiDiagnostic#api_management_logger_id}.
+        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#api_management_name ApiManagementApiDiagnostic#api_management_name}.
+        :param api_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#api_name ApiManagementApiDiagnostic#api_name}.
+        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#identifier ApiManagementApiDiagnostic#identifier}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#resource_group_name ApiManagementApiDiagnostic#resource_group_name}.
+        :param always_log_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#always_log_errors ApiManagementApiDiagnostic#always_log_errors}.
+        :param backend_request: backend_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#backend_request ApiManagementApiDiagnostic#backend_request}
+        :param backend_response: backend_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#backend_response ApiManagementApiDiagnostic#backend_response}
+        :param frontend_request: frontend_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#frontend_request ApiManagementApiDiagnostic#frontend_request}
+        :param frontend_response: frontend_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#frontend_response ApiManagementApiDiagnostic#frontend_response}
+        :param http_correlation_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#http_correlation_protocol ApiManagementApiDiagnostic#http_correlation_protocol}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#id ApiManagementApiDiagnostic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_client_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#log_client_ip ApiManagementApiDiagnostic#log_client_ip}.
+        :param operation_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#operation_name_format ApiManagementApiDiagnostic#operation_name_format}.
+        :param sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#sampling_percentage ApiManagementApiDiagnostic#sampling_percentage}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#timeouts ApiManagementApiDiagnostic#timeouts}
+        :param verbosity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#verbosity ApiManagementApiDiagnostic#verbosity}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class ApiManagementApiDiagnostic(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApiManagementApiDiagnostic to import.
-        :param import_from_id: The id of the existing ApiManagementApiDiagnostic that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApiManagementApiDiagnostic that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApiManagementApiDiagnostic to import is found.
         '''
         if __debug__:
@@ -171,9 +171,9 @@ class ApiManagementApiDiagnostic(
         headers_to_log: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
-        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
-        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
+        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
+        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
         '''
         value = ApiManagementApiDiagnosticBackendRequest(
             body_bytes=body_bytes,
@@ -192,9 +192,9 @@ class ApiManagementApiDiagnostic(
         headers_to_log: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
-        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
-        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
+        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
+        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
         '''
         value = ApiManagementApiDiagnosticBackendResponse(
             body_bytes=body_bytes,
@@ -213,9 +213,9 @@ class ApiManagementApiDiagnostic(
         headers_to_log: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
-        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
-        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
+        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
+        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
         '''
         value = ApiManagementApiDiagnosticFrontendRequest(
             body_bytes=body_bytes,
@@ -234,9 +234,9 @@ class ApiManagementApiDiagnostic(
         headers_to_log: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
-        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
-        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
+        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
+        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
         '''
         value = ApiManagementApiDiagnosticFrontendResponse(
             body_bytes=body_bytes,
@@ -256,10 +256,10 @@ class ApiManagementApiDiagnostic(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#create ApiManagementApiDiagnostic#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#delete ApiManagementApiDiagnostic#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#read ApiManagementApiDiagnostic#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#update ApiManagementApiDiagnostic#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#create ApiManagementApiDiagnostic#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#delete ApiManagementApiDiagnostic#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#read ApiManagementApiDiagnostic#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#update ApiManagementApiDiagnostic#update}.
         '''
         value = ApiManagementApiDiagnosticTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -631,9 +631,9 @@ class ApiManagementApiDiagnosticBackendRequest:
         headers_to_log: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
-        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
-        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
+        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
+        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
         '''
         if isinstance(data_masking, dict):
             data_masking = ApiManagementApiDiagnosticBackendRequestDataMasking(**data_masking)
@@ -652,7 +652,7 @@ class ApiManagementApiDiagnosticBackendRequest:
 
     @builtins.property
     def body_bytes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.'''
         result = self._values.get("body_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -662,14 +662,14 @@ class ApiManagementApiDiagnosticBackendRequest:
     ) -> typing.Optional["ApiManagementApiDiagnosticBackendRequestDataMasking"]:
         '''data_masking block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
         '''
         result = self._values.get("data_masking")
         return typing.cast(typing.Optional["ApiManagementApiDiagnosticBackendRequestDataMasking"], result)
 
     @builtins.property
     def headers_to_log(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.'''
         result = self._values.get("headers_to_log")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -698,8 +698,8 @@ class ApiManagementApiDiagnosticBackendRequestDataMasking:
         query_params: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApiManagementApiDiagnosticBackendRequestDataMaskingQueryParams", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
-        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b071e89261f2ec92452d1bc052413e682e23e87d4c64bfc4cf54fa845c3c8462)
@@ -717,7 +717,7 @@ class ApiManagementApiDiagnosticBackendRequestDataMasking:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticBackendRequestDataMaskingHeaders"]]]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticBackendRequestDataMaskingHeaders"]]], result)
@@ -728,7 +728,7 @@ class ApiManagementApiDiagnosticBackendRequestDataMasking:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticBackendRequestDataMaskingQueryParams"]]]:
         '''query_params block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         result = self._values.get("query_params")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticBackendRequestDataMaskingQueryParams"]]], result)
@@ -753,8 +753,8 @@ class ApiManagementApiDiagnosticBackendRequestDataMasking:
 class ApiManagementApiDiagnosticBackendRequestDataMaskingHeaders:
     def __init__(self, *, mode: builtins.str, value: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__640d78506755a8ba9b2029071353cb6ece01ad5287d75aed87275c381aadaf77)
@@ -767,14 +767,14 @@ class ApiManagementApiDiagnosticBackendRequestDataMaskingHeaders:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1068,8 +1068,8 @@ class ApiManagementApiDiagnosticBackendRequestDataMaskingOutputReference(
 class ApiManagementApiDiagnosticBackendRequestDataMaskingQueryParams:
     def __init__(self, *, mode: builtins.str, value: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__048b93cae3e7a7ebfe620703a9319675e9b922bd1206fd933a674f387713f60d)
@@ -1082,14 +1082,14 @@ class ApiManagementApiDiagnosticBackendRequestDataMaskingQueryParams:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1305,8 +1305,8 @@ class ApiManagementApiDiagnosticBackendRequestOutputReference(
         query_params: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ApiManagementApiDiagnosticBackendRequestDataMaskingQueryParams, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
-        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         value = ApiManagementApiDiagnosticBackendRequestDataMasking(
             headers=headers, query_params=query_params
@@ -1410,9 +1410,9 @@ class ApiManagementApiDiagnosticBackendResponse:
         headers_to_log: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
-        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
-        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
+        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
+        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
         '''
         if isinstance(data_masking, dict):
             data_masking = ApiManagementApiDiagnosticBackendResponseDataMasking(**data_masking)
@@ -1431,7 +1431,7 @@ class ApiManagementApiDiagnosticBackendResponse:
 
     @builtins.property
     def body_bytes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.'''
         result = self._values.get("body_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1441,14 +1441,14 @@ class ApiManagementApiDiagnosticBackendResponse:
     ) -> typing.Optional["ApiManagementApiDiagnosticBackendResponseDataMasking"]:
         '''data_masking block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
         '''
         result = self._values.get("data_masking")
         return typing.cast(typing.Optional["ApiManagementApiDiagnosticBackendResponseDataMasking"], result)
 
     @builtins.property
     def headers_to_log(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.'''
         result = self._values.get("headers_to_log")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1477,8 +1477,8 @@ class ApiManagementApiDiagnosticBackendResponseDataMasking:
         query_params: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApiManagementApiDiagnosticBackendResponseDataMaskingQueryParams", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
-        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03314da5eabba0e7383d55977b2f6ef09a203cc0c44db11937207a55fb50f5ee)
@@ -1496,7 +1496,7 @@ class ApiManagementApiDiagnosticBackendResponseDataMasking:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticBackendResponseDataMaskingHeaders"]]]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticBackendResponseDataMaskingHeaders"]]], result)
@@ -1507,7 +1507,7 @@ class ApiManagementApiDiagnosticBackendResponseDataMasking:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticBackendResponseDataMaskingQueryParams"]]]:
         '''query_params block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         result = self._values.get("query_params")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticBackendResponseDataMaskingQueryParams"]]], result)
@@ -1532,8 +1532,8 @@ class ApiManagementApiDiagnosticBackendResponseDataMasking:
 class ApiManagementApiDiagnosticBackendResponseDataMaskingHeaders:
     def __init__(self, *, mode: builtins.str, value: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89f38e7b17a3ba9fffe17f348b3e59dd61d23ead5cb620174a8f81c40ab01b27)
@@ -1546,14 +1546,14 @@ class ApiManagementApiDiagnosticBackendResponseDataMaskingHeaders:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1849,8 +1849,8 @@ class ApiManagementApiDiagnosticBackendResponseDataMaskingOutputReference(
 class ApiManagementApiDiagnosticBackendResponseDataMaskingQueryParams:
     def __init__(self, *, mode: builtins.str, value: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff07c2617748af8ada4032ac2bfaedba2e5c21eeedb19153198d178ea19b9c99)
@@ -1863,14 +1863,14 @@ class ApiManagementApiDiagnosticBackendResponseDataMaskingQueryParams:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2086,8 +2086,8 @@ class ApiManagementApiDiagnosticBackendResponseOutputReference(
         query_params: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ApiManagementApiDiagnosticBackendResponseDataMaskingQueryParams, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
-        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         value = ApiManagementApiDiagnosticBackendResponseDataMasking(
             headers=headers, query_params=query_params
@@ -2240,23 +2240,23 @@ class ApiManagementApiDiagnosticConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_management_logger_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#api_management_logger_id ApiManagementApiDiagnostic#api_management_logger_id}.
-        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#api_management_name ApiManagementApiDiagnostic#api_management_name}.
-        :param api_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#api_name ApiManagementApiDiagnostic#api_name}.
-        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#identifier ApiManagementApiDiagnostic#identifier}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#resource_group_name ApiManagementApiDiagnostic#resource_group_name}.
-        :param always_log_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#always_log_errors ApiManagementApiDiagnostic#always_log_errors}.
-        :param backend_request: backend_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#backend_request ApiManagementApiDiagnostic#backend_request}
-        :param backend_response: backend_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#backend_response ApiManagementApiDiagnostic#backend_response}
-        :param frontend_request: frontend_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#frontend_request ApiManagementApiDiagnostic#frontend_request}
-        :param frontend_response: frontend_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#frontend_response ApiManagementApiDiagnostic#frontend_response}
-        :param http_correlation_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#http_correlation_protocol ApiManagementApiDiagnostic#http_correlation_protocol}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#id ApiManagementApiDiagnostic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_client_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#log_client_ip ApiManagementApiDiagnostic#log_client_ip}.
-        :param operation_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#operation_name_format ApiManagementApiDiagnostic#operation_name_format}.
-        :param sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#sampling_percentage ApiManagementApiDiagnostic#sampling_percentage}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#timeouts ApiManagementApiDiagnostic#timeouts}
-        :param verbosity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#verbosity ApiManagementApiDiagnostic#verbosity}.
+        :param api_management_logger_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#api_management_logger_id ApiManagementApiDiagnostic#api_management_logger_id}.
+        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#api_management_name ApiManagementApiDiagnostic#api_management_name}.
+        :param api_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#api_name ApiManagementApiDiagnostic#api_name}.
+        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#identifier ApiManagementApiDiagnostic#identifier}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#resource_group_name ApiManagementApiDiagnostic#resource_group_name}.
+        :param always_log_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#always_log_errors ApiManagementApiDiagnostic#always_log_errors}.
+        :param backend_request: backend_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#backend_request ApiManagementApiDiagnostic#backend_request}
+        :param backend_response: backend_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#backend_response ApiManagementApiDiagnostic#backend_response}
+        :param frontend_request: frontend_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#frontend_request ApiManagementApiDiagnostic#frontend_request}
+        :param frontend_response: frontend_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#frontend_response ApiManagementApiDiagnostic#frontend_response}
+        :param http_correlation_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#http_correlation_protocol ApiManagementApiDiagnostic#http_correlation_protocol}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#id ApiManagementApiDiagnostic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_client_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#log_client_ip ApiManagementApiDiagnostic#log_client_ip}.
+        :param operation_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#operation_name_format ApiManagementApiDiagnostic#operation_name_format}.
+        :param sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#sampling_percentage ApiManagementApiDiagnostic#sampling_percentage}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#timeouts ApiManagementApiDiagnostic#timeouts}
+        :param verbosity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#verbosity ApiManagementApiDiagnostic#verbosity}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2408,35 +2408,35 @@ class ApiManagementApiDiagnosticConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def api_management_logger_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#api_management_logger_id ApiManagementApiDiagnostic#api_management_logger_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#api_management_logger_id ApiManagementApiDiagnostic#api_management_logger_id}.'''
         result = self._values.get("api_management_logger_id")
         assert result is not None, "Required property 'api_management_logger_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def api_management_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#api_management_name ApiManagementApiDiagnostic#api_management_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#api_management_name ApiManagementApiDiagnostic#api_management_name}.'''
         result = self._values.get("api_management_name")
         assert result is not None, "Required property 'api_management_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def api_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#api_name ApiManagementApiDiagnostic#api_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#api_name ApiManagementApiDiagnostic#api_name}.'''
         result = self._values.get("api_name")
         assert result is not None, "Required property 'api_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#identifier ApiManagementApiDiagnostic#identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#identifier ApiManagementApiDiagnostic#identifier}.'''
         result = self._values.get("identifier")
         assert result is not None, "Required property 'identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#resource_group_name ApiManagementApiDiagnostic#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#resource_group_name ApiManagementApiDiagnostic#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2445,7 +2445,7 @@ class ApiManagementApiDiagnosticConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def always_log_errors(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#always_log_errors ApiManagementApiDiagnostic#always_log_errors}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#always_log_errors ApiManagementApiDiagnostic#always_log_errors}.'''
         result = self._values.get("always_log_errors")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2455,7 +2455,7 @@ class ApiManagementApiDiagnosticConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ApiManagementApiDiagnosticBackendRequest]:
         '''backend_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#backend_request ApiManagementApiDiagnostic#backend_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#backend_request ApiManagementApiDiagnostic#backend_request}
         '''
         result = self._values.get("backend_request")
         return typing.cast(typing.Optional[ApiManagementApiDiagnosticBackendRequest], result)
@@ -2466,7 +2466,7 @@ class ApiManagementApiDiagnosticConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ApiManagementApiDiagnosticBackendResponse]:
         '''backend_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#backend_response ApiManagementApiDiagnostic#backend_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#backend_response ApiManagementApiDiagnostic#backend_response}
         '''
         result = self._values.get("backend_response")
         return typing.cast(typing.Optional[ApiManagementApiDiagnosticBackendResponse], result)
@@ -2477,7 +2477,7 @@ class ApiManagementApiDiagnosticConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApiManagementApiDiagnosticFrontendRequest"]:
         '''frontend_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#frontend_request ApiManagementApiDiagnostic#frontend_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#frontend_request ApiManagementApiDiagnostic#frontend_request}
         '''
         result = self._values.get("frontend_request")
         return typing.cast(typing.Optional["ApiManagementApiDiagnosticFrontendRequest"], result)
@@ -2488,20 +2488,20 @@ class ApiManagementApiDiagnosticConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApiManagementApiDiagnosticFrontendResponse"]:
         '''frontend_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#frontend_response ApiManagementApiDiagnostic#frontend_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#frontend_response ApiManagementApiDiagnostic#frontend_response}
         '''
         result = self._values.get("frontend_response")
         return typing.cast(typing.Optional["ApiManagementApiDiagnosticFrontendResponse"], result)
 
     @builtins.property
     def http_correlation_protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#http_correlation_protocol ApiManagementApiDiagnostic#http_correlation_protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#http_correlation_protocol ApiManagementApiDiagnostic#http_correlation_protocol}.'''
         result = self._values.get("http_correlation_protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#id ApiManagementApiDiagnostic#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#id ApiManagementApiDiagnostic#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2513,19 +2513,19 @@ class ApiManagementApiDiagnosticConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_client_ip(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#log_client_ip ApiManagementApiDiagnostic#log_client_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#log_client_ip ApiManagementApiDiagnostic#log_client_ip}.'''
         result = self._values.get("log_client_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def operation_name_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#operation_name_format ApiManagementApiDiagnostic#operation_name_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#operation_name_format ApiManagementApiDiagnostic#operation_name_format}.'''
         result = self._values.get("operation_name_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sampling_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#sampling_percentage ApiManagementApiDiagnostic#sampling_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#sampling_percentage ApiManagementApiDiagnostic#sampling_percentage}.'''
         result = self._values.get("sampling_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2533,14 +2533,14 @@ class ApiManagementApiDiagnosticConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApiManagementApiDiagnosticTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#timeouts ApiManagementApiDiagnostic#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#timeouts ApiManagementApiDiagnostic#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApiManagementApiDiagnosticTimeouts"], result)
 
     @builtins.property
     def verbosity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#verbosity ApiManagementApiDiagnostic#verbosity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#verbosity ApiManagementApiDiagnostic#verbosity}.'''
         result = self._values.get("verbosity")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2574,9 +2574,9 @@ class ApiManagementApiDiagnosticFrontendRequest:
         headers_to_log: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
-        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
-        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
+        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
+        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
         '''
         if isinstance(data_masking, dict):
             data_masking = ApiManagementApiDiagnosticFrontendRequestDataMasking(**data_masking)
@@ -2595,7 +2595,7 @@ class ApiManagementApiDiagnosticFrontendRequest:
 
     @builtins.property
     def body_bytes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.'''
         result = self._values.get("body_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2605,14 +2605,14 @@ class ApiManagementApiDiagnosticFrontendRequest:
     ) -> typing.Optional["ApiManagementApiDiagnosticFrontendRequestDataMasking"]:
         '''data_masking block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
         '''
         result = self._values.get("data_masking")
         return typing.cast(typing.Optional["ApiManagementApiDiagnosticFrontendRequestDataMasking"], result)
 
     @builtins.property
     def headers_to_log(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.'''
         result = self._values.get("headers_to_log")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2641,8 +2641,8 @@ class ApiManagementApiDiagnosticFrontendRequestDataMasking:
         query_params: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApiManagementApiDiagnosticFrontendRequestDataMaskingQueryParams", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
-        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__084bd8c5a629638424a361777f3373b72fb0c68d1e4261d3aad189f639a04f76)
@@ -2660,7 +2660,7 @@ class ApiManagementApiDiagnosticFrontendRequestDataMasking:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticFrontendRequestDataMaskingHeaders"]]]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticFrontendRequestDataMaskingHeaders"]]], result)
@@ -2671,7 +2671,7 @@ class ApiManagementApiDiagnosticFrontendRequestDataMasking:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticFrontendRequestDataMaskingQueryParams"]]]:
         '''query_params block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         result = self._values.get("query_params")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticFrontendRequestDataMaskingQueryParams"]]], result)
@@ -2696,8 +2696,8 @@ class ApiManagementApiDiagnosticFrontendRequestDataMasking:
 class ApiManagementApiDiagnosticFrontendRequestDataMaskingHeaders:
     def __init__(self, *, mode: builtins.str, value: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e34f6cc788d534c4b11e6057e1364223144b2a8cede095c941b21aab984a1e98)
@@ -2710,14 +2710,14 @@ class ApiManagementApiDiagnosticFrontendRequestDataMaskingHeaders:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3013,8 +3013,8 @@ class ApiManagementApiDiagnosticFrontendRequestDataMaskingOutputReference(
 class ApiManagementApiDiagnosticFrontendRequestDataMaskingQueryParams:
     def __init__(self, *, mode: builtins.str, value: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4db78afe4d798eb8855b1e2db14b9502d2a34440bd335930598fa8e58a3113c5)
@@ -3027,14 +3027,14 @@ class ApiManagementApiDiagnosticFrontendRequestDataMaskingQueryParams:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3250,8 +3250,8 @@ class ApiManagementApiDiagnosticFrontendRequestOutputReference(
         query_params: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ApiManagementApiDiagnosticFrontendRequestDataMaskingQueryParams, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
-        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         value = ApiManagementApiDiagnosticFrontendRequestDataMasking(
             headers=headers, query_params=query_params
@@ -3355,9 +3355,9 @@ class ApiManagementApiDiagnosticFrontendResponse:
         headers_to_log: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
-        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
-        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
+        :param body_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.
+        :param data_masking: data_masking block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        :param headers_to_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.
         '''
         if isinstance(data_masking, dict):
             data_masking = ApiManagementApiDiagnosticFrontendResponseDataMasking(**data_masking)
@@ -3376,7 +3376,7 @@ class ApiManagementApiDiagnosticFrontendResponse:
 
     @builtins.property
     def body_bytes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#body_bytes ApiManagementApiDiagnostic#body_bytes}.'''
         result = self._values.get("body_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3386,14 +3386,14 @@ class ApiManagementApiDiagnosticFrontendResponse:
     ) -> typing.Optional["ApiManagementApiDiagnosticFrontendResponseDataMasking"]:
         '''data_masking block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#data_masking ApiManagementApiDiagnostic#data_masking}
         '''
         result = self._values.get("data_masking")
         return typing.cast(typing.Optional["ApiManagementApiDiagnosticFrontendResponseDataMasking"], result)
 
     @builtins.property
     def headers_to_log(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers_to_log ApiManagementApiDiagnostic#headers_to_log}.'''
         result = self._values.get("headers_to_log")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3422,8 +3422,8 @@ class ApiManagementApiDiagnosticFrontendResponseDataMasking:
         query_params: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApiManagementApiDiagnosticFrontendResponseDataMaskingQueryParams", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
-        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1e5535bcfa600a9b27dac4e9c5442ff00a888b3b5d12c203c21f5973754279c)
@@ -3441,7 +3441,7 @@ class ApiManagementApiDiagnosticFrontendResponseDataMasking:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticFrontendResponseDataMaskingHeaders"]]]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticFrontendResponseDataMaskingHeaders"]]], result)
@@ -3452,7 +3452,7 @@ class ApiManagementApiDiagnosticFrontendResponseDataMasking:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticFrontendResponseDataMaskingQueryParams"]]]:
         '''query_params block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         result = self._values.get("query_params")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementApiDiagnosticFrontendResponseDataMaskingQueryParams"]]], result)
@@ -3477,8 +3477,8 @@ class ApiManagementApiDiagnosticFrontendResponseDataMasking:
 class ApiManagementApiDiagnosticFrontendResponseDataMaskingHeaders:
     def __init__(self, *, mode: builtins.str, value: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bde6ece82de1592c3b06cbf08e06daf34c8c4442d53a406b5f8ede52c0f27eee)
@@ -3491,14 +3491,14 @@ class ApiManagementApiDiagnosticFrontendResponseDataMaskingHeaders:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3794,8 +3794,8 @@ class ApiManagementApiDiagnosticFrontendResponseDataMaskingOutputReference(
 class ApiManagementApiDiagnosticFrontendResponseDataMaskingQueryParams:
     def __init__(self, *, mode: builtins.str, value: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__514e82eb6fc932405d8a7f66cd0e74399e6841e8a6f9a22c21997bf5c9fe3618)
@@ -3808,14 +3808,14 @@ class ApiManagementApiDiagnosticFrontendResponseDataMaskingQueryParams:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#mode ApiManagementApiDiagnostic#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#value ApiManagementApiDiagnostic#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4031,8 +4031,8 @@ class ApiManagementApiDiagnosticFrontendResponseOutputReference(
         query_params: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ApiManagementApiDiagnosticFrontendResponseDataMaskingQueryParams, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
-        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#headers ApiManagementApiDiagnostic#headers}
+        :param query_params: query_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#query_params ApiManagementApiDiagnostic#query_params}
         '''
         value = ApiManagementApiDiagnosticFrontendResponseDataMasking(
             headers=headers, query_params=query_params
@@ -4138,10 +4138,10 @@ class ApiManagementApiDiagnosticTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#create ApiManagementApiDiagnostic#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#delete ApiManagementApiDiagnostic#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#read ApiManagementApiDiagnostic#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#update ApiManagementApiDiagnostic#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#create ApiManagementApiDiagnostic#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#delete ApiManagementApiDiagnostic#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#read ApiManagementApiDiagnostic#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#update ApiManagementApiDiagnostic#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05fbc888cf4b26152cfb11bc3b52f09c579fbefd90b41220eca3822c58d75a2f)
@@ -4161,25 +4161,25 @@ class ApiManagementApiDiagnosticTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#create ApiManagementApiDiagnostic#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#create ApiManagementApiDiagnostic#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#delete ApiManagementApiDiagnostic#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#delete ApiManagementApiDiagnostic#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#read ApiManagementApiDiagnostic#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#read ApiManagementApiDiagnostic#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_diagnostic#update ApiManagementApiDiagnostic#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_diagnostic#update ApiManagementApiDiagnostic#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

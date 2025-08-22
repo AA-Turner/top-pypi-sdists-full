@@ -1,5 +1,7 @@
 # coding=utf-8
 from .._impl import (
+    timeseries_logicalseries_api_ApiLocator as ApiLocator,
+    timeseries_logicalseries_api_ApiType as ApiType,
     timeseries_logicalseries_api_AttributeName as AttributeName,
     timeseries_logicalseries_api_BatchCreateLogicalSeriesRequest as BatchCreateLogicalSeriesRequest,
     timeseries_logicalseries_api_BatchCreateLogicalSeriesResponse as BatchCreateLogicalSeriesResponse,
@@ -50,6 +52,8 @@ from .._impl import (
 )
 
 __all__ = [
+    'ApiLocator',
+    'ApiType',
     'AttributeName',
     'BatchCreateLogicalSeriesRequest',
     'BatchCreateLogicalSeriesResponse',

@@ -173,6 +173,8 @@ def prepare_adapter(args: TrainArguments, model, *, template=None, train_dataset
                 task_type = 'SEQ_CLS'
             elif task_type == 'GENERATIVE_RERANKER':
                 task_type = 'CAUSAL_LM'
+            if args.target_parameters is not None:
+                lora_kwargs['target_parameters'] = args.target_parameters
             lora_config = LoraConfig(task_type=task_type, lora_dtype=args.lora_dtype, **lora_kwargs)
             if args.init_weights == 'lora-ga':
                 try:
@@ -241,7 +243,7 @@ def prepare_adapter(args: TrainArguments, model, *, template=None, train_dataset
         logger.info(f'adalora_config: {adalora_config}')
     elif args.train_type == 'llamapro':
         llamapro_config = LLaMAProConfig(
-            model_type=model.model_meta.model_arch,
+            model_type=model.model_meta.model_arch.arch_name,
             num_new_blocks=args.llamapro_num_new_blocks,
             num_groups=args.llamapro_num_groups)
         model = Swift.prepare_model(model, llamapro_config)

@@ -357,7 +357,10 @@ class MegatronArguments(ExtraMegatronArguments):
     def __post_init__(self):
         require_version('numpy<2.0', 'Please install numpy<2.0 by running: `pip install "numpy<2.0"`.')
         if self.train_type == 'lora':
-            require_version('peft>=0.12')
+            if self.num_experts is not None:
+                require_version('peft>=0.15')
+            else:
+                require_version('peft>=0.12')
         MegatronTunerMixin.__post_init__(self)
         os.environ['CUDA_DEVICE_MAX_CONNECTIONS'] = '1'
         self._set_default()
@@ -381,9 +384,6 @@ class MegatronArguments(ExtraMegatronArguments):
         self.tensorboard_dir = to_abspath(self.tensorboard_dir)
         self.extra_megatron_kwargs = json_parse_to_dict(self.extra_megatron_kwargs)
         self._init_no_rope_fusion()
-        if self.load is None and self.no_initialization:
-            raise ValueError('You did not pass `--load`, so you need to set `--no_initialization false` '
-                             'to allow the model to initialize weights properly.')
 
     def _init_no_rope_fusion(self):
         if self.no_rope_fusion is not None:

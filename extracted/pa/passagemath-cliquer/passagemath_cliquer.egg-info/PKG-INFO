@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-cliquer
-Version: 10.6.6
+Version: 10.6.7
 Summary: passagemath: Finding cliques in graphs with cliquer
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors

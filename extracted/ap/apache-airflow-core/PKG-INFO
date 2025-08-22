@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-core
-Version: 3.0.5
+Version: 3.0.4
 Summary: Core packages for Apache Airflow, schedule and API server
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/
@@ -56,7 +56,7 @@ Requires-Dist: apache-airflow-providers-common-io>=1.5.3
 Requires-Dist: apache-airflow-providers-common-sql>=1.26.0
 Requires-Dist: apache-airflow-providers-smtp>=2.0.2
 Requires-Dist: apache-airflow-providers-standard>=0.4.0
-Requires-Dist: apache-airflow-task-sdk<1.1.0,>=1.0.5
+Requires-Dist: apache-airflow-task-sdk<1.1.0,>=1.0.3
 Requires-Dist: argcomplete>=1.10
 Requires-Dist: asgiref>=2.3.0
 Requires-Dist: attrs!=25.2.0,>=22.1.0

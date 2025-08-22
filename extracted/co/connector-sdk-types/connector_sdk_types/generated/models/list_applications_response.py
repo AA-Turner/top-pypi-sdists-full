@@ -19,7 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List, Optional
-from connector_sdk_types.generated.models.found_application import FoundApplication
+from connector_sdk_types.generated.models.application import Application
 from connector_sdk_types.generated.models.page import Page
 from typing import Optional, Set
 from typing_extensions import Self
@@ -28,7 +28,7 @@ class ListApplicationsResponse(BaseModel):
     """
     Response containing information about the applications
     """ # noqa: E501
-    response: List[FoundApplication]
+    response: List[Application]
     raw_data: Optional[Any] = None
     page: Optional[Page] = None
     __properties: ClassVar[List[str]] = ["response", "raw_data", "page"]
@@ -99,7 +99,7 @@ class ListApplicationsResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "response": [FoundApplication.from_dict(_item) for _item in obj["response"]] if obj.get("response") is not None else None,
+            "response": [Application.from_dict(_item) for _item in obj["response"]] if obj.get("response") is not None else None,
             "raw_data": obj.get("raw_data"),
             "page": Page.from_dict(obj["page"]) if obj.get("page") is not None else None
         })

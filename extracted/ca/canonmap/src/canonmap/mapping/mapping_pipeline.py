@@ -54,6 +54,26 @@ class MappingPipeline:
         field_name = entity_mapping_request.candidate_field_name
         top_n = entity_mapping_request.top_n
         max_prefilter = entity_mapping_request.max_prefilter
+        prefilter_sql = entity_mapping_request.prefilter_sql
+
+        # Execute prefilter SQL if provided
+        prefiltered_table = table_name
+        prefilter_subquery = None
+        if prefilter_sql:
+            try:
+                logger.info(f"Executing prefilter SQL: {prefilter_sql}")
+                prefilter_result = self.db_connection_manager.execute_query(
+                    prefilter_sql, [], allow_writes=False
+                )
+                if prefilter_result.get("data"):
+                    # Instead of creating a temporary table, we'll use the prefilter SQL as a subquery
+                    prefilter_subquery = f"({prefilter_sql})"
+                    logger.info(f"Using prefilter subquery with {len(prefilter_result['data'])} rows")
+                else:
+                    logger.warning("Prefilter SQL returned no data")
+            except Exception as e:
+                logger.error(f"Error executing prefilter SQL: {e}")
+                # Continue with original table if prefilter fails
 
         try:
             block_types = [
@@ -70,10 +90,11 @@ class MappingPipeline:
                         block_candidates,
                         self.db_connection_manager,
                         normalized_entity,
-                        table_name,
+                        prefiltered_table,
                         field_name,
                         block_type,
                         max_prefilter,
+                        prefilter_subquery,
                     ): block_type
                     for block_type in block_types
                 }
@@ -150,6 +171,26 @@ class MappingPipeline:
         field_name = entity_mapping_request.candidate_field_name
         top_n = entity_mapping_request.top_n
         default_limit = entity_mapping_request.max_prefilter
+        prefilter_sql = entity_mapping_request.prefilter_sql
+
+        # Execute prefilter SQL if provided
+        prefiltered_table = table_name
+        prefilter_subquery = None
+        if prefilter_sql:
+            try:
+                logger.info(f"Executing prefilter SQL: {prefilter_sql}")
+                prefilter_result = self.db_connection_manager.execute_query(
+                    prefilter_sql, [], allow_writes=False
+                )
+                if prefilter_result.get("data"):
+                    # Instead of creating a temporary table, we'll use the prefilter SQL as a subquery
+                    prefilter_subquery = f"({prefilter_sql})"
+                    logger.info(f"Using prefilter subquery with {len(prefilter_result['data'])} rows")
+                else:
+                    logger.warning("Prefilter SQL returned no data")
+            except Exception as e:
+                logger.error(f"Error executing prefilter SQL: {e}")
+                # Continue with original table if prefilter fails
 
         # Strategy configuration
         block_types = [
@@ -184,9 +225,9 @@ class MappingPipeline:
             """Prefer __<field>_<suffix>__ then <field>_<suffix>__ if present."""
             primary = f"__{fld}_{suffix}__"
             fallback = f"{fld}_{suffix}__"
-            if _column_exists_cached(table_name, primary):
+            if _column_exists_cached(prefiltered_table, primary):
                 return primary
-            if _column_exists_cached(table_name, fallback):
+            if _column_exists_cached(prefiltered_table, fallback):
                 return fallback
             return None
 
@@ -230,9 +271,14 @@ class MappingPipeline:
                     param = _param_phonetic(normalized_entity)
                     if not param or not helper_col:
                         continue
+                    
+                    from_clause = f"`{prefiltered_table}`"
+                    if prefilter_subquery:
+                        from_clause = f"{prefilter_subquery} AS `{prefiltered_table}`"
+                    
                     sql = f"""
                         SELECT DISTINCT `{field_name}` AS name
-                        FROM `{table_name}`
+                        FROM {from_clause}
                         WHERE `{helper_col}` LIKE %s
                         {_order_by_clause()}
                     """
@@ -246,9 +292,14 @@ class MappingPipeline:
                         if debug:
                             logger.info("Initialism strategy: skipping - no param (%s) or no helper_col (%s)", param, helper_col)
                         continue
+                    
+                    from_clause = f"`{prefiltered_table}`"
+                    if prefilter_subquery:
+                        from_clause = f"{prefilter_subquery} AS `{prefiltered_table}`"
+                    
                     sql = f"""
                         SELECT DISTINCT `{field_name}` AS name
-                        FROM `{table_name}`
+                        FROM {from_clause}
                         WHERE `{helper_col}` = %s
                         {_order_by_clause()}
                     """
@@ -259,6 +310,11 @@ class MappingPipeline:
                     # Prefer helper column; otherwise use DB SOUNDEX
                     helper_col = _choose_helper_column(field_name, "soundex")
                     params: list[Any]
+                    
+                    from_clause = f"`{prefiltered_table}`"
+                    if prefilter_subquery:
+                        from_clause = f"{prefilter_subquery} AS `{prefiltered_table}`"
+                    
                     if helper_col:
                         try:
                             code = _to_soundex(normalized_entity)
@@ -268,7 +324,7 @@ class MappingPipeline:
                             # Fallback to DB SOUNDEX if local soundex unavailable
                             sql = f"""
                                 SELECT DISTINCT `{field_name}` AS name
-                                FROM `{table_name}`
+                                FROM {from_clause}
                                 WHERE SOUNDEX(`{field_name}`) = SOUNDEX(%s)
                                 {_order_by_clause()}
                             """
@@ -276,7 +332,7 @@ class MappingPipeline:
                         else:
                             sql = f"""
                                 SELECT DISTINCT `{field_name}` AS name
-                                FROM `{table_name}`
+                                FROM {from_clause}
                                 WHERE `{helper_col}` = %s
                                 {_order_by_clause()}
                             """
@@ -284,7 +340,7 @@ class MappingPipeline:
                     else:
                         sql = f"""
                             SELECT DISTINCT `{field_name}` AS name
-                            FROM `{table_name}`
+                            FROM {from_clause}
                             WHERE SOUNDEX(`{field_name}`) = SOUNDEX(%s)
                             {_order_by_clause()}
                         """
@@ -294,9 +350,14 @@ class MappingPipeline:
                     param = _param_exact(normalized_entity)
                     if not param:
                         continue
+                    
+                    from_clause = f"`{prefiltered_table}`"
+                    if prefilter_subquery:
+                        from_clause = f"{prefilter_subquery} AS `{prefiltered_table}`"
+                    
                     sql = f"""
                         SELECT DISTINCT `{field_name}` AS name
-                        FROM `{table_name}`
+                        FROM {from_clause}
                         WHERE LOWER(TRIM(`{field_name}`)) LIKE %s
                         {_order_by_clause()}
                     """

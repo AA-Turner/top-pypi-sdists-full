@@ -454,6 +454,9 @@ class EMSys:
             await worker_sleep(3)
             i += 1
 
+        await self.verify_warning_and_error("Warning", "No")
+        await self.verify_warning_and_error("Warning", "&No")
+
         if chave_nfe is not None:
             await worker_sleep(20)
             console.print("\nVerifica se a nota ja foi lançada...")

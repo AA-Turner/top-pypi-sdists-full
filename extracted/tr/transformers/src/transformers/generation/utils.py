@@ -57,7 +57,6 @@ from ..utils import (
     is_torchdynamo_exporting,
     logging,
 )
-from ..modeling_flash_attention_utils import prepare_fa_kwargs_from_position_ids
 from .beam_constraints import DisjunctiveConstraint, PhrasalConstraint
 from .beam_search import BeamScorer, BeamSearchScorer, ConstrainedBeamSearchScorer
 from .candidate_generator import (
@@ -678,24 +677,12 @@ class GenerationMixin(ContinuousMixin):
         if encoder_attention_mask is not None:
             model_inputs["attention_mask"] = encoder_attention_mask
 
-        # 7. Prepare kwargs for flash attention to avoid recomputations
-        if "flash" in self.config._attn_implementation and self._supports_attention_backend:
-            (cu_seq_lens_q, cu_seq_lens_k), (max_length_q, max_length_k) = prepare_fa_kwargs_from_position_ids(
-                model_inputs["position_ids"], is_packed_sequence=False
-            )
-            model_inputs.update(
-                cu_seq_lens_q=cu_seq_lens_q.to(self.device),
-                cu_seq_lens_k=cu_seq_lens_k.to(self.device),
-                max_length_q=max_length_q,
-                max_length_k=max_length_k,
-            )
-
-        # 8. Forward ALL kwargs that are uninitialized (e.g. `use_cache`).
+        # 7. Forward ALL kwargs that are uninitialized (e.g. `use_cache`).
         for key, value in kwargs.items():
             if key not in model_inputs:
                 model_inputs[key] = value
 
-        # 9. Remove unexpected `generate` inputs (TODO @joao: fix trainer and examples)
+        # 8. Remove unexpected `generate` inputs (TODO @joao: fix trainer and examples)
         model_inputs.pop("labels", None)
         return model_inputs
 
@@ -1811,7 +1798,8 @@ class GenerationMixin(ContinuousMixin):
         if model_kwargs.get("past_key_values") is not None:
             cache = model_kwargs["past_key_values"]
             past_length = 0
-            if not isinstance(cache, Cache):
+            # Support for BC tuple cache format
+            if isinstance(cache, tuple):
                 past_length = cache[0][0].shape[2]
             elif hasattr(cache, "get_seq_length") and cache.get_seq_length() is not None:
                 past_length = cache.get_seq_length()

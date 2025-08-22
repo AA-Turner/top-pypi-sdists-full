@@ -28,7 +28,7 @@ class VehicleMonitoringConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    confidence_threshold: float = 0.3
+    confidence_threshold: float = 0.6
     zone_config: Optional[ZoneConfig] = None
     usecase_categories: List[str] = field(
         default_factory=lambda: [
@@ -46,7 +46,7 @@ class VehicleMonitoringConfig(BaseConfig):
     )
     target_categories: List[str] = field(
         default_factory=lambda: [
-            'car', 'bicycle', 'bus', 'truck', 'motorcycle']
+            'car', 'bicycle', 'bus','motorcycle']
     )
     alert_config: Optional[AlertConfig] = None
     index_to_category: Optional[Dict[int, str]] = field(

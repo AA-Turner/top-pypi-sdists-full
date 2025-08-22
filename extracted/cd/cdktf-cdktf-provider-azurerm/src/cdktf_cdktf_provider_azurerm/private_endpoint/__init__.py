@@ -1,7 +1,7 @@
 r'''
 # `azurerm_private_endpoint`
 
-Refer to the Terraform Registry for docs: [`azurerm_private_endpoint`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint).
+Refer to the Terraform Registry for docs: [`azurerm_private_endpoint`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PrivateEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.privateEndpoint.PrivateEndpoint",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint azurerm_private_endpoint}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint azurerm_private_endpoint}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class PrivateEndpoint(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint azurerm_private_endpoint} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint azurerm_private_endpoint} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#location PrivateEndpoint#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
-        :param private_service_connection: private_service_connection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_service_connection PrivateEndpoint#private_service_connection}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#resource_group_name PrivateEndpoint#resource_group_name}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#subnet_id PrivateEndpoint#subnet_id}.
-        :param custom_network_interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#custom_network_interface_name PrivateEndpoint#custom_network_interface_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#id PrivateEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#ip_configuration PrivateEndpoint#ip_configuration}
-        :param private_dns_zone_group: private_dns_zone_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_dns_zone_group PrivateEndpoint#private_dns_zone_group}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#tags PrivateEndpoint#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#timeouts PrivateEndpoint#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#location PrivateEndpoint#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
+        :param private_service_connection: private_service_connection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_service_connection PrivateEndpoint#private_service_connection}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#resource_group_name PrivateEndpoint#resource_group_name}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#subnet_id PrivateEndpoint#subnet_id}.
+        :param custom_network_interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#custom_network_interface_name PrivateEndpoint#custom_network_interface_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#id PrivateEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#ip_configuration PrivateEndpoint#ip_configuration}
+        :param private_dns_zone_group: private_dns_zone_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_dns_zone_group PrivateEndpoint#private_dns_zone_group}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#tags PrivateEndpoint#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#timeouts PrivateEndpoint#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class PrivateEndpoint(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PrivateEndpoint to import.
-        :param import_from_id: The id of the existing PrivateEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PrivateEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PrivateEndpoint to import is found.
         '''
         if __debug__:
@@ -165,8 +165,8 @@ class PrivateEndpoint(
         private_dns_zone_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
-        :param private_dns_zone_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_dns_zone_ids PrivateEndpoint#private_dns_zone_ids}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
+        :param private_dns_zone_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_dns_zone_ids PrivateEndpoint#private_dns_zone_ids}.
         '''
         value = PrivateEndpointPrivateDnsZoneGroup(
             name=name, private_dns_zone_ids=private_dns_zone_ids
@@ -186,12 +186,12 @@ class PrivateEndpoint(
         subresource_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param is_manual_connection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#is_manual_connection PrivateEndpoint#is_manual_connection}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
-        :param private_connection_resource_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_connection_resource_alias PrivateEndpoint#private_connection_resource_alias}.
-        :param private_connection_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_connection_resource_id PrivateEndpoint#private_connection_resource_id}.
-        :param request_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#request_message PrivateEndpoint#request_message}.
-        :param subresource_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#subresource_names PrivateEndpoint#subresource_names}.
+        :param is_manual_connection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#is_manual_connection PrivateEndpoint#is_manual_connection}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
+        :param private_connection_resource_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_connection_resource_alias PrivateEndpoint#private_connection_resource_alias}.
+        :param private_connection_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_connection_resource_id PrivateEndpoint#private_connection_resource_id}.
+        :param request_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#request_message PrivateEndpoint#request_message}.
+        :param subresource_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#subresource_names PrivateEndpoint#subresource_names}.
         '''
         value = PrivateEndpointPrivateServiceConnection(
             is_manual_connection=is_manual_connection,
@@ -214,10 +214,10 @@ class PrivateEndpoint(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#create PrivateEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#delete PrivateEndpoint#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#read PrivateEndpoint#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#update PrivateEndpoint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#create PrivateEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#delete PrivateEndpoint#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#read PrivateEndpoint#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#update PrivateEndpoint#update}.
         '''
         value = PrivateEndpointTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -504,17 +504,17 @@ class PrivateEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#location PrivateEndpoint#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
-        :param private_service_connection: private_service_connection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_service_connection PrivateEndpoint#private_service_connection}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#resource_group_name PrivateEndpoint#resource_group_name}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#subnet_id PrivateEndpoint#subnet_id}.
-        :param custom_network_interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#custom_network_interface_name PrivateEndpoint#custom_network_interface_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#id PrivateEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#ip_configuration PrivateEndpoint#ip_configuration}
-        :param private_dns_zone_group: private_dns_zone_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_dns_zone_group PrivateEndpoint#private_dns_zone_group}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#tags PrivateEndpoint#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#timeouts PrivateEndpoint#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#location PrivateEndpoint#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
+        :param private_service_connection: private_service_connection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_service_connection PrivateEndpoint#private_service_connection}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#resource_group_name PrivateEndpoint#resource_group_name}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#subnet_id PrivateEndpoint#subnet_id}.
+        :param custom_network_interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#custom_network_interface_name PrivateEndpoint#custom_network_interface_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#id PrivateEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_configuration: ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#ip_configuration PrivateEndpoint#ip_configuration}
+        :param private_dns_zone_group: private_dns_zone_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_dns_zone_group PrivateEndpoint#private_dns_zone_group}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#tags PrivateEndpoint#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#timeouts PrivateEndpoint#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -644,14 +644,14 @@ class PrivateEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#location PrivateEndpoint#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#location PrivateEndpoint#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -660,7 +660,7 @@ class PrivateEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def private_service_connection(self) -> "PrivateEndpointPrivateServiceConnection":
         '''private_service_connection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_service_connection PrivateEndpoint#private_service_connection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_service_connection PrivateEndpoint#private_service_connection}
         '''
         result = self._values.get("private_service_connection")
         assert result is not None, "Required property 'private_service_connection' is missing"
@@ -668,27 +668,27 @@ class PrivateEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#resource_group_name PrivateEndpoint#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#resource_group_name PrivateEndpoint#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#subnet_id PrivateEndpoint#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#subnet_id PrivateEndpoint#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def custom_network_interface_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#custom_network_interface_name PrivateEndpoint#custom_network_interface_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#custom_network_interface_name PrivateEndpoint#custom_network_interface_name}.'''
         result = self._values.get("custom_network_interface_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#id PrivateEndpoint#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#id PrivateEndpoint#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -702,7 +702,7 @@ class PrivateEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivateEndpointIpConfiguration"]]]:
         '''ip_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#ip_configuration PrivateEndpoint#ip_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#ip_configuration PrivateEndpoint#ip_configuration}
         '''
         result = self._values.get("ip_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivateEndpointIpConfiguration"]]], result)
@@ -713,14 +713,14 @@ class PrivateEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["PrivateEndpointPrivateDnsZoneGroup"]:
         '''private_dns_zone_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_dns_zone_group PrivateEndpoint#private_dns_zone_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_dns_zone_group PrivateEndpoint#private_dns_zone_group}
         '''
         result = self._values.get("private_dns_zone_group")
         return typing.cast(typing.Optional["PrivateEndpointPrivateDnsZoneGroup"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#tags PrivateEndpoint#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#tags PrivateEndpoint#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -728,7 +728,7 @@ class PrivateEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PrivateEndpointTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#timeouts PrivateEndpoint#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#timeouts PrivateEndpoint#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PrivateEndpointTimeouts"], result)
@@ -914,10 +914,10 @@ class PrivateEndpointIpConfiguration:
         subresource_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
-        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_ip_address PrivateEndpoint#private_ip_address}.
-        :param member_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#member_name PrivateEndpoint#member_name}.
-        :param subresource_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#subresource_name PrivateEndpoint#subresource_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
+        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_ip_address PrivateEndpoint#private_ip_address}.
+        :param member_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#member_name PrivateEndpoint#member_name}.
+        :param subresource_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#subresource_name PrivateEndpoint#subresource_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9cd5b6270eee3771fd7d72a20b3e9bd754e1f2680b42c1e28c440fd89e231b7)
@@ -936,27 +936,27 @@ class PrivateEndpointIpConfiguration:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_ip_address(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_ip_address PrivateEndpoint#private_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_ip_address PrivateEndpoint#private_ip_address}.'''
         result = self._values.get("private_ip_address")
         assert result is not None, "Required property 'private_ip_address' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def member_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#member_name PrivateEndpoint#member_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#member_name PrivateEndpoint#member_name}.'''
         result = self._values.get("member_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subresource_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#subresource_name PrivateEndpoint#subresource_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#subresource_name PrivateEndpoint#subresource_name}.'''
         result = self._values.get("subresource_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1672,8 +1672,8 @@ class PrivateEndpointPrivateDnsZoneGroup:
         private_dns_zone_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
-        :param private_dns_zone_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_dns_zone_ids PrivateEndpoint#private_dns_zone_ids}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
+        :param private_dns_zone_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_dns_zone_ids PrivateEndpoint#private_dns_zone_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23418623ba6a1e1529a5949d4f9555ab3975bd0f1545ab158aa7b769932f44c6)
@@ -1686,14 +1686,14 @@ class PrivateEndpointPrivateDnsZoneGroup:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_dns_zone_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_dns_zone_ids PrivateEndpoint#private_dns_zone_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_dns_zone_ids PrivateEndpoint#private_dns_zone_ids}.'''
         result = self._values.get("private_dns_zone_ids")
         assert result is not None, "Required property 'private_dns_zone_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1809,12 +1809,12 @@ class PrivateEndpointPrivateServiceConnection:
         subresource_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param is_manual_connection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#is_manual_connection PrivateEndpoint#is_manual_connection}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
-        :param private_connection_resource_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_connection_resource_alias PrivateEndpoint#private_connection_resource_alias}.
-        :param private_connection_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_connection_resource_id PrivateEndpoint#private_connection_resource_id}.
-        :param request_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#request_message PrivateEndpoint#request_message}.
-        :param subresource_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#subresource_names PrivateEndpoint#subresource_names}.
+        :param is_manual_connection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#is_manual_connection PrivateEndpoint#is_manual_connection}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.
+        :param private_connection_resource_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_connection_resource_alias PrivateEndpoint#private_connection_resource_alias}.
+        :param private_connection_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_connection_resource_id PrivateEndpoint#private_connection_resource_id}.
+        :param request_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#request_message PrivateEndpoint#request_message}.
+        :param subresource_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#subresource_names PrivateEndpoint#subresource_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02a6cd0ca841c34ce28450e3dc66355fbd4dd1e192c2d1b3e0ee7f423f7ee699)
@@ -1841,39 +1841,39 @@ class PrivateEndpointPrivateServiceConnection:
     def is_manual_connection(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#is_manual_connection PrivateEndpoint#is_manual_connection}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#is_manual_connection PrivateEndpoint#is_manual_connection}.'''
         result = self._values.get("is_manual_connection")
         assert result is not None, "Required property 'is_manual_connection' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#name PrivateEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_connection_resource_alias(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_connection_resource_alias PrivateEndpoint#private_connection_resource_alias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_connection_resource_alias PrivateEndpoint#private_connection_resource_alias}.'''
         result = self._values.get("private_connection_resource_alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_connection_resource_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#private_connection_resource_id PrivateEndpoint#private_connection_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#private_connection_resource_id PrivateEndpoint#private_connection_resource_id}.'''
         result = self._values.get("private_connection_resource_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def request_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#request_message PrivateEndpoint#request_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#request_message PrivateEndpoint#request_message}.'''
         result = self._values.get("request_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subresource_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#subresource_names PrivateEndpoint#subresource_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#subresource_names PrivateEndpoint#subresource_names}.'''
         result = self._values.get("subresource_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2077,10 +2077,10 @@ class PrivateEndpointTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#create PrivateEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#delete PrivateEndpoint#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#read PrivateEndpoint#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#update PrivateEndpoint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#create PrivateEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#delete PrivateEndpoint#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#read PrivateEndpoint#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#update PrivateEndpoint#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ff995ca3cb12da291a567b1356fa59e78723c7a56b94374e63f1fab75ef3883)
@@ -2100,25 +2100,25 @@ class PrivateEndpointTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#create PrivateEndpoint#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#create PrivateEndpoint#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#delete PrivateEndpoint#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#delete PrivateEndpoint#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#read PrivateEndpoint#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#read PrivateEndpoint#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/private_endpoint#update PrivateEndpoint#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/private_endpoint#update PrivateEndpoint#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,23 +1,44 @@
+use crate::reader::into_text_encoding;
+use arrow_odbc::odbc_api::{IntoParameter, parameter::InputParameter};
 use std::slice;
-
-use arrow_odbc::odbc_api::parameter::VarCharSlice;
+use widestring::U16String;
 
 /// Opaque type holding a parameter intended to be bound to a placeholder (`?`) in an SQL query.
-pub struct ArrowOdbcParameter<'a>(VarCharSlice<'a>);
+pub struct ArrowOdbcParameter(Box<dyn InputParameter>);
 
-impl<'a> ArrowOdbcParameter<'a> {
-    fn from_opt_str(value: Option<&'a [u8]>) -> Self {
-        let inner = if let Some(slice) = value {
-            VarCharSlice::new(slice)
+impl ArrowOdbcParameter {
+    fn from_opt_str(value: Option<&[u8]>, use_utf16: bool) -> Self {
+        let inner = if use_utf16 {
+            Self::utf16_text(value)
         } else {
-            VarCharSlice::NULL
+            Self::utf8_text(value)
         };
-        Self(inner)
+        Self(Box::new(inner))
+    }
+
+    fn utf16_text(value: Option<&[u8]>) -> Box<dyn InputParameter> {
+        let arg = value
+            .map(|bytes| {
+                let str_slice = str::from_utf8(bytes).unwrap();
+                U16String::from_str(str_slice)
+            })
+            .into_parameter();
+        Box::new(arg)
+    }
+
+    fn utf8_text(value: Option<&[u8]>) -> Box<dyn InputParameter> {
+        let arg = value
+            .map(|bytes| {
+                let str_slice = str::from_utf8(bytes).unwrap();
+                str_slice.to_owned()
+            })
+            .into_parameter();
+        Box::new(arg)
     }
 }
 
-impl<'a> ArrowOdbcParameter<'a> {
-    pub fn unwrap(self) -> VarCharSlice<'a> {
+impl ArrowOdbcParameter {
+    pub fn unwrap(self) -> Box<dyn InputParameter> {
         self.0
     }
 }
@@ -31,13 +52,44 @@ impl<'a> ArrowOdbcParameter<'a> {
 pub unsafe extern "C" fn arrow_odbc_parameter_string_make(
     char_buf: *const u8,
     char_len: usize,
-) -> *mut ArrowOdbcParameter<'static> {
+    text_encoding: u8,
+) -> *mut ArrowOdbcParameter {
+    let text_encoding = into_text_encoding(text_encoding);
+
     let opt = if char_buf.is_null() {
         None
     } else {
         Some(unsafe { slice::from_raw_parts(char_buf, char_len) })
     };
 
-    let param = ArrowOdbcParameter::from_opt_str(opt);
+    let param = ArrowOdbcParameter::from_opt_str(opt, text_encoding.use_utf16());
     Box::into_raw(Box::new(param))
+}
+
+#[cfg(test)]
+mod tests {
+    use arrow_odbc::odbc_api::buffers::Indicator;
+    use widestring::Utf16Str;
+
+    use crate::parameter::ArrowOdbcParameter;
+
+    #[test]
+    fn construct_utf16_parameter() {
+        // Given a chinese greeting in utf-8
+        let text = "您好";
+
+        // When constructing a parameter with utf-16 encoding
+        let use_utf16 = true;
+        let param = ArrowOdbcParameter::from_opt_str(Some(text.as_bytes()), use_utf16);
+
+        // Then
+        let param = param.unwrap();
+        let indicator = unsafe { Indicator::from_isize(*param.indicator_ptr()) };
+        assert_eq!(Indicator::Length(4), indicator); // Size of the encoded value in bytes
+        let value = param.value_ptr();
+        let value_slice = unsafe { std::slice::from_raw_parts(value as *const u16, 2) };
+        let value = Utf16Str::from_slice(value_slice).expect("Must be valid UTF-16");
+        let value = value.to_string();
+        assert_eq!(text, value);
+    }
 }

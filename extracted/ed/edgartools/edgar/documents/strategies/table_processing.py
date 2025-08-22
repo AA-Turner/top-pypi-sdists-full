@@ -3,14 +3,13 @@ Advanced table processing strategy.
 """
 
 import re
-from typing import List, Optional
-
+from typing import List, Optional, Dict, Any, Tuple
 from lxml.html import HtmlElement
 
 from edgar.documents.config import ParserConfig
-from edgar.documents.strategies.style_parser import StyleParser
 from edgar.documents.table_nodes import TableNode, Cell, Row
-from edgar.documents.types import TableType
+from edgar.documents.types import TableType, Style
+from edgar.documents.strategies.style_parser import StyleParser
 
 
 class TableProcessor:
@@ -44,9 +43,7 @@ class TableProcessor:
         'revenue', 'income', 'expense', 'asset', 'liability',
         'cash', 'equity', 'profit', 'loss', 'margin',
         'earnings', 'cost', 'sales', 'operating', 'net',
-        'gross', 'total', 'balance', 'statement', 'consolidated',
-        'provision', 'tax', 'taxes', 'compensation', 'stock',
-        'share', 'shares', 'rsu', 'option', 'grant', 'vest'
+        'gross', 'total', 'balance', 'statement', 'consolidated'
     }
     
     # Metrics keywords
@@ -288,18 +285,17 @@ class TableProcessor:
         
         # Check for financial table
         financial_count = sum(1 for keyword in self.FINANCIAL_KEYWORDS if keyword in combined_text)
-        if financial_count >= 2:  # Lowered threshold for better detection
+        if financial_count >= 3:
             return TableType.FINANCIAL
         
-        # Check for metrics table  
+        # Check for metrics table
         metrics_count = sum(1 for keyword in self.METRICS_KEYWORDS if keyword in combined_text)
         numeric_cells = sum(1 for row in table.rows for cell in row.cells if cell.is_numeric)
         total_cells = sum(len(row.cells) for row in table.rows)
         
         if total_cells > 0:
             numeric_ratio = numeric_cells / total_cells
-            # More lenient metrics detection
-            if metrics_count >= 1 or numeric_ratio > 0.3:
+            if metrics_count >= 2 or numeric_ratio > 0.5:
                 return TableType.METRICS
         
         # Check for table of contents

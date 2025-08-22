@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.scheduler_pb2 import (
+    ManualTriggerCronResolverRequest,
+    ManualTriggerCronResolverResponse,
     ManualTriggerScheduledQueryRequest,
     ManualTriggerScheduledQueryResponse,
 )
@@ -20,12 +22,22 @@ from grpc import (
 
 class SchedulerServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    ManualTriggerCronResolver: UnaryUnaryMultiCallable[
+        ManualTriggerCronResolverRequest,
+        ManualTriggerCronResolverResponse,
+    ]
     ManualTriggerScheduledQuery: UnaryUnaryMultiCallable[
         ManualTriggerScheduledQueryRequest,
         ManualTriggerScheduledQueryResponse,
     ]
 
 class SchedulerServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def ManualTriggerCronResolver(
+        self,
+        request: ManualTriggerCronResolverRequest,
+        context: ServicerContext,
+    ) -> ManualTriggerCronResolverResponse: ...
     @abstractmethod
     def ManualTriggerScheduledQuery(
         self,

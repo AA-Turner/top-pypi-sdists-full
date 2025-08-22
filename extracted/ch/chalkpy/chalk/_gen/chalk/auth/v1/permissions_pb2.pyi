@@ -37,6 +37,7 @@ class Permission(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PERMISSION_PROJECT_CREATE: _ClassVar[Permission]
     PERMISSION_CHALK_ADMIN: _ClassVar[Permission]
     PERMISSION_BILLING_READ: _ClassVar[Permission]
+    PERMISSION_AUTH_SERVICE_MANAGER: _ClassVar[Permission]
 
 PERMISSION_UNSPECIFIED: Permission
 PERMISSION_INSECURE_UNAUTHENTICATED: Permission
@@ -67,5 +68,6 @@ PERMISSION_MIGRATE_EXECUTE: Permission
 PERMISSION_PROJECT_CREATE: Permission
 PERMISSION_CHALK_ADMIN: Permission
 PERMISSION_BILLING_READ: Permission
+PERMISSION_AUTH_SERVICE_MANAGER: Permission
 PERMISSION_FIELD_NUMBER: _ClassVar[int]
 permission: _descriptor.FieldDescriptor

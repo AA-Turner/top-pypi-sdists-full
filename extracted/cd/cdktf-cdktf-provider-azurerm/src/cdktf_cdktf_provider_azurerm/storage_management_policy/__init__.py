@@ -1,7 +1,7 @@
 r'''
 # `azurerm_storage_management_policy`
 
-Refer to the Terraform Registry for docs: [`azurerm_storage_management_policy`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy).
+Refer to the Terraform Registry for docs: [`azurerm_storage_management_policy`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StorageManagementPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.storageManagementPolicy.StorageManagementPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy azurerm_storage_management_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy azurerm_storage_management_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class StorageManagementPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy azurerm_storage_management_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy azurerm_storage_management_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#storage_account_id StorageManagementPolicy#storage_account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#id StorageManagementPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#rule StorageManagementPolicy#rule}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#timeouts StorageManagementPolicy#timeouts}
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#storage_account_id StorageManagementPolicy#storage_account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#id StorageManagementPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#rule StorageManagementPolicy#rule}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#timeouts StorageManagementPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class StorageManagementPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StorageManagementPolicy to import.
-        :param import_from_id: The id of the existing StorageManagementPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StorageManagementPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StorageManagementPolicy to import is found.
         '''
         if __debug__:
@@ -146,10 +146,10 @@ class StorageManagementPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#create StorageManagementPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete StorageManagementPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#read StorageManagementPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#update StorageManagementPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#create StorageManagementPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete StorageManagementPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#read StorageManagementPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#update StorageManagementPolicy#update}.
         '''
         value = StorageManagementPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -282,10 +282,10 @@ class StorageManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#storage_account_id StorageManagementPolicy#storage_account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#id StorageManagementPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#rule StorageManagementPolicy#rule}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#timeouts StorageManagementPolicy#timeouts}
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#storage_account_id StorageManagementPolicy#storage_account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#id StorageManagementPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#rule StorageManagementPolicy#rule}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#timeouts StorageManagementPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -394,14 +394,14 @@ class StorageManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def storage_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#storage_account_id StorageManagementPolicy#storage_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#storage_account_id StorageManagementPolicy#storage_account_id}.'''
         result = self._values.get("storage_account_id")
         assert result is not None, "Required property 'storage_account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#id StorageManagementPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#id StorageManagementPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -415,7 +415,7 @@ class StorageManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageManagementPolicyRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#rule StorageManagementPolicy#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#rule StorageManagementPolicy#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageManagementPolicyRule"]]], result)
@@ -424,7 +424,7 @@ class StorageManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["StorageManagementPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#timeouts StorageManagementPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#timeouts StorageManagementPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StorageManagementPolicyTimeouts"], result)
@@ -461,10 +461,10 @@ class StorageManagementPolicyRule:
         name: builtins.str,
     ) -> None:
         '''
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#actions StorageManagementPolicy#actions}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#enabled StorageManagementPolicy#enabled}.
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#filters StorageManagementPolicy#filters}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#name StorageManagementPolicy#name}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#actions StorageManagementPolicy#actions}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#enabled StorageManagementPolicy#enabled}.
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#filters StorageManagementPolicy#filters}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#name StorageManagementPolicy#name}.
         '''
         if isinstance(actions, dict):
             actions = StorageManagementPolicyRuleActions(**actions)
@@ -487,7 +487,7 @@ class StorageManagementPolicyRule:
     def actions(self) -> "StorageManagementPolicyRuleActions":
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#actions StorageManagementPolicy#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#actions StorageManagementPolicy#actions}
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -495,7 +495,7 @@ class StorageManagementPolicyRule:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#enabled StorageManagementPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#enabled StorageManagementPolicy#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -504,7 +504,7 @@ class StorageManagementPolicyRule:
     def filters(self) -> "StorageManagementPolicyRuleFilters":
         '''filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#filters StorageManagementPolicy#filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#filters StorageManagementPolicy#filters}
         '''
         result = self._values.get("filters")
         assert result is not None, "Required property 'filters' is missing"
@@ -512,7 +512,7 @@ class StorageManagementPolicyRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#name StorageManagementPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#name StorageManagementPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -547,9 +547,9 @@ class StorageManagementPolicyRuleActions:
         version: typing.Optional[typing.Union["StorageManagementPolicyRuleActionsVersion", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param base_blob: base_blob block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#base_blob StorageManagementPolicy#base_blob}
-        :param snapshot: snapshot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#snapshot StorageManagementPolicy#snapshot}
-        :param version: version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#version StorageManagementPolicy#version}
+        :param base_blob: base_blob block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#base_blob StorageManagementPolicy#base_blob}
+        :param snapshot: snapshot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#snapshot StorageManagementPolicy#snapshot}
+        :param version: version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#version StorageManagementPolicy#version}
         '''
         if isinstance(base_blob, dict):
             base_blob = StorageManagementPolicyRuleActionsBaseBlob(**base_blob)
@@ -576,7 +576,7 @@ class StorageManagementPolicyRuleActions:
     ) -> typing.Optional["StorageManagementPolicyRuleActionsBaseBlob"]:
         '''base_blob block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#base_blob StorageManagementPolicy#base_blob}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#base_blob StorageManagementPolicy#base_blob}
         '''
         result = self._values.get("base_blob")
         return typing.cast(typing.Optional["StorageManagementPolicyRuleActionsBaseBlob"], result)
@@ -585,7 +585,7 @@ class StorageManagementPolicyRuleActions:
     def snapshot(self) -> typing.Optional["StorageManagementPolicyRuleActionsSnapshot"]:
         '''snapshot block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#snapshot StorageManagementPolicy#snapshot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#snapshot StorageManagementPolicy#snapshot}
         '''
         result = self._values.get("snapshot")
         return typing.cast(typing.Optional["StorageManagementPolicyRuleActionsSnapshot"], result)
@@ -594,7 +594,7 @@ class StorageManagementPolicyRuleActions:
     def version(self) -> typing.Optional["StorageManagementPolicyRuleActionsVersion"]:
         '''version block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#version StorageManagementPolicy#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#version StorageManagementPolicy#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional["StorageManagementPolicyRuleActionsVersion"], result)
@@ -651,20 +651,20 @@ class StorageManagementPolicyRuleActionsBaseBlob:
         tier_to_cool_after_days_since_modification_greater_than: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param auto_tier_to_hot_from_cool_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#auto_tier_to_hot_from_cool_enabled StorageManagementPolicy#auto_tier_to_hot_from_cool_enabled}.
-        :param delete_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.
-        :param delete_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_last_access_time_greater_than StorageManagementPolicy#delete_after_days_since_last_access_time_greater_than}.
-        :param delete_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_modification_greater_than StorageManagementPolicy#delete_after_days_since_modification_greater_than}.
-        :param tier_to_archive_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_creation_greater_than}.
-        :param tier_to_archive_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_access_time_greater_than}.
-        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
-        :param tier_to_archive_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_modification_greater_than}.
-        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
-        :param tier_to_cold_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_last_access_time_greater_than}.
-        :param tier_to_cold_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_modification_greater_than}.
-        :param tier_to_cool_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_creation_greater_than}.
-        :param tier_to_cool_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_last_access_time_greater_than}.
-        :param tier_to_cool_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_modification_greater_than}.
+        :param auto_tier_to_hot_from_cool_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#auto_tier_to_hot_from_cool_enabled StorageManagementPolicy#auto_tier_to_hot_from_cool_enabled}.
+        :param delete_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.
+        :param delete_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_last_access_time_greater_than StorageManagementPolicy#delete_after_days_since_last_access_time_greater_than}.
+        :param delete_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_modification_greater_than StorageManagementPolicy#delete_after_days_since_modification_greater_than}.
+        :param tier_to_archive_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_creation_greater_than}.
+        :param tier_to_archive_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_access_time_greater_than}.
+        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
+        :param tier_to_archive_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_modification_greater_than}.
+        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
+        :param tier_to_cold_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_last_access_time_greater_than}.
+        :param tier_to_cold_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_modification_greater_than}.
+        :param tier_to_cool_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_creation_greater_than}.
+        :param tier_to_cool_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_last_access_time_greater_than}.
+        :param tier_to_cool_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_modification_greater_than}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ea7720aa03bc82d65058a94a34ab2b6d356431acf43820014d7e85e8609e178)
@@ -716,7 +716,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def auto_tier_to_hot_from_cool_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#auto_tier_to_hot_from_cool_enabled StorageManagementPolicy#auto_tier_to_hot_from_cool_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#auto_tier_to_hot_from_cool_enabled StorageManagementPolicy#auto_tier_to_hot_from_cool_enabled}.'''
         result = self._values.get("auto_tier_to_hot_from_cool_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -724,7 +724,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def delete_after_days_since_creation_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.'''
         result = self._values.get("delete_after_days_since_creation_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -732,7 +732,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def delete_after_days_since_last_access_time_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_last_access_time_greater_than StorageManagementPolicy#delete_after_days_since_last_access_time_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_last_access_time_greater_than StorageManagementPolicy#delete_after_days_since_last_access_time_greater_than}.'''
         result = self._values.get("delete_after_days_since_last_access_time_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -740,7 +740,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def delete_after_days_since_modification_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_modification_greater_than StorageManagementPolicy#delete_after_days_since_modification_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_modification_greater_than StorageManagementPolicy#delete_after_days_since_modification_greater_than}.'''
         result = self._values.get("delete_after_days_since_modification_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -748,7 +748,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_archive_after_days_since_creation_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_creation_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_creation_greater_than}.'''
         result = self._values.get("tier_to_archive_after_days_since_creation_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -756,7 +756,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_archive_after_days_since_last_access_time_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_access_time_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_access_time_greater_than}.'''
         result = self._values.get("tier_to_archive_after_days_since_last_access_time_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -764,7 +764,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_archive_after_days_since_last_tier_change_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.'''
         result = self._values.get("tier_to_archive_after_days_since_last_tier_change_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -772,7 +772,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_archive_after_days_since_modification_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_modification_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_modification_greater_than}.'''
         result = self._values.get("tier_to_archive_after_days_since_modification_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -780,7 +780,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_cold_after_days_since_creation_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.'''
         result = self._values.get("tier_to_cold_after_days_since_creation_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -788,7 +788,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_cold_after_days_since_last_access_time_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_last_access_time_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_last_access_time_greater_than}.'''
         result = self._values.get("tier_to_cold_after_days_since_last_access_time_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -796,7 +796,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_cold_after_days_since_modification_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_modification_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_modification_greater_than}.'''
         result = self._values.get("tier_to_cold_after_days_since_modification_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -804,7 +804,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_cool_after_days_since_creation_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_creation_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_creation_greater_than}.'''
         result = self._values.get("tier_to_cool_after_days_since_creation_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -812,7 +812,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_cool_after_days_since_last_access_time_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_last_access_time_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_last_access_time_greater_than}.'''
         result = self._values.get("tier_to_cool_after_days_since_last_access_time_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -820,7 +820,7 @@ class StorageManagementPolicyRuleActionsBaseBlob:
     def tier_to_cool_after_days_since_modification_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_modification_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_modification_greater_than}.'''
         result = self._values.get("tier_to_cool_after_days_since_modification_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1289,20 +1289,20 @@ class StorageManagementPolicyRuleActionsOutputReference(
         tier_to_cool_after_days_since_modification_greater_than: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param auto_tier_to_hot_from_cool_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#auto_tier_to_hot_from_cool_enabled StorageManagementPolicy#auto_tier_to_hot_from_cool_enabled}.
-        :param delete_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.
-        :param delete_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_last_access_time_greater_than StorageManagementPolicy#delete_after_days_since_last_access_time_greater_than}.
-        :param delete_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_modification_greater_than StorageManagementPolicy#delete_after_days_since_modification_greater_than}.
-        :param tier_to_archive_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_creation_greater_than}.
-        :param tier_to_archive_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_access_time_greater_than}.
-        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
-        :param tier_to_archive_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_modification_greater_than}.
-        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
-        :param tier_to_cold_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_last_access_time_greater_than}.
-        :param tier_to_cold_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_modification_greater_than}.
-        :param tier_to_cool_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_creation_greater_than}.
-        :param tier_to_cool_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_last_access_time_greater_than}.
-        :param tier_to_cool_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_modification_greater_than}.
+        :param auto_tier_to_hot_from_cool_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#auto_tier_to_hot_from_cool_enabled StorageManagementPolicy#auto_tier_to_hot_from_cool_enabled}.
+        :param delete_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.
+        :param delete_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_last_access_time_greater_than StorageManagementPolicy#delete_after_days_since_last_access_time_greater_than}.
+        :param delete_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_modification_greater_than StorageManagementPolicy#delete_after_days_since_modification_greater_than}.
+        :param tier_to_archive_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_creation_greater_than}.
+        :param tier_to_archive_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_access_time_greater_than}.
+        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
+        :param tier_to_archive_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_modification_greater_than}.
+        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
+        :param tier_to_cold_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_last_access_time_greater_than}.
+        :param tier_to_cold_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_modification_greater_than}.
+        :param tier_to_cool_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_creation_greater_than}.
+        :param tier_to_cool_after_days_since_last_access_time_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_last_access_time_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_last_access_time_greater_than}.
+        :param tier_to_cool_after_days_since_modification_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cool_after_days_since_modification_greater_than StorageManagementPolicy#tier_to_cool_after_days_since_modification_greater_than}.
         '''
         value = StorageManagementPolicyRuleActionsBaseBlob(
             auto_tier_to_hot_from_cool_enabled=auto_tier_to_hot_from_cool_enabled,
@@ -1334,11 +1334,11 @@ class StorageManagementPolicyRuleActionsOutputReference(
         tier_to_cold_after_days_since_creation_greater_than: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param change_tier_to_archive_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.
-        :param change_tier_to_cool_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.
-        :param delete_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.
-        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
-        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
+        :param change_tier_to_archive_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.
+        :param change_tier_to_cool_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.
+        :param delete_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.
+        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
+        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
         '''
         value = StorageManagementPolicyRuleActionsSnapshot(
             change_tier_to_archive_after_days_since_creation=change_tier_to_archive_after_days_since_creation,
@@ -1361,11 +1361,11 @@ class StorageManagementPolicyRuleActionsOutputReference(
         tier_to_cold_after_days_since_creation_greater_than: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param change_tier_to_archive_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.
-        :param change_tier_to_cool_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.
-        :param delete_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_creation StorageManagementPolicy#delete_after_days_since_creation}.
-        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
-        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
+        :param change_tier_to_archive_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.
+        :param change_tier_to_cool_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.
+        :param delete_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_creation StorageManagementPolicy#delete_after_days_since_creation}.
+        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
+        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
         '''
         value = StorageManagementPolicyRuleActionsVersion(
             change_tier_to_archive_after_days_since_creation=change_tier_to_archive_after_days_since_creation,
@@ -1463,11 +1463,11 @@ class StorageManagementPolicyRuleActionsSnapshot:
         tier_to_cold_after_days_since_creation_greater_than: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param change_tier_to_archive_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.
-        :param change_tier_to_cool_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.
-        :param delete_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.
-        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
-        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
+        :param change_tier_to_archive_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.
+        :param change_tier_to_cool_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.
+        :param delete_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.
+        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
+        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e648db8e62af2ad285e79470ab120076c11968b1b5fbfc1abb8756ffc1be7571)
@@ -1492,7 +1492,7 @@ class StorageManagementPolicyRuleActionsSnapshot:
     def change_tier_to_archive_after_days_since_creation(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.'''
         result = self._values.get("change_tier_to_archive_after_days_since_creation")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1500,7 +1500,7 @@ class StorageManagementPolicyRuleActionsSnapshot:
     def change_tier_to_cool_after_days_since_creation(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.'''
         result = self._values.get("change_tier_to_cool_after_days_since_creation")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1508,7 +1508,7 @@ class StorageManagementPolicyRuleActionsSnapshot:
     def delete_after_days_since_creation_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_creation_greater_than StorageManagementPolicy#delete_after_days_since_creation_greater_than}.'''
         result = self._values.get("delete_after_days_since_creation_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1516,7 +1516,7 @@ class StorageManagementPolicyRuleActionsSnapshot:
     def tier_to_archive_after_days_since_last_tier_change_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.'''
         result = self._values.get("tier_to_archive_after_days_since_last_tier_change_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1524,7 +1524,7 @@ class StorageManagementPolicyRuleActionsSnapshot:
     def tier_to_cold_after_days_since_creation_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.'''
         result = self._values.get("tier_to_cold_after_days_since_creation_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1728,11 +1728,11 @@ class StorageManagementPolicyRuleActionsVersion:
         tier_to_cold_after_days_since_creation_greater_than: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param change_tier_to_archive_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.
-        :param change_tier_to_cool_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.
-        :param delete_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_creation StorageManagementPolicy#delete_after_days_since_creation}.
-        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
-        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
+        :param change_tier_to_archive_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.
+        :param change_tier_to_cool_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.
+        :param delete_after_days_since_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_creation StorageManagementPolicy#delete_after_days_since_creation}.
+        :param tier_to_archive_after_days_since_last_tier_change_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.
+        :param tier_to_cold_after_days_since_creation_greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66b755c1b38da43bb1cc01ce3e97e04d652cae0457e32a127facda7db59d028e)
@@ -1757,7 +1757,7 @@ class StorageManagementPolicyRuleActionsVersion:
     def change_tier_to_archive_after_days_since_creation(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_archive_after_days_since_creation StorageManagementPolicy#change_tier_to_archive_after_days_since_creation}.'''
         result = self._values.get("change_tier_to_archive_after_days_since_creation")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1765,13 +1765,13 @@ class StorageManagementPolicyRuleActionsVersion:
     def change_tier_to_cool_after_days_since_creation(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#change_tier_to_cool_after_days_since_creation StorageManagementPolicy#change_tier_to_cool_after_days_since_creation}.'''
         result = self._values.get("change_tier_to_cool_after_days_since_creation")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def delete_after_days_since_creation(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete_after_days_since_creation StorageManagementPolicy#delete_after_days_since_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete_after_days_since_creation StorageManagementPolicy#delete_after_days_since_creation}.'''
         result = self._values.get("delete_after_days_since_creation")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1779,7 +1779,7 @@ class StorageManagementPolicyRuleActionsVersion:
     def tier_to_archive_after_days_since_last_tier_change_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_archive_after_days_since_last_tier_change_greater_than StorageManagementPolicy#tier_to_archive_after_days_since_last_tier_change_greater_than}.'''
         result = self._values.get("tier_to_archive_after_days_since_last_tier_change_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1787,7 +1787,7 @@ class StorageManagementPolicyRuleActionsVersion:
     def tier_to_cold_after_days_since_creation_greater_than(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#tier_to_cold_after_days_since_creation_greater_than StorageManagementPolicy#tier_to_cold_after_days_since_creation_greater_than}.'''
         result = self._values.get("tier_to_cold_after_days_since_creation_greater_than")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1985,9 +1985,9 @@ class StorageManagementPolicyRuleFilters:
         prefix_match: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param blob_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#blob_types StorageManagementPolicy#blob_types}.
-        :param match_blob_index_tag: match_blob_index_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#match_blob_index_tag StorageManagementPolicy#match_blob_index_tag}
-        :param prefix_match: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#prefix_match StorageManagementPolicy#prefix_match}.
+        :param blob_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#blob_types StorageManagementPolicy#blob_types}.
+        :param match_blob_index_tag: match_blob_index_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#match_blob_index_tag StorageManagementPolicy#match_blob_index_tag}
+        :param prefix_match: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#prefix_match StorageManagementPolicy#prefix_match}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4932dfee554c4f976587cbbf77521ac32ded59573f3fb608fe14e68f91e4bb50)
@@ -2004,7 +2004,7 @@ class StorageManagementPolicyRuleFilters:
 
     @builtins.property
     def blob_types(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#blob_types StorageManagementPolicy#blob_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#blob_types StorageManagementPolicy#blob_types}.'''
         result = self._values.get("blob_types")
         assert result is not None, "Required property 'blob_types' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2015,14 +2015,14 @@ class StorageManagementPolicyRuleFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageManagementPolicyRuleFiltersMatchBlobIndexTag"]]]:
         '''match_blob_index_tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#match_blob_index_tag StorageManagementPolicy#match_blob_index_tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#match_blob_index_tag StorageManagementPolicy#match_blob_index_tag}
         '''
         result = self._values.get("match_blob_index_tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageManagementPolicyRuleFiltersMatchBlobIndexTag"]]], result)
 
     @builtins.property
     def prefix_match(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#prefix_match StorageManagementPolicy#prefix_match}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#prefix_match StorageManagementPolicy#prefix_match}.'''
         result = self._values.get("prefix_match")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2052,9 +2052,9 @@ class StorageManagementPolicyRuleFiltersMatchBlobIndexTag:
         operation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#name StorageManagementPolicy#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#value StorageManagementPolicy#value}.
-        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#operation StorageManagementPolicy#operation}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#name StorageManagementPolicy#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#value StorageManagementPolicy#value}.
+        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#operation StorageManagementPolicy#operation}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__985b35484c6b185e898d57737378f555c705bedb52be90ea5308f96d8859b298)
@@ -2070,21 +2070,21 @@ class StorageManagementPolicyRuleFiltersMatchBlobIndexTag:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#name StorageManagementPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#name StorageManagementPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#value StorageManagementPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#value StorageManagementPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#operation StorageManagementPolicy#operation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#operation StorageManagementPolicy#operation}.'''
         result = self._values.get("operation")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2522,9 +2522,9 @@ class StorageManagementPolicyRuleOutputReference(
         version: typing.Optional[typing.Union[StorageManagementPolicyRuleActionsVersion, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param base_blob: base_blob block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#base_blob StorageManagementPolicy#base_blob}
-        :param snapshot: snapshot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#snapshot StorageManagementPolicy#snapshot}
-        :param version: version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#version StorageManagementPolicy#version}
+        :param base_blob: base_blob block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#base_blob StorageManagementPolicy#base_blob}
+        :param snapshot: snapshot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#snapshot StorageManagementPolicy#snapshot}
+        :param version: version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#version StorageManagementPolicy#version}
         '''
         value = StorageManagementPolicyRuleActions(
             base_blob=base_blob, snapshot=snapshot, version=version
@@ -2541,9 +2541,9 @@ class StorageManagementPolicyRuleOutputReference(
         prefix_match: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param blob_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#blob_types StorageManagementPolicy#blob_types}.
-        :param match_blob_index_tag: match_blob_index_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#match_blob_index_tag StorageManagementPolicy#match_blob_index_tag}
-        :param prefix_match: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#prefix_match StorageManagementPolicy#prefix_match}.
+        :param blob_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#blob_types StorageManagementPolicy#blob_types}.
+        :param match_blob_index_tag: match_blob_index_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#match_blob_index_tag StorageManagementPolicy#match_blob_index_tag}
+        :param prefix_match: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#prefix_match StorageManagementPolicy#prefix_match}.
         '''
         value = StorageManagementPolicyRuleFilters(
             blob_types=blob_types,
@@ -2650,10 +2650,10 @@ class StorageManagementPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#create StorageManagementPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete StorageManagementPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#read StorageManagementPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#update StorageManagementPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#create StorageManagementPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete StorageManagementPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#read StorageManagementPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#update StorageManagementPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09b104ef49ddbf59696f1f6eeec528951a2989e8d7a23c9d50956b700fae4dae)
@@ -2673,25 +2673,25 @@ class StorageManagementPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#create StorageManagementPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#create StorageManagementPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#delete StorageManagementPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#delete StorageManagementPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#read StorageManagementPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#read StorageManagementPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/storage_management_policy#update StorageManagementPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/storage_management_policy#update StorageManagementPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

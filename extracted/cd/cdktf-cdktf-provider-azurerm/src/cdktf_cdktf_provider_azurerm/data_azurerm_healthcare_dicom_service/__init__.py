@@ -1,7 +1,7 @@
 r'''
 # `data_azurerm_healthcare_dicom_service`
 
-Refer to the Terraform Registry for docs: [`data_azurerm_healthcare_dicom_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service).
+Refer to the Terraform Registry for docs: [`data_azurerm_healthcare_dicom_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzurermHealthcareDicomService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.dataAzurermHealthcareDicomService.DataAzurermHealthcareDicomService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service azurerm_healthcare_dicom_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service azurerm_healthcare_dicom_service}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataAzurermHealthcareDicomService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service azurerm_healthcare_dicom_service} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service azurerm_healthcare_dicom_service} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#name DataAzurermHealthcareDicomService#name}.
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#workspace_id DataAzurermHealthcareDicomService#workspace_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#id DataAzurermHealthcareDicomService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#timeouts DataAzurermHealthcareDicomService#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#name DataAzurermHealthcareDicomService#name}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#workspace_id DataAzurermHealthcareDicomService#workspace_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#id DataAzurermHealthcareDicomService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#timeouts DataAzurermHealthcareDicomService#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataAzurermHealthcareDicomService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzurermHealthcareDicomService to import.
-        :param import_from_id: The id of the existing DataAzurermHealthcareDicomService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzurermHealthcareDicomService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzurermHealthcareDicomService to import is found.
         '''
         if __debug__:
@@ -126,7 +126,7 @@ class DataAzurermHealthcareDicomService(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#read DataAzurermHealthcareDicomService#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#read DataAzurermHealthcareDicomService#read}.
         '''
         value = DataAzurermHealthcareDicomServiceTimeouts(read=read)
 
@@ -461,10 +461,10 @@ class DataAzurermHealthcareDicomServiceConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#name DataAzurermHealthcareDicomService#name}.
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#workspace_id DataAzurermHealthcareDicomService#workspace_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#id DataAzurermHealthcareDicomService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#timeouts DataAzurermHealthcareDicomService#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#name DataAzurermHealthcareDicomService#name}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#workspace_id DataAzurermHealthcareDicomService#workspace_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#id DataAzurermHealthcareDicomService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#timeouts DataAzurermHealthcareDicomService#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -572,21 +572,21 @@ class DataAzurermHealthcareDicomServiceConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#name DataAzurermHealthcareDicomService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#name DataAzurermHealthcareDicomService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#workspace_id DataAzurermHealthcareDicomService#workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#workspace_id DataAzurermHealthcareDicomService#workspace_id}.'''
         result = self._values.get("workspace_id")
         assert result is not None, "Required property 'workspace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#id DataAzurermHealthcareDicomService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#id DataAzurermHealthcareDicomService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -598,7 +598,7 @@ class DataAzurermHealthcareDicomServiceConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def timeouts(self) -> typing.Optional["DataAzurermHealthcareDicomServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#timeouts DataAzurermHealthcareDicomService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#timeouts DataAzurermHealthcareDicomService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzurermHealthcareDicomServiceTimeouts"], result)
@@ -1250,7 +1250,7 @@ class DataAzurermHealthcareDicomServiceStorageOutputReference(
 class DataAzurermHealthcareDicomServiceTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#read DataAzurermHealthcareDicomService#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#read DataAzurermHealthcareDicomService#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a1ac67735eefbcc6e5f560e1105c33627cb166ade13f0dffb7e3fd540a4e8c2)
@@ -1261,7 +1261,7 @@ class DataAzurermHealthcareDicomServiceTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/healthcare_dicom_service#read DataAzurermHealthcareDicomService#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/healthcare_dicom_service#read DataAzurermHealthcareDicomService#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

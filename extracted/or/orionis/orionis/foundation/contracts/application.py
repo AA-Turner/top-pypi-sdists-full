@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, List, Type
+from orionis.console.base.scheduler import BaseScheduler
+from orionis.failure.contracts.handler import IBaseExceptionHandler
 from orionis.foundation.config.roots.paths import Paths
 from orionis.container.contracts.service_provider import IServiceProvider
 from orionis.container.contracts.container import IContainer
@@ -89,6 +91,127 @@ class IApplication(IContainer):
         -------
         IApplication
             The application instance to enable method chaining.
+        """
+        pass
+
+    def setExceptionHandler(
+        self,
+        handler: IBaseExceptionHandler
+    ) -> 'IApplication':
+        """
+        Register a custom exception handler class for the application.
+
+        This method allows you to specify a custom exception handler class that
+        inherits from BaseHandlerException. The handler class will be used to
+        manage exceptions raised within the application, including reporting and
+        rendering error messages. The provided handler must be a class (not an
+        instance) and must inherit from BaseHandlerException.
+
+        Parameters
+        ----------
+        handler : Type[BaseHandlerException]
+            The exception handler class to be used by the application. Must be a
+            subclass of BaseHandlerException.
+
+        Returns
+        -------
+        Application
+            The current Application instance, allowing for method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the provided handler is not a class or is not a subclass of BaseHandlerException.
+
+        Notes
+        -----
+        The handler is stored internally and will be instantiated when needed.
+        This method does not instantiate the handler; it only registers the class.
+        """
+        pass
+
+    def getExceptionHandler(
+        self
+    ) -> IBaseExceptionHandler:
+        """
+        Retrieve the currently registered exception handler instance.
+
+        This method returns an instance of the exception handler that has been set using
+        the `setExceptionHandler` method. If no custom handler has been set, it returns
+        a default `BaseHandlerException` instance. The returned object is responsible
+        for handling exceptions within the application, including reporting and rendering
+        error messages.
+
+        Returns
+        -------
+        BaseHandlerException
+            An instance of the currently registered exception handler. If no handler
+            has been set, returns a default `BaseHandlerException` instance.
+
+        Notes
+        -----
+        This method always returns an instance (not a class) of the exception handler.
+        If a custom handler was registered, it is instantiated and returned; otherwise,
+        a default handler is used.
+        """
+        pass
+
+    @abstractmethod
+    def setScheduler(
+        self,
+        scheduler: BaseScheduler
+    ) -> 'IApplication':
+        """
+        Register a custom scheduler class for the application.
+
+        This method allows you to specify a custom scheduler class that inherits from
+        `BaseScheduler`. The scheduler is responsible for managing scheduled tasks
+        within the application. The provided class will be validated to ensure it is
+        a subclass of `BaseScheduler` and then stored for later use.
+
+        Parameters
+        ----------
+        scheduler : Type[BaseScheduler]
+            The scheduler class to be used by the application. Must inherit from
+            `BaseScheduler`.
+
+        Returns
+        -------
+        Application
+            Returns the current `Application` instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the provided scheduler is not a subclass of `BaseScheduler`.
+
+        Notes
+        -----
+        The scheduler class is stored internally and can be used by the application
+        to manage scheduled jobs or tasks. This method does not instantiate the
+        scheduler; it only registers the class for later use.
+        """
+        pass
+
+    @abstractmethod
+    def getScheduler(
+        self
+    ) -> BaseScheduler:
+        """
+        Retrieve the currently registered scheduler instance.
+
+        This method returns the scheduler instance that has been set using the
+        `setScheduler` method. If no scheduler has been set, it raises an error.
+
+        Returns
+        -------
+        BaseScheduler
+            The currently registered scheduler instance.
+
+        Raises
+        ------
+        OrionisRuntimeError
+            If no scheduler has been set in the application.
         """
         pass
 

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_arc_resource_bridge_appliance`
 
-Refer to the Terraform Registry for docs: [`azurerm_arc_resource_bridge_appliance`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance).
+Refer to the Terraform Registry for docs: [`azurerm_arc_resource_bridge_appliance`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ArcResourceBridgeAppliance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.arcResourceBridgeAppliance.ArcResourceBridgeAppliance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance azurerm_arc_resource_bridge_appliance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance azurerm_arc_resource_bridge_appliance}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ArcResourceBridgeAppliance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance azurerm_arc_resource_bridge_appliance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance azurerm_arc_resource_bridge_appliance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param distro: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#distro ArcResourceBridgeAppliance#distro}.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#identity ArcResourceBridgeAppliance#identity}
-        :param infrastructure_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#infrastructure_provider ArcResourceBridgeAppliance#infrastructure_provider}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#location ArcResourceBridgeAppliance#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#name ArcResourceBridgeAppliance#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#resource_group_name ArcResourceBridgeAppliance#resource_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#id ArcResourceBridgeAppliance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param public_key_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#public_key_base64 ArcResourceBridgeAppliance#public_key_base64}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#tags ArcResourceBridgeAppliance#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#timeouts ArcResourceBridgeAppliance#timeouts}
+        :param distro: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#distro ArcResourceBridgeAppliance#distro}.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#identity ArcResourceBridgeAppliance#identity}
+        :param infrastructure_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#infrastructure_provider ArcResourceBridgeAppliance#infrastructure_provider}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#location ArcResourceBridgeAppliance#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#name ArcResourceBridgeAppliance#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#resource_group_name ArcResourceBridgeAppliance#resource_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#id ArcResourceBridgeAppliance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param public_key_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#public_key_base64 ArcResourceBridgeAppliance#public_key_base64}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#tags ArcResourceBridgeAppliance#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#timeouts ArcResourceBridgeAppliance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ArcResourceBridgeAppliance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ArcResourceBridgeAppliance to import.
-        :param import_from_id: The id of the existing ArcResourceBridgeAppliance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ArcResourceBridgeAppliance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ArcResourceBridgeAppliance to import is found.
         '''
         if __debug__:
@@ -144,7 +144,7 @@ class ArcResourceBridgeAppliance(
     @jsii.member(jsii_name="putIdentity")
     def put_identity(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#type ArcResourceBridgeAppliance#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#type ArcResourceBridgeAppliance#type}.
         '''
         value = ArcResourceBridgeApplianceIdentity(type=type)
 
@@ -160,10 +160,10 @@ class ArcResourceBridgeAppliance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#create ArcResourceBridgeAppliance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#delete ArcResourceBridgeAppliance#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#read ArcResourceBridgeAppliance#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#update ArcResourceBridgeAppliance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#create ArcResourceBridgeAppliance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#delete ArcResourceBridgeAppliance#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#read ArcResourceBridgeAppliance#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#update ArcResourceBridgeAppliance#update}.
         '''
         value = ArcResourceBridgeApplianceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -412,16 +412,16 @@ class ArcResourceBridgeApplianceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param distro: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#distro ArcResourceBridgeAppliance#distro}.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#identity ArcResourceBridgeAppliance#identity}
-        :param infrastructure_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#infrastructure_provider ArcResourceBridgeAppliance#infrastructure_provider}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#location ArcResourceBridgeAppliance#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#name ArcResourceBridgeAppliance#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#resource_group_name ArcResourceBridgeAppliance#resource_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#id ArcResourceBridgeAppliance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param public_key_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#public_key_base64 ArcResourceBridgeAppliance#public_key_base64}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#tags ArcResourceBridgeAppliance#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#timeouts ArcResourceBridgeAppliance#timeouts}
+        :param distro: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#distro ArcResourceBridgeAppliance#distro}.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#identity ArcResourceBridgeAppliance#identity}
+        :param infrastructure_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#infrastructure_provider ArcResourceBridgeAppliance#infrastructure_provider}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#location ArcResourceBridgeAppliance#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#name ArcResourceBridgeAppliance#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#resource_group_name ArcResourceBridgeAppliance#resource_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#id ArcResourceBridgeAppliance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param public_key_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#public_key_base64 ArcResourceBridgeAppliance#public_key_base64}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#tags ArcResourceBridgeAppliance#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#timeouts ArcResourceBridgeAppliance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -545,7 +545,7 @@ class ArcResourceBridgeApplianceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def distro(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#distro ArcResourceBridgeAppliance#distro}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#distro ArcResourceBridgeAppliance#distro}.'''
         result = self._values.get("distro")
         assert result is not None, "Required property 'distro' is missing"
         return typing.cast(builtins.str, result)
@@ -554,7 +554,7 @@ class ArcResourceBridgeApplianceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> "ArcResourceBridgeApplianceIdentity":
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#identity ArcResourceBridgeAppliance#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#identity ArcResourceBridgeAppliance#identity}
         '''
         result = self._values.get("identity")
         assert result is not None, "Required property 'identity' is missing"
@@ -562,35 +562,35 @@ class ArcResourceBridgeApplianceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def infrastructure_provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#infrastructure_provider ArcResourceBridgeAppliance#infrastructure_provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#infrastructure_provider ArcResourceBridgeAppliance#infrastructure_provider}.'''
         result = self._values.get("infrastructure_provider")
         assert result is not None, "Required property 'infrastructure_provider' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#location ArcResourceBridgeAppliance#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#location ArcResourceBridgeAppliance#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#name ArcResourceBridgeAppliance#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#name ArcResourceBridgeAppliance#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#resource_group_name ArcResourceBridgeAppliance#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#resource_group_name ArcResourceBridgeAppliance#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#id ArcResourceBridgeAppliance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#id ArcResourceBridgeAppliance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -600,13 +600,13 @@ class ArcResourceBridgeApplianceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def public_key_base64(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#public_key_base64 ArcResourceBridgeAppliance#public_key_base64}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#public_key_base64 ArcResourceBridgeAppliance#public_key_base64}.'''
         result = self._values.get("public_key_base64")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#tags ArcResourceBridgeAppliance#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#tags ArcResourceBridgeAppliance#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -614,7 +614,7 @@ class ArcResourceBridgeApplianceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ArcResourceBridgeApplianceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#timeouts ArcResourceBridgeAppliance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#timeouts ArcResourceBridgeAppliance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ArcResourceBridgeApplianceTimeouts"], result)
@@ -639,7 +639,7 @@ class ArcResourceBridgeApplianceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ArcResourceBridgeApplianceIdentity:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#type ArcResourceBridgeAppliance#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#type ArcResourceBridgeAppliance#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e3363e680ae049d2fe0d44f3a8d7eb859797629f73fd925b8ac2d0f5866ab9f)
@@ -650,7 +650,7 @@ class ArcResourceBridgeApplianceIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#type ArcResourceBridgeAppliance#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#type ArcResourceBridgeAppliance#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -750,10 +750,10 @@ class ArcResourceBridgeApplianceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#create ArcResourceBridgeAppliance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#delete ArcResourceBridgeAppliance#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#read ArcResourceBridgeAppliance#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#update ArcResourceBridgeAppliance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#create ArcResourceBridgeAppliance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#delete ArcResourceBridgeAppliance#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#read ArcResourceBridgeAppliance#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#update ArcResourceBridgeAppliance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd0256f27f734f95a61a4b2269cb8aea03e7fb0f168a5d3020f5afb03271c701)
@@ -773,25 +773,25 @@ class ArcResourceBridgeApplianceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#create ArcResourceBridgeAppliance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#create ArcResourceBridgeAppliance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#delete ArcResourceBridgeAppliance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#delete ArcResourceBridgeAppliance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#read ArcResourceBridgeAppliance#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#read ArcResourceBridgeAppliance#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/arc_resource_bridge_appliance#update ArcResourceBridgeAppliance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/arc_resource_bridge_appliance#update ArcResourceBridgeAppliance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

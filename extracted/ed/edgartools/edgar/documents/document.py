@@ -3,11 +3,13 @@ Document model for parsed HTML.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Iterator
+from typing import Dict, List, Optional, Union, Any, Iterator
+from datetime import datetime
+import json
 
-from edgar.documents.nodes import Node, SectionNode
+from edgar.documents.nodes import Node, DocumentNode, SectionNode
 from edgar.documents.table_nodes import TableNode
-from edgar.documents.types import XBRLFact, SearchResult
+from edgar.documents.types import NodeType, XBRLFact, SearchResult
 
 
 @dataclass

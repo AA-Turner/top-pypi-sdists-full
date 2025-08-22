@@ -22,6 +22,7 @@ import logging
 import os
 import sys
 import typing as ty
+import urllib.parse
 
 from openstack import exceptions as sdk_exceptions
 from openstack.image import image_signer
@@ -54,6 +55,19 @@ DISK_CHOICES = [
     "iso",
     "ploop",
 ]
+# A list of openstacksdk Image object attributes (values) that named
+# differently from actual properties stored by Glance (keys).
+IMAGE_ATTRIBUTES_CUSTOM_NAMES = {
+    'os_hidden': 'is_hidden',
+    'protected': 'is_protected',
+    'os_hash_algo': 'hash_algo',
+    'os_hash_value': 'hash_value',
+    'img_config_drive': 'needs_config_drive',
+    'os_secure_boot': 'needs_secure_boot',
+    'hw_vif_multiqueue_enabled': 'is_hw_vif_multiqueue_enabled',
+    'hw_boot_menu': 'is_hw_boot_menu_enabled',
+    'auto_disk_config': 'has_auto_disk_config',
+}
 MEMBER_STATUS_CHOICES = ["accepted", "pending", "rejected", "all"]
 
 LOG = logging.getLogger(__name__)
@@ -84,6 +98,9 @@ def _format_image(image, human_readable=False):
         'virtual_size',
         'min_ram',
         'schema',
+        'is_hidden',
+        'hash_algo',
+        'hash_value',
     ]
 
     # TODO(gtema/anybody): actually it should be possible to drop this method,
@@ -889,6 +906,8 @@ class ListImage(command.Lister):
                 'visibility',
                 'is_protected',
                 'owner_id',
+                'hash_algo',
+                'hash_value',
                 'tags',
             )
             column_headers: tuple[str, ...] = (
@@ -902,6 +921,8 @@ class ListImage(command.Lister):
                 'Visibility',
                 'Protected',
                 'Project',
+                'Hash Algorithm',
+                'Hash Value',
                 'Tags',
             )
         else:
@@ -1053,6 +1074,16 @@ class SaveImage(command.Command):
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
         parser.add_argument(
+            "--chunk-size",
+            type=int,
+            default=1024,
+            metavar="<chunk-size>",
+            help=_(
+                "Size in bytes to read from the wire and buffer at one "
+                "time (default: 1024)"
+            ),
+        )
+        parser.add_argument(
             "--file",
             metavar="<filename>",
             dest="filename",
@@ -1076,7 +1107,12 @@ class SaveImage(command.Command):
         if output_file is None:
             output_file = getattr(sys.stdout, "buffer", sys.stdout)
 
-        image_client.download_image(image.id, stream=True, output=output_file)
+        image_client.download_image(
+            image.id,
+            stream=True,
+            output=output_file,
+            chunk_size=parsed_args.chunk_size,
+        )
 
 
 class SetImage(command.Command):
@@ -1477,6 +1513,11 @@ class UnsetImage(command.Command):
                     )
                     new_props.pop(k, None)
                     kwargs['properties'] = new_props
+                elif (
+                    k in IMAGE_ATTRIBUTES_CUSTOM_NAMES
+                    and IMAGE_ATTRIBUTES_CUSTOM_NAMES[k] in image
+                ):
+                    delattr(image, IMAGE_ATTRIBUTES_CUSTOM_NAMES[k])
                 else:
                     LOG.error(
                         _(
@@ -1744,6 +1785,12 @@ class ImportImage(command.ShowOne):
                     "'--method=web-download'"
                 )
                 raise exceptions.CommandError(msg)
+            _parsed = urllib.parse.urlparse(parsed_args.uri)
+            if not all({_parsed.scheme, _parsed.netloc}):
+                msg = _("'%(uri)s' is not a valid url")
+                raise exceptions.CommandError(
+                    msg % {'uri': parsed_args.uri},
+                )
         else:
             if parsed_args.uri:
                 msg = _(

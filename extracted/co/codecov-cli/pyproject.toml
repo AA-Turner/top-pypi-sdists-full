@@ -1,6 +1,6 @@
 [project]
 name = "codecov-cli"
-version = "11.1.0"
+version = "11.2.0"
 description = "Codecov Command Line Interface"
 readme = "README.md"
 license-files = ["LICENSE"]
@@ -34,6 +34,7 @@ dev = [
 [project.scripts]
 codecov = "codecov_cli.main:run"
 codecovcli = "codecov_cli.main:run"
+codecov-cli = "codecov_cli.main:run"
 
 [build-system]
 requires = ["setuptools"]

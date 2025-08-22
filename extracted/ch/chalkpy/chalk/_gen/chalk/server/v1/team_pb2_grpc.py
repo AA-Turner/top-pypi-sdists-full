@@ -50,6 +50,16 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateProjectRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateProjectResponse.FromString,
         )
+        self.UpdateProject = channel.unary_unary(
+            "/chalk.server.v1.TeamService/UpdateProject",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateProjectRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateProjectResponse.FromString,
+        )
+        self.ArchiveProject = channel.unary_unary(
+            "/chalk.server.v1.TeamService/ArchiveProject",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveProjectRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveProjectResponse.FromString,
+        )
         self.CreateEnvironment = channel.unary_unary(
             "/chalk.server.v1.TeamService/CreateEnvironment",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateEnvironmentRequest.SerializeToString,
@@ -120,6 +130,16 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentResponse.FromString,
         )
+        self.DeactivateUser = channel.unary_unary(
+            "/chalk.server.v1.TeamService/DeactivateUser",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeactivateUserRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeactivateUserResponse.FromString,
+        )
+        self.ReactivateUser = channel.unary_unary(
+            "/chalk.server.v1.TeamService/ReactivateUser",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserResponse.FromString,
+        )
 
 
 class TeamServiceServicer(object):
@@ -162,6 +182,18 @@ class TeamServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def CreateProject(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateProject(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ArchiveProject(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -256,6 +288,18 @@ class TeamServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeactivateUser(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ReactivateUser(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_TeamServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -293,6 +337,16 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.CreateProject,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateProjectRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateProjectResponse.SerializeToString,
+        ),
+        "UpdateProject": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateProject,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateProjectRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateProjectResponse.SerializeToString,
+        ),
+        "ArchiveProject": grpc.unary_unary_rpc_method_handler(
+            servicer.ArchiveProject,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveProjectRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveProjectResponse.SerializeToString,
         ),
         "CreateEnvironment": grpc.unary_unary_rpc_method_handler(
             servicer.CreateEnvironment,
@@ -363,6 +417,16 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.ArchiveEnvironment,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentResponse.SerializeToString,
+        ),
+        "DeactivateUser": grpc.unary_unary_rpc_method_handler(
+            servicer.DeactivateUser,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeactivateUserRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeactivateUserResponse.SerializeToString,
+        ),
+        "ReactivateUser": grpc.unary_unary_rpc_method_handler(
+            servicer.ReactivateUser,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.TeamService", rpc_method_handlers)
@@ -566,6 +630,64 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/CreateProject",
             chalk_dot_server_dot_v1_dot_team__pb2.CreateProjectRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.CreateProjectResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateProject(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/UpdateProject",
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateProjectRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateProjectResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ArchiveProject(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/ArchiveProject",
+            chalk_dot_server_dot_v1_dot_team__pb2.ArchiveProjectRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.ArchiveProjectResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -972,6 +1094,64 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/ArchiveEnvironment",
             chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeactivateUser(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/DeactivateUser",
+            chalk_dot_server_dot_v1_dot_team__pb2.DeactivateUserRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.DeactivateUserResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ReactivateUser(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/ReactivateUser",
+            chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserResponse.FromString,
             options,
             channel_credentials,
             insecure,

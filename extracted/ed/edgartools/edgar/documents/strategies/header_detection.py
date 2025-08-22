@@ -3,13 +3,12 @@ Multi-strategy header detection for document structure.
 """
 
 import re
+from typing import Optional, List, Dict, Any
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict
-
 from lxml.html import HtmlElement
 
 from edgar.documents.config import ParserConfig
-from edgar.documents.types import HeaderInfo, ParseContext
+from edgar.documents.types import HeaderInfo, ParseContext, Style
 
 
 class HeaderDetector(ABC):

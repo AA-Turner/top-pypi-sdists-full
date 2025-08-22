@@ -928,7 +928,11 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
             # Transmitir a nota
             console.print("Transmitindo a nota...\n", style="bold green")
-            pyautogui.click(875, 596)
+            if retry_count == 0:
+                pyautogui.click(875, 596)
+            else:
+                pyautogui.click(581, 747)  
+                  
             logger.info("\nNota Transmitida")
             console.print("\nNota Transmitida", style="bold green")
 

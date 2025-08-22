@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-20T21:57:30.319206                                                            #
+# Generated on 2025-08-21T23:31:59.738085                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import typing
 
 from .config.unified_config import CoreConfig as CoreConfig
 from .config.config_utils import MergingNotAllowedFieldsException as MergingNotAllowedFieldsException

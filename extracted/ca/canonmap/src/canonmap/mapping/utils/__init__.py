@@ -8,6 +8,12 @@ from .blocking import (
 )
 from .normalize import normalize
 from .scoring import scorer
+from .prefilter_helpers import (
+    create_prefilter_with_list,
+    create_prefilter_with_multiple_lists,
+    create_prefilter_with_date_range,
+    create_prefilter_with_joins,
+)
 
 __all__ = [
     "block_candidates",
@@ -17,5 +23,9 @@ __all__ = [
     "block_by_soundex",
     "BLOCKING_HANDLERS",
     "normalize",
-    "scorer"
+    "scorer",
+    "create_prefilter_with_list",
+    "create_prefilter_with_multiple_lists",
+    "create_prefilter_with_date_range",
+    "create_prefilter_with_joins",
 ]

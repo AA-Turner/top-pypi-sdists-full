@@ -1,6 +1,7 @@
 import asyncio
 import os
 import threading
+import random
 from pathlib import Path
 
 import pyfiglet
@@ -88,10 +89,10 @@ async def check_and_execute_tasks(stop_event: threading.Event):
                             url_retorno, RpaHistoricoStatusEnum.Descartado, log_message
                         )
             else:
-                await asyncio.sleep(5)
+                await asyncio.sleep(random.randint(5, 40))
         except Exception as e:
             logger.error(f"Ocorreu um erro de execução: {e}")
-            await asyncio.sleep(5)
+            await asyncio.sleep(random.randint(5, 40))
 
 
 async def notify_alive(stop_event: threading.Event):

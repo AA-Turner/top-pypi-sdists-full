@@ -27,7 +27,7 @@ from _pytest.mark import MarkDecorator
 from _pytest.mark.structures import ParameterSet
 
 if t.TYPE_CHECKING:
-    from sqlmesh.core._typing import TableName
+    from sqlmesh.core._typing import TableName, SchemaName
     from sqlmesh.core.engine_adapter._typing import Query
 
 TEST_SCHEMA = "test_schema"
@@ -82,6 +82,8 @@ ENGINES = [
     IntegrationTestEngine("bigquery", native_dataframe_type="bigframe", cloud=True),
     IntegrationTestEngine("databricks", native_dataframe_type="pyspark", cloud=True),
     IntegrationTestEngine("snowflake", native_dataframe_type="snowpark", cloud=True),
+    IntegrationTestEngine("fabric", cloud=True),
+    IntegrationTestEngine("gcp_postgres", cloud=True),
 ]
 
 ENGINES_BY_NAME = {e.engine: e for e in ENGINES}
@@ -221,6 +223,13 @@ class TestContext:
         return None
 
     @property
+    def engine_type(self) -> str:
+        if self.mark.startswith("gcp_postgres"):
+            return "gcp_postgres"
+
+        return self.mark.split("_")[0]
+
+    @property
     def columns_to_types(self):
         if self._columns_to_types is None:
             self._columns_to_types = {
@@ -305,7 +314,7 @@ class TestContext:
     def add_test_suffix(self, value: str) -> str:
         return f"{value}_{self.test_id}"
 
-    def get_metadata_results(self, schema: t.Optional[str] = None) -> MetadataResults:
+    def get_metadata_results(self, schema: t.Optional[SchemaName] = None) -> MetadataResults:
         schema = schema if schema else self.schema(TEST_SCHEMA)
         return MetadataResults.from_data_objects(self.engine_adapter.get_data_objects(schema))
 
@@ -339,7 +348,7 @@ class TestContext:
                 list(data.itertuples(index=False, name=None)),
                 batch_start=0,
                 batch_end=sys.maxsize,
-                columns_to_types=columns_to_types,
+                target_columns_to_types=columns_to_types,
             )
         if self.test_type == "df":
             formatted_df = self._format_df(data, to_datetime=self.dialect != "trino")
@@ -679,6 +688,9 @@ class TestContext:
             except Exception:
                 pass
             self.engine_adapter.cursor.connection.autocommit(False)
+        elif self.dialect == "fabric":
+            # Use the engine adapter's built-in catalog creation functionality
+            self.engine_adapter.create_catalog(catalog_name)
         elif self.dialect == "snowflake":
             self.engine_adapter.execute(f'CREATE DATABASE IF NOT EXISTS "{catalog_name}"')
         elif self.dialect == "duckdb":
@@ -695,6 +707,9 @@ class TestContext:
             return  # bigquery cannot create/drop catalogs
         if self.dialect == "databricks":
             self.engine_adapter.execute(f"DROP CATALOG IF EXISTS {catalog_name} CASCADE")
+        elif self.dialect == "fabric":
+            # Use the engine adapter's built-in catalog dropping functionality
+            self.engine_adapter.drop_catalog(catalog_name)
         else:
             self.engine_adapter.execute(f'DROP DATABASE IF EXISTS "{catalog_name}"')
 

@@ -32,7 +32,7 @@ class ColorDetectionConfig(BaseConfig):
     """Configuration for color detection use case."""
     
     # Existing fields...
-    confidence_threshold: float = 0.5
+    confidence_threshold: float = 0.9
     top_k_colors: int = 3
     frame_skip: int = 1
     usecase_categories: List[str] = field(
@@ -58,6 +58,7 @@ class ColorDetectionConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
+    zone: Optional[List[List[int]]] = field(default_factory=lambda: None)
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
                 0: "ambulance",
@@ -141,6 +142,8 @@ class ColorDetectionUseCase(BaseProcessor):
         self._ascending_alert_list: List[int] = []
         self.current_incident_end_timestamp: str = "N/A"
         self.color_det_dict = {}
+        self.start_timer = None
+        self.zone = None
 
     def reset_tracker(self) -> None:
         """Reset the advanced tracker instance."""
@@ -161,7 +164,32 @@ class ColorDetectionUseCase(BaseProcessor):
         self.reset_tracker()
         self.reset_color_tracking()
         self.logger.info("All color tracking state reset")
+
+    
+    def _is_in_zone(self,bbox : Dict[str, Any], bbox_format : str) -> bool:
+        if self.zone is None or not isinstance(bbox, dict):
+            return True
         
+        try:
+            if bbox_format == "xmin_ymin_xmax_ymax":
+                x1, y1, x2, y2 = bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]
+
+            elif bbox_format == "x_y_width_height" :
+                x1, y1 = bbox["x"], bbox["y"]
+                x2, y2 = x1 + bbox["width"], y1 + bbox["height"]
+
+            else:
+                return False
+            
+            cx = (x1+x2)/2
+            cy = (y1+y2)/2
+            in_zone = cv2.pointPolygonTest(self.zone, (cx, cy), False) >= 0
+            self.logger.debug(f"BBox center ({cx}, {cy}) in zone: {in_zone}")
+            return in_zone
+        except Exception as e:
+            self.logger.warning(f"Failed to check zone for bbox {bbox}: {e}")
+            return False
+
     @staticmethod
     def _iou(bbox1, bbox2):
         """Compute IoU between two bboxes (dicts with xmin/ymin/xmax/ymax or x/y/width/height)."""
@@ -340,20 +368,28 @@ class ColorDetectionUseCase(BaseProcessor):
                 context = ProcessingContext()
             
             if not input_bytes:
-                return self.create_error_result(
-                    "input_bytes (video/image) is required for color detection",
-                    usecase=self.name,
-                    category=self.category,
-                    context=context
-                )
+                print("input_bytes is required for color detection")
+                # return self.create_error_result(
+                #     "input_bytes (video/image) is required for color detection",
+                #     usecase=self.name,
+                #     category=self.category,
+                #     context=context
+                # )
             
             if not data:
-                return self.create_error_result(
-                    "Detection data is required for color detection",
-                    usecase=self.name,
-                    category=self.category,
-                    context=context
-                )
+                print("data",data)
+                print("Detection data is required for color detection")
+                # return self.create_error_result(
+                #     "Detection data is required for color detection",
+                #     usecase=self.name,
+                #     category=self.category,
+                #     context=context
+                # )
+
+            # Initialize zone if provided
+            if config.zone and self.zone is None:
+                self.zone = np.array(config.zone, dtype=np.float32)
+                self.logger.info(f"Initialized zone with coordinates: {self.zone.tolist()}")
             
             input_format = match_results_structure(data)
             context.input_format = input_format
@@ -363,12 +399,12 @@ class ColorDetectionUseCase(BaseProcessor):
             
             # Step 1: Apply confidence filtering
             processed_data = filter_by_confidence(data, config.confidence_threshold)
-            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+            #self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
             
             # Step 2: Apply category mapping if provided
             if config.index_to_category:
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
-                self.logger.debug("Applied category mapping")
+                #self.logger.debug("Applied category mapping")
 
             if config.target_categories:
                 color_processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
@@ -636,6 +672,14 @@ class ColorDetectionUseCase(BaseProcessor):
                 raise RuntimeError("Failed to open video file")
 
             fps = config.fps or cap.get(cv2.CAP_PROP_FPS)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            # Validate zone coordinates
+            if self.zone is not None:
+                for x, y in self.zone:
+                    if x < 0 or x >= width or y < 0 or y >= height:
+                        self.logger.warning(f"Zone coordinate ({x}, {y}) is outside video frame ({width}x{height})")
+
             color_analysis = []
             frame_id = 0
 
@@ -663,6 +707,10 @@ class ColorDetectionUseCase(BaseProcessor):
 
                     bbox = detection.get("bounding_box", detection.get("bbox"))
                     if not bbox:
+                        continue
+
+                    # Filter detections by zone
+                    if not self._is_in_zone(bbox, config.bbox_format):
                         continue
 
                     crop = self._crop_bbox(rgb_frame, bbox, config.bbox_format)
@@ -707,6 +755,13 @@ class ColorDetectionUseCase(BaseProcessor):
             raise RuntimeError("Failed to decode image from bytes")
         
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # Validate zone coordinates
+        height, width = rgb_image.shape[:2]
+        if self.zone is not None:
+            for x, y in self.zone:
+                if x < 0 or x >= width or y < 0 or y >= height:
+                    self.logger.warning(f"Zone coordinate ({x}, {y}) is outside image frame ({width}x{height})")
+
         color_analysis = []
         detections = self._get_frame_detections(data, "0")
         
@@ -716,6 +771,10 @@ class ColorDetectionUseCase(BaseProcessor):
 
             bbox = detection.get("bounding_box", detection.get("bbox"))
             if not bbox:
+                continue
+
+            # Filter detections by zone
+            if not self._is_in_zone(bbox, config.bbox_format):
                 continue
 
             crop = self._crop_bbox(rgb_image, bbox, config.bbox_format)
@@ -1464,9 +1523,9 @@ class ColorDetectionUseCase(BaseProcessor):
 
     def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
+        
         if not stream_info:
             return "00:00:00.00"
-        # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:
@@ -1474,30 +1533,30 @@ class ColorDetectionUseCase(BaseProcessor):
                 else:
                     start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
-                return stream_time_str
+                
+                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                if frame_id:
-                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
-                else:
-                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
-                stream_time_str = self._format_timestamp_for_video(start_time)
-                return stream_time_str
+            if frame_id:
+                start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+            else:
+                start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+
+            stream_time_str = self._format_timestamp_for_video(start_time)
+           
+
+            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
         else:
-            # For streams, use stream_time from stream_info
             stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
-                # Parse the high precision timestamp string to get timestamp
                 try:
-                    # Remove " UTC" suffix and parse
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
                 except:
-                    # Fallback to current time if parsing fails
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
@@ -1506,34 +1565,41 @@ class ColorDetectionUseCase(BaseProcessor):
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
+        
         if precision:
-            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                return "00:00:00"
+            if self.start_timer is None:
+                self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+                return self._format_timestamp(self.start_timer)
+            elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+                self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+                return self._format_timestamp(self.start_timer)
             else:
-                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                return self._format_timestamp(self.start_timer)
 
-        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-            # If video format, start from 00:00:00
-            return "00:00:00"
+        if self.start_timer is None:
+            self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+            return self._format_timestamp(self.start_timer)
+        elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+            self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+            return self._format_timestamp(self.start_timer)
+        
         else:
-            # For streams, use tracking start time or current time with minutes/seconds reset
+            if self.start_timer is not None:
+                return self._format_timestamp(self.start_timer)
+
             if self._tracking_start_time is None:
-                # Try to extract timestamp from stream_time string
                 stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:
                     try:
-                        # Remove " UTC" suffix and parse
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
                     except:
-                        # Fallback to current time if parsing fails
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
 
             dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
-            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
     
@@ -1629,9 +1695,51 @@ class ColorDetectionUseCase(BaseProcessor):
         }
         return canonical_id
 
-    def _format_timestamp(self, timestamp: float) -> str:
-        """Format a timestamp for human-readable output."""
-        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+    def _format_timestamp(self, timestamp: Any) -> str:
+        """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
+
+        The input can be either:
+        1. A numeric Unix timestamp (``float`` / ``int``) – it will first be converted to a
+           string in the format ``YYYY-MM-DD-HH:MM:SS.ffffff UTC``.
+        2. A string already following the same layout.
+
+        The returned value preserves the overall format of the input but truncates or pads
+        the fractional seconds portion to **exactly two digits**.
+
+        Example
+        -------
+        >>> self._format_timestamp("2025-08-19-04:22:47.187574 UTC")
+        '2025-08-19-04:22:47.18 UTC'
+        """
+
+        # Convert numeric timestamps to the expected string representation first
+        if isinstance(timestamp, (int, float)):
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                '%Y-%m-%d-%H:%M:%S.%f UTC'
+            )
+
+        # Ensure we are working with a string from here on
+        if not isinstance(timestamp, str):
+            return str(timestamp)
+
+        # If there is no fractional component, simply return the original string
+        if '.' not in timestamp:
+            return timestamp
+
+        # Split out the main portion (up to the decimal point)
+        main_part, fractional_and_suffix = timestamp.split('.', 1)
+
+        # Separate fractional digits from the suffix (typically ' UTC')
+        if ' ' in fractional_and_suffix:
+            fractional_part, suffix = fractional_and_suffix.split(' ', 1)
+            suffix = ' ' + suffix  # Re-attach the space removed by split
+        else:
+            fractional_part, suffix = fractional_and_suffix, ''
+
+        # Guarantee exactly two digits for the fractional part
+        fractional_part = (fractional_part + '00')[:2]
+
+        return f"{main_part}.{fractional_part}{suffix}"
 
     def _get_tracking_start_time(self) -> str:
         """Get the tracking start time, formatted as a string."""

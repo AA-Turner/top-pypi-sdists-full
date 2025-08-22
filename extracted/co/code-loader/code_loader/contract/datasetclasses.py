@@ -43,9 +43,6 @@ class PreprocessResponse:
     instance_ids_to_names: Optional[Dict[str, str]] = None # in use only for element instance
 
     def __post_init__(self) -> None:
-        def is_valid_string(s: str) -> bool:
-            return bool(re.match(r'^[A-Za-z0-9_]+$', s))
-
         assert self.sample_ids_to_instance_mappings is None, f"Keep sample_ids_to_instance_mappings None when initializing PreprocessResponse"
         assert self.instance_to_sample_ids_mappings is None, f"Keep instance_to_sample_ids_mappings None when initializing PreprocessResponse"
         assert self.instance_ids_to_names is None, f"Keep instance_ids_to_names None when initializing PreprocessResponse"
@@ -60,8 +57,6 @@ class PreprocessResponse:
             if self.sample_id_type == str:
                 for sample_id in self.sample_ids:
                     assert isinstance(sample_id, str), f"Sample id should be of type str. Got: {type(sample_id)}"
-                    if not is_valid_string(sample_id):
-                        raise Exception(f"Sample id should contain only letters (A-Z, a-z), numbers or '_'. Got: {sample_id}")
         else:
             raise Exception("length is deprecated.")
 

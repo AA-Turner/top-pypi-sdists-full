@@ -367,9 +367,12 @@ class GenericContext(BaseContext, t.Generic[C]):
         loader: t.Optional[t.Type[Loader]] = None,
         load: bool = True,
         users: t.Optional[t.List[User]] = None,
+        config_loader_kwargs: t.Optional[t.Dict[str, t.Any]] = None,
     ):
         self.configs = (
-            config if isinstance(config, dict) else load_configs(config, self.CONFIG_TYPE, paths)
+            config
+            if isinstance(config, dict)
+            else load_configs(config, self.CONFIG_TYPE, paths, **(config_loader_kwargs or {}))
         )
         self._projects = {config.project for config in self.configs.values()}
         self.dag: DAG[str] = DAG()
@@ -1276,6 +1279,7 @@ class GenericContext(BaseContext, t.Generic[C]):
         empty_backfill: t.Optional[bool] = None,
         forward_only: t.Optional[bool] = None,
         allow_destructive_models: t.Optional[t.Collection[str]] = None,
+        allow_additive_models: t.Optional[t.Collection[str]] = None,
         no_prompts: t.Optional[bool] = None,
         auto_apply: t.Optional[bool] = None,
         no_auto_categorization: t.Optional[bool] = None,
@@ -1290,6 +1294,7 @@ class GenericContext(BaseContext, t.Generic[C]):
         diff_rendered: t.Optional[bool] = None,
         skip_linter: t.Optional[bool] = None,
         explain: t.Optional[bool] = None,
+        ignore_cron: t.Optional[bool] = None,
         min_intervals: t.Optional[int] = None,
     ) -> Plan:
         """Interactively creates a plan.
@@ -1318,6 +1323,7 @@ class GenericContext(BaseContext, t.Generic[C]):
             empty_backfill: Like skip_backfill, but also records processed intervals.
             forward_only: Whether the purpose of the plan is to make forward only changes.
             allow_destructive_models: Models whose forward-only changes are allowed to be destructive.
+            allow_additive_models: Models whose forward-only changes are allowed to be additive.
             no_prompts: Whether to disable interactive prompts for the backfill time range. Please note that
                 if this flag is set to true and there are uncategorized changes the plan creation will
                 fail. Default: False.
@@ -1356,6 +1362,7 @@ class GenericContext(BaseContext, t.Generic[C]):
             empty_backfill=empty_backfill,
             forward_only=forward_only,
             allow_destructive_models=allow_destructive_models,
+            allow_additive_models=allow_additive_models,
             no_auto_categorization=no_auto_categorization,
             effective_from=effective_from,
             include_unmodified=include_unmodified,
@@ -1367,6 +1374,7 @@ class GenericContext(BaseContext, t.Generic[C]):
             diff_rendered=diff_rendered,
             skip_linter=skip_linter,
             explain=explain,
+            ignore_cron=ignore_cron,
             min_intervals=min_intervals,
         )
 
@@ -1406,6 +1414,7 @@ class GenericContext(BaseContext, t.Generic[C]):
         empty_backfill: t.Optional[bool] = None,
         forward_only: t.Optional[bool] = None,
         allow_destructive_models: t.Optional[t.Collection[str]] = None,
+        allow_additive_models: t.Optional[t.Collection[str]] = None,
         no_auto_categorization: t.Optional[bool] = None,
         effective_from: t.Optional[TimeLike] = None,
         include_unmodified: t.Optional[bool] = None,
@@ -1417,6 +1426,7 @@ class GenericContext(BaseContext, t.Generic[C]):
         diff_rendered: t.Optional[bool] = None,
         skip_linter: t.Optional[bool] = None,
         explain: t.Optional[bool] = None,
+        ignore_cron: t.Optional[bool] = None,
         min_intervals: t.Optional[int] = None,
     ) -> PlanBuilder:
         """Creates a plan builder.
@@ -1474,6 +1484,9 @@ class GenericContext(BaseContext, t.Generic[C]):
             "allow_destructive_models": list(allow_destructive_models)
             if allow_destructive_models is not None
             else None,
+            "allow_additive_models": list(allow_additive_models)
+            if allow_additive_models is not None
+            else None,
             "no_auto_categorization": no_auto_categorization,
             "effective_from": effective_from,
             "include_unmodified": include_unmodified,
@@ -1526,6 +1539,11 @@ class GenericContext(BaseContext, t.Generic[C]):
             )
         else:
             expanded_destructive_models = None
+
+        if allow_additive_models:
+            expanded_additive_models = model_selector.expand_model_selections(allow_additive_models)
+        else:
+            expanded_additive_models = None
 
         if backfill_models:
             backfill_models = model_selector.expand_model_selections(backfill_models)
@@ -1590,6 +1608,7 @@ class GenericContext(BaseContext, t.Generic[C]):
         max_interval_end_per_model = None
         default_start, default_end = None, None
         if not run:
+            ignore_cron = False
             max_interval_end_per_model = self._get_max_interval_end_per_model(
                 snapshots, backfill_models
             )
@@ -1616,6 +1635,11 @@ class GenericContext(BaseContext, t.Generic[C]):
             max_interval_end_per_model,
         )
 
+        if not self.config.virtual_environment_mode.is_full:
+            forward_only = True
+        elif forward_only is None:
+            forward_only = self.config.plan.forward_only
+
         return self.PLAN_BUILDER_TYPE(
             context_diff=context_diff,
             start=start,
@@ -1628,10 +1652,9 @@ class GenericContext(BaseContext, t.Generic[C]):
             skip_backfill=skip_backfill,
             empty_backfill=empty_backfill,
             is_dev=is_dev,
-            forward_only=(
-                forward_only if forward_only is not None else self.config.plan.forward_only
-            ),
+            forward_only=forward_only,
             allow_destructive_models=expanded_destructive_models,
+            allow_additive_models=expanded_additive_models,
             environment_ttl=environment_ttl,
             environment_suffix_target=self.config.environment_suffix_target,
             environment_catalog_mapping=self.environment_catalog_mapping,
@@ -1651,6 +1674,7 @@ class GenericContext(BaseContext, t.Generic[C]):
             console=self.console,
             user_provided_flags=user_provided_flags,
             explain=explain or False,
+            ignore_cron=ignore_cron or False,
         )
 
     def apply(
@@ -2936,7 +2960,7 @@ class GenericContext(BaseContext, t.Generic[C]):
     def _plan_preview_enabled(self) -> bool:
         if self.config.plan.enable_preview is not None:
             return self.config.plan.enable_preview
-        # It is dangerous to enable preview by default for dbt projects that rely on engines that don’t support cloning.
+        # It is dangerous to enable preview by default for dbt projects that rely on engines that don't support cloning.
         # Enabling previews in such cases can result in unintended full refreshes because dbt incremental models rely on
         # the maximum timestamp value in the target table.
         return self._project_type == c.NATIVE or self.engine_adapter.SUPPORTS_CLONING

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_netapp_snapshot_policy`
 
-Refer to the Terraform Registry for docs: [`azurerm_netapp_snapshot_policy`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy).
+Refer to the Terraform Registry for docs: [`azurerm_netapp_snapshot_policy`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetappSnapshotPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.netappSnapshotPolicy.NetappSnapshotPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy azurerm_netapp_snapshot_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy azurerm_netapp_snapshot_policy}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class NetappSnapshotPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy azurerm_netapp_snapshot_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy azurerm_netapp_snapshot_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#account_name NetappSnapshotPolicy#account_name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#enabled NetappSnapshotPolicy#enabled}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#location NetappSnapshotPolicy#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#name NetappSnapshotPolicy#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#resource_group_name NetappSnapshotPolicy#resource_group_name}.
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#daily_schedule NetappSnapshotPolicy#daily_schedule}
-        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hourly_schedule NetappSnapshotPolicy#hourly_schedule}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#id NetappSnapshotPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monthly_schedule: monthly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#monthly_schedule NetappSnapshotPolicy#monthly_schedule}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#tags NetappSnapshotPolicy#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#timeouts NetappSnapshotPolicy#timeouts}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#weekly_schedule NetappSnapshotPolicy#weekly_schedule}
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#account_name NetappSnapshotPolicy#account_name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#enabled NetappSnapshotPolicy#enabled}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#location NetappSnapshotPolicy#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#name NetappSnapshotPolicy#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#resource_group_name NetappSnapshotPolicy#resource_group_name}.
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#daily_schedule NetappSnapshotPolicy#daily_schedule}
+        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hourly_schedule NetappSnapshotPolicy#hourly_schedule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#id NetappSnapshotPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monthly_schedule: monthly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#monthly_schedule NetappSnapshotPolicy#monthly_schedule}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#tags NetappSnapshotPolicy#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#timeouts NetappSnapshotPolicy#timeouts}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#weekly_schedule NetappSnapshotPolicy#weekly_schedule}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class NetappSnapshotPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetappSnapshotPolicy to import.
-        :param import_from_id: The id of the existing NetappSnapshotPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetappSnapshotPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetappSnapshotPolicy to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class NetappSnapshotPolicy(
         snapshots_to_keep: jsii.Number,
     ) -> None:
         '''
-        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
-        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
+        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
+        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
         '''
         value = NetappSnapshotPolicyDailySchedule(
             hour=hour, minute=minute, snapshots_to_keep=snapshots_to_keep
@@ -174,8 +174,8 @@ class NetappSnapshotPolicy(
         snapshots_to_keep: jsii.Number,
     ) -> None:
         '''
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
-        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
+        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
         '''
         value = NetappSnapshotPolicyHourlySchedule(
             minute=minute, snapshots_to_keep=snapshots_to_keep
@@ -193,10 +193,10 @@ class NetappSnapshotPolicy(
         snapshots_to_keep: jsii.Number,
     ) -> None:
         '''
-        :param days_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#days_of_month NetappSnapshotPolicy#days_of_month}.
-        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
-        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
+        :param days_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#days_of_month NetappSnapshotPolicy#days_of_month}.
+        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
+        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
         '''
         value = NetappSnapshotPolicyMonthlySchedule(
             days_of_month=days_of_month,
@@ -217,10 +217,10 @@ class NetappSnapshotPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#create NetappSnapshotPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#delete NetappSnapshotPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#read NetappSnapshotPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#update NetappSnapshotPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#create NetappSnapshotPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#delete NetappSnapshotPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#read NetappSnapshotPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#update NetappSnapshotPolicy#update}.
         '''
         value = NetappSnapshotPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -238,10 +238,10 @@ class NetappSnapshotPolicy(
         snapshots_to_keep: jsii.Number,
     ) -> None:
         '''
-        :param days_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#days_of_week NetappSnapshotPolicy#days_of_week}.
-        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
-        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
+        :param days_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#days_of_week NetappSnapshotPolicy#days_of_week}.
+        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
+        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
         '''
         value = NetappSnapshotPolicyWeeklySchedule(
             days_of_week=days_of_week,
@@ -535,18 +535,18 @@ class NetappSnapshotPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#account_name NetappSnapshotPolicy#account_name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#enabled NetappSnapshotPolicy#enabled}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#location NetappSnapshotPolicy#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#name NetappSnapshotPolicy#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#resource_group_name NetappSnapshotPolicy#resource_group_name}.
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#daily_schedule NetappSnapshotPolicy#daily_schedule}
-        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hourly_schedule NetappSnapshotPolicy#hourly_schedule}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#id NetappSnapshotPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monthly_schedule: monthly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#monthly_schedule NetappSnapshotPolicy#monthly_schedule}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#tags NetappSnapshotPolicy#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#timeouts NetappSnapshotPolicy#timeouts}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#weekly_schedule NetappSnapshotPolicy#weekly_schedule}
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#account_name NetappSnapshotPolicy#account_name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#enabled NetappSnapshotPolicy#enabled}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#location NetappSnapshotPolicy#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#name NetappSnapshotPolicy#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#resource_group_name NetappSnapshotPolicy#resource_group_name}.
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#daily_schedule NetappSnapshotPolicy#daily_schedule}
+        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hourly_schedule NetappSnapshotPolicy#hourly_schedule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#id NetappSnapshotPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monthly_schedule: monthly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#monthly_schedule NetappSnapshotPolicy#monthly_schedule}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#tags NetappSnapshotPolicy#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#timeouts NetappSnapshotPolicy#timeouts}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#weekly_schedule NetappSnapshotPolicy#weekly_schedule}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -683,35 +683,35 @@ class NetappSnapshotPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#account_name NetappSnapshotPolicy#account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#account_name NetappSnapshotPolicy#account_name}.'''
         result = self._values.get("account_name")
         assert result is not None, "Required property 'account_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#enabled NetappSnapshotPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#enabled NetappSnapshotPolicy#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#location NetappSnapshotPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#location NetappSnapshotPolicy#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#name NetappSnapshotPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#name NetappSnapshotPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#resource_group_name NetappSnapshotPolicy#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#resource_group_name NetappSnapshotPolicy#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -720,7 +720,7 @@ class NetappSnapshotPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def daily_schedule(self) -> typing.Optional["NetappSnapshotPolicyDailySchedule"]:
         '''daily_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#daily_schedule NetappSnapshotPolicy#daily_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#daily_schedule NetappSnapshotPolicy#daily_schedule}
         '''
         result = self._values.get("daily_schedule")
         return typing.cast(typing.Optional["NetappSnapshotPolicyDailySchedule"], result)
@@ -729,14 +729,14 @@ class NetappSnapshotPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def hourly_schedule(self) -> typing.Optional["NetappSnapshotPolicyHourlySchedule"]:
         '''hourly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hourly_schedule NetappSnapshotPolicy#hourly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hourly_schedule NetappSnapshotPolicy#hourly_schedule}
         '''
         result = self._values.get("hourly_schedule")
         return typing.cast(typing.Optional["NetappSnapshotPolicyHourlySchedule"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#id NetappSnapshotPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#id NetappSnapshotPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -750,14 +750,14 @@ class NetappSnapshotPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["NetappSnapshotPolicyMonthlySchedule"]:
         '''monthly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#monthly_schedule NetappSnapshotPolicy#monthly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#monthly_schedule NetappSnapshotPolicy#monthly_schedule}
         '''
         result = self._values.get("monthly_schedule")
         return typing.cast(typing.Optional["NetappSnapshotPolicyMonthlySchedule"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#tags NetappSnapshotPolicy#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#tags NetappSnapshotPolicy#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -765,7 +765,7 @@ class NetappSnapshotPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetappSnapshotPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#timeouts NetappSnapshotPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#timeouts NetappSnapshotPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetappSnapshotPolicyTimeouts"], result)
@@ -774,7 +774,7 @@ class NetappSnapshotPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def weekly_schedule(self) -> typing.Optional["NetappSnapshotPolicyWeeklySchedule"]:
         '''weekly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#weekly_schedule NetappSnapshotPolicy#weekly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#weekly_schedule NetappSnapshotPolicy#weekly_schedule}
         '''
         result = self._values.get("weekly_schedule")
         return typing.cast(typing.Optional["NetappSnapshotPolicyWeeklySchedule"], result)
@@ -809,9 +809,9 @@ class NetappSnapshotPolicyDailySchedule:
         snapshots_to_keep: jsii.Number,
     ) -> None:
         '''
-        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
-        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
+        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
+        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a69dd1c08d0ecfdc0a32ea567f1f9f51c19cdd2efb2373a180684d983b6fc2e8)
@@ -826,21 +826,21 @@ class NetappSnapshotPolicyDailySchedule:
 
     @builtins.property
     def hour(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.'''
         result = self._values.get("hour")
         assert result is not None, "Required property 'hour' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minute(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.'''
         result = self._values.get("minute")
         assert result is not None, "Required property 'minute' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def snapshots_to_keep(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.'''
         result = self._values.get("snapshots_to_keep")
         assert result is not None, "Required property 'snapshots_to_keep' is missing"
         return typing.cast(jsii.Number, result)
@@ -952,8 +952,8 @@ class NetappSnapshotPolicyDailyScheduleOutputReference(
 class NetappSnapshotPolicyHourlySchedule:
     def __init__(self, *, minute: jsii.Number, snapshots_to_keep: jsii.Number) -> None:
         '''
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
-        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
+        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3511b55b4d934adf7cb8cbf9fc18601034f6e586754f0502dc8e6c2419f8a74)
@@ -966,14 +966,14 @@ class NetappSnapshotPolicyHourlySchedule:
 
     @builtins.property
     def minute(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.'''
         result = self._values.get("minute")
         assert result is not None, "Required property 'minute' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def snapshots_to_keep(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.'''
         result = self._values.get("snapshots_to_keep")
         assert result is not None, "Required property 'snapshots_to_keep' is missing"
         return typing.cast(jsii.Number, result)
@@ -1080,10 +1080,10 @@ class NetappSnapshotPolicyMonthlySchedule:
         snapshots_to_keep: jsii.Number,
     ) -> None:
         '''
-        :param days_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#days_of_month NetappSnapshotPolicy#days_of_month}.
-        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
-        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
+        :param days_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#days_of_month NetappSnapshotPolicy#days_of_month}.
+        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
+        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d82c28f26e4c4a23019fb0039ff3558b79ef50ac28ffd55fe5e924410bc3cd7)
@@ -1100,28 +1100,28 @@ class NetappSnapshotPolicyMonthlySchedule:
 
     @builtins.property
     def days_of_month(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#days_of_month NetappSnapshotPolicy#days_of_month}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#days_of_month NetappSnapshotPolicy#days_of_month}.'''
         result = self._values.get("days_of_month")
         assert result is not None, "Required property 'days_of_month' is missing"
         return typing.cast(typing.List[jsii.Number], result)
 
     @builtins.property
     def hour(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.'''
         result = self._values.get("hour")
         assert result is not None, "Required property 'hour' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minute(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.'''
         result = self._values.get("minute")
         assert result is not None, "Required property 'minute' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def snapshots_to_keep(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.'''
         result = self._values.get("snapshots_to_keep")
         assert result is not None, "Required property 'snapshots_to_keep' is missing"
         return typing.cast(jsii.Number, result)
@@ -1262,10 +1262,10 @@ class NetappSnapshotPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#create NetappSnapshotPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#delete NetappSnapshotPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#read NetappSnapshotPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#update NetappSnapshotPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#create NetappSnapshotPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#delete NetappSnapshotPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#read NetappSnapshotPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#update NetappSnapshotPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f78fa1ee5ccd703ddb73d2df81081555e977784bb071069f2500bdacbbeb957a)
@@ -1285,25 +1285,25 @@ class NetappSnapshotPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#create NetappSnapshotPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#create NetappSnapshotPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#delete NetappSnapshotPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#delete NetappSnapshotPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#read NetappSnapshotPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#read NetappSnapshotPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#update NetappSnapshotPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#update NetappSnapshotPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1461,10 +1461,10 @@ class NetappSnapshotPolicyWeeklySchedule:
         snapshots_to_keep: jsii.Number,
     ) -> None:
         '''
-        :param days_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#days_of_week NetappSnapshotPolicy#days_of_week}.
-        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
-        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
-        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
+        :param days_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#days_of_week NetappSnapshotPolicy#days_of_week}.
+        :param hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.
+        :param minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.
+        :param snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86d566662f4a277aaf5dcfd96257c55bab92e4cb81531226f81b0a129de462e2)
@@ -1481,28 +1481,28 @@ class NetappSnapshotPolicyWeeklySchedule:
 
     @builtins.property
     def days_of_week(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#days_of_week NetappSnapshotPolicy#days_of_week}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#days_of_week NetappSnapshotPolicy#days_of_week}.'''
         result = self._values.get("days_of_week")
         assert result is not None, "Required property 'days_of_week' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def hour(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#hour NetappSnapshotPolicy#hour}.'''
         result = self._values.get("hour")
         assert result is not None, "Required property 'hour' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minute(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#minute NetappSnapshotPolicy#minute}.'''
         result = self._values.get("minute")
         assert result is not None, "Required property 'minute' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def snapshots_to_keep(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/netapp_snapshot_policy#snapshots_to_keep NetappSnapshotPolicy#snapshots_to_keep}.'''
         result = self._values.get("snapshots_to_keep")
         assert result is not None, "Required property 'snapshots_to_keep' is missing"
         return typing.cast(jsii.Number, result)

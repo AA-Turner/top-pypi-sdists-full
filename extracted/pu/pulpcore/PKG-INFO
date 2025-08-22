@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.85.1
+Version: 3.86.0
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
 Project-URL: Homepage, https://pulpproject.org
@@ -45,7 +45,7 @@ Requires-Dist: PyOpenSSL<26.0
 Requires-Dist: opentelemetry-api<1.37,>=1.27.0
 Requires-Dist: opentelemetry-sdk<1.37,>=1.27.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.37,>=1.27.0
-Requires-Dist: protobuf<6.0,>=4.21.1
+Requires-Dist: protobuf<7.0,>=4.21.1
 Requires-Dist: pulp-glue<0.36,>=0.28.0
 Requires-Dist: pygtrie<=2.5.0,>=2.5
 Requires-Dist: psycopg[binary]<3.3,>=3.1.8

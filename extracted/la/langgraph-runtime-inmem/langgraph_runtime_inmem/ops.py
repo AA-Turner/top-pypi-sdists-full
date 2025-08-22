@@ -1901,7 +1901,6 @@ class Runs(Authenticated):
                         {
                             "configurable": Runs._merge_jsonb(
                                 Runs._get_configurable(assistant["config"]),
-                                Runs._get_configurable(config),
                             )
                         },
                     ),
@@ -1945,7 +1944,6 @@ class Runs(Authenticated):
                         "configurable": Runs._merge_jsonb(
                             Runs._get_configurable(assistant["config"]),
                             Runs._get_configurable(existing_thread["config"]),
-                            Runs._get_configurable(config),
                         )
                     },
                 )

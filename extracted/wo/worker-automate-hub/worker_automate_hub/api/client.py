@@ -147,9 +147,10 @@ async def get_processo(uuidProcesso: str) -> RpaProcesso:
             raise ValueError("O uuid do processo deve ser informado")
 
         headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
+        timeout = aiohttp.ClientTimeout(total=600) 
 
         async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(verify_ssl=True)
+            connector=aiohttp.TCPConnector(verify_ssl=True), timeout=timeout
         ) as session:
             async with session.get(
                 f"{env_config["API_BASE_URL"]}/processo/{uuidProcesso}",
@@ -231,9 +232,10 @@ async def get_config_by_name(name: str) -> RpaConfiguracao:
 
     try:
         headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
+        timeout = aiohttp.ClientTimeout(total=600) 
 
         async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(verify_ssl=True)
+            connector=aiohttp.TCPConnector(verify_ssl=True), timeout=timeout
         ) as session:
             async with session.get(
                 f"{env_config["API_BASE_URL"]}/configuracao/api/{name}",
@@ -507,10 +509,11 @@ async def get_status_nf_emsys(chave: int):
     url = f"{env_config['API_BASE_URL']}/emsys/consulta-status-nota?chaveNfe={chave}"
 
     headers_basic = {"Authorization": f"Basic {env_config['API_AUTHORIZATION']}"}
+    timeout = aiohttp.ClientTimeout(total=600)
 
     try:
         async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(verify_ssl=True)
+            connector=aiohttp.TCPConnector(verify_ssl=True), timeout=timeout
         ) as session:
             async with session.get(url, headers=headers_basic) as response:
                 if response.status != 200:

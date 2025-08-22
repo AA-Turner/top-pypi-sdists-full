@@ -24554,6 +24554,38 @@ dataset can still be directly accessed by its UUID/rid.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_catalog_AllPropertiesAndLabelsResponse, self._return_none_for_unknown_union_types)
 
+    def get_log_dataset_for_workspace(self, auth_header: str, workspace_rid: str) -> Optional[str]:
+        """Returns the log dataset RID for the specified workspace if configured and accessible to the caller.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'workspaceRid': quote(str(_conjure_encoder.default(workspace_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/catalog/v1/workspaces/{workspaceRid}/log-dataset'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'GET',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return None if _response.status_code == 204 else _decoder.decode(_response.json(), OptionalTypeWrapper[api_rids_DatasetRid], self._return_none_for_unknown_union_types)
+
 
 scout_catalog_CatalogService.__name__ = "CatalogService"
 scout_catalog_CatalogService.__qualname__ = "CatalogService"
@@ -46342,22 +46374,50 @@ class scout_compute_api_Fft(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries)
+            'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
+            'window': ConjureFieldDefinition('window', OptionalTypeWrapper[scout_compute_api_FftWindow])
         }
 
-    __slots__: List[str] = ['_input']
+    __slots__: List[str] = ['_input', '_window']
 
-    def __init__(self, input: "scout_compute_api_NumericSeries") -> None:
+    def __init__(self, input: "scout_compute_api_NumericSeries", window: Optional["scout_compute_api_FftWindow"] = None) -> None:
         self._input = input
+        self._window = window
 
     @builtins.property
     def input(self) -> "scout_compute_api_NumericSeries":
         return self._input
 
+    @builtins.property
+    def window(self) -> Optional["scout_compute_api_FftWindow"]:
+        return self._window
+
 
 scout_compute_api_Fft.__name__ = "Fft"
 scout_compute_api_Fft.__qualname__ = "Fft"
 scout_compute_api_Fft.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FftWindow(ConjureEnumType):
+
+    BLACKMAN = 'BLACKMAN'
+    '''BLACKMAN'''
+    HANN = 'HANN'
+    '''HANN'''
+    HAMMING = 'HAMMING'
+    '''HAMMING'''
+    RECT = 'RECT'
+    '''RECT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_FftWindow.__name__ = "FftWindow"
+scout_compute_api_FftWindow.__qualname__ = "FftWindow"
+scout_compute_api_FftWindow.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_FirstPointMatchingCondition(ConjureBeanType):
@@ -50583,12 +50643,12 @@ scout_compute_api_Periodogram.__module__ = "nominal_api.scout_compute_api"
 
 class scout_compute_api_PeriodogramMethod(ConjureEnumType):
 
+    WELCH_BLACKMAN = 'WELCH_BLACKMAN'
+    '''WELCH_BLACKMAN'''
     WELCH_HANN = 'WELCH_HANN'
     '''WELCH_HANN'''
     WELCH_HAMMING = 'WELCH_HAMMING'
     '''WELCH_HAMMING'''
-    WELCH_BLACKMAN = 'WELCH_BLACKMAN'
-    '''WELCH_BLACKMAN'''
     WELCH_RECT = 'WELCH_RECT'
     '''WELCH_RECT'''
     UNKNOWN = 'UNKNOWN'
@@ -69756,6 +69816,155 @@ scout_datasource_connection_ConnectionService.__qualname__ = "ConnectionService"
 scout_datasource_connection_ConnectionService.__module__ = "nominal_api.scout_datasource_connection"
 
 
+class scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig.__name__ = "AllChannelsConnectionsScrapingConfig"
+scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig.__qualname__ = "AllChannelsConnectionsScrapingConfig"
+scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig.__module__ = "nominal_api.scout_datasource_connection_api"
+
+
+class scout_datasource_connection_api_ApiConnectionDetails(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'api_uri': ConjureFieldDefinition('apiUri', str),
+            'token_secret_rid': ConjureFieldDefinition('tokenSecretRid', scout_datasource_connection_api_SecretRid)
+        }
+
+    __slots__: List[str] = ['_api_uri', '_token_secret_rid']
+
+    def __init__(self, api_uri: str, token_secret_rid: str) -> None:
+        self._api_uri = api_uri
+        self._token_secret_rid = token_secret_rid
+
+    @builtins.property
+    def api_uri(self) -> str:
+        """The URI to connect to hit the endpoints specified in the spec.
+        """
+        return self._api_uri
+
+    @builtins.property
+    def token_secret_rid(self) -> str:
+        """Secret Rid of token secret stored in Secrets Service.
+        """
+        return self._token_secret_rid
+
+
+scout_datasource_connection_api_ApiConnectionDetails.__name__ = "ApiConnectionDetails"
+scout_datasource_connection_api_ApiConnectionDetails.__qualname__ = "ApiConnectionDetails"
+scout_datasource_connection_api_ApiConnectionDetails.__module__ = "nominal_api.scout_datasource_connection_api"
+
+
+class scout_datasource_connection_api_ApiScrapingConfig(ConjureUnionType):
+    """This config is used to scrape data from an external connections service.
+    """
+    _all_channels: Optional["scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig"] = None
+    _channel_allow_list: Optional["scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig"] = None
+    _channel_block_list: Optional["scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'all_channels': ConjureFieldDefinition('allChannels', scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig),
+            'channel_allow_list': ConjureFieldDefinition('channelAllowList', scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig),
+            'channel_block_list': ConjureFieldDefinition('channelBlockList', scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig)
+        }
+
+    def __init__(
+            self,
+            all_channels: Optional["scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig"] = None,
+            channel_allow_list: Optional["scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig"] = None,
+            channel_block_list: Optional["scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (all_channels is not None) + (channel_allow_list is not None) + (channel_block_list is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if all_channels is not None:
+                self._all_channels = all_channels
+                self._type = 'allChannels'
+            if channel_allow_list is not None:
+                self._channel_allow_list = channel_allow_list
+                self._type = 'channelAllowList'
+            if channel_block_list is not None:
+                self._channel_block_list = channel_block_list
+                self._type = 'channelBlockList'
+
+        elif type_of_union == 'allChannels':
+            if all_channels is None:
+                raise ValueError('a union value must not be None')
+            self._all_channels = all_channels
+            self._type = 'allChannels'
+        elif type_of_union == 'channelAllowList':
+            if channel_allow_list is None:
+                raise ValueError('a union value must not be None')
+            self._channel_allow_list = channel_allow_list
+            self._type = 'channelAllowList'
+        elif type_of_union == 'channelBlockList':
+            if channel_block_list is None:
+                raise ValueError('a union value must not be None')
+            self._channel_block_list = channel_block_list
+            self._type = 'channelBlockList'
+
+    @builtins.property
+    def all_channels(self) -> Optional["scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig"]:
+        return self._all_channels
+
+    @builtins.property
+    def channel_allow_list(self) -> Optional["scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig"]:
+        return self._channel_allow_list
+
+    @builtins.property
+    def channel_block_list(self) -> Optional["scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig"]:
+        return self._channel_block_list
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_datasource_connection_api_ApiScrapingConfigVisitor):
+            raise ValueError('{} is not an instance of scout_datasource_connection_api_ApiScrapingConfigVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'allChannels' and self.all_channels is not None:
+            return visitor._all_channels(self.all_channels)
+        if self._type == 'channelAllowList' and self.channel_allow_list is not None:
+            return visitor._channel_allow_list(self.channel_allow_list)
+        if self._type == 'channelBlockList' and self.channel_block_list is not None:
+            return visitor._channel_block_list(self.channel_block_list)
+
+
+scout_datasource_connection_api_ApiScrapingConfig.__name__ = "ApiScrapingConfig"
+scout_datasource_connection_api_ApiScrapingConfig.__qualname__ = "ApiScrapingConfig"
+scout_datasource_connection_api_ApiScrapingConfig.__module__ = "nominal_api.scout_datasource_connection_api"
+
+
+class scout_datasource_connection_api_ApiScrapingConfigVisitor:
+
+    @abstractmethod
+    def _all_channels(self, all_channels: "scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig") -> Any:
+        pass
+
+    @abstractmethod
+    def _channel_allow_list(self, channel_allow_list: "scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig") -> Any:
+        pass
+
+    @abstractmethod
+    def _channel_block_list(self, channel_block_list: "scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig") -> Any:
+        pass
+
+
+scout_datasource_connection_api_ApiScrapingConfigVisitor.__name__ = "ApiScrapingConfigVisitor"
+scout_datasource_connection_api_ApiScrapingConfigVisitor.__qualname__ = "ApiScrapingConfigVisitor"
+scout_datasource_connection_api_ApiScrapingConfigVisitor.__module__ = "nominal_api.scout_datasource_connection_api"
+
+
 class scout_datasource_connection_api_BigQueryChannelNameComponent(ConjureBeanType):
 
     @builtins.classmethod
@@ -69906,6 +70115,56 @@ scout_datasource_connection_api_BigQueryScrapingConfig.__qualname__ = "BigQueryS
 scout_datasource_connection_api_BigQueryScrapingConfig.__module__ = "nominal_api.scout_datasource_connection_api"
 
 
+class scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'channel_allow_list': ConjureFieldDefinition('channelAllowList', List[api_Channel])
+        }
+
+    __slots__: List[str] = ['_channel_allow_list']
+
+    def __init__(self, channel_allow_list: List[str]) -> None:
+        self._channel_allow_list = channel_allow_list
+
+    @builtins.property
+    def channel_allow_list(self) -> List[str]:
+        """Only channels in this set will be scraped. Must not be empty.
+        """
+        return self._channel_allow_list
+
+
+scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig.__name__ = "ChannelAllowListConnectionsScrapingConfig"
+scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig.__qualname__ = "ChannelAllowListConnectionsScrapingConfig"
+scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig.__module__ = "nominal_api.scout_datasource_connection_api"
+
+
+class scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'channel_block_list': ConjureFieldDefinition('channelBlockList', List[api_Channel])
+        }
+
+    __slots__: List[str] = ['_channel_block_list']
+
+    def __init__(self, channel_block_list: List[str]) -> None:
+        self._channel_block_list = channel_block_list
+
+    @builtins.property
+    def channel_block_list(self) -> List[str]:
+        """Only channels not in this set will be scraped. Must not be empty.
+        """
+        return self._channel_block_list
+
+
+scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig.__name__ = "ChannelBlockListConnectionsScrapingConfig"
+scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig.__qualname__ = "ChannelBlockListConnectionsScrapingConfig"
+scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig.__module__ = "nominal_api.scout_datasource_connection_api"
+
+
 class scout_datasource_connection_api_Connection(ConjureBeanType):
 
     @builtins.classmethod
@@ -70006,6 +70265,7 @@ class scout_datasource_connection_api_ConnectionDetails(ConjureUnionType):
     _timestream: Optional["scout_datasource_connection_api_TimestreamConnectionDetails"] = None
     _visual_crossing: Optional["scout_datasource_connection_api_VisualCrossingConnectionDetails"] = None
     _big_query: Optional["scout_datasource_connection_api_BigQueryConnectionDetails"] = None
+    _api: Optional["scout_datasource_connection_api_ApiConnectionDetails"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -70016,7 +70276,8 @@ class scout_datasource_connection_api_ConnectionDetails(ConjureUnionType):
             'nominal': ConjureFieldDefinition('nominal', scout_datasource_connection_api_NominalConnectionDetails),
             'timestream': ConjureFieldDefinition('timestream', scout_datasource_connection_api_TimestreamConnectionDetails),
             'visual_crossing': ConjureFieldDefinition('visualCrossing', scout_datasource_connection_api_VisualCrossingConnectionDetails),
-            'big_query': ConjureFieldDefinition('bigQuery', scout_datasource_connection_api_BigQueryConnectionDetails)
+            'big_query': ConjureFieldDefinition('bigQuery', scout_datasource_connection_api_BigQueryConnectionDetails),
+            'api': ConjureFieldDefinition('api', scout_datasource_connection_api_ApiConnectionDetails)
         }
 
     def __init__(
@@ -70028,10 +70289,11 @@ class scout_datasource_connection_api_ConnectionDetails(ConjureUnionType):
             timestream: Optional["scout_datasource_connection_api_TimestreamConnectionDetails"] = None,
             visual_crossing: Optional["scout_datasource_connection_api_VisualCrossingConnectionDetails"] = None,
             big_query: Optional["scout_datasource_connection_api_BigQueryConnectionDetails"] = None,
+            api: Optional["scout_datasource_connection_api_ApiConnectionDetails"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (timescale is not None) + (influx is not None) + (influx1 is not None) + (nominal is not None) + (timestream is not None) + (visual_crossing is not None) + (big_query is not None) != 1:
+            if (timescale is not None) + (influx is not None) + (influx1 is not None) + (nominal is not None) + (timestream is not None) + (visual_crossing is not None) + (big_query is not None) + (api is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if timescale is not None:
@@ -70055,6 +70317,9 @@ class scout_datasource_connection_api_ConnectionDetails(ConjureUnionType):
             if big_query is not None:
                 self._big_query = big_query
                 self._type = 'bigQuery'
+            if api is not None:
+                self._api = api
+                self._type = 'api'
 
         elif type_of_union == 'timescale':
             if timescale is None:
@@ -70091,6 +70356,11 @@ class scout_datasource_connection_api_ConnectionDetails(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._big_query = big_query
             self._type = 'bigQuery'
+        elif type_of_union == 'api':
+            if api is None:
+                raise ValueError('a union value must not be None')
+            self._api = api
+            self._type = 'api'
 
     @builtins.property
     def timescale(self) -> Optional["scout_datasource_connection_api_TimescaleConnectionDetails"]:
@@ -70120,6 +70390,10 @@ class scout_datasource_connection_api_ConnectionDetails(ConjureUnionType):
     def big_query(self) -> Optional["scout_datasource_connection_api_BigQueryConnectionDetails"]:
         return self._big_query
 
+    @builtins.property
+    def api(self) -> Optional["scout_datasource_connection_api_ApiConnectionDetails"]:
+        return self._api
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_datasource_connection_api_ConnectionDetailsVisitor):
             raise ValueError('{} is not an instance of scout_datasource_connection_api_ConnectionDetailsVisitor'.format(visitor.__class__.__name__))
@@ -70137,6 +70411,8 @@ class scout_datasource_connection_api_ConnectionDetails(ConjureUnionType):
             return visitor._visual_crossing(self.visual_crossing)
         if self._type == 'bigQuery' and self.big_query is not None:
             return visitor._big_query(self.big_query)
+        if self._type == 'api' and self.api is not None:
+            return visitor._api(self.api)
 
 
 scout_datasource_connection_api_ConnectionDetails.__name__ = "ConnectionDetails"
@@ -70172,6 +70448,10 @@ class scout_datasource_connection_api_ConnectionDetailsVisitor:
 
     @abstractmethod
     def _big_query(self, big_query: "scout_datasource_connection_api_BigQueryConnectionDetails") -> Any:
+        pass
+
+    @abstractmethod
+    def _api(self, api: "scout_datasource_connection_api_ApiConnectionDetails") -> Any:
         pass
 
 
@@ -71202,6 +71482,7 @@ class scout_datasource_connection_api_ScrapingConfig(ConjureUnionType):
     _timescale: Optional["scout_datasource_connection_api_PivotedTimescaleScrapingConfig"] = None
     _visual_crossing: Optional["scout_datasource_connection_api_VisualCrossingScrapingConfig"] = None
     _big_query: Optional["scout_datasource_connection_api_BigQueryScrapingConfig"] = None
+    _api: Optional["scout_datasource_connection_api_ApiScrapingConfig"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -71211,7 +71492,8 @@ class scout_datasource_connection_api_ScrapingConfig(ConjureUnionType):
             'timestream': ConjureFieldDefinition('timestream', scout_datasource_connection_api_TimestreamScrapingConfig),
             'timescale': ConjureFieldDefinition('timescale', scout_datasource_connection_api_PivotedTimescaleScrapingConfig),
             'visual_crossing': ConjureFieldDefinition('visualCrossing', scout_datasource_connection_api_VisualCrossingScrapingConfig),
-            'big_query': ConjureFieldDefinition('bigQuery', scout_datasource_connection_api_BigQueryScrapingConfig)
+            'big_query': ConjureFieldDefinition('bigQuery', scout_datasource_connection_api_BigQueryScrapingConfig),
+            'api': ConjureFieldDefinition('api', scout_datasource_connection_api_ApiScrapingConfig)
         }
 
     def __init__(
@@ -71222,10 +71504,11 @@ class scout_datasource_connection_api_ScrapingConfig(ConjureUnionType):
             timescale: Optional["scout_datasource_connection_api_PivotedTimescaleScrapingConfig"] = None,
             visual_crossing: Optional["scout_datasource_connection_api_VisualCrossingScrapingConfig"] = None,
             big_query: Optional["scout_datasource_connection_api_BigQueryScrapingConfig"] = None,
+            api: Optional["scout_datasource_connection_api_ApiScrapingConfig"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (influx is not None) + (nominal is not None) + (timestream is not None) + (timescale is not None) + (visual_crossing is not None) + (big_query is not None) != 1:
+            if (influx is not None) + (nominal is not None) + (timestream is not None) + (timescale is not None) + (visual_crossing is not None) + (big_query is not None) + (api is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if influx is not None:
@@ -71246,6 +71529,9 @@ class scout_datasource_connection_api_ScrapingConfig(ConjureUnionType):
             if big_query is not None:
                 self._big_query = big_query
                 self._type = 'bigQuery'
+            if api is not None:
+                self._api = api
+                self._type = 'api'
 
         elif type_of_union == 'influx':
             if influx is None:
@@ -71277,6 +71563,11 @@ class scout_datasource_connection_api_ScrapingConfig(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._big_query = big_query
             self._type = 'bigQuery'
+        elif type_of_union == 'api':
+            if api is None:
+                raise ValueError('a union value must not be None')
+            self._api = api
+            self._type = 'api'
 
     @builtins.property
     def influx(self) -> Optional["scout_datasource_connection_api_InfluxScrapingConfig"]:
@@ -71302,6 +71593,10 @@ class scout_datasource_connection_api_ScrapingConfig(ConjureUnionType):
     def big_query(self) -> Optional["scout_datasource_connection_api_BigQueryScrapingConfig"]:
         return self._big_query
 
+    @builtins.property
+    def api(self) -> Optional["scout_datasource_connection_api_ApiScrapingConfig"]:
+        return self._api
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_datasource_connection_api_ScrapingConfigVisitor):
             raise ValueError('{} is not an instance of scout_datasource_connection_api_ScrapingConfigVisitor'.format(visitor.__class__.__name__))
@@ -71317,6 +71612,8 @@ class scout_datasource_connection_api_ScrapingConfig(ConjureUnionType):
             return visitor._visual_crossing(self.visual_crossing)
         if self._type == 'bigQuery' and self.big_query is not None:
             return visitor._big_query(self.big_query)
+        if self._type == 'api' and self.api is not None:
+            return visitor._api(self.api)
 
 
 scout_datasource_connection_api_ScrapingConfig.__name__ = "ScrapingConfig"
@@ -71348,6 +71645,10 @@ class scout_datasource_connection_api_ScrapingConfigVisitor:
 
     @abstractmethod
     def _big_query(self, big_query: "scout_datasource_connection_api_BigQueryScrapingConfig") -> Any:
+        pass
+
+    @abstractmethod
+    def _api(self, api: "scout_datasource_connection_api_ApiScrapingConfig") -> Any:
         pass
 
 
@@ -72087,6 +72388,7 @@ class scout_favorites_api_FavoriteResource(ConjureUnionType):
     _notebook: Optional[str] = None
     _notebook_template: Optional[str] = None
     _checklist: Optional[str] = None
+    _saved_view: Optional[str] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -72095,7 +72397,8 @@ class scout_favorites_api_FavoriteResource(ConjureUnionType):
             'run': ConjureFieldDefinition('run', scout_run_api_RunRid),
             'notebook': ConjureFieldDefinition('notebook', scout_rids_api_NotebookRid),
             'notebook_template': ConjureFieldDefinition('notebookTemplate', scout_rids_api_TemplateRid),
-            'checklist': ConjureFieldDefinition('checklist', scout_rids_api_ChecklistRid)
+            'checklist': ConjureFieldDefinition('checklist', scout_rids_api_ChecklistRid),
+            'saved_view': ConjureFieldDefinition('savedView', scout_rids_api_SavedViewRid)
         }
 
     def __init__(
@@ -72105,10 +72408,11 @@ class scout_favorites_api_FavoriteResource(ConjureUnionType):
             notebook: Optional[str] = None,
             notebook_template: Optional[str] = None,
             checklist: Optional[str] = None,
+            saved_view: Optional[str] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (asset is not None) + (run is not None) + (notebook is not None) + (notebook_template is not None) + (checklist is not None) != 1:
+            if (asset is not None) + (run is not None) + (notebook is not None) + (notebook_template is not None) + (checklist is not None) + (saved_view is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if asset is not None:
@@ -72126,6 +72430,9 @@ class scout_favorites_api_FavoriteResource(ConjureUnionType):
             if checklist is not None:
                 self._checklist = checklist
                 self._type = 'checklist'
+            if saved_view is not None:
+                self._saved_view = saved_view
+                self._type = 'savedView'
 
         elif type_of_union == 'asset':
             if asset is None:
@@ -72152,6 +72459,11 @@ class scout_favorites_api_FavoriteResource(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._checklist = checklist
             self._type = 'checklist'
+        elif type_of_union == 'savedView':
+            if saved_view is None:
+                raise ValueError('a union value must not be None')
+            self._saved_view = saved_view
+            self._type = 'savedView'
 
     @builtins.property
     def asset(self) -> Optional[str]:
@@ -72173,6 +72485,10 @@ class scout_favorites_api_FavoriteResource(ConjureUnionType):
     def checklist(self) -> Optional[str]:
         return self._checklist
 
+    @builtins.property
+    def saved_view(self) -> Optional[str]:
+        return self._saved_view
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_favorites_api_FavoriteResourceVisitor):
             raise ValueError('{} is not an instance of scout_favorites_api_FavoriteResourceVisitor'.format(visitor.__class__.__name__))
@@ -72186,6 +72502,8 @@ class scout_favorites_api_FavoriteResource(ConjureUnionType):
             return visitor._notebook_template(self.notebook_template)
         if self._type == 'checklist' and self.checklist is not None:
             return visitor._checklist(self.checklist)
+        if self._type == 'savedView' and self.saved_view is not None:
+            return visitor._saved_view(self.saved_view)
 
 
 scout_favorites_api_FavoriteResource.__name__ = "FavoriteResource"
@@ -72213,6 +72531,10 @@ class scout_favorites_api_FavoriteResourceVisitor:
 
     @abstractmethod
     def _checklist(self, checklist: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _saved_view(self, saved_view: str) -> Any:
         pass
 
 
@@ -72256,6 +72578,8 @@ class scout_favorites_api_ResourceType(ConjureEnumType):
     '''NOTEBOOK_TEMPLATE'''
     CHECKLIST = 'CHECKLIST'
     '''CHECKLIST'''
+    SAVED_VIEW = 'SAVED_VIEW'
+    '''SAVED_VIEW'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -89672,6 +89996,35 @@ timeseries_archetype_SeriesArchetypeService.__qualname__ = "SeriesArchetypeServi
 timeseries_archetype_SeriesArchetypeService.__module__ = "nominal_api.timeseries_archetype"
 
 
+class timeseries_archetype_api_ApiLocatorTemplate(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'channel': ConjureFieldDefinition('channel', api_Channel),
+            'type': ConjureFieldDefinition('type', timeseries_logicalseries_api_ApiType)
+        }
+
+    __slots__: List[str] = ['_channel', '_type']
+
+    def __init__(self, channel: str, type: "timeseries_logicalseries_api_ApiType") -> None:
+        self._channel = channel
+        self._type = type
+
+    @builtins.property
+    def channel(self) -> str:
+        return self._channel
+
+    @builtins.property
+    def type(self) -> "timeseries_logicalseries_api_ApiType":
+        return self._type
+
+
+timeseries_archetype_api_ApiLocatorTemplate.__name__ = "ApiLocatorTemplate"
+timeseries_archetype_api_ApiLocatorTemplate.__qualname__ = "ApiLocatorTemplate"
+timeseries_archetype_api_ApiLocatorTemplate.__module__ = "nominal_api.timeseries_archetype_api"
+
+
 class timeseries_archetype_api_BatchCreateSeriesArchetypeRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -90041,6 +90394,7 @@ class timeseries_archetype_api_LocatorTemplate(ConjureUnionType):
     _timestream: Optional["timeseries_archetype_api_TimestreamLocatorTemplate"] = None
     _visual_crossing: Optional["timeseries_archetype_api_VisualCrossingLocatorTemplate"] = None
     _big_query: Optional["timeseries_archetype_api_BigQueryLocatorTemplate"] = None
+    _api: Optional["timeseries_archetype_api_ApiLocatorTemplate"] = None
     _csv: Optional["timeseries_archetype_api_CsvLocatorTemplate"] = None
     _csv_v2: Optional["timeseries_archetype_api_CsvLocatorV2Template"] = None
 
@@ -90054,6 +90408,7 @@ class timeseries_archetype_api_LocatorTemplate(ConjureUnionType):
             'timestream': ConjureFieldDefinition('timestream', timeseries_archetype_api_TimestreamLocatorTemplate),
             'visual_crossing': ConjureFieldDefinition('visualCrossing', timeseries_archetype_api_VisualCrossingLocatorTemplate),
             'big_query': ConjureFieldDefinition('bigQuery', timeseries_archetype_api_BigQueryLocatorTemplate),
+            'api': ConjureFieldDefinition('api', timeseries_archetype_api_ApiLocatorTemplate),
             'csv': ConjureFieldDefinition('csv', timeseries_archetype_api_CsvLocatorTemplate),
             'csv_v2': ConjureFieldDefinition('csvV2', timeseries_archetype_api_CsvLocatorV2Template)
         }
@@ -90067,12 +90422,13 @@ class timeseries_archetype_api_LocatorTemplate(ConjureUnionType):
             timestream: Optional["timeseries_archetype_api_TimestreamLocatorTemplate"] = None,
             visual_crossing: Optional["timeseries_archetype_api_VisualCrossingLocatorTemplate"] = None,
             big_query: Optional["timeseries_archetype_api_BigQueryLocatorTemplate"] = None,
+            api: Optional["timeseries_archetype_api_ApiLocatorTemplate"] = None,
             csv: Optional["timeseries_archetype_api_CsvLocatorTemplate"] = None,
             csv_v2: Optional["timeseries_archetype_api_CsvLocatorV2Template"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (timescale_db is not None) + (influx is not None) + (influx1 is not None) + (nominal is not None) + (timestream is not None) + (visual_crossing is not None) + (big_query is not None) + (csv is not None) + (csv_v2 is not None) != 1:
+            if (timescale_db is not None) + (influx is not None) + (influx1 is not None) + (nominal is not None) + (timestream is not None) + (visual_crossing is not None) + (big_query is not None) + (api is not None) + (csv is not None) + (csv_v2 is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if timescale_db is not None:
@@ -90096,6 +90452,9 @@ class timeseries_archetype_api_LocatorTemplate(ConjureUnionType):
             if big_query is not None:
                 self._big_query = big_query
                 self._type = 'bigQuery'
+            if api is not None:
+                self._api = api
+                self._type = 'api'
             if csv is not None:
                 self._csv = csv
                 self._type = 'csv'
@@ -90138,6 +90497,11 @@ class timeseries_archetype_api_LocatorTemplate(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._big_query = big_query
             self._type = 'bigQuery'
+        elif type_of_union == 'api':
+            if api is None:
+                raise ValueError('a union value must not be None')
+            self._api = api
+            self._type = 'api'
         elif type_of_union == 'csv':
             if csv is None:
                 raise ValueError('a union value must not be None')
@@ -90178,6 +90542,10 @@ class timeseries_archetype_api_LocatorTemplate(ConjureUnionType):
         return self._big_query
 
     @builtins.property
+    def api(self) -> Optional["timeseries_archetype_api_ApiLocatorTemplate"]:
+        return self._api
+
+    @builtins.property
     def csv(self) -> Optional["timeseries_archetype_api_CsvLocatorTemplate"]:
         return self._csv
 
@@ -90202,6 +90570,8 @@ class timeseries_archetype_api_LocatorTemplate(ConjureUnionType):
             return visitor._visual_crossing(self.visual_crossing)
         if self._type == 'bigQuery' and self.big_query is not None:
             return visitor._big_query(self.big_query)
+        if self._type == 'api' and self.api is not None:
+            return visitor._api(self.api)
         if self._type == 'csv' and self.csv is not None:
             return visitor._csv(self.csv)
         if self._type == 'csvV2' and self.csv_v2 is not None:
@@ -90241,6 +90611,10 @@ class timeseries_archetype_api_LocatorTemplateVisitor:
 
     @abstractmethod
     def _big_query(self, big_query: "timeseries_archetype_api_BigQueryLocatorTemplate") -> Any:
+        pass
+
+    @abstractmethod
+    def _api(self, api: "timeseries_archetype_api_ApiLocatorTemplate") -> Any:
         pass
 
     @abstractmethod
@@ -91046,6 +91420,61 @@ timeseries_logicalseries_LogicalSeriesService.__qualname__ = "LogicalSeriesServi
 timeseries_logicalseries_LogicalSeriesService.__module__ = "nominal_api.timeseries_logicalseries"
 
 
+class timeseries_logicalseries_api_ApiLocator(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'channel': ConjureFieldDefinition('channel', api_Channel),
+            'tags': ConjureFieldDefinition('tags', Dict[api_TagName, api_TagValue]),
+            'type': ConjureFieldDefinition('type', timeseries_logicalseries_api_ApiType)
+        }
+
+    __slots__: List[str] = ['_channel', '_tags', '_type']
+
+    def __init__(self, channel: str, tags: Dict[str, str], type: "timeseries_logicalseries_api_ApiType") -> None:
+        self._channel = channel
+        self._tags = tags
+        self._type = type
+
+    @builtins.property
+    def channel(self) -> str:
+        return self._channel
+
+    @builtins.property
+    def tags(self) -> Dict[str, str]:
+        return self._tags
+
+    @builtins.property
+    def type(self) -> "timeseries_logicalseries_api_ApiType":
+        return self._type
+
+
+timeseries_logicalseries_api_ApiLocator.__name__ = "ApiLocator"
+timeseries_logicalseries_api_ApiLocator.__qualname__ = "ApiLocator"
+timeseries_logicalseries_api_ApiLocator.__module__ = "nominal_api.timeseries_logicalseries_api"
+
+
+class timeseries_logicalseries_api_ApiType(ConjureEnumType):
+
+    DOUBLE = 'DOUBLE'
+    '''DOUBLE'''
+    STRING = 'STRING'
+    '''STRING'''
+    INT64 = 'INT64'
+    '''INT64'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+timeseries_logicalseries_api_ApiType.__name__ = "ApiType"
+timeseries_logicalseries_api_ApiType.__qualname__ = "ApiType"
+timeseries_logicalseries_api_ApiType.__module__ = "nominal_api.timeseries_logicalseries_api"
+
+
 class timeseries_logicalseries_api_BatchCreateLogicalSeriesRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -91627,6 +92056,7 @@ class timeseries_logicalseries_api_Locator(ConjureUnionType):
     _timestream_locator: Optional["timeseries_logicalseries_api_TimestreamLocator"] = None
     _visual_crossing_locator: Optional["timeseries_logicalseries_api_VisualCrossingLocator"] = None
     _big_query_locator: Optional["timeseries_logicalseries_api_BigQueryLocator"] = None
+    _api_locator: Optional["timeseries_logicalseries_api_ApiLocator"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -91639,7 +92069,8 @@ class timeseries_logicalseries_api_Locator(ConjureUnionType):
             'nominal_locator': ConjureFieldDefinition('nominalLocator', timeseries_logicalseries_api_NominalLocator),
             'timestream_locator': ConjureFieldDefinition('timestreamLocator', timeseries_logicalseries_api_TimestreamLocator),
             'visual_crossing_locator': ConjureFieldDefinition('visualCrossingLocator', timeseries_logicalseries_api_VisualCrossingLocator),
-            'big_query_locator': ConjureFieldDefinition('bigQueryLocator', timeseries_logicalseries_api_BigQueryLocator)
+            'big_query_locator': ConjureFieldDefinition('bigQueryLocator', timeseries_logicalseries_api_BigQueryLocator),
+            'api_locator': ConjureFieldDefinition('apiLocator', timeseries_logicalseries_api_ApiLocator)
         }
 
     def __init__(
@@ -91653,10 +92084,11 @@ class timeseries_logicalseries_api_Locator(ConjureUnionType):
             timestream_locator: Optional["timeseries_logicalseries_api_TimestreamLocator"] = None,
             visual_crossing_locator: Optional["timeseries_logicalseries_api_VisualCrossingLocator"] = None,
             big_query_locator: Optional["timeseries_logicalseries_api_BigQueryLocator"] = None,
+            api_locator: Optional["timeseries_logicalseries_api_ApiLocator"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (csv_locator is not None) + (csv_v2 is not None) + (timescale_db_locator is not None) + (influx_locator is not None) + (influx1_locator is not None) + (nominal_locator is not None) + (timestream_locator is not None) + (visual_crossing_locator is not None) + (big_query_locator is not None) != 1:
+            if (csv_locator is not None) + (csv_v2 is not None) + (timescale_db_locator is not None) + (influx_locator is not None) + (influx1_locator is not None) + (nominal_locator is not None) + (timestream_locator is not None) + (visual_crossing_locator is not None) + (big_query_locator is not None) + (api_locator is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if csv_locator is not None:
@@ -91686,6 +92118,9 @@ class timeseries_logicalseries_api_Locator(ConjureUnionType):
             if big_query_locator is not None:
                 self._big_query_locator = big_query_locator
                 self._type = 'bigQueryLocator'
+            if api_locator is not None:
+                self._api_locator = api_locator
+                self._type = 'apiLocator'
 
         elif type_of_union == 'csvLocator':
             if csv_locator is None:
@@ -91732,6 +92167,11 @@ class timeseries_logicalseries_api_Locator(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._big_query_locator = big_query_locator
             self._type = 'bigQueryLocator'
+        elif type_of_union == 'apiLocator':
+            if api_locator is None:
+                raise ValueError('a union value must not be None')
+            self._api_locator = api_locator
+            self._type = 'apiLocator'
 
     @builtins.property
     def csv_locator(self) -> Optional["timeseries_logicalseries_api_CsvLocator"]:
@@ -91769,6 +92209,10 @@ class timeseries_logicalseries_api_Locator(ConjureUnionType):
     def big_query_locator(self) -> Optional["timeseries_logicalseries_api_BigQueryLocator"]:
         return self._big_query_locator
 
+    @builtins.property
+    def api_locator(self) -> Optional["timeseries_logicalseries_api_ApiLocator"]:
+        return self._api_locator
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, timeseries_logicalseries_api_LocatorVisitor):
             raise ValueError('{} is not an instance of timeseries_logicalseries_api_LocatorVisitor'.format(visitor.__class__.__name__))
@@ -91790,6 +92234,8 @@ class timeseries_logicalseries_api_Locator(ConjureUnionType):
             return visitor._visual_crossing_locator(self.visual_crossing_locator)
         if self._type == 'bigQueryLocator' and self.big_query_locator is not None:
             return visitor._big_query_locator(self.big_query_locator)
+        if self._type == 'apiLocator' and self.api_locator is not None:
+            return visitor._api_locator(self.api_locator)
 
 
 timeseries_logicalseries_api_Locator.__name__ = "Locator"
@@ -91833,6 +92279,10 @@ class timeseries_logicalseries_api_LocatorVisitor:
 
     @abstractmethod
     def _big_query_locator(self, big_query_locator: "timeseries_logicalseries_api_BigQueryLocator") -> Any:
+        pass
+
+    @abstractmethod
+    def _api_locator(self, api_locator: "timeseries_logicalseries_api_ApiLocator") -> Any:
         pass
 
 

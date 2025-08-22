@@ -1,7 +1,7 @@
 r'''
 # `azurerm_web_application_firewall_policy`
 
-Refer to the Terraform Registry for docs: [`azurerm_web_application_firewall_policy`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy).
+Refer to the Terraform Registry for docs: [`azurerm_web_application_firewall_policy`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WebApplicationFirewallPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.webApplicationFirewallPolicy.WebApplicationFirewallPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy azurerm_web_application_firewall_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy azurerm_web_application_firewall_policy}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class WebApplicationFirewallPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy azurerm_web_application_firewall_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy azurerm_web_application_firewall_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#location WebApplicationFirewallPolicy#location}.
-        :param managed_rules: managed_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#managed_rules WebApplicationFirewallPolicy#managed_rules}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#resource_group_name WebApplicationFirewallPolicy#resource_group_name}.
-        :param custom_rules: custom_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#custom_rules WebApplicationFirewallPolicy#custom_rules}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy_settings: policy_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#policy_settings WebApplicationFirewallPolicy#policy_settings}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#tags WebApplicationFirewallPolicy#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#timeouts WebApplicationFirewallPolicy#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#location WebApplicationFirewallPolicy#location}.
+        :param managed_rules: managed_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#managed_rules WebApplicationFirewallPolicy#managed_rules}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#resource_group_name WebApplicationFirewallPolicy#resource_group_name}.
+        :param custom_rules: custom_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#custom_rules WebApplicationFirewallPolicy#custom_rules}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy_settings: policy_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#policy_settings WebApplicationFirewallPolicy#policy_settings}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#tags WebApplicationFirewallPolicy#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#timeouts WebApplicationFirewallPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class WebApplicationFirewallPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WebApplicationFirewallPolicy to import.
-        :param import_from_id: The id of the existing WebApplicationFirewallPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WebApplicationFirewallPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WebApplicationFirewallPolicy to import is found.
         '''
         if __debug__:
@@ -159,8 +159,8 @@ class WebApplicationFirewallPolicy(
         exclusion: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WebApplicationFirewallPolicyManagedRulesExclusion", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param managed_rule_set: managed_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#managed_rule_set WebApplicationFirewallPolicy#managed_rule_set}
-        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#exclusion WebApplicationFirewallPolicy#exclusion}
+        :param managed_rule_set: managed_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#managed_rule_set WebApplicationFirewallPolicy#managed_rule_set}
+        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#exclusion WebApplicationFirewallPolicy#exclusion}
         '''
         value = WebApplicationFirewallPolicyManagedRules(
             managed_rule_set=managed_rule_set, exclusion=exclusion
@@ -184,16 +184,16 @@ class WebApplicationFirewallPolicy(
         request_body_inspect_limit_in_kb: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
-        :param file_upload_enforcement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#file_upload_enforcement WebApplicationFirewallPolicy#file_upload_enforcement}.
-        :param file_upload_limit_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#file_upload_limit_in_mb WebApplicationFirewallPolicy#file_upload_limit_in_mb}.
-        :param js_challenge_cookie_expiration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#js_challenge_cookie_expiration_in_minutes WebApplicationFirewallPolicy#js_challenge_cookie_expiration_in_minutes}.
-        :param log_scrubbing: log_scrubbing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#log_scrubbing WebApplicationFirewallPolicy#log_scrubbing}
-        :param max_request_body_size_in_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#max_request_body_size_in_kb WebApplicationFirewallPolicy#max_request_body_size_in_kb}.
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#mode WebApplicationFirewallPolicy#mode}.
-        :param request_body_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#request_body_check WebApplicationFirewallPolicy#request_body_check}.
-        :param request_body_enforcement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#request_body_enforcement WebApplicationFirewallPolicy#request_body_enforcement}.
-        :param request_body_inspect_limit_in_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#request_body_inspect_limit_in_kb WebApplicationFirewallPolicy#request_body_inspect_limit_in_kb}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
+        :param file_upload_enforcement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#file_upload_enforcement WebApplicationFirewallPolicy#file_upload_enforcement}.
+        :param file_upload_limit_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#file_upload_limit_in_mb WebApplicationFirewallPolicy#file_upload_limit_in_mb}.
+        :param js_challenge_cookie_expiration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#js_challenge_cookie_expiration_in_minutes WebApplicationFirewallPolicy#js_challenge_cookie_expiration_in_minutes}.
+        :param log_scrubbing: log_scrubbing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#log_scrubbing WebApplicationFirewallPolicy#log_scrubbing}
+        :param max_request_body_size_in_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#max_request_body_size_in_kb WebApplicationFirewallPolicy#max_request_body_size_in_kb}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#mode WebApplicationFirewallPolicy#mode}.
+        :param request_body_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#request_body_check WebApplicationFirewallPolicy#request_body_check}.
+        :param request_body_enforcement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#request_body_enforcement WebApplicationFirewallPolicy#request_body_enforcement}.
+        :param request_body_inspect_limit_in_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#request_body_inspect_limit_in_kb WebApplicationFirewallPolicy#request_body_inspect_limit_in_kb}.
         '''
         value = WebApplicationFirewallPolicyPolicySettings(
             enabled=enabled,
@@ -220,10 +220,10 @@ class WebApplicationFirewallPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#create WebApplicationFirewallPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#delete WebApplicationFirewallPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#read WebApplicationFirewallPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#update WebApplicationFirewallPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#create WebApplicationFirewallPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#delete WebApplicationFirewallPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#read WebApplicationFirewallPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#update WebApplicationFirewallPolicy#update}.
         '''
         value = WebApplicationFirewallPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -463,15 +463,15 @@ class WebApplicationFirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#location WebApplicationFirewallPolicy#location}.
-        :param managed_rules: managed_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#managed_rules WebApplicationFirewallPolicy#managed_rules}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#resource_group_name WebApplicationFirewallPolicy#resource_group_name}.
-        :param custom_rules: custom_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#custom_rules WebApplicationFirewallPolicy#custom_rules}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy_settings: policy_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#policy_settings WebApplicationFirewallPolicy#policy_settings}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#tags WebApplicationFirewallPolicy#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#timeouts WebApplicationFirewallPolicy#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#location WebApplicationFirewallPolicy#location}.
+        :param managed_rules: managed_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#managed_rules WebApplicationFirewallPolicy#managed_rules}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#resource_group_name WebApplicationFirewallPolicy#resource_group_name}.
+        :param custom_rules: custom_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#custom_rules WebApplicationFirewallPolicy#custom_rules}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy_settings: policy_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#policy_settings WebApplicationFirewallPolicy#policy_settings}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#tags WebApplicationFirewallPolicy#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#timeouts WebApplicationFirewallPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -596,7 +596,7 @@ class WebApplicationFirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#location WebApplicationFirewallPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#location WebApplicationFirewallPolicy#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
@@ -605,7 +605,7 @@ class WebApplicationFirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def managed_rules(self) -> "WebApplicationFirewallPolicyManagedRules":
         '''managed_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#managed_rules WebApplicationFirewallPolicy#managed_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#managed_rules WebApplicationFirewallPolicy#managed_rules}
         '''
         result = self._values.get("managed_rules")
         assert result is not None, "Required property 'managed_rules' is missing"
@@ -613,14 +613,14 @@ class WebApplicationFirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#resource_group_name WebApplicationFirewallPolicy#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#resource_group_name WebApplicationFirewallPolicy#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -631,14 +631,14 @@ class WebApplicationFirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyCustomRules"]]]:
         '''custom_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#custom_rules WebApplicationFirewallPolicy#custom_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#custom_rules WebApplicationFirewallPolicy#custom_rules}
         '''
         result = self._values.get("custom_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyCustomRules"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -652,14 +652,14 @@ class WebApplicationFirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["WebApplicationFirewallPolicyPolicySettings"]:
         '''policy_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#policy_settings WebApplicationFirewallPolicy#policy_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#policy_settings WebApplicationFirewallPolicy#policy_settings}
         '''
         result = self._values.get("policy_settings")
         return typing.cast(typing.Optional["WebApplicationFirewallPolicyPolicySettings"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#tags WebApplicationFirewallPolicy#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#tags WebApplicationFirewallPolicy#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -667,7 +667,7 @@ class WebApplicationFirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["WebApplicationFirewallPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#timeouts WebApplicationFirewallPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#timeouts WebApplicationFirewallPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["WebApplicationFirewallPolicyTimeouts"], result)
@@ -714,15 +714,15 @@ class WebApplicationFirewallPolicyCustomRules:
         rate_limit_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#action WebApplicationFirewallPolicy#action}.
-        :param match_conditions: match_conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_conditions WebApplicationFirewallPolicy#match_conditions}
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#priority WebApplicationFirewallPolicy#priority}.
-        :param rule_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_type WebApplicationFirewallPolicy#rule_type}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
-        :param group_rate_limit_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#group_rate_limit_by WebApplicationFirewallPolicy#group_rate_limit_by}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.
-        :param rate_limit_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rate_limit_duration WebApplicationFirewallPolicy#rate_limit_duration}.
-        :param rate_limit_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rate_limit_threshold WebApplicationFirewallPolicy#rate_limit_threshold}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#action WebApplicationFirewallPolicy#action}.
+        :param match_conditions: match_conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_conditions WebApplicationFirewallPolicy#match_conditions}
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#priority WebApplicationFirewallPolicy#priority}.
+        :param rule_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_type WebApplicationFirewallPolicy#rule_type}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
+        :param group_rate_limit_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#group_rate_limit_by WebApplicationFirewallPolicy#group_rate_limit_by}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.
+        :param rate_limit_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rate_limit_duration WebApplicationFirewallPolicy#rate_limit_duration}.
+        :param rate_limit_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rate_limit_threshold WebApplicationFirewallPolicy#rate_limit_threshold}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4246944b4b2e7e34ba8c1db94daf3e1f12bb5b6b9b3928d7eb70fc8d6f3a6299)
@@ -754,7 +754,7 @@ class WebApplicationFirewallPolicyCustomRules:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#action WebApplicationFirewallPolicy#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#action WebApplicationFirewallPolicy#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
@@ -765,7 +765,7 @@ class WebApplicationFirewallPolicyCustomRules:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyCustomRulesMatchConditions"]]:
         '''match_conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_conditions WebApplicationFirewallPolicy#match_conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_conditions WebApplicationFirewallPolicy#match_conditions}
         '''
         result = self._values.get("match_conditions")
         assert result is not None, "Required property 'match_conditions' is missing"
@@ -773,14 +773,14 @@ class WebApplicationFirewallPolicyCustomRules:
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#priority WebApplicationFirewallPolicy#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#priority WebApplicationFirewallPolicy#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def rule_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_type WebApplicationFirewallPolicy#rule_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_type WebApplicationFirewallPolicy#rule_type}.'''
         result = self._values.get("rule_type")
         assert result is not None, "Required property 'rule_type' is missing"
         return typing.cast(builtins.str, result)
@@ -789,31 +789,31 @@ class WebApplicationFirewallPolicyCustomRules:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def group_rate_limit_by(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#group_rate_limit_by WebApplicationFirewallPolicy#group_rate_limit_by}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#group_rate_limit_by WebApplicationFirewallPolicy#group_rate_limit_by}.'''
         result = self._values.get("group_rate_limit_by")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#name WebApplicationFirewallPolicy#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def rate_limit_duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rate_limit_duration WebApplicationFirewallPolicy#rate_limit_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rate_limit_duration WebApplicationFirewallPolicy#rate_limit_duration}.'''
         result = self._values.get("rate_limit_duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def rate_limit_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rate_limit_threshold WebApplicationFirewallPolicy#rate_limit_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rate_limit_threshold WebApplicationFirewallPolicy#rate_limit_threshold}.'''
         result = self._values.get("rate_limit_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -944,11 +944,11 @@ class WebApplicationFirewallPolicyCustomRulesMatchConditions:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param match_variables: match_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_variables WebApplicationFirewallPolicy#match_variables}
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#operator WebApplicationFirewallPolicy#operator}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_values WebApplicationFirewallPolicy#match_values}.
-        :param negation_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#negation_condition WebApplicationFirewallPolicy#negation_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#transforms WebApplicationFirewallPolicy#transforms}.
+        :param match_variables: match_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_variables WebApplicationFirewallPolicy#match_variables}
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#operator WebApplicationFirewallPolicy#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_values WebApplicationFirewallPolicy#match_values}.
+        :param negation_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#negation_condition WebApplicationFirewallPolicy#negation_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#transforms WebApplicationFirewallPolicy#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4c73f3450f2944ed30117501bea6207a91346252cb773eff29182b6fe2da016)
@@ -974,7 +974,7 @@ class WebApplicationFirewallPolicyCustomRulesMatchConditions:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyCustomRulesMatchConditionsMatchVariables"]]:
         '''match_variables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_variables WebApplicationFirewallPolicy#match_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_variables WebApplicationFirewallPolicy#match_variables}
         '''
         result = self._values.get("match_variables")
         assert result is not None, "Required property 'match_variables' is missing"
@@ -982,14 +982,14 @@ class WebApplicationFirewallPolicyCustomRulesMatchConditions:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#operator WebApplicationFirewallPolicy#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#operator WebApplicationFirewallPolicy#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_values WebApplicationFirewallPolicy#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_values WebApplicationFirewallPolicy#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -997,13 +997,13 @@ class WebApplicationFirewallPolicyCustomRulesMatchConditions:
     def negation_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#negation_condition WebApplicationFirewallPolicy#negation_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#negation_condition WebApplicationFirewallPolicy#negation_condition}.'''
         result = self._values.get("negation_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#transforms WebApplicationFirewallPolicy#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#transforms WebApplicationFirewallPolicy#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1125,8 +1125,8 @@ class WebApplicationFirewallPolicyCustomRulesMatchConditionsMatchVariables:
         selector: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param variable_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#variable_name WebApplicationFirewallPolicy#variable_name}.
-        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}.
+        :param variable_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#variable_name WebApplicationFirewallPolicy#variable_name}.
+        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea398cedb4277c999282f5d0f6e60de6fb225a5433489bfce8435897e910aa89)
@@ -1140,14 +1140,14 @@ class WebApplicationFirewallPolicyCustomRulesMatchConditionsMatchVariables:
 
     @builtins.property
     def variable_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#variable_name WebApplicationFirewallPolicy#variable_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#variable_name WebApplicationFirewallPolicy#variable_name}.'''
         result = self._values.get("variable_name")
         assert result is not None, "Required property 'variable_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def selector(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}.'''
         result = self._values.get("selector")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1741,8 +1741,8 @@ class WebApplicationFirewallPolicyManagedRules:
         exclusion: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WebApplicationFirewallPolicyManagedRulesExclusion", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param managed_rule_set: managed_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#managed_rule_set WebApplicationFirewallPolicy#managed_rule_set}
-        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#exclusion WebApplicationFirewallPolicy#exclusion}
+        :param managed_rule_set: managed_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#managed_rule_set WebApplicationFirewallPolicy#managed_rule_set}
+        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#exclusion WebApplicationFirewallPolicy#exclusion}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40cc4fc62803753273cb33e670c1da68e19ef01b67231cd938083eed6e02ff97)
@@ -1760,7 +1760,7 @@ class WebApplicationFirewallPolicyManagedRules:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyManagedRulesManagedRuleSet"]]:
         '''managed_rule_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#managed_rule_set WebApplicationFirewallPolicy#managed_rule_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#managed_rule_set WebApplicationFirewallPolicy#managed_rule_set}
         '''
         result = self._values.get("managed_rule_set")
         assert result is not None, "Required property 'managed_rule_set' is missing"
@@ -1772,7 +1772,7 @@ class WebApplicationFirewallPolicyManagedRules:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyManagedRulesExclusion"]]]:
         '''exclusion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#exclusion WebApplicationFirewallPolicy#exclusion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#exclusion WebApplicationFirewallPolicy#exclusion}
         '''
         result = self._values.get("exclusion")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyManagedRulesExclusion"]]], result)
@@ -1809,10 +1809,10 @@ class WebApplicationFirewallPolicyManagedRulesExclusion:
         excluded_rule_set: typing.Optional[typing.Union["WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSet", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param match_variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_variable WebApplicationFirewallPolicy#match_variable}.
-        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}.
-        :param selector_match_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector_match_operator WebApplicationFirewallPolicy#selector_match_operator}.
-        :param excluded_rule_set: excluded_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#excluded_rule_set WebApplicationFirewallPolicy#excluded_rule_set}
+        :param match_variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_variable WebApplicationFirewallPolicy#match_variable}.
+        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}.
+        :param selector_match_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector_match_operator WebApplicationFirewallPolicy#selector_match_operator}.
+        :param excluded_rule_set: excluded_rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#excluded_rule_set WebApplicationFirewallPolicy#excluded_rule_set}
         '''
         if isinstance(excluded_rule_set, dict):
             excluded_rule_set = WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSet(**excluded_rule_set)
@@ -1832,21 +1832,21 @@ class WebApplicationFirewallPolicyManagedRulesExclusion:
 
     @builtins.property
     def match_variable(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_variable WebApplicationFirewallPolicy#match_variable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_variable WebApplicationFirewallPolicy#match_variable}.'''
         result = self._values.get("match_variable")
         assert result is not None, "Required property 'match_variable' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def selector(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}.'''
         result = self._values.get("selector")
         assert result is not None, "Required property 'selector' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def selector_match_operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector_match_operator WebApplicationFirewallPolicy#selector_match_operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector_match_operator WebApplicationFirewallPolicy#selector_match_operator}.'''
         result = self._values.get("selector_match_operator")
         assert result is not None, "Required property 'selector_match_operator' is missing"
         return typing.cast(builtins.str, result)
@@ -1857,7 +1857,7 @@ class WebApplicationFirewallPolicyManagedRulesExclusion:
     ) -> typing.Optional["WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSet"]:
         '''excluded_rule_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#excluded_rule_set WebApplicationFirewallPolicy#excluded_rule_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#excluded_rule_set WebApplicationFirewallPolicy#excluded_rule_set}
         '''
         result = self._values.get("excluded_rule_set")
         return typing.cast(typing.Optional["WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSet"], result)
@@ -1888,9 +1888,9 @@ class WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSet:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rule_group: rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_group WebApplicationFirewallPolicy#rule_group}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.
+        :param rule_group: rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_group WebApplicationFirewallPolicy#rule_group}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2030e0236826474a31e23891bf94b91f01c4b3b0f4b0f34e1e6d640f77e3ffe0)
@@ -1911,20 +1911,20 @@ class WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSetRuleGroup"]]]:
         '''rule_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_group WebApplicationFirewallPolicy#rule_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_group WebApplicationFirewallPolicy#rule_group}
         '''
         result = self._values.get("rule_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSetRuleGroup"]]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2067,8 +2067,8 @@ class WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSetRuleGroup:
         excluded_rules: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param rule_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_group_name WebApplicationFirewallPolicy#rule_group_name}.
-        :param excluded_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#excluded_rules WebApplicationFirewallPolicy#excluded_rules}.
+        :param rule_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_group_name WebApplicationFirewallPolicy#rule_group_name}.
+        :param excluded_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#excluded_rules WebApplicationFirewallPolicy#excluded_rules}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__503b82481225d3a0f8461f4dce7620bba0c07127c8cfe170d5ae80b13eb476e9)
@@ -2082,14 +2082,14 @@ class WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSetRuleGroup:
 
     @builtins.property
     def rule_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_group_name WebApplicationFirewallPolicy#rule_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_group_name WebApplicationFirewallPolicy#rule_group_name}.'''
         result = self._values.get("rule_group_name")
         assert result is not None, "Required property 'rule_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def excluded_rules(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#excluded_rules WebApplicationFirewallPolicy#excluded_rules}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#excluded_rules WebApplicationFirewallPolicy#excluded_rules}.'''
         result = self._values.get("excluded_rules")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2408,9 +2408,9 @@ class WebApplicationFirewallPolicyManagedRulesExclusionOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rule_group: rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_group WebApplicationFirewallPolicy#rule_group}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.
+        :param rule_group: rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_group WebApplicationFirewallPolicy#rule_group}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.
         '''
         value = WebApplicationFirewallPolicyManagedRulesExclusionExcludedRuleSet(
             rule_group=rule_group, type=type, version=version
@@ -2523,9 +2523,9 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSet:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.
-        :param rule_group_override: rule_group_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_group_override WebApplicationFirewallPolicy#rule_group_override}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.
+        :param rule_group_override: rule_group_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_group_override WebApplicationFirewallPolicy#rule_group_override}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b2ed48eff12b7310a3ecb0d28aa8683486ada8d18ece389378657482bee885f)
@@ -2542,7 +2542,7 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSet:
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#version WebApplicationFirewallPolicy#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
@@ -2553,14 +2553,14 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverride"]]]:
         '''rule_group_override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_group_override WebApplicationFirewallPolicy#rule_group_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_group_override WebApplicationFirewallPolicy#rule_group_override}
         '''
         result = self._values.get("rule_group_override")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverride"]]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#type WebApplicationFirewallPolicy#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2795,8 +2795,8 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverride:
         rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverrideRule", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param rule_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_group_name WebApplicationFirewallPolicy#rule_group_name}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
+        :param rule_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_group_name WebApplicationFirewallPolicy#rule_group_name}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__565bbc45342f5657b1e2bb716ca15d5e8f29266bd03e70c94393ff6ce55b669c)
@@ -2810,7 +2810,7 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverride:
 
     @builtins.property
     def rule_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule_group_name WebApplicationFirewallPolicy#rule_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule_group_name WebApplicationFirewallPolicy#rule_group_name}.'''
         result = self._values.get("rule_group_name")
         assert result is not None, "Required property 'rule_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2821,7 +2821,7 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverride:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverrideRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverrideRule"]]], result)
@@ -3037,9 +3037,9 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverrideRul
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#action WebApplicationFirewallPolicy#action}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#action WebApplicationFirewallPolicy#action}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3315631081e2aff3aa78e80ca91322ca8bd3c736265815c1d717aa17d29ea060)
@@ -3056,7 +3056,7 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverrideRul
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#id WebApplicationFirewallPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3067,7 +3067,7 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverrideRul
 
     @builtins.property
     def action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#action WebApplicationFirewallPolicy#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#action WebApplicationFirewallPolicy#action}.'''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3075,7 +3075,7 @@ class WebApplicationFirewallPolicyManagedRulesManagedRuleSetRuleGroupOverrideRul
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3418,16 +3418,16 @@ class WebApplicationFirewallPolicyPolicySettings:
         request_body_inspect_limit_in_kb: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
-        :param file_upload_enforcement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#file_upload_enforcement WebApplicationFirewallPolicy#file_upload_enforcement}.
-        :param file_upload_limit_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#file_upload_limit_in_mb WebApplicationFirewallPolicy#file_upload_limit_in_mb}.
-        :param js_challenge_cookie_expiration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#js_challenge_cookie_expiration_in_minutes WebApplicationFirewallPolicy#js_challenge_cookie_expiration_in_minutes}.
-        :param log_scrubbing: log_scrubbing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#log_scrubbing WebApplicationFirewallPolicy#log_scrubbing}
-        :param max_request_body_size_in_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#max_request_body_size_in_kb WebApplicationFirewallPolicy#max_request_body_size_in_kb}.
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#mode WebApplicationFirewallPolicy#mode}.
-        :param request_body_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#request_body_check WebApplicationFirewallPolicy#request_body_check}.
-        :param request_body_enforcement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#request_body_enforcement WebApplicationFirewallPolicy#request_body_enforcement}.
-        :param request_body_inspect_limit_in_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#request_body_inspect_limit_in_kb WebApplicationFirewallPolicy#request_body_inspect_limit_in_kb}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
+        :param file_upload_enforcement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#file_upload_enforcement WebApplicationFirewallPolicy#file_upload_enforcement}.
+        :param file_upload_limit_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#file_upload_limit_in_mb WebApplicationFirewallPolicy#file_upload_limit_in_mb}.
+        :param js_challenge_cookie_expiration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#js_challenge_cookie_expiration_in_minutes WebApplicationFirewallPolicy#js_challenge_cookie_expiration_in_minutes}.
+        :param log_scrubbing: log_scrubbing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#log_scrubbing WebApplicationFirewallPolicy#log_scrubbing}
+        :param max_request_body_size_in_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#max_request_body_size_in_kb WebApplicationFirewallPolicy#max_request_body_size_in_kb}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#mode WebApplicationFirewallPolicy#mode}.
+        :param request_body_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#request_body_check WebApplicationFirewallPolicy#request_body_check}.
+        :param request_body_enforcement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#request_body_enforcement WebApplicationFirewallPolicy#request_body_enforcement}.
+        :param request_body_inspect_limit_in_kb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#request_body_inspect_limit_in_kb WebApplicationFirewallPolicy#request_body_inspect_limit_in_kb}.
         '''
         if isinstance(log_scrubbing, dict):
             log_scrubbing = WebApplicationFirewallPolicyPolicySettingsLogScrubbing(**log_scrubbing)
@@ -3469,7 +3469,7 @@ class WebApplicationFirewallPolicyPolicySettings:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3477,19 +3477,19 @@ class WebApplicationFirewallPolicyPolicySettings:
     def file_upload_enforcement(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#file_upload_enforcement WebApplicationFirewallPolicy#file_upload_enforcement}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#file_upload_enforcement WebApplicationFirewallPolicy#file_upload_enforcement}.'''
         result = self._values.get("file_upload_enforcement")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def file_upload_limit_in_mb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#file_upload_limit_in_mb WebApplicationFirewallPolicy#file_upload_limit_in_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#file_upload_limit_in_mb WebApplicationFirewallPolicy#file_upload_limit_in_mb}.'''
         result = self._values.get("file_upload_limit_in_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def js_challenge_cookie_expiration_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#js_challenge_cookie_expiration_in_minutes WebApplicationFirewallPolicy#js_challenge_cookie_expiration_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#js_challenge_cookie_expiration_in_minutes WebApplicationFirewallPolicy#js_challenge_cookie_expiration_in_minutes}.'''
         result = self._values.get("js_challenge_cookie_expiration_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3499,20 +3499,20 @@ class WebApplicationFirewallPolicyPolicySettings:
     ) -> typing.Optional["WebApplicationFirewallPolicyPolicySettingsLogScrubbing"]:
         '''log_scrubbing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#log_scrubbing WebApplicationFirewallPolicy#log_scrubbing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#log_scrubbing WebApplicationFirewallPolicy#log_scrubbing}
         '''
         result = self._values.get("log_scrubbing")
         return typing.cast(typing.Optional["WebApplicationFirewallPolicyPolicySettingsLogScrubbing"], result)
 
     @builtins.property
     def max_request_body_size_in_kb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#max_request_body_size_in_kb WebApplicationFirewallPolicy#max_request_body_size_in_kb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#max_request_body_size_in_kb WebApplicationFirewallPolicy#max_request_body_size_in_kb}.'''
         result = self._values.get("max_request_body_size_in_kb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#mode WebApplicationFirewallPolicy#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#mode WebApplicationFirewallPolicy#mode}.'''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3520,7 +3520,7 @@ class WebApplicationFirewallPolicyPolicySettings:
     def request_body_check(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#request_body_check WebApplicationFirewallPolicy#request_body_check}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#request_body_check WebApplicationFirewallPolicy#request_body_check}.'''
         result = self._values.get("request_body_check")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3528,13 +3528,13 @@ class WebApplicationFirewallPolicyPolicySettings:
     def request_body_enforcement(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#request_body_enforcement WebApplicationFirewallPolicy#request_body_enforcement}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#request_body_enforcement WebApplicationFirewallPolicy#request_body_enforcement}.'''
         result = self._values.get("request_body_enforcement")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def request_body_inspect_limit_in_kb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#request_body_inspect_limit_in_kb WebApplicationFirewallPolicy#request_body_inspect_limit_in_kb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#request_body_inspect_limit_in_kb WebApplicationFirewallPolicy#request_body_inspect_limit_in_kb}.'''
         result = self._values.get("request_body_inspect_limit_in_kb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3563,8 +3563,8 @@ class WebApplicationFirewallPolicyPolicySettingsLogScrubbing:
         rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WebApplicationFirewallPolicyPolicySettingsLogScrubbingRule", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94eb384a6ff95adc480b03cda99ab88512baa7fb3453518db878138f915868c8)
@@ -3580,7 +3580,7 @@ class WebApplicationFirewallPolicyPolicySettingsLogScrubbing:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3590,7 +3590,7 @@ class WebApplicationFirewallPolicyPolicySettingsLogScrubbing:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyPolicySettingsLogScrubbingRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebApplicationFirewallPolicyPolicySettingsLogScrubbingRule"]]], result)
@@ -3720,10 +3720,10 @@ class WebApplicationFirewallPolicyPolicySettingsLogScrubbingRule:
         selector_match_operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param match_variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_variable WebApplicationFirewallPolicy#match_variable}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
-        :param selector: When matchVariable is a collection, operator used to specify which elements in the collection this rule applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}
-        :param selector_match_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector_match_operator WebApplicationFirewallPolicy#selector_match_operator}.
+        :param match_variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_variable WebApplicationFirewallPolicy#match_variable}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
+        :param selector: When matchVariable is a collection, operator used to specify which elements in the collection this rule applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}
+        :param selector_match_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector_match_operator WebApplicationFirewallPolicy#selector_match_operator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ed21e0bf1e66e40f43fa44cd8fea9847d38bcea077fb6bfaf6e7e329df76cc0)
@@ -3743,7 +3743,7 @@ class WebApplicationFirewallPolicyPolicySettingsLogScrubbingRule:
 
     @builtins.property
     def match_variable(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#match_variable WebApplicationFirewallPolicy#match_variable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#match_variable WebApplicationFirewallPolicy#match_variable}.'''
         result = self._values.get("match_variable")
         assert result is not None, "Required property 'match_variable' is missing"
         return typing.cast(builtins.str, result)
@@ -3752,7 +3752,7 @@ class WebApplicationFirewallPolicyPolicySettingsLogScrubbingRule:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3760,14 +3760,14 @@ class WebApplicationFirewallPolicyPolicySettingsLogScrubbingRule:
     def selector(self) -> typing.Optional[builtins.str]:
         '''When matchVariable is a collection, operator used to specify which elements in the collection this rule applies to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector WebApplicationFirewallPolicy#selector}
         '''
         result = self._values.get("selector")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def selector_match_operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#selector_match_operator WebApplicationFirewallPolicy#selector_match_operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#selector_match_operator WebApplicationFirewallPolicy#selector_match_operator}.'''
         result = self._values.get("selector_match_operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4033,8 +4033,8 @@ class WebApplicationFirewallPolicyPolicySettingsOutputReference(
         rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[WebApplicationFirewallPolicyPolicySettingsLogScrubbingRule, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#enabled WebApplicationFirewallPolicy#enabled}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#rule WebApplicationFirewallPolicy#rule}
         '''
         value = WebApplicationFirewallPolicyPolicySettingsLogScrubbing(
             enabled=enabled, rule=rule
@@ -4315,10 +4315,10 @@ class WebApplicationFirewallPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#create WebApplicationFirewallPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#delete WebApplicationFirewallPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#read WebApplicationFirewallPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#update WebApplicationFirewallPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#create WebApplicationFirewallPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#delete WebApplicationFirewallPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#read WebApplicationFirewallPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#update WebApplicationFirewallPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__177e788400e574657bb756209d0d909c96d1296975a0e5d7fd5f0646178c9254)
@@ -4338,25 +4338,25 @@ class WebApplicationFirewallPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#create WebApplicationFirewallPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#create WebApplicationFirewallPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#delete WebApplicationFirewallPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#delete WebApplicationFirewallPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#read WebApplicationFirewallPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#read WebApplicationFirewallPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_application_firewall_policy#update WebApplicationFirewallPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_application_firewall_policy#update WebApplicationFirewallPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

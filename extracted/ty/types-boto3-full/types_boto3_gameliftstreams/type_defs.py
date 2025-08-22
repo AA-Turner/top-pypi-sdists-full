@@ -309,6 +309,7 @@ class UpdateStreamGroupInputTypeDef(TypedDict):
     Identifier: str
     LocationConfigurations: NotRequired[Sequence[LocationConfigurationTypeDef]]
     Description: NotRequired[str]
+    DefaultApplicationIdentifier: NotRequired[str]
 
 
 class AddStreamGroupLocationsOutputTypeDef(TypedDict):

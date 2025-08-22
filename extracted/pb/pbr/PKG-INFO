@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pbr
-Version: 7.0.0
+Version: 7.0.1
 Summary: Python Build Reasonableness
 Home-page: https://docs.openstack.org/pbr/latest/
 Author: OpenStack
@@ -31,4 +31,4 @@ Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
 Requires-Dist: setuptools
 
-Python Build Reasonableness
+file: README.rst

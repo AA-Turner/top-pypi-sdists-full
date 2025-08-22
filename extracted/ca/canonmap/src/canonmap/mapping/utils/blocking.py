@@ -42,7 +42,7 @@ def _prepare_exact_param(entity_name: str) -> Optional[str]:
     return entity_name.strip().lower()
 
 
-def _sql_phonetic(connector, table_name: str, field_name: str) -> Optional[str]:
+def _sql_phonetic(connector, table_name: str, field_name: str, prefilter_subquery: Optional[str] = None) -> Optional[str]:
     primary = f"__{field_name}_phonetic__"
     fallback = f"{field_name}_phonetic__"
     helper_col = None
@@ -56,14 +56,19 @@ def _sql_phonetic(connector, table_name: str, field_name: str) -> Optional[str]:
         helper_col = None
     if not helper_col:
         return None
+    
+    from_clause = f"`{table_name}`"
+    if prefilter_subquery:
+        from_clause = f"{prefilter_subquery} AS `{table_name}`"
+    
     return f"""
         SELECT DISTINCT `{field_name}` AS name
-        FROM `{table_name}`
+        FROM {from_clause}
         WHERE `{helper_col}` LIKE %s
     """
 
 
-def _sql_initialism(connector, table_name: str, field_name: str) -> Optional[str]:
+def _sql_initialism(connector, table_name: str, field_name: str, prefilter_subquery: Optional[str] = None) -> Optional[str]:
     primary = f"__{field_name}_initialism__"
     fallback = f"{field_name}_initialism__"
     helper_col = None
@@ -76,17 +81,26 @@ def _sql_initialism(connector, table_name: str, field_name: str) -> Optional[str
         helper_col = None
     if not helper_col:
         return None
+    
+    from_clause = f"`{table_name}`"
+    if prefilter_subquery:
+        from_clause = f"{prefilter_subquery} AS `{table_name}`"
+    
     return f"""
         SELECT DISTINCT `{field_name}` AS name
-        FROM `{table_name}`
+        FROM {from_clause}
         WHERE `{helper_col}` = %s
     """
 
 
-def _sql_exact(connector, table_name: str, field_name: str) -> str:
+def _sql_exact(connector, table_name: str, field_name: str, prefilter_subquery: Optional[str] = None) -> str:
+    from_clause = f"`{table_name}`"
+    if prefilter_subquery:
+        from_clause = f"{prefilter_subquery} AS `{table_name}`"
+    
     return f"""
         SELECT DISTINCT `{field_name}` AS name
-        FROM `{table_name}`
+        FROM {from_clause}
         WHERE LOWER(TRIM(`{field_name}`)) LIKE %s
     """
 
@@ -97,22 +111,27 @@ def _simple_handler(
     table_name: str,
     field_name: str,
     prepare_param: Callable[[str], Optional[str]],
-    sql_builder: Callable[[object, str, str], Optional[str]],
+    sql_builder: Callable[[object, str, str, Optional[str]], Optional[str]],
     limit: Optional[int] = None,
+    prefilter_subquery: Optional[str] = None,
 ) -> set:
     param = prepare_param(entity_name)
     if not param:
         return set()
-    sql = sql_builder(db_connection_manager, table_name, field_name)
+    sql = sql_builder(db_connection_manager, table_name, field_name, prefilter_subquery)
     if not sql:
         return set()
     return _execute_and_collect_names(db_connection_manager, sql, (param,), limit=limit)
 
 
-def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, field_name: str, limit: Optional[int] = None) -> set:
+def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, field_name: str, limit: Optional[int] = None, prefilter_subquery: Optional[str] = None) -> set:
     """
     Block candidates using helper field if available; otherwise use MySQL's SOUNDEX.
     """
+    from_clause = f"`{table_name}`"
+    if prefilter_subquery:
+        from_clause = f"{prefilter_subquery} AS `{table_name}`"
+    
     # Prefer helper field column if present: __<field>_soundex__
     try:
         primary = f"__{field_name}_soundex__"
@@ -128,7 +147,7 @@ def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, f
                 return set()
             helper_sql = f"""
                 SELECT DISTINCT `{field_name}` AS name
-                FROM `{table_name}`
+                FROM {from_clause}
                 WHERE `{helper_col_name}` = %s
             """
             resp = db_connection_manager.execute_query(helper_sql, [code], allow_writes=False, limit=limit)
@@ -140,7 +159,7 @@ def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, f
 
     primary_sql = f"""
         SELECT DISTINCT `{field_name}` AS name
-        FROM `{table_name}`
+        FROM {from_clause}
         WHERE SOUNDEX(`{field_name}`) = SOUNDEX(%s)
     """
     resp = db_connection_manager.execute_query(primary_sql, [entity_name], allow_writes=False, limit=limit)
@@ -149,10 +168,10 @@ def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, f
 
 
 # Public registry mapping block type to handler callable
-BLOCKING_HANDLERS: Dict[str, Callable[[object, str, str, str, Optional[int]], set]] = {
-    "phonetic": lambda db, e, t, f, lim=None: _simple_handler(db, e, t, f, _prepare_phonetic_param, _sql_phonetic, lim),
-    "initialism": lambda db, e, t, f, lim=None: _simple_handler(db, e, t, f, _prepare_initialism_param, _sql_initialism, lim),
-    "exact": lambda db, e, t, f, lim=None: _simple_handler(db, e, t, f, _prepare_exact_param, _sql_exact, lim),
+BLOCKING_HANDLERS: Dict[str, Callable[[object, str, str, str, Optional[int], Optional[str]], set]] = {
+    "phonetic": lambda db, e, t, f, lim=None, prefilter=None: _simple_handler(db, e, t, f, _prepare_phonetic_param, _sql_phonetic, lim, prefilter),
+    "initialism": lambda db, e, t, f, lim=None, prefilter=None: _simple_handler(db, e, t, f, _prepare_initialism_param, _sql_initialism, lim, prefilter),
+    "exact": lambda db, e, t, f, lim=None, prefilter=None: _simple_handler(db, e, t, f, _prepare_exact_param, _sql_exact, lim, prefilter),
     "soundex": _soundex_handler,
 }
 
@@ -164,6 +183,7 @@ def block_candidates(
     field_name: str,
     block_type: str,
     limit: Optional[int] = None,
+    prefilter_subquery: Optional[str] = None,
 ) -> set:
     """
     General blocking function using a strategy map.
@@ -172,7 +192,7 @@ def block_candidates(
     handler = BLOCKING_HANDLERS.get(block_type)
     if handler is None:
         raise ValueError(f"Unknown block_type '{block_type}'")
-    return handler(db_connection_manager, entity_name, table_name, field_name, limit)
+    return handler(db_connection_manager, entity_name, table_name, field_name, limit, prefilter_subquery)
 
 
 # --- Backward-compatible wrappers -------------------------------------------------------------

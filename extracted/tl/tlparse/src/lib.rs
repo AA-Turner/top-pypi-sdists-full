@@ -1,10 +1,13 @@
 use anyhow::{anyhow, bail};
+use chrono::Datelike;
 use fxhash::{FxHashMap, FxHashSet};
 use md5::{Digest, Md5};
 use std::ffi::{OsStr, OsString};
 
+use html_escape::encode_text;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use regex::Regex;
+use serde_json::Value;
 use std::cell::RefCell;
 use std::fs::{self, File};
 use std::io::{self, BufRead};
@@ -20,6 +23,17 @@ use crate::types::*;
 pub mod parsers;
 mod templates;
 mod types;
+
+pub use types::{
+    ArtifactFlags, Diagnostics, DivergenceFlags, DivergenceGroup, GraphAnalysis, GraphRuntime,
+    RankMetaData, RuntimeAnalysis, RuntimeRankDetail,
+};
+
+#[derive(Debug)]
+enum ParserResult {
+    NoPayload,
+    PayloadFilename(String),
+}
 
 pub struct ParseConfig {
     pub strict: bool,
@@ -79,70 +93,175 @@ fn maybe_remove_convert_frame_suffixes(frames: &mut Vec<FrameSummary>) {
     }
 }
 
+fn add_unique_suffix(raw_filename: PathBuf, output_count: i32) -> PathBuf {
+    if let Some(stem) = raw_filename.file_stem() {
+        let mut r = OsString::new();
+        r.push(stem);
+        r.push(OsStr::new("_"));
+        r.push(output_count.to_string());
+        if let Some(e) = raw_filename.extension() {
+            r.push(OsStr::new("."));
+            r.push(e);
+        };
+        raw_filename.with_file_name(r)
+    } else {
+        raw_filename
+    }
+}
+
+fn add_file_output(
+    filename: PathBuf,
+    content: String,
+    output: &mut ParseOutput,
+    compile_directory: &mut Vec<OutputFile>,
+    output_count: &mut i32,
+) {
+    let is_stack_traces = is_stack_traces_file(&filename);
+    let maybe_content = if is_stack_traces {
+        Some(content.clone())
+    } else {
+        None
+    };
+    output.push((filename.clone(), content));
+    let filename_str = filename.to_string_lossy().to_string();
+    let suffix = if filename_str.contains("cache_miss") {
+        "❌".to_string()
+    } else if filename_str.contains("cache_hit") {
+        "✅".to_string()
+    } else if filename_str.contains("cache_bypass") {
+        "❓".to_string()
+    } else {
+        "".to_string()
+    };
+    let readable_url = if let Some(c) = maybe_content {
+        Some(add_stack_traces_html(&filename, &c, output, output_count))
+    } else {
+        None
+    };
+    compile_directory.push(OutputFile {
+        url: filename_str.clone(),
+        name: filename_str,
+        number: *output_count,
+        suffix: suffix,
+        readable_url,
+    });
+    *output_count += 1;
+}
+
+fn is_stack_traces_file(path: &PathBuf) -> bool {
+    if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+        name.starts_with("inductor_provenance_tracking_kernel_stack_traces")
+            && name.ends_with(".json")
+    } else {
+        false
+    }
+}
+
+fn add_stack_traces_html(
+    json_path: &PathBuf,
+    json_content: &str,
+    output: &mut ParseOutput,
+    output_count: &mut i32,
+) -> String {
+    let parsed: Value = match serde_json::from_str(json_content) {
+        Ok(v) => v,
+        Err(_) => return String::new(),
+    };
+    let mut html = String::from("<html><body>\n");
+    if let Some(map) = parsed.as_object() {
+        for (kernel, traces) in map {
+            html.push_str(&format!("<h3>{}</h3>\n", encode_text(kernel)));
+            if let Some(arr) = traces.as_array() {
+                for t in arr {
+                    if let Some(s) = t.as_str() {
+                        // The JSON strings encode newlines as "\\n" sequences, so translate
+                        // those into real line breaks for the HTML view.
+                        let decoded = s.replace("\\n", "\n");
+                        html.push_str("<pre>");
+                        html.push_str(&encode_text(decoded.trim_end_matches('\n')));
+                        html.push_str("</pre>\n");
+                    }
+                }
+            }
+        }
+    }
+    html.push_str("</body></html>\n");
+    let mut html_path = json_path.clone();
+    if let Some(stem) = json_path.file_stem().and_then(|s| s.to_str()) {
+        html_path.set_file_name(format!("{stem}_readable.html"));
+    } else {
+        html_path.set_extension("html");
+    }
+    let html_path_str = html_path.to_string_lossy().to_string();
+    output.push((html_path.clone(), html));
+    *output_count += 1;
+    html_path_str
+}
+
 fn run_parser<'t>(
     lineno: usize,
     parser: &Box<dyn StructuredLogParser + 't>,
     e: &Envelope,
     payload: &str,
     output_count: &mut i32,
-    output: &mut Vec<(PathBuf, String)>,
+    output: &mut ParseOutput,
     compile_directory: &mut Vec<OutputFile>,
     multi: &MultiProgress,
     stats: &mut Stats,
-) {
+) -> ParserResult {
+    let mut payload_filename = ParserResult::NoPayload;
     if let Some(md) = parser.get_metadata(&e) {
         let results = parser.parse(lineno, md, e.rank, &e.compile_id, &payload);
-        fn extract_suffix(filename: &String) -> String {
-            if filename.contains("cache_miss") {
-                "❌".to_string()
-            } else if filename.contains("cache_hit") {
-                "✅".to_string()
-            } else if filename.contains("cache_bypass") {
-                "❓".to_string()
-            } else {
-                "".to_string()
-            }
-        }
         match results {
             Ok(results) => {
                 for parser_result in results {
                     match parser_result {
                         ParserOutput::File(raw_filename, out) => {
-                            let filename = if let Some(stem) = raw_filename.file_stem() {
-                                let mut r = OsString::new();
-                                r.push(stem);
-                                r.push(OsStr::new("_"));
-                                r.push(output_count.to_string());
-                                if let Some(e) = raw_filename.extension() {
-                                    r.push(OsStr::new("."));
-                                    r.push(e);
-                                };
-                                raw_filename.with_file_name(r)
-                            } else {
-                                raw_filename
-                            };
-                            output.push((filename.clone(), out));
-                            let filename_str = format!("{}", filename.to_string_lossy());
-                            let suffix = extract_suffix(&filename_str);
-                            compile_directory.push(OutputFile {
-                                url: filename_str.clone(),
-                                name: filename_str,
-                                number: *output_count,
-                                suffix: suffix,
-                            });
-                            *output_count += 1;
+                            let filename = add_unique_suffix(raw_filename, *output_count);
+                            add_file_output(filename, out, output, compile_directory, output_count);
                         }
                         ParserOutput::GlobalFile(filename, out) => {
-                            output.push((filename.clone(), out));
-                            let filename_str = format!("{}", filename.to_string_lossy());
-                            let suffix = extract_suffix(&filename_str);
-                            compile_directory.push(OutputFile {
-                                url: filename_str.clone(),
-                                name: filename_str,
-                                number: *output_count,
-                                suffix: suffix,
-                            });
-                            *output_count += 1;
+                            add_file_output(filename, out, output, compile_directory, output_count);
+                        }
+                        ParserOutput::PayloadFile(raw_filename) => {
+                            let filename = add_unique_suffix(raw_filename, *output_count);
+                            payload_filename = ParserResult::PayloadFilename(
+                                filename.to_string_lossy().to_string(),
+                            );
+                            add_file_output(
+                                filename,
+                                payload.to_string(),
+                                output,
+                                compile_directory,
+                                output_count,
+                            );
+                        }
+                        ParserOutput::PayloadReformatFile(raw_filename, formatter) => {
+                            let filename = add_unique_suffix(raw_filename, *output_count);
+                            match formatter(payload) {
+                                Ok(formatted_content) => {
+                                    payload_filename = ParserResult::PayloadFilename(
+                                        filename.to_string_lossy().to_string(),
+                                    );
+                                    add_file_output(
+                                        filename,
+                                        formatted_content,
+                                        output,
+                                        compile_directory,
+                                        output_count,
+                                    );
+                                }
+                                Err(err) => {
+                                    multi.suspend(|| {
+                                        eprintln!(
+                                            "Failed to format payload for {}: {}",
+                                            filename.to_string_lossy(),
+                                            err
+                                        )
+                                    });
+                                    stats.fail_parser += 1;
+                                }
+                            }
                         }
                         ParserOutput::Link(name, url) => {
                             compile_directory.push(OutputFile {
@@ -150,6 +269,7 @@ fn run_parser<'t>(
                                 name: name,
                                 number: *output_count,
                                 suffix: "".to_string(),
+                                readable_url: None,
                             });
                             *output_count += 1;
                         }
@@ -168,6 +288,7 @@ fn run_parser<'t>(
             },
         }
     }
+    payload_filename
 }
 
 fn directory_to_json(
@@ -188,7 +309,8 @@ fn directory_to_json(
                     // Strip away any leading directory names, that will just be in the url path anyway
                     "name": file.name.split('/').last().unwrap_or(&file.name),
                     "number": file.number,
-                    "suffix": file.suffix
+                    "suffix": file.suffix,
+                    "readable_url": file.readable_url,
                 })
             })
             .collect();
@@ -219,7 +341,7 @@ fn handle_guard(
             tt,
             sym_expr_info_index: &sym_expr_info_index_borrowed,
         });
-    run_parser(
+    let _ = run_parser(
         lineno,
         &parser,
         e,
@@ -253,7 +375,7 @@ fn handle_guard(
     });
 }
 
-pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOutput> {
+pub fn parse_path(path: &PathBuf, config: &ParseConfig) -> anyhow::Result<ParseOutput> {
     let strict = config.strict;
     if !path.is_file() {
         bail!("{} is not a file", path.display())
@@ -280,6 +402,35 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
         r"(?<pathname>[^:]+):(?<line>\d+)\] ",
         r"(?<payload>.)"
     ))?;
+
+    // Helper functions to reduce repetitive serde_json::Value creation
+    let make_string_value = |caps: &regex::Captures, name: &str| -> serde_json::Value {
+        serde_json::Value::String(caps.name(name).unwrap().as_str().to_string())
+    };
+
+    let make_number_value = |caps: &regex::Captures, name: &str| -> serde_json::Value {
+        let parsed: u64 = caps.name(name).unwrap().as_str().parse().unwrap();
+        serde_json::Value::Number(serde_json::Number::from(parsed))
+    };
+
+    // Helper function to format timestamp as ISO-8601
+    let format_timestamp = |caps: &regex::Captures| -> String {
+        let month: u32 = caps.name("month").unwrap().as_str().parse().unwrap();
+        let day: u32 = caps.name("day").unwrap().as_str().parse().unwrap();
+        let hour: u32 = caps.name("hour").unwrap().as_str().parse().unwrap();
+        let minute: u32 = caps.name("minute").unwrap().as_str().parse().unwrap();
+        let second: u32 = caps.name("second").unwrap().as_str().parse().unwrap();
+        let microsecond: u32 = caps.name("millisecond").unwrap().as_str().parse().unwrap();
+
+        // Assume current year since glog doesn't include year
+        let year = chrono::Utc::now().year();
+
+        // Format as ISO-8601 with microsecond precision
+        format!(
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:06}Z",
+            year, month, day, hour, minute, second, microsecond
+        )
+    };
 
     let mut stack_trie = StackTrieNode::default();
     let mut unknown_stack_trie = StackTrieNode::default();
@@ -308,8 +459,11 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
     let guard_added_fast_index: RefCell<GuardAddedFastIndex> = RefCell::new(FxHashMap::default());
     let sym_expr_info_index: RefCell<SymExprInfoIndex> = RefCell::new(FxHashMap::default());
 
-    // Store results in an output Vec<PathBuf, String>
-    let mut output: Vec<(PathBuf, String)> = Vec::new();
+    // Store results in an output ParseOutput
+    let mut output: ParseOutput = Vec::new();
+
+    // Store raw.jsonl content (without payloads)
+    let mut shortraw_content = String::new();
 
     let mut tt: TinyTemplate = TinyTemplate::new();
     tt.add_formatter("format_unescaped", tinytemplate::format_unescaped);
@@ -359,14 +513,15 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
         })
         .peekable();
 
-    let mut all_parsers = default_parsers(&tt, &config);
-    all_parsers.extend(config.custom_parsers);
+    let default_parsers = default_parsers(&tt, config);
+    let mut all_parsers: Vec<&Box<dyn StructuredLogParser>> = default_parsers.iter().collect();
     let mut chromium_events: Vec<serde_json::Value> = Vec::new();
+    all_parsers.extend(config.custom_parsers.iter());
 
     while let Some((lineno, line)) = iter.next() {
         bytes_read += line.len() as u64;
         pb.set_position(bytes_read);
-        spinner.set_message(format!("{:?}", stats));
+        spinner.set_message(format!("{}", stats));
         //spinner.set_message(format!("{:?} {:?}", slowest_time, fastest_time));
         let start = Instant::now();
 
@@ -384,6 +539,114 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
             slowest_time = end;
         }
         let payload = &line[caps.name("payload").unwrap().start()..];
+        let original_json_envelope = payload; // Store the original JSON envelope
+
+        // Helper function to safely insert keys and detect conflicts
+        let try_insert = |obj: &mut serde_json::Map<String, serde_json::Value>,
+                          key: &str,
+                          value: serde_json::Value,
+                          multi: &MultiProgress,
+                          stats: &mut Stats|
+         -> bool {
+            if obj.contains_key(key) {
+                multi.suspend(|| {
+                    eprintln!("Key conflict: '{}' already exists in JSON payload, skipping raw.jsonl JSONL conversion", key);
+                });
+                stats.fail_key_conflict += 1;
+                false
+            } else {
+                obj.insert(key.to_string(), value);
+                true
+            }
+        };
+
+        // Create cleanup lambda to handle raw.jsonl writing as JSONL
+        let write_to_shortraw = |shortraw_content: &mut String,
+                                 payload_filename: Option<String>,
+                                 multi: &MultiProgress,
+                                 stats: &mut Stats| {
+            match serde_json::from_str::<serde_json::Value>(original_json_envelope) {
+                Ok(mut json_value) => {
+                    if let Some(obj) = json_value.as_object_mut() {
+                        // Try to add all log fields, abort on any conflict
+                        let success = try_insert(
+                            obj,
+                            "timestamp",
+                            serde_json::Value::String(format_timestamp(&caps)),
+                            multi,
+                            stats,
+                        ) && try_insert(
+                            obj,
+                            "thread",
+                            make_number_value(&caps, "thread"),
+                            multi,
+                            stats,
+                        ) && try_insert(
+                            obj,
+                            "pathname",
+                            make_string_value(&caps, "pathname"),
+                            multi,
+                            stats,
+                        ) && try_insert(
+                            obj,
+                            "lineno",
+                            make_number_value(&caps, "line"),
+                            multi,
+                            stats,
+                        );
+
+                        // Try to add payload filename if provided
+                        let success = if let Some(payload_file) = payload_filename {
+                            success
+                                && try_insert(
+                                    obj,
+                                    "payload_filename",
+                                    serde_json::Value::String(payload_file),
+                                    multi,
+                                    stats,
+                                )
+                        } else {
+                            success
+                        };
+
+                        if !success {
+                            // Drop line due to key conflict - don't write anything to maintain JSONL format
+                            return;
+                        }
+
+                        // Output as JSONL
+                        match serde_json::to_string(&json_value) {
+                            Ok(jsonl_line) => {
+                                shortraw_content.push_str(&jsonl_line);
+                                shortraw_content.push('\n');
+                            }
+                            Err(e) => {
+                                multi.suspend(|| {
+                                    eprintln!("Failed to serialize JSON for raw.jsonl: {}", e);
+                                });
+                                stats.fail_json_serialization += 1;
+                                // Drop line to maintain JSONL format - don't write anything
+                            }
+                        }
+                    } else {
+                        // Not a JSON object, drop line to maintain JSONL format
+                        multi.suspend(|| {
+                            eprintln!(
+                                "JSON payload is not an object, dropping line from raw.jsonl"
+                            );
+                        });
+                        stats.fail_json += 1;
+                    }
+                }
+                Err(e) => {
+                    // JSON parsing failed, drop line to maintain JSONL format
+                    multi.suspend(|| {
+                        eprintln!("Failed to parse JSON envelope for raw.jsonl: {}", e);
+                    });
+                    stats.fail_json += 1;
+                }
+            }
+        };
 
         let e = match serde_json::from_str::<Envelope>(payload) {
             Ok(r) => r,
@@ -392,6 +655,7 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
                     eprintln!("Failed to parse metadata JSON: {}\n{:?}", payload, err);
                 });
                 stats.fail_json += 1;
+                write_to_shortraw(&mut shortraw_content, None, &multi, &mut stats);
                 continue;
             }
         };
@@ -442,6 +706,7 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
             Some(rank) => {
                 if rank != e.rank {
                     stats.other_rank += 1;
+                    write_to_shortraw(&mut shortraw_content, None, &multi, &mut stats);
                     continue;
                 }
             }
@@ -471,8 +736,9 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
         // TODO: output should be able to generate this without explicitly creating
         let compile_directory = directory.entry(compile_id_entry).or_default();
 
+        let mut parser_payload_filename = ParserResult::NoPayload;
         for parser in &all_parsers {
-            run_parser(
+            let result = run_parser(
                 lineno,
                 parser,
                 &e,
@@ -482,7 +748,11 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
                 compile_directory,
                 &multi,
                 &mut stats,
-            )
+            );
+            // Take the last PayloadFilename entry as per the requirement
+            if matches!(result, ParserResult::PayloadFilename(_)) {
+                parser_payload_filename = result;
+            }
         }
 
         if let Some(ref m) = e.compilation_metrics {
@@ -501,7 +771,7 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
                     output_files: &copied_directory,
                     compile_id_dir: &compile_id_dir,
                 });
-            run_parser(
+            let result = run_parser(
                 lineno,
                 &parser,
                 &e,
@@ -512,6 +782,10 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
                 &multi,
                 &mut stats,
             );
+            // Take the last PayloadFilename entry as per the requirement
+            if matches!(result, ParserResult::PayloadFilename(_)) {
+                parser_payload_filename = result;
+            }
 
             // compilation metrics is always the last output, since it just ran
             let metrics_filename = format!(
@@ -567,6 +841,7 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
         if config.export {
             if let Some(ref guard) = e.guard_added {
                 if guard.prefix.as_deref() != Some("eval") {
+                    write_to_shortraw(&mut shortraw_content, None, &multi, &mut stats);
                     continue;
                 }
                 let failure_type = "Guard Evaluated";
@@ -712,6 +987,36 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
                 stack_trie.insert(stack, e.compile_id.clone());
             };
         };
+
+        // Handle payload file writing and determine final payload filename, but skip chromium events
+        let final_payload_filename = match parser_payload_filename {
+            ParserResult::PayloadFilename(filename) => Some(filename),
+            ParserResult::NoPayload => {
+                if let Some(ref expect) = e.has_payload {
+                    // Only write payload file if no parser generated PayloadFile/PayloadReformatFile output and not a chromium event
+                    if !payload.is_empty() && e.chromium_event.is_none() {
+                        let hash_str = expect;
+                        let payload_path = PathBuf::from(format!("payloads/{}.txt", hash_str));
+                        output.push((payload_path, payload.clone()));
+                        Some(format!("payloads/{}.txt", hash_str))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+        };
+
+        // Write to raw.jsonl with optional payload filename, but skip chromium events
+        if e.chromium_event.is_none() {
+            write_to_shortraw(
+                &mut shortraw_content,
+                final_payload_filename,
+                &multi,
+                &mut stats,
+            );
+        }
     }
 
     if config.export {
@@ -726,7 +1031,7 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
         let index_context = ExportIndexContext {
             css: EXPORT_CSS,
             javascript: JAVASCRIPT,
-            custom_header_html: config.custom_header_html,
+            custom_header_html: config.custom_header_html.clone(),
             directory: directory
                 .drain(..)
                 .map(|(x, y)| (x.map_or("(unknown)".to_string(), |e| e.to_string()), y))
@@ -758,7 +1063,7 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
         serde_json::to_string_pretty(&chromium_events).unwrap(),
     ));
 
-    eprintln!("{:?}", stats);
+    eprintln!("{}", stats);
     if unknown_fields.len() > 0 {
         eprintln!(
             "Unknown fields: {:?} (consider updating tlparse to render these)",
@@ -782,7 +1087,7 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
     let index_context = IndexContext {
         css: CSS,
         javascript: JAVASCRIPT,
-        custom_header_html: config.custom_header_html,
+        custom_header_html: config.custom_header_html.clone(),
         directory: directory
             .drain(..)
             .map(|(x, y)| (x.map_or("(unknown)".to_string(), |e| e.to_string()), y))
@@ -806,6 +1111,30 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
     ));
 
     output.push((PathBuf::from("raw.log"), fs::read_to_string(path)?));
+
+    // Create string table from INTERN_TABLE as an array with nulls for missing indices
+    let intern_table = INTERN_TABLE.lock().unwrap();
+    let max_index = intern_table.keys().max().copied().unwrap_or(0) as usize;
+    let mut string_table: Vec<Option<String>> = vec![None; max_index + 1];
+    for (&index, value) in intern_table.iter() {
+        string_table[index as usize] = Some(value.clone());
+    }
+    drop(intern_table); // Release the lock early
+
+    // Serialize string table as JSON object
+    let string_table_json = serde_json::json!({
+        "string_table": string_table
+    });
+    let string_table_line = serde_json::to_string(&string_table_json)?;
+
+    // Prepend string table to raw.jsonl content
+    let mut final_shortraw_content =
+        String::with_capacity(string_table_line.len() + 1 + shortraw_content.len());
+    final_shortraw_content.push_str(&string_table_line);
+    final_shortraw_content.push('\n');
+    final_shortraw_content.push_str(&shortraw_content);
+
+    output.push((PathBuf::from("raw.jsonl"), final_shortraw_content));
 
     // other_rank is included here because you should only have logs from one rank when
     // configured properly
@@ -867,6 +1196,17 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
                 directory_name,
             );
 
+            // Convert node mappings to line number mappings
+            let line_mappings_content = convert_node_mappings_to_line_numbers(
+                &node_mappings_content,
+                &pre_grad_graph_content,
+                &post_grad_graph_content,
+                &output_code_content,
+                &aot_code_content,
+            );
+            let line_mappings_content_str = serde_json::to_string_pretty(&line_mappings_content)
+                .unwrap_or_else(|_| "{}".to_string());
+
             output.push((
                 PathBuf::from(format!("provenance_tracking_{}.html", directory_name)),
                 tt.render(
@@ -878,7 +1218,7 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
                         post_grad_graph_content,
                         output_code_content,
                         aot_code_content,
-                        node_mappings_content,
+                        line_mappings_content: line_mappings_content_str,
                     },
                 )?,
             ));
@@ -886,4 +1226,572 @@ pub fn parse_path(path: &PathBuf, config: ParseConfig) -> anyhow::Result<ParseOu
     }
 
     Ok(output)
+}
+
+pub fn read_chromium_events_with_pid(
+    path: &std::path::Path,
+    rank_num: u32,
+) -> anyhow::Result<Vec<serde_json::Value>> {
+    use std::fs;
+
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let file_content = fs::read_to_string(path)?;
+
+    match serde_json::from_str::<Vec<serde_json::Value>>(&file_content) {
+        Ok(mut events) => {
+            for event in &mut events {
+                if let Some(obj) = event.as_object_mut() {
+                    obj.insert("pid".to_string(), serde_json::json!(rank_num));
+                }
+            }
+            Ok(events)
+        }
+        Err(_) => Ok(Vec::new()),
+    }
+}
+
+pub fn generate_multi_rank_html(
+    out_path: &PathBuf,
+    sorted_ranks: Vec<String>,
+    cfg: &ParseConfig,
+    has_chromium_events: bool,
+    show_desync_warning: bool,
+    compile_id_divergence: bool,
+    diagnostics: Diagnostics,
+) -> anyhow::Result<(PathBuf, String)> {
+    // Create the TinyTemplate instance for rendering the landing page.
+    let mut tt = TinyTemplate::new();
+    tt.add_formatter("format_unescaped", tinytemplate::format_unescaped);
+    tt.add_template("multi_rank_index.html", TEMPLATE_MULTI_RANK_INDEX)?;
+
+    let ctx = MultiRankContext {
+        css: CSS,
+        custom_header_html: &cfg.custom_header_html,
+        num_ranks: sorted_ranks.len(),
+        ranks: sorted_ranks,
+        qps: TEMPLATE_QUERY_PARAM_SCRIPT,
+        has_chromium_events,
+        show_desync_warning,
+        compile_id_divergence,
+        diagnostics,
+    };
+    let html = tt.render("multi_rank_index.html", &ctx)?;
+    let landing_page_path = out_path.join("index.html");
+
+    Ok((landing_page_path, html))
+}
+
+fn prepare_and_validate_graphs(
+    runtime_estimations: &[GraphRuntime],
+) -> Option<(
+    std::collections::HashMap<u32, Vec<(&str, f64)>>,
+    Vec<u32>,
+    usize,
+)> {
+    use std::collections::HashMap;
+
+    let rank_graphs: HashMap<u32, Vec<(&str, f64)>> = runtime_estimations
+        .iter()
+        .map(|gr| {
+            (
+                gr.rank,
+                &gr.graph,
+                gr.ops.iter().map(|op| op.estimated_runtime_ns).sum::<f64>(),
+            )
+        })
+        .fold(HashMap::new(), |mut acc, (rank, graph, runtime)| {
+            acc.entry(rank).or_default().push((graph, runtime));
+            acc
+        });
+
+    let max_graphs = rank_graphs.values().map(|graphs| graphs.len()).max()?;
+    let min_graphs = rank_graphs.values().map(|graphs| graphs.len()).min()?;
+
+    if max_graphs != min_graphs {
+        return None; // Different number of graphs across ranks
+    }
+
+    let mut ranks: Vec<_> = rank_graphs.keys().copied().collect();
+    ranks.sort_unstable();
+
+    Some((rank_graphs, ranks, max_graphs))
+}
+
+fn compare_graph_runtimes(
+    rank_graphs: std::collections::HashMap<u32, Vec<(&str, f64)>>,
+    ranks: Vec<u32>,
+    max_graphs: usize,
+) -> Vec<GraphAnalysis> {
+    (0..max_graphs)
+        .filter_map(|index| {
+            let runtimes: Vec<_> = ranks
+                .iter()
+                .map(|&rank| {
+                    rank_graphs
+                        .get(&rank)
+                        .and_then(|g| g.get(index))
+                        .map(|(graph_id, runtime)| (rank, *graph_id, *runtime))
+                })
+                .collect::<Option<Vec<_>>>()?;
+
+            let (min_runtime, max_runtime, fastest_rank, slowest_rank) = runtimes.iter().fold(
+                (f64::INFINITY, f64::NEG_INFINITY, 0_u32, 0_u32),
+                |(min_rt, max_rt, fast_rank, slow_rank), &(rank, _, rt)| {
+                    let (new_min_rt, new_fast) = if rt <= min_rt {
+                        (rt, rank)
+                    } else {
+                        (min_rt, fast_rank)
+                    };
+                    let (new_max_rt, new_slow) = if rt >= max_rt {
+                        (rt, rank)
+                    } else {
+                        (max_rt, slow_rank)
+                    };
+                    (new_min_rt, new_max_rt, new_fast, new_slow)
+                },
+            );
+
+            let delta_ns = max_runtime - min_runtime;
+
+            Some(GraphAnalysis {
+                graph_index: index,
+                graph_id: runtimes[0].1.to_string(),
+                delta_ms: (delta_ns / 1e6 * 1000.0).round() / 1000.0,
+                rank_details: vec![
+                    RuntimeRankDetail {
+                        rank: fastest_rank,
+                        runtime_ms: (min_runtime / 1e6 * 1000.0).round() / 1000.0,
+                    },
+                    RuntimeRankDetail {
+                        rank: slowest_rank,
+                        runtime_ms: (max_runtime / 1e6 * 1000.0).round() / 1000.0,
+                    },
+                ],
+            })
+        })
+        .collect()
+}
+
+pub fn analyze_graph_runtime_deltas(
+    runtime_estimations: &[GraphRuntime],
+) -> Option<RuntimeAnalysis> {
+    let Some((rank_graphs, ranks, max_graphs)) = prepare_and_validate_graphs(runtime_estimations)
+    else {
+        return Some(RuntimeAnalysis {
+            graphs: vec![],
+            has_mismatched_graph_counts: true,
+        });
+    };
+
+    let mut graphs = compare_graph_runtimes(rank_graphs, ranks, max_graphs);
+    graphs.sort_by(|a, b| a.graph_id.cmp(&b.graph_id));
+
+    Some(RuntimeAnalysis {
+        graphs,
+        has_mismatched_graph_counts: false,
+    })
+}
+
+/// Converts node-based mappings to line number-based mappings for visualization.
+///
+/// This function processes node mappings and converts them to line number mappings
+/// that can be used to highlight corresponding lines across different views.
+/// It handles pre-grad graph, post-grad graph, and generated code files.
+fn convert_node_mappings_to_line_numbers(
+    node_mappings_content: &str,
+    pre_grad_graph_content: &str,
+    post_grad_graph_content: &str,
+    output_code_content: &str,
+    aot_code_content: &str,
+) -> serde_json::Value {
+    // Parse the node mappings JSON
+    let node_mappings: serde_json::Value = match serde_json::from_str(node_mappings_content) {
+        Ok(mappings) => mappings,
+        Err(_) => return serde_json::json!({}),
+    };
+
+    let version = node_mappings
+        .get("version")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(1.0) as i64;
+
+    // Helper function to check if a line is valid (not empty and doesn't start with comment)
+    fn valid_line(line: &str, symbol: &str) -> bool {
+        let stripped = line.trim();
+        !stripped.is_empty() && !stripped.starts_with(symbol)
+    }
+
+    // Helper function to extract node name from a line
+    fn extract_node_name(line: &str) -> Option<String> {
+        let trimmed = line.trim();
+        if valid_line(trimmed, "#") {
+            // Split on '=' and take everything before it
+            let before_equals = trimmed.split('=').next()?;
+            // Split on ':' and take everything before it
+            let node_name = before_equals.split(':').next()?.trim();
+            if !node_name.is_empty() {
+                return Some(node_name.to_string());
+            }
+        }
+        None
+    }
+
+    // Helper function to build node-to-line lookup map from graph content
+    fn build_node_to_lines_map(content: &str) -> std::collections::HashMap<String, usize> {
+        let mut node_to_lines = std::collections::HashMap::new();
+        for (i, line) in content.lines().enumerate() {
+            if let Some(node_name) = extract_node_name(line) {
+                node_to_lines.insert(node_name, i + 1); // 1-based line numbers
+            }
+        }
+        node_to_lines
+    }
+
+    // Helper function to build Python kernel-to-lines lookup map
+    fn build_python_kernel_to_lines_map(
+        content: &str,
+        kernel_names: &[&str],
+        _version: i64,
+    ) -> std::collections::HashMap<String, Vec<usize>> {
+        let content = content
+            .lines()
+            .skip_while(|line| line.is_empty())
+            .collect::<Vec<&str>>()
+            .join("\n");
+        let mut kernel_to_lines = std::collections::HashMap::new();
+
+        // Find the line number of "def call(args)" - allowing for whitespace between tokens
+        let run_impl_line = content
+            .lines()
+            .position(|line| {
+                line.contains("def") && line.contains("call") && line.contains("(args)")
+            })
+            .unwrap_or(0);
+        let first_line_number = content
+            .lines()
+            .position(|line| line.contains("# AOT ID:"))
+            .unwrap_or(0);
+
+        // For each kernel name (e.g. triton_poi_fused_mul_1:2):
+        // - Extract pure_kernel_name (triton_poi_fused_mul_1) before the ':'
+        // - If kernel name found: map to next line containing pure_kernel_name
+        // - If kernel_name not found: map to all lines with pure_kernel_name
+        for kernel_name in kernel_names {
+            // Get pure kernel name before ':' if it exists
+            let pure_kernel_name = if let Some(idx) = kernel_name.find(':') {
+                &kernel_name[..idx]
+            } else {
+                kernel_name
+            };
+
+            let mut found = false;
+            // If kernel_name contains a debug handle and we found it, we can stop after first match
+            if kernel_name.contains(':') {
+                for (i, line) in content.lines().enumerate().skip(run_impl_line) {
+                    if line.contains(kernel_name) {
+                        // Found kernel name, look for next line with pure_kernel_name
+                        for (j, next_line) in content.lines().enumerate().skip(i + 1) {
+                            if next_line.contains(pure_kernel_name) {
+                                kernel_to_lines
+                                    .entry(kernel_name.to_string())
+                                    .or_insert_with(Vec::new)
+                                    .push(j + 1 - first_line_number);
+                                found = true;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // If exact kernel name not found, map all lines with pure kernel name
+            if !found {
+                for (i, line) in content.lines().enumerate().skip(run_impl_line) {
+                    if line.contains(pure_kernel_name) {
+                        kernel_to_lines
+                            .entry(kernel_name.to_string())
+                            .or_insert_with(Vec::new)
+                            .push(i + 1 - first_line_number);
+                    }
+                }
+            }
+        }
+        kernel_to_lines
+    }
+
+    // Helper function to build C++ kernel-to-lines lookup map
+    // We only consider lines after "::run_impl(" and skip the empty lines at the beginning when computing line numbers
+    fn build_cpp_kernel_to_lines_map(
+        content: &str,
+        kernel_names: &[&str],
+        _version: i64,
+    ) -> std::collections::HashMap<String, Vec<usize>> {
+        // remove empty lines at the beginning and end of the content
+        // We need to do this because empty lines are ignored in html <pre> tags
+        let content = content
+            .lines()
+            .skip_while(|line| line.is_empty())
+            .collect::<Vec<&str>>()
+            .join("\n");
+        let mut kernel_to_lines = std::collections::HashMap::new();
+
+        // Find the line number of "::run_impl("
+        let run_impl_line = content
+            .lines()
+            .position(|line| line.contains("::run_impl("))
+            .unwrap_or(0);
+
+        // For each kernel name (e.g. triton_poi_fused_mul_1:2):
+        // - Extract pure_kernel_name (triton_poi_fused_mul_1) before the ':'
+        // - If kernel name found: map to next line containing pure_kernel_name
+        // - If kernel_name not found: map to all lines with pure_kernel_name
+        for kernel_name in kernel_names {
+            // Get pure kernel name before ':' if it exists
+            let pure_kernel_name = if let Some(idx) = kernel_name.find(':') {
+                &kernel_name[..idx]
+            } else {
+                kernel_name
+            };
+
+            let mut found = false;
+            if kernel_name.contains(':') {
+                for (i, line) in content.lines().enumerate().skip(run_impl_line) {
+                    if valid_line(line, "def")
+                        && valid_line(line, "static inline void")
+                        && line.contains(kernel_name)
+                    {
+                        // Found exact kernel name - map to next matching line
+                        let next_line = content
+                            .lines()
+                            .skip(i + 1)
+                            .position(|l| l.contains(pure_kernel_name))
+                            .map(|pos| i + pos + 2);
+
+                        if let Some(line_num) = next_line {
+                            kernel_to_lines
+                                .entry(kernel_name.to_string())
+                                .or_insert_with(Vec::new)
+                                .push(line_num);
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if !found {
+                for (i, line) in content.lines().enumerate().skip(run_impl_line) {
+                    if line.contains(pure_kernel_name) {
+                        kernel_to_lines
+                            .entry(kernel_name.to_string())
+                            .or_insert_with(Vec::new)
+                            .push(i + 1);
+                    }
+                }
+            }
+        }
+        kernel_to_lines
+    }
+
+    // Helper function to process mappings from source to target
+    fn process_mappings<F>(
+        source_mappings: &serde_json::Map<String, serde_json::Value>,
+        source_lookup: &std::collections::HashMap<String, usize>,
+        _target_lookup: &std::collections::HashMap<String, usize>,
+        target_line_processor: F,
+    ) -> std::collections::HashMap<usize, Vec<usize>>
+    where
+        F: Fn(&str) -> Option<usize>,
+    {
+        let mut result = std::collections::HashMap::new();
+
+        for (source_node, target_nodes) in source_mappings {
+            if let Some(source_line) = source_lookup.get(source_node) {
+                let mut target_lines = Vec::new();
+                if let Some(target_nodes_array) = target_nodes.as_array() {
+                    for target_node in target_nodes_array {
+                        if let Some(target_node_str) = target_node.as_str() {
+                            if let Some(target_line) = target_line_processor(target_node_str) {
+                                target_lines.push(target_line);
+                            }
+                        }
+                    }
+                }
+                if !target_lines.is_empty() {
+                    result.insert(*source_line, target_lines);
+                }
+            }
+        }
+        result
+    }
+
+    // Helper function to process kernel-to-post mappings
+    fn process_kernel_to_post_mappings(
+        kernel_mappings: &serde_json::Map<String, serde_json::Value>,
+        kernel_lookup: &std::collections::HashMap<String, Vec<usize>>,
+        post_lookup: &std::collections::HashMap<String, usize>,
+    ) -> std::collections::HashMap<usize, Vec<usize>> {
+        let mut result = std::collections::HashMap::new();
+
+        for (kernel_name, post_nodes) in kernel_mappings {
+            if let Some(kernel_lines) = kernel_lookup.get(kernel_name) {
+                for kernel_line in kernel_lines {
+                    let mut target_lines = Vec::new();
+                    if let Some(post_nodes_array) = post_nodes.as_array() {
+                        for post_node in post_nodes_array {
+                            if let Some(post_node_str) = post_node.as_str() {
+                                if let Some(post_line) = post_lookup.get(post_node_str) {
+                                    target_lines.push(*post_line);
+                                }
+                            }
+                        }
+                    }
+                    if !target_lines.is_empty() {
+                        result.insert(*kernel_line, target_lines);
+                    }
+                }
+            }
+        }
+        result
+    }
+
+    // Helper function to process post-to-kernel mappings
+    fn process_post_to_kernel_mappings(
+        post_mappings: &serde_json::Map<String, serde_json::Value>,
+        post_lookup: &std::collections::HashMap<String, usize>,
+        kernel_lookup: &std::collections::HashMap<String, Vec<usize>>,
+    ) -> std::collections::HashMap<usize, Vec<usize>> {
+        let mut result = std::collections::HashMap::new();
+
+        for (post_node, kernel_names) in post_mappings {
+            if let Some(post_line) = post_lookup.get(post_node) {
+                let mut target_lines = Vec::new();
+                if let Some(kernel_names_array) = kernel_names.as_array() {
+                    for kernel_name in kernel_names_array {
+                        if let Some(kernel_name_str) = kernel_name.as_str() {
+                            if let Some(kernel_lines) = kernel_lookup.get(kernel_name_str) {
+                                target_lines.extend(kernel_lines);
+                            }
+                        }
+                    }
+                }
+                if !target_lines.is_empty() {
+                    result.insert(*post_line, target_lines);
+                }
+            }
+        }
+        result
+    }
+
+    // Helper function to convert HashMap to JSON Map
+    fn hashmap_to_json_map(
+        map: std::collections::HashMap<usize, Vec<usize>>,
+    ) -> serde_json::Map<String, serde_json::Value> {
+        map.into_iter()
+            .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
+            .collect()
+    }
+
+    let kernel_names: Vec<&str> = node_mappings
+        .get("cppCodeToPost")
+        .and_then(|v| v.as_object())
+        .map(|obj| obj.keys().map(|k| k.as_str()).collect())
+        .unwrap_or_default();
+
+    // Build lookup maps
+    let pre_grad_node_to_lines = build_node_to_lines_map(pre_grad_graph_content);
+    let post_grad_node_to_lines = build_node_to_lines_map(post_grad_graph_content);
+    let py_kernel_to_lines =
+        build_python_kernel_to_lines_map(output_code_content, &kernel_names, version);
+    let cpp_code_to_lines = build_cpp_kernel_to_lines_map(aot_code_content, &kernel_names, version);
+
+    // Process all mappings using helper functions
+    let line_pre_to_post =
+        if let Some(pre_to_post) = node_mappings.get("preToPost").and_then(|v| v.as_object()) {
+            process_mappings(
+                pre_to_post,
+                &pre_grad_node_to_lines,
+                &post_grad_node_to_lines,
+                |node_name| post_grad_node_to_lines.get(node_name).copied(),
+            )
+        } else {
+            std::collections::HashMap::new()
+        };
+
+    let line_post_to_pre =
+        if let Some(post_to_pre) = node_mappings.get("postToPre").and_then(|v| v.as_object()) {
+            process_mappings(
+                post_to_pre,
+                &post_grad_node_to_lines,
+                &pre_grad_node_to_lines,
+                |node_name| pre_grad_node_to_lines.get(node_name).copied(),
+            )
+        } else {
+            std::collections::HashMap::new()
+        };
+
+    let line_cpp_code_to_post = if let Some(cpp_code_to_post) = node_mappings
+        .get("cppCodeToPost")
+        .and_then(|v| v.as_object())
+    {
+        process_kernel_to_post_mappings(
+            cpp_code_to_post,
+            &cpp_code_to_lines,
+            &post_grad_node_to_lines,
+        )
+    } else {
+        std::collections::HashMap::new()
+    };
+
+    let line_post_to_cpp_code = if let Some(post_to_cpp_code) = node_mappings
+        .get("postToCppCode")
+        .and_then(|v| v.as_object())
+    {
+        process_post_to_kernel_mappings(
+            post_to_cpp_code,
+            &post_grad_node_to_lines,
+            &cpp_code_to_lines,
+        )
+    } else {
+        std::collections::HashMap::new()
+    };
+
+    let line_py_code_to_post = if let Some(cpp_code_to_post) = node_mappings
+        .get("cppCodeToPost")
+        .and_then(|v| v.as_object())
+    {
+        process_kernel_to_post_mappings(
+            cpp_code_to_post,
+            &py_kernel_to_lines,
+            &post_grad_node_to_lines,
+        )
+    } else {
+        std::collections::HashMap::new()
+    };
+
+    let line_post_to_py_code = if let Some(post_to_cpp_code) = node_mappings
+        .get("postToCppCode")
+        .and_then(|v| v.as_object())
+    {
+        process_post_to_kernel_mappings(
+            post_to_cpp_code,
+            &post_grad_node_to_lines,
+            &py_kernel_to_lines,
+        )
+    } else {
+        std::collections::HashMap::new()
+    };
+
+    // Convert all HashMaps to JSON objects
+    serde_json::json!({
+        "preToPost": hashmap_to_json_map(line_pre_to_post),
+        "postToPre": hashmap_to_json_map(line_post_to_pre),
+        "pyCodeToPost": hashmap_to_json_map(line_py_code_to_post),
+        "postToPyCode": hashmap_to_json_map(line_post_to_py_code),
+        "cppCodeToPost": hashmap_to_json_map(line_cpp_code_to_post),
+        "postToCppCode": hashmap_to_json_map(line_post_to_cpp_code)
+    })
 }

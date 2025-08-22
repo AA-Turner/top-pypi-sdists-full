@@ -5,6 +5,12 @@ from .models import (
     MappingWeights,
     SingleMappedEntity,
 )
+from .utils import (
+    create_prefilter_with_list,
+    create_prefilter_with_multiple_lists,
+    create_prefilter_with_date_range,
+    create_prefilter_with_joins,
+)
 
 __all__ = [
     "MappingPipeline",
@@ -12,4 +18,8 @@ __all__ = [
     "EntityMappingResponse",
     "MappingWeights",
     "SingleMappedEntity",
+    "create_prefilter_with_list",
+    "create_prefilter_with_multiple_lists",
+    "create_prefilter_with_date_range",
+    "create_prefilter_with_joins",
 ]

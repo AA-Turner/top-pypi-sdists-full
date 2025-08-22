@@ -1,10 +1,11 @@
 Metadata-Version: 2.1
 Name: python-openstackclient
-Version: 8.1.0
+Version: 8.2.0
 Summary: OpenStack Command-line Client
-Home-page: https://docs.openstack.org/python-openstackclient/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/python-openstackclient/
+Project-URL: Repository, https://opendev.org/openstack/python-openstackclient/
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -21,9 +22,9 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr!=2.1.0,>=2.0.0
 Requires-Dist: cryptography>=2.7
-Requires-Dist: cliff>=3.5.0
+Requires-Dist: cliff>=4.8.0
 Requires-Dist: iso8601>=0.1.11
-Requires-Dist: openstacksdk>=4.5.0
+Requires-Dist: openstacksdk>=4.6.0
 Requires-Dist: osc-lib>=2.3.0
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: python-keystoneclient>=3.22.0
@@ -260,4 +261,3 @@ Links
 * `Mailing list <https://lists.openstack.org/mailman3/lists/openstack-discuss.lists.openstack.org/>`_
 * `Release Notes <https://docs.openstack.org/releasenotes/python-openstackclient>`_
 * `IRC (#openstack-sdks on OFTC (irc.oftc.net)) <irc://irc.oftc.net/openstack-sdks>`_
-

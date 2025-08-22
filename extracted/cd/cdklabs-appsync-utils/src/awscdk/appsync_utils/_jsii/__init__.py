@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "awscdk-appsync-utils",
-    "0.0.807",
+    "0.0.808",
     __name__[0:-6],
-    "awscdk-appsync-utils@0.0.807.jsii.tgz",
+    "awscdk-appsync-utils@0.0.808.jsii.tgz",
 )
 
 __all__ = [

@@ -15,65 +15,124 @@
 """  # noqa: E501
 
 
-__version__ = "3.85.1"
+__version__ = "3.86.0"
+
+# Define package exports
+__all__ = [
+    "AcsFileApi",
+    "ContentFilesApi",
+    "DistributionsFileApi",
+    "PublicationsFileApi",
+    "RemotesFileApi",
+    "RepositoriesFileApi",
+    "RepositoriesFileVersionsApi",
+    "ApiResponse",
+    "ApiClient",
+    "Configuration",
+    "OpenApiException",
+    "ApiTypeError",
+    "ApiValueError",
+    "ApiKeyError",
+    "ApiAttributeError",
+    "ApiException",
+    "AsyncOperationResponse",
+    "ContentSummaryResponse",
+    "FileFileAlternateContentSource",
+    "FileFileAlternateContentSourceResponse",
+    "FileFileContentResponse",
+    "FileFileDistribution",
+    "FileFileDistributionResponse",
+    "FileFilePublication",
+    "FileFilePublicationResponse",
+    "FileFileRemote",
+    "FileFileRemoteResponse",
+    "FileFileRemoteResponseHiddenFieldsInner",
+    "FileFileRepository",
+    "FileFileRepositoryResponse",
+    "MyPermissionsResponse",
+    "NestedRole",
+    "NestedRoleResponse",
+    "ObjectRolesResponse",
+    "PaginatedRepositoryVersionResponseList",
+    "PaginatedfileFileAlternateContentSourceResponseList",
+    "PaginatedfileFileContentResponseList",
+    "PaginatedfileFileDistributionResponseList",
+    "PaginatedfileFilePublicationResponseList",
+    "PaginatedfileFileRemoteResponseList",
+    "PaginatedfileFileRepositoryResponseList",
+    "PatchedfileFileAlternateContentSource",
+    "PatchedfileFileDistribution",
+    "PatchedfileFileRemote",
+    "PatchedfileFileRepository",
+    "PolicyEnum",
+    "Repair",
+    "RepositoryAddRemoveContent",
+    "RepositorySyncURL",
+    "RepositoryVersionResponse",
+    "SetLabel",
+    "SetLabelResponse",
+    "TaskGroupOperationResponse",
+    "UnsetLabel",
+    "UnsetLabelResponse",
+]
 
 # import apis into sdk package
-from pulpcore.client.pulp_file.api.acs_file_api import AcsFileApi
-from pulpcore.client.pulp_file.api.content_files_api import ContentFilesApi
-from pulpcore.client.pulp_file.api.distributions_file_api import DistributionsFileApi
-from pulpcore.client.pulp_file.api.publications_file_api import PublicationsFileApi
-from pulpcore.client.pulp_file.api.remotes_file_api import RemotesFileApi
-from pulpcore.client.pulp_file.api.repositories_file_api import RepositoriesFileApi
-from pulpcore.client.pulp_file.api.repositories_file_versions_api import RepositoriesFileVersionsApi
+from pulpcore.client.pulp_file.api.acs_file_api import AcsFileApi as AcsFileApi
+from pulpcore.client.pulp_file.api.content_files_api import ContentFilesApi as ContentFilesApi
+from pulpcore.client.pulp_file.api.distributions_file_api import DistributionsFileApi as DistributionsFileApi
+from pulpcore.client.pulp_file.api.publications_file_api import PublicationsFileApi as PublicationsFileApi
+from pulpcore.client.pulp_file.api.remotes_file_api import RemotesFileApi as RemotesFileApi
+from pulpcore.client.pulp_file.api.repositories_file_api import RepositoriesFileApi as RepositoriesFileApi
+from pulpcore.client.pulp_file.api.repositories_file_versions_api import RepositoriesFileVersionsApi as RepositoriesFileVersionsApi
 
 # import ApiClient
-from pulpcore.client.pulp_file.api_response import ApiResponse
-from pulpcore.client.pulp_file.api_client import ApiClient
-from pulpcore.client.pulp_file.configuration import Configuration
-from pulpcore.client.pulp_file.exceptions import OpenApiException
-from pulpcore.client.pulp_file.exceptions import ApiTypeError
-from pulpcore.client.pulp_file.exceptions import ApiValueError
-from pulpcore.client.pulp_file.exceptions import ApiKeyError
-from pulpcore.client.pulp_file.exceptions import ApiAttributeError
-from pulpcore.client.pulp_file.exceptions import ApiException
+from pulpcore.client.pulp_file.api_response import ApiResponse as ApiResponse
+from pulpcore.client.pulp_file.api_client import ApiClient as ApiClient
+from pulpcore.client.pulp_file.configuration import Configuration as Configuration
+from pulpcore.client.pulp_file.exceptions import OpenApiException as OpenApiException
+from pulpcore.client.pulp_file.exceptions import ApiTypeError as ApiTypeError
+from pulpcore.client.pulp_file.exceptions import ApiValueError as ApiValueError
+from pulpcore.client.pulp_file.exceptions import ApiKeyError as ApiKeyError
+from pulpcore.client.pulp_file.exceptions import ApiAttributeError as ApiAttributeError
+from pulpcore.client.pulp_file.exceptions import ApiException as ApiException
 
 # import models into sdk package
-from pulpcore.client.pulp_file.models.async_operation_response import AsyncOperationResponse
-from pulpcore.client.pulp_file.models.content_summary_response import ContentSummaryResponse
-from pulpcore.client.pulp_file.models.file_file_alternate_content_source import FileFileAlternateContentSource
-from pulpcore.client.pulp_file.models.file_file_alternate_content_source_response import FileFileAlternateContentSourceResponse
-from pulpcore.client.pulp_file.models.file_file_content_response import FileFileContentResponse
-from pulpcore.client.pulp_file.models.file_file_distribution import FileFileDistribution
-from pulpcore.client.pulp_file.models.file_file_distribution_response import FileFileDistributionResponse
-from pulpcore.client.pulp_file.models.file_file_publication import FileFilePublication
-from pulpcore.client.pulp_file.models.file_file_publication_response import FileFilePublicationResponse
-from pulpcore.client.pulp_file.models.file_file_remote import FileFileRemote
-from pulpcore.client.pulp_file.models.file_file_remote_response import FileFileRemoteResponse
-from pulpcore.client.pulp_file.models.file_file_remote_response_hidden_fields_inner import FileFileRemoteResponseHiddenFieldsInner
-from pulpcore.client.pulp_file.models.file_file_repository import FileFileRepository
-from pulpcore.client.pulp_file.models.file_file_repository_response import FileFileRepositoryResponse
-from pulpcore.client.pulp_file.models.my_permissions_response import MyPermissionsResponse
-from pulpcore.client.pulp_file.models.nested_role import NestedRole
-from pulpcore.client.pulp_file.models.nested_role_response import NestedRoleResponse
-from pulpcore.client.pulp_file.models.object_roles_response import ObjectRolesResponse
-from pulpcore.client.pulp_file.models.paginated_repository_version_response_list import PaginatedRepositoryVersionResponseList
-from pulpcore.client.pulp_file.models.paginatedfile_file_alternate_content_source_response_list import PaginatedfileFileAlternateContentSourceResponseList
-from pulpcore.client.pulp_file.models.paginatedfile_file_content_response_list import PaginatedfileFileContentResponseList
-from pulpcore.client.pulp_file.models.paginatedfile_file_distribution_response_list import PaginatedfileFileDistributionResponseList
-from pulpcore.client.pulp_file.models.paginatedfile_file_publication_response_list import PaginatedfileFilePublicationResponseList
-from pulpcore.client.pulp_file.models.paginatedfile_file_remote_response_list import PaginatedfileFileRemoteResponseList
-from pulpcore.client.pulp_file.models.paginatedfile_file_repository_response_list import PaginatedfileFileRepositoryResponseList
-from pulpcore.client.pulp_file.models.patchedfile_file_alternate_content_source import PatchedfileFileAlternateContentSource
-from pulpcore.client.pulp_file.models.patchedfile_file_distribution import PatchedfileFileDistribution
-from pulpcore.client.pulp_file.models.patchedfile_file_remote import PatchedfileFileRemote
-from pulpcore.client.pulp_file.models.patchedfile_file_repository import PatchedfileFileRepository
-from pulpcore.client.pulp_file.models.policy_enum import PolicyEnum
-from pulpcore.client.pulp_file.models.repair import Repair
-from pulpcore.client.pulp_file.models.repository_add_remove_content import RepositoryAddRemoveContent
-from pulpcore.client.pulp_file.models.repository_sync_url import RepositorySyncURL
-from pulpcore.client.pulp_file.models.repository_version_response import RepositoryVersionResponse
-from pulpcore.client.pulp_file.models.set_label import SetLabel
-from pulpcore.client.pulp_file.models.set_label_response import SetLabelResponse
-from pulpcore.client.pulp_file.models.task_group_operation_response import TaskGroupOperationResponse
-from pulpcore.client.pulp_file.models.unset_label import UnsetLabel
-from pulpcore.client.pulp_file.models.unset_label_response import UnsetLabelResponse
+from pulpcore.client.pulp_file.models.async_operation_response import AsyncOperationResponse as AsyncOperationResponse
+from pulpcore.client.pulp_file.models.content_summary_response import ContentSummaryResponse as ContentSummaryResponse
+from pulpcore.client.pulp_file.models.file_file_alternate_content_source import FileFileAlternateContentSource as FileFileAlternateContentSource
+from pulpcore.client.pulp_file.models.file_file_alternate_content_source_response import FileFileAlternateContentSourceResponse as FileFileAlternateContentSourceResponse
+from pulpcore.client.pulp_file.models.file_file_content_response import FileFileContentResponse as FileFileContentResponse
+from pulpcore.client.pulp_file.models.file_file_distribution import FileFileDistribution as FileFileDistribution
+from pulpcore.client.pulp_file.models.file_file_distribution_response import FileFileDistributionResponse as FileFileDistributionResponse
+from pulpcore.client.pulp_file.models.file_file_publication import FileFilePublication as FileFilePublication
+from pulpcore.client.pulp_file.models.file_file_publication_response import FileFilePublicationResponse as FileFilePublicationResponse
+from pulpcore.client.pulp_file.models.file_file_remote import FileFileRemote as FileFileRemote
+from pulpcore.client.pulp_file.models.file_file_remote_response import FileFileRemoteResponse as FileFileRemoteResponse
+from pulpcore.client.pulp_file.models.file_file_remote_response_hidden_fields_inner import FileFileRemoteResponseHiddenFieldsInner as FileFileRemoteResponseHiddenFieldsInner
+from pulpcore.client.pulp_file.models.file_file_repository import FileFileRepository as FileFileRepository
+from pulpcore.client.pulp_file.models.file_file_repository_response import FileFileRepositoryResponse as FileFileRepositoryResponse
+from pulpcore.client.pulp_file.models.my_permissions_response import MyPermissionsResponse as MyPermissionsResponse
+from pulpcore.client.pulp_file.models.nested_role import NestedRole as NestedRole
+from pulpcore.client.pulp_file.models.nested_role_response import NestedRoleResponse as NestedRoleResponse
+from pulpcore.client.pulp_file.models.object_roles_response import ObjectRolesResponse as ObjectRolesResponse
+from pulpcore.client.pulp_file.models.paginated_repository_version_response_list import PaginatedRepositoryVersionResponseList as PaginatedRepositoryVersionResponseList
+from pulpcore.client.pulp_file.models.paginatedfile_file_alternate_content_source_response_list import PaginatedfileFileAlternateContentSourceResponseList as PaginatedfileFileAlternateContentSourceResponseList
+from pulpcore.client.pulp_file.models.paginatedfile_file_content_response_list import PaginatedfileFileContentResponseList as PaginatedfileFileContentResponseList
+from pulpcore.client.pulp_file.models.paginatedfile_file_distribution_response_list import PaginatedfileFileDistributionResponseList as PaginatedfileFileDistributionResponseList
+from pulpcore.client.pulp_file.models.paginatedfile_file_publication_response_list import PaginatedfileFilePublicationResponseList as PaginatedfileFilePublicationResponseList
+from pulpcore.client.pulp_file.models.paginatedfile_file_remote_response_list import PaginatedfileFileRemoteResponseList as PaginatedfileFileRemoteResponseList
+from pulpcore.client.pulp_file.models.paginatedfile_file_repository_response_list import PaginatedfileFileRepositoryResponseList as PaginatedfileFileRepositoryResponseList
+from pulpcore.client.pulp_file.models.patchedfile_file_alternate_content_source import PatchedfileFileAlternateContentSource as PatchedfileFileAlternateContentSource
+from pulpcore.client.pulp_file.models.patchedfile_file_distribution import PatchedfileFileDistribution as PatchedfileFileDistribution
+from pulpcore.client.pulp_file.models.patchedfile_file_remote import PatchedfileFileRemote as PatchedfileFileRemote
+from pulpcore.client.pulp_file.models.patchedfile_file_repository import PatchedfileFileRepository as PatchedfileFileRepository
+from pulpcore.client.pulp_file.models.policy_enum import PolicyEnum as PolicyEnum
+from pulpcore.client.pulp_file.models.repair import Repair as Repair
+from pulpcore.client.pulp_file.models.repository_add_remove_content import RepositoryAddRemoveContent as RepositoryAddRemoveContent
+from pulpcore.client.pulp_file.models.repository_sync_url import RepositorySyncURL as RepositorySyncURL
+from pulpcore.client.pulp_file.models.repository_version_response import RepositoryVersionResponse as RepositoryVersionResponse
+from pulpcore.client.pulp_file.models.set_label import SetLabel as SetLabel
+from pulpcore.client.pulp_file.models.set_label_response import SetLabelResponse as SetLabelResponse
+from pulpcore.client.pulp_file.models.task_group_operation_response import TaskGroupOperationResponse as TaskGroupOperationResponse
+from pulpcore.client.pulp_file.models.unset_label import UnsetLabel as UnsetLabel
+from pulpcore.client.pulp_file.models.unset_label_response import UnsetLabelResponse as UnsetLabelResponse

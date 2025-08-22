@@ -69,7 +69,6 @@ from airflow.sdk.execution_time.comms import (
     DRCount,
     ErrorResponse,
     OKResponse,
-    PreviousDagRunResult,
     SkipDownstreamTasks,
     TaskRescheduleStartDate,
     TICount,
@@ -491,7 +490,6 @@ class XComOperations:
         start: int | None,
         stop: int | None,
         step: int | None,
-        include_prior_dates: bool = False,
     ) -> XComSequenceSliceResponse:
         params = {}
         if start is not None:
@@ -500,8 +498,6 @@ class XComOperations:
             params["stop"] = stop
         if step is not None:
             params["step"] = step
-        if include_prior_dates:
-            params["include_prior_dates"] = include_prior_dates
         resp = self.client.get(f"xcoms/{dag_id}/{run_id}/{task_id}/{key}/slice", params=params)
         return XComSequenceSliceResponse.model_validate_json(resp.read())
 
@@ -623,23 +619,6 @@ class DagRunOperations:
 
         resp = self.client.get("dag-runs/count", params=params)
         return DRCount(count=resp.json())
-
-    def get_previous(
-        self,
-        dag_id: str,
-        logical_date: datetime,
-        state: str | None = None,
-    ) -> PreviousDagRunResult:
-        """Get the previous DAG run before the given logical date, optionally filtered by state."""
-        params = {
-            "logical_date": logical_date.isoformat(),
-        }
-
-        if state:
-            params["state"] = state
-
-        resp = self.client.get(f"dag-runs/{dag_id}/previous", params=params)
-        return PreviousDagRunResult(dag_run=resp.json())
 
 
 class BearerAuth(httpx.Auth):

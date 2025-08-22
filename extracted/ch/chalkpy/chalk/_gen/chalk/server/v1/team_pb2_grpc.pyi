@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.team_pb2 import (
     ArchiveEnvironmentRequest,
     ArchiveEnvironmentResponse,
+    ArchiveProjectRequest,
+    ArchiveProjectResponse,
     CreateEnvironmentRequest,
     CreateEnvironmentResponse,
     CreateProjectRequest,
@@ -18,6 +20,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     CreateServiceTokenResponse,
     CreateTeamRequest,
     CreateTeamResponse,
+    DeactivateUserRequest,
+    DeactivateUserResponse,
     DeleteServiceTokenRequest,
     DeleteServiceTokenResponse,
     ExpireTeamInviteRequest,
@@ -42,8 +46,12 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ListServiceTokensResponse,
     ListTeamInvitesRequest,
     ListTeamInvitesResponse,
+    ReactivateUserRequest,
+    ReactivateUserResponse,
     UpdateEnvironmentRequest,
     UpdateEnvironmentResponse,
+    UpdateProjectRequest,
+    UpdateProjectResponse,
     UpdateScimGroupSettingsRequest,
     UpdateScimGroupSettingsResponse,
     UpdateServiceTokenRequest,
@@ -87,6 +95,14 @@ class TeamServiceStub:
     CreateProject: UnaryUnaryMultiCallable[
         CreateProjectRequest,
         CreateProjectResponse,
+    ]
+    UpdateProject: UnaryUnaryMultiCallable[
+        UpdateProjectRequest,
+        UpdateProjectResponse,
+    ]
+    ArchiveProject: UnaryUnaryMultiCallable[
+        ArchiveProjectRequest,
+        ArchiveProjectResponse,
     ]
     CreateEnvironment: UnaryUnaryMultiCallable[
         CreateEnvironmentRequest,
@@ -149,6 +165,14 @@ class TeamServiceStub:
         ArchiveEnvironmentRequest,
         ArchiveEnvironmentResponse,
     ]
+    DeactivateUser: UnaryUnaryMultiCallable[
+        DeactivateUserRequest,
+        DeactivateUserResponse,
+    ]
+    ReactivateUser: UnaryUnaryMultiCallable[
+        ReactivateUserRequest,
+        ReactivateUserResponse,
+    ]
 
 class TeamServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -193,6 +217,18 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: CreateProjectRequest,
         context: ServicerContext,
     ) -> CreateProjectResponse: ...
+    @abstractmethod
+    def UpdateProject(
+        self,
+        request: UpdateProjectRequest,
+        context: ServicerContext,
+    ) -> UpdateProjectResponse: ...
+    @abstractmethod
+    def ArchiveProject(
+        self,
+        request: ArchiveProjectRequest,
+        context: ServicerContext,
+    ) -> ArchiveProjectResponse: ...
     @abstractmethod
     def CreateEnvironment(
         self,
@@ -282,5 +318,17 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: ArchiveEnvironmentRequest,
         context: ServicerContext,
     ) -> ArchiveEnvironmentResponse: ...
+    @abstractmethod
+    def DeactivateUser(
+        self,
+        request: DeactivateUserRequest,
+        context: ServicerContext,
+    ) -> DeactivateUserResponse: ...
+    @abstractmethod
+    def ReactivateUser(
+        self,
+        request: ReactivateUserRequest,
+        context: ServicerContext,
+    ) -> ReactivateUserResponse: ...
 
 def add_TeamServiceServicer_to_server(servicer: TeamServiceServicer, server: Server) -> None: ...

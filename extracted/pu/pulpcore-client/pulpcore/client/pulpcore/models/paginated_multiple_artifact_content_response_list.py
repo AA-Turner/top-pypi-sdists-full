@@ -24,6 +24,14 @@ from pulpcore.client.pulpcore.models.multiple_artifact_content_response import M
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class PaginatedMultipleArtifactContentResponseList(BaseModel):
     """
     PaginatedMultipleArtifactContentResponseList

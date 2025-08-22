@@ -1,7 +1,7 @@
 r'''
 # `azurerm_iothub_enrichment`
 
-Refer to the Terraform Registry for docs: [`azurerm_iothub_enrichment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment).
+Refer to the Terraform Registry for docs: [`azurerm_iothub_enrichment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IothubEnrichmentA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.iothubEnrichment.IothubEnrichmentA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment azurerm_iothub_enrichment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment azurerm_iothub_enrichment}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class IothubEnrichmentA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment azurerm_iothub_enrichment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment azurerm_iothub_enrichment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#endpoint_names IothubEnrichmentA#endpoint_names}.
-        :param iothub_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#iothub_name IothubEnrichmentA#iothub_name}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#key IothubEnrichmentA#key}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#resource_group_name IothubEnrichmentA#resource_group_name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#value IothubEnrichmentA#value}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#id IothubEnrichmentA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#timeouts IothubEnrichmentA#timeouts}
+        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#endpoint_names IothubEnrichmentA#endpoint_names}.
+        :param iothub_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#iothub_name IothubEnrichmentA#iothub_name}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#key IothubEnrichmentA#key}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#resource_group_name IothubEnrichmentA#resource_group_name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#value IothubEnrichmentA#value}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#id IothubEnrichmentA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#timeouts IothubEnrichmentA#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class IothubEnrichmentA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IothubEnrichmentA to import.
-        :param import_from_id: The id of the existing IothubEnrichmentA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IothubEnrichmentA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IothubEnrichmentA to import is found.
         '''
         if __debug__:
@@ -142,10 +142,10 @@ class IothubEnrichmentA(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#create IothubEnrichmentA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#delete IothubEnrichmentA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#read IothubEnrichmentA#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#update IothubEnrichmentA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#create IothubEnrichmentA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#delete IothubEnrichmentA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#read IothubEnrichmentA#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#update IothubEnrichmentA#update}.
         '''
         value = IothubEnrichmentTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -336,13 +336,13 @@ class IothubEnrichmentAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#endpoint_names IothubEnrichmentA#endpoint_names}.
-        :param iothub_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#iothub_name IothubEnrichmentA#iothub_name}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#key IothubEnrichmentA#key}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#resource_group_name IothubEnrichmentA#resource_group_name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#value IothubEnrichmentA#value}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#id IothubEnrichmentA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#timeouts IothubEnrichmentA#timeouts}
+        :param endpoint_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#endpoint_names IothubEnrichmentA#endpoint_names}.
+        :param iothub_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#iothub_name IothubEnrichmentA#iothub_name}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#key IothubEnrichmentA#key}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#resource_group_name IothubEnrichmentA#resource_group_name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#value IothubEnrichmentA#value}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#id IothubEnrichmentA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#timeouts IothubEnrichmentA#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -456,42 +456,42 @@ class IothubEnrichmentAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def endpoint_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#endpoint_names IothubEnrichmentA#endpoint_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#endpoint_names IothubEnrichmentA#endpoint_names}.'''
         result = self._values.get("endpoint_names")
         assert result is not None, "Required property 'endpoint_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def iothub_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#iothub_name IothubEnrichmentA#iothub_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#iothub_name IothubEnrichmentA#iothub_name}.'''
         result = self._values.get("iothub_name")
         assert result is not None, "Required property 'iothub_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#key IothubEnrichmentA#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#key IothubEnrichmentA#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#resource_group_name IothubEnrichmentA#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#resource_group_name IothubEnrichmentA#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#value IothubEnrichmentA#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#value IothubEnrichmentA#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#id IothubEnrichmentA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#id IothubEnrichmentA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -503,7 +503,7 @@ class IothubEnrichmentAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IothubEnrichmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#timeouts IothubEnrichmentA#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#timeouts IothubEnrichmentA#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IothubEnrichmentTimeouts"], result)
@@ -540,10 +540,10 @@ class IothubEnrichmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#create IothubEnrichmentA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#delete IothubEnrichmentA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#read IothubEnrichmentA#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#update IothubEnrichmentA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#create IothubEnrichmentA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#delete IothubEnrichmentA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#read IothubEnrichmentA#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#update IothubEnrichmentA#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__512cf1eb8778ec3b39e5071374093cd1cf6f62fcb904b2271e35463aa7d87f86)
@@ -563,25 +563,25 @@ class IothubEnrichmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#create IothubEnrichmentA#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#create IothubEnrichmentA#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#delete IothubEnrichmentA#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#delete IothubEnrichmentA#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#read IothubEnrichmentA#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#read IothubEnrichmentA#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/iothub_enrichment#update IothubEnrichmentA#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/iothub_enrichment#update IothubEnrichmentA#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

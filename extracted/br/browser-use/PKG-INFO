@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.6.0
+Version: 0.6.1
 Summary: Make websites accessible for AI agents
 Project-URL: Repository, https://github.com/browser-use/browser-use
 Author: Gregor Zunic
@@ -14,7 +14,7 @@ Requires-Dist: aiohttp==3.12.15
 Requires-Dist: anthropic==0.58.2
 Requires-Dist: anyio>=4.9.0
 Requires-Dist: authlib>=1.6.0
-Requires-Dist: bubus>=1.5.1
+Requires-Dist: bubus>=1.5.4
 Requires-Dist: cdp-use>=1.4.0
 Requires-Dist: google-api-core>=2.25.0
 Requires-Dist: google-api-python-client>=2.174.0
@@ -58,7 +58,7 @@ Requires-Dist: anyio>=4.9.0; extra == 'eval'
 Requires-Dist: browserbase==1.4.0; extra == 'eval'
 Requires-Dist: datamodel-code-generator>=0.26.0; extra == 'eval'
 Requires-Dist: hyperbrowser==0.47.0; extra == 'eval'
-Requires-Dist: lmnr[all]>=0.6.11; extra == 'eval'
+Requires-Dist: lmnr[all]==0.7.6; extra == 'eval'
 Requires-Dist: pillow>=11.2.1; extra == 'eval'
 Requires-Dist: psutil>=7.0.0; extra == 'eval'
 Provides-Extra: examples

@@ -713,7 +713,7 @@ async def login_emsys(config: dict, app, task: RpaProcessoEntradaDTO, **kwargs):
     )
     
     # Aguarda emsys abrir
-    max_attempts = 10
+    max_attempts = 15
     current_attempt = 0
     while current_attempt <= max_attempts:
         try:
@@ -2743,7 +2743,7 @@ async def itens_not_found_supplier(xml: str) -> RpaRetornoProcessoDTO:
             try:
                 main_window = app["TMessageForm"]
                 console.print("Janela 'TMessageForm' encontrada!")
-                await worker_sleep(15)
+                await worker_sleep(5)
                 janela_aguarde = await is_window_open_by_class(
                     "TFrmAguarde", "TFrmAguarde"
                 )
@@ -3442,9 +3442,24 @@ async def check_nota_importada(xml_nota: str) -> RpaRetornoProcessoDTO:
                 break
             else:
                 console.print(f"Aguardando confirmação de nota incluida...\n")
-                await worker_sleep(5)
+                await worker_sleep(8)
                 i += 1
-
+                try:
+                    status_nf_emsys = await get_status_nf_emsys(int(xml_nota))
+                    if status_nf_emsys.get("status") == "Lançada":
+                        console.print(
+                            "\nNota lançada com sucesso, processo finalizado...",
+                            style="bold green",
+                        )
+                        return RpaRetornoProcessoDTO(
+                            sucesso=True,
+                            retorno="Nota Lançada com sucesso!",
+                            status=RpaHistoricoStatusEnum.Sucesso,
+                        )
+                except:
+                    pass
+                
+                
         information_pop_up = await is_window_open("Information")
         if information_pop_up["IsOpened"] == True:
             app = Application().connect(class_name="TFrmNotaFiscalEntrada")

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_automation_powershell72_module`
 
-Refer to the Terraform Registry for docs: [`azurerm_automation_powershell72_module`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module).
+Refer to the Terraform Registry for docs: [`azurerm_automation_powershell72_module`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AutomationPowershell72Module(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.automationPowershell72Module.AutomationPowershell72Module",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module azurerm_automation_powershell72_module}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module azurerm_automation_powershell72_module}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class AutomationPowershell72Module(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module azurerm_automation_powershell72_module} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module azurerm_automation_powershell72_module} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param automation_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#automation_account_id AutomationPowershell72Module#automation_account_id}.
-        :param module_link: module_link block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#module_link AutomationPowershell72Module#module_link}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#name AutomationPowershell72Module#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#id AutomationPowershell72Module#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#tags AutomationPowershell72Module#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#timeouts AutomationPowershell72Module#timeouts}
+        :param automation_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#automation_account_id AutomationPowershell72Module#automation_account_id}.
+        :param module_link: module_link block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#module_link AutomationPowershell72Module#module_link}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#name AutomationPowershell72Module#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#id AutomationPowershell72Module#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#tags AutomationPowershell72Module#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#timeouts AutomationPowershell72Module#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class AutomationPowershell72Module(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AutomationPowershell72Module to import.
-        :param import_from_id: The id of the existing AutomationPowershell72Module that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AutomationPowershell72Module that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AutomationPowershell72Module to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class AutomationPowershell72Module(
         hash: typing.Optional[typing.Union["AutomationPowershell72ModuleModuleLinkHash", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#uri AutomationPowershell72Module#uri}.
-        :param hash: hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#hash AutomationPowershell72Module#hash}
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#uri AutomationPowershell72Module#uri}.
+        :param hash: hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#hash AutomationPowershell72Module#hash}
         '''
         value = AutomationPowershell72ModuleModuleLink(uri=uri, hash=hash)
 
@@ -154,10 +154,10 @@ class AutomationPowershell72Module(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#create AutomationPowershell72Module#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#delete AutomationPowershell72Module#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#read AutomationPowershell72Module#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#update AutomationPowershell72Module#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#create AutomationPowershell72Module#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#delete AutomationPowershell72Module#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#read AutomationPowershell72Module#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#update AutomationPowershell72Module#update}.
         '''
         value = AutomationPowershell72ModuleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -328,12 +328,12 @@ class AutomationPowershell72ModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param automation_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#automation_account_id AutomationPowershell72Module#automation_account_id}.
-        :param module_link: module_link block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#module_link AutomationPowershell72Module#module_link}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#name AutomationPowershell72Module#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#id AutomationPowershell72Module#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#tags AutomationPowershell72Module#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#timeouts AutomationPowershell72Module#timeouts}
+        :param automation_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#automation_account_id AutomationPowershell72Module#automation_account_id}.
+        :param module_link: module_link block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#module_link AutomationPowershell72Module#module_link}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#name AutomationPowershell72Module#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#id AutomationPowershell72Module#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#tags AutomationPowershell72Module#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#timeouts AutomationPowershell72Module#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -448,7 +448,7 @@ class AutomationPowershell72ModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def automation_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#automation_account_id AutomationPowershell72Module#automation_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#automation_account_id AutomationPowershell72Module#automation_account_id}.'''
         result = self._values.get("automation_account_id")
         assert result is not None, "Required property 'automation_account_id' is missing"
         return typing.cast(builtins.str, result)
@@ -457,7 +457,7 @@ class AutomationPowershell72ModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def module_link(self) -> "AutomationPowershell72ModuleModuleLink":
         '''module_link block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#module_link AutomationPowershell72Module#module_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#module_link AutomationPowershell72Module#module_link}
         '''
         result = self._values.get("module_link")
         assert result is not None, "Required property 'module_link' is missing"
@@ -465,14 +465,14 @@ class AutomationPowershell72ModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#name AutomationPowershell72Module#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#name AutomationPowershell72Module#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#id AutomationPowershell72Module#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#id AutomationPowershell72Module#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -482,7 +482,7 @@ class AutomationPowershell72ModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#tags AutomationPowershell72Module#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#tags AutomationPowershell72Module#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -490,7 +490,7 @@ class AutomationPowershell72ModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["AutomationPowershell72ModuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#timeouts AutomationPowershell72Module#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#timeouts AutomationPowershell72Module#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AutomationPowershell72ModuleTimeouts"], result)
@@ -520,8 +520,8 @@ class AutomationPowershell72ModuleModuleLink:
         hash: typing.Optional[typing.Union["AutomationPowershell72ModuleModuleLinkHash", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#uri AutomationPowershell72Module#uri}.
-        :param hash: hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#hash AutomationPowershell72Module#hash}
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#uri AutomationPowershell72Module#uri}.
+        :param hash: hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#hash AutomationPowershell72Module#hash}
         '''
         if isinstance(hash, dict):
             hash = AutomationPowershell72ModuleModuleLinkHash(**hash)
@@ -537,7 +537,7 @@ class AutomationPowershell72ModuleModuleLink:
 
     @builtins.property
     def uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#uri AutomationPowershell72Module#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#uri AutomationPowershell72Module#uri}.'''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
         return typing.cast(builtins.str, result)
@@ -546,7 +546,7 @@ class AutomationPowershell72ModuleModuleLink:
     def hash(self) -> typing.Optional["AutomationPowershell72ModuleModuleLinkHash"]:
         '''hash block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#hash AutomationPowershell72Module#hash}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#hash AutomationPowershell72Module#hash}
         '''
         result = self._values.get("hash")
         return typing.cast(typing.Optional["AutomationPowershell72ModuleModuleLinkHash"], result)
@@ -571,8 +571,8 @@ class AutomationPowershell72ModuleModuleLink:
 class AutomationPowershell72ModuleModuleLinkHash:
     def __init__(self, *, algorithm: builtins.str, value: builtins.str) -> None:
         '''
-        :param algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#algorithm AutomationPowershell72Module#algorithm}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#value AutomationPowershell72Module#value}.
+        :param algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#algorithm AutomationPowershell72Module#algorithm}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#value AutomationPowershell72Module#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33c2b10b6076d964598166d681ba34f4f7c6c9698b41b243b9c0a95ce3063168)
@@ -585,14 +585,14 @@ class AutomationPowershell72ModuleModuleLinkHash:
 
     @builtins.property
     def algorithm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#algorithm AutomationPowershell72Module#algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#algorithm AutomationPowershell72Module#algorithm}.'''
         result = self._values.get("algorithm")
         assert result is not None, "Required property 'algorithm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#value AutomationPowershell72Module#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#value AutomationPowershell72Module#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -704,8 +704,8 @@ class AutomationPowershell72ModuleModuleLinkOutputReference(
     @jsii.member(jsii_name="putHash")
     def put_hash(self, *, algorithm: builtins.str, value: builtins.str) -> None:
         '''
-        :param algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#algorithm AutomationPowershell72Module#algorithm}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#value AutomationPowershell72Module#value}.
+        :param algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#algorithm AutomationPowershell72Module#algorithm}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#value AutomationPowershell72Module#value}.
         '''
         value_ = AutomationPowershell72ModuleModuleLinkHash(
             algorithm=algorithm, value=value
@@ -780,10 +780,10 @@ class AutomationPowershell72ModuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#create AutomationPowershell72Module#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#delete AutomationPowershell72Module#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#read AutomationPowershell72Module#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#update AutomationPowershell72Module#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#create AutomationPowershell72Module#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#delete AutomationPowershell72Module#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#read AutomationPowershell72Module#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#update AutomationPowershell72Module#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51480ff6dd15342bb9b757430ab844555442096b8dda7ad13141ba136a44cf45)
@@ -803,25 +803,25 @@ class AutomationPowershell72ModuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#create AutomationPowershell72Module#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#create AutomationPowershell72Module#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#delete AutomationPowershell72Module#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#delete AutomationPowershell72Module#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#read AutomationPowershell72Module#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#read AutomationPowershell72Module#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/automation_powershell72_module#update AutomationPowershell72Module#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/automation_powershell72_module#update AutomationPowershell72Module#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

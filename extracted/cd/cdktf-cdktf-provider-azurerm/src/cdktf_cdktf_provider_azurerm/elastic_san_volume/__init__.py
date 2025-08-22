@@ -1,7 +1,7 @@
 r'''
 # `azurerm_elastic_san_volume`
 
-Refer to the Terraform Registry for docs: [`azurerm_elastic_san_volume`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume).
+Refer to the Terraform Registry for docs: [`azurerm_elastic_san_volume`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ElasticSanVolume(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.elasticSanVolume.ElasticSanVolume",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume azurerm_elastic_san_volume}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume azurerm_elastic_san_volume}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ElasticSanVolume(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume azurerm_elastic_san_volume} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume azurerm_elastic_san_volume} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#name ElasticSanVolume#name}.
-        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#size_in_gib ElasticSanVolume#size_in_gib}.
-        :param volume_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#volume_group_id ElasticSanVolume#volume_group_id}.
-        :param create_source: create_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#create_source ElasticSanVolume#create_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#id ElasticSanVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#timeouts ElasticSanVolume#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#name ElasticSanVolume#name}.
+        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#size_in_gib ElasticSanVolume#size_in_gib}.
+        :param volume_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#volume_group_id ElasticSanVolume#volume_group_id}.
+        :param create_source: create_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#create_source ElasticSanVolume#create_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#id ElasticSanVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#timeouts ElasticSanVolume#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ElasticSanVolume(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ElasticSanVolume to import.
-        :param import_from_id: The id of the existing ElasticSanVolume that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ElasticSanVolume that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ElasticSanVolume to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class ElasticSanVolume(
         source_type: builtins.str,
     ) -> None:
         '''
-        :param source_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#source_id ElasticSanVolume#source_id}.
-        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#source_type ElasticSanVolume#source_type}.
+        :param source_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#source_id ElasticSanVolume#source_id}.
+        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#source_type ElasticSanVolume#source_type}.
         '''
         value = ElasticSanVolumeCreateSource(
             source_id=source_id, source_type=source_type
@@ -156,10 +156,10 @@ class ElasticSanVolume(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#create ElasticSanVolume#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#delete ElasticSanVolume#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#read ElasticSanVolume#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#update ElasticSanVolume#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#create ElasticSanVolume#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#delete ElasticSanVolume#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#read ElasticSanVolume#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#update ElasticSanVolume#update}.
         '''
         value = ElasticSanVolumeTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -348,12 +348,12 @@ class ElasticSanVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#name ElasticSanVolume#name}.
-        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#size_in_gib ElasticSanVolume#size_in_gib}.
-        :param volume_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#volume_group_id ElasticSanVolume#volume_group_id}.
-        :param create_source: create_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#create_source ElasticSanVolume#create_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#id ElasticSanVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#timeouts ElasticSanVolume#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#name ElasticSanVolume#name}.
+        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#size_in_gib ElasticSanVolume#size_in_gib}.
+        :param volume_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#volume_group_id ElasticSanVolume#volume_group_id}.
+        :param create_source: create_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#create_source ElasticSanVolume#create_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#id ElasticSanVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#timeouts ElasticSanVolume#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -468,21 +468,21 @@ class ElasticSanVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#name ElasticSanVolume#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#name ElasticSanVolume#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def size_in_gib(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#size_in_gib ElasticSanVolume#size_in_gib}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#size_in_gib ElasticSanVolume#size_in_gib}.'''
         result = self._values.get("size_in_gib")
         assert result is not None, "Required property 'size_in_gib' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def volume_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#volume_group_id ElasticSanVolume#volume_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#volume_group_id ElasticSanVolume#volume_group_id}.'''
         result = self._values.get("volume_group_id")
         assert result is not None, "Required property 'volume_group_id' is missing"
         return typing.cast(builtins.str, result)
@@ -491,14 +491,14 @@ class ElasticSanVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def create_source(self) -> typing.Optional["ElasticSanVolumeCreateSource"]:
         '''create_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#create_source ElasticSanVolume#create_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#create_source ElasticSanVolume#create_source}
         '''
         result = self._values.get("create_source")
         return typing.cast(typing.Optional["ElasticSanVolumeCreateSource"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#id ElasticSanVolume#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#id ElasticSanVolume#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -510,7 +510,7 @@ class ElasticSanVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ElasticSanVolumeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#timeouts ElasticSanVolume#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#timeouts ElasticSanVolume#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ElasticSanVolumeTimeouts"], result)
@@ -535,8 +535,8 @@ class ElasticSanVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ElasticSanVolumeCreateSource:
     def __init__(self, *, source_id: builtins.str, source_type: builtins.str) -> None:
         '''
-        :param source_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#source_id ElasticSanVolume#source_id}.
-        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#source_type ElasticSanVolume#source_type}.
+        :param source_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#source_id ElasticSanVolume#source_id}.
+        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#source_type ElasticSanVolume#source_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d307999661b554e625825f9f220771b4142a58d759cafd39cb958fce3e1d6ab2)
@@ -549,14 +549,14 @@ class ElasticSanVolumeCreateSource:
 
     @builtins.property
     def source_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#source_id ElasticSanVolume#source_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#source_id ElasticSanVolume#source_id}.'''
         result = self._values.get("source_id")
         assert result is not None, "Required property 'source_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#source_type ElasticSanVolume#source_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#source_type ElasticSanVolume#source_type}.'''
         result = self._values.get("source_type")
         assert result is not None, "Required property 'source_type' is missing"
         return typing.cast(builtins.str, result)
@@ -663,10 +663,10 @@ class ElasticSanVolumeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#create ElasticSanVolume#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#delete ElasticSanVolume#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#read ElasticSanVolume#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#update ElasticSanVolume#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#create ElasticSanVolume#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#delete ElasticSanVolume#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#read ElasticSanVolume#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#update ElasticSanVolume#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f50088f5346e8e2ac27a2016d5b3cfdcced6a9afb30a1062592e2865f8969dc9)
@@ -686,25 +686,25 @@ class ElasticSanVolumeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#create ElasticSanVolume#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#create ElasticSanVolume#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#delete ElasticSanVolume#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#delete ElasticSanVolume#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#read ElasticSanVolume#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#read ElasticSanVolume#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/elastic_san_volume#update ElasticSanVolume#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/elastic_san_volume#update ElasticSanVolume#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

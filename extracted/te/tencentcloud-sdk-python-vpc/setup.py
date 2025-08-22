@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-vpc',
-    install_requires=["tencentcloud-sdk-python-common>=3.0.1443,<4.0.0"],
+    install_requires=["tencentcloud-sdk-python-common>=3.0.1447,<4.0.0"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Vpc SDK for Python',
     long_description=open('README.rst').read(),

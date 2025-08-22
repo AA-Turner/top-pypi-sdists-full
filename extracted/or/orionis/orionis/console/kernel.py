@@ -1,9 +1,11 @@
+import sys
+from typing import List
 from orionis.console.contracts.kernel import IKernelCLI
 from orionis.console.contracts.reactor import IReactor
-from orionis.console.output.contracts.console import IConsole
+from orionis.console.entities.request import CLIRequest
+from orionis.failure.contracts.catch import ICatch
 from orionis.foundation.contracts.application import IApplication
 from orionis.console.exceptions import CLIOrionisValueError
-from orionis.services.log.contracts.log_service import ILogger
 
 class KernelCLI(IKernelCLI):
 
@@ -40,13 +42,10 @@ class KernelCLI(IKernelCLI):
         # The reactor is responsible for dispatching CLI commands.
         self.__reactor: IReactor = app.make('x-orionis.console.core.reactor')
 
-        # Retrieve and initialize the console instance for command output and error handling.
-        self.__console: IConsole = app.make('x-orionis.console.output.console')
+        # Retrieve and initialize the catch instance from the application container.
+        self.__catch: ICatch = app.make('x-orionis.failure.catch')
 
-        # Initialize the logger service for logging command execution details
-        self.__logger: ILogger = app.make('x-orionis.services.log.log_service')
-
-    def handle(self, args: list) -> None:
+    def handle(self, args: List[str] = []) -> None:
         """
         Processes and dispatches command line arguments to the appropriate command handler.
 
@@ -89,21 +88,22 @@ class KernelCLI(IKernelCLI):
             if len(args) == 1:
                 return self.__reactor.call(args[0])
 
+            # Create a CLIRequest instance with the command and its arguments
+            command = CLIRequest(
+                command=args[0],
+                args=args[1:]
+            )
+
             # If command and arguments are provided, call the command with its arguments
-            return self.__reactor.call(args[0], args[1:])
+            return self.__reactor.call(
+                command.command,
+                command.args
+            )
 
-        except SystemExit as e:
+        except BaseException as e:
 
-            # Log the SystemExit exception for debugging purposes
-            self.__logger.error(f"SystemExit encountered: {str(e)}")
+            # Catch any exceptions that occur during command handling
+            self.__catch.exception(self, args, e)
 
-            # Handle SystemExit exceptions gracefully, allowing for clean exits with error messages
-            self.__console.exitError(str(e))
-
-        except Exception as e:
-
-            # Log any unexpected exceptions that occur during command processing
-            self.__logger.error(f"An unexpected error occurred while processing command: {str(e)}")
-
-            # Handle any other exceptions that may occur during command processing
-            self.__console.exitError(f"An unexpected error occurred: {str(e)}")
+            # Exit the process with a non-zero status code to indicate an error
+            sys.exit(1)

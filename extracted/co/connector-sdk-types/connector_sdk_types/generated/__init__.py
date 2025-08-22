@@ -24,8 +24,11 @@ from .models.app_info200_response import AppInfo200Response
 from .models.app_info_request import AppInfoRequest
 from .models.app_info_request_payload import AppInfoRequestPayload
 from .models.app_info_response import AppInfoResponse
+from .models.application import Application
 from .models.application_account import ApplicationAccount
 from .models.application_activity_record import ApplicationActivityRecord
+from .models.application_entitlement_data import ApplicationEntitlementData
+from .models.application_resource_data import ApplicationResourceData
 from .models.application_status import ApplicationStatus
 from .models.assign_application import AssignApplication
 from .models.assign_application200_response import AssignApplication200Response
@@ -37,6 +40,7 @@ from .models.assign_entitlement_request import AssignEntitlementRequest
 from .models.assign_entitlement_response import AssignEntitlementResponse
 from .models.assigned_application import AssignedApplication
 from .models.assigned_entitlement import AssignedEntitlement
+from .models.assignment_mode import AssignmentMode
 from .models.auth_credential import AuthCredential
 from .models.auth_model import AuthModel
 from .models.authorization_url import AuthorizationUrl
@@ -85,9 +89,6 @@ from .models.find_entitlement_associations200_response import FindEntitlementAss
 from .models.find_entitlement_associations_request import FindEntitlementAssociationsRequest
 from .models.find_entitlement_associations_response import FindEntitlementAssociationsResponse
 from .models.found_account_data import FoundAccountData
-from .models.found_application import FoundApplication
-from .models.found_application_entitlement_data import FoundApplicationEntitlementData
-from .models.found_application_resource_data import FoundApplicationResourceData
 from .models.found_entitlement_association import FoundEntitlementAssociation
 from .models.found_entitlement_data import FoundEntitlementData
 from .models.found_resource_data import FoundResourceData
@@ -263,8 +264,11 @@ __all__ = [
     "AppInfoRequest",
     "AppInfoRequestPayload",
     "AppInfoResponse",
+    "Application",
     "ApplicationAccount",
     "ApplicationActivityRecord",
+    "ApplicationEntitlementData",
+    "ApplicationResourceData",
     "ApplicationStatus",
     "AssignApplication",
     "AssignApplication200Response",
@@ -276,6 +280,7 @@ __all__ = [
     "AssignEntitlementResponse",
     "AssignedApplication",
     "AssignedEntitlement",
+    "AssignmentMode",
     "AuthCredential",
     "AuthModel",
     "AuthorizationUrl",
@@ -324,9 +329,6 @@ __all__ = [
     "FindEntitlementAssociationsRequest",
     "FindEntitlementAssociationsResponse",
     "FoundAccountData",
-    "FoundApplication",
-    "FoundApplicationEntitlementData",
-    "FoundApplicationResourceData",
     "FoundEntitlementAssociation",
     "FoundEntitlementData",
     "FoundResourceData",

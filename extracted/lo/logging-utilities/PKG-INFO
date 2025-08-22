@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: logging-utilities
-Version: 5.0.0
+Version: 5.1.0
 Summary: A collection of useful logging formatters and filters.Logging Context, JSON Formatter, Extra Formatter, ISO Time Filter, Flask Filter, Django Filter, ...
 Author-email: Brice Schaffner <brice.schaffner@swisstopo.ch>
 License: BSD 3-Clause License
@@ -24,6 +24,7 @@ Classifier: Framework :: Flask
 Requires-Python: >=3.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # Python logging utilities
 

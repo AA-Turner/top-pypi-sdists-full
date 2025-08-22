@@ -40,7 +40,8 @@ class HelpCommand(BaseCommand):
         try:
 
             # Retrieve the list of available commands from the reactor
-            commands = reactor.info()  # List of dicts with 'signature' and 'description'
+            # List of dicts with 'signature' and 'description'
+            commands = reactor.info()
 
             # Initialize the rich console for formatted output
             console = Console()

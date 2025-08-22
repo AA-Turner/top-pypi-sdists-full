@@ -12,14 +12,12 @@ use tracing::{debug, error};
 
 use uiautomation::UIElement;
 // Windows GDI imports
-use windows::Win32::Foundation::{COLORREF, POINT, RECT};
+use windows::Win32::Foundation::{COLORREF, RECT};
 use windows::Win32::Graphics::Gdi::{
     CreateFontW, CreatePen, CreateSolidBrush, DeleteObject, DrawTextW, FillRect, GetDC, Rectangle,
     ReleaseDC, SelectObject, SetBkMode, SetTextColor, DT_SINGLELINE, HBRUSH, HGDIOBJ, PS_SOLID,
     TRANSPARENT,
 };
-use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
-
 // Additional imports for overlay window approach
 use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
@@ -30,21 +28,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_DESTROY, WM_PAINT, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
     WS_EX_TRANSPARENT, WS_POPUP,
 };
-use windows::Win32::UI::WindowsAndMessaging::{
-    GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
-};
 
 const OVERLAY_CLASS_NAME: PCWSTR = w!("TerminatorHighlightOverlay");
-
-fn rects_intersect(a: (i32, i32, i32, i32), b: (i32, i32, i32, i32)) -> bool {
-    let (ax, ay, aw, ah) = a;
-    let (bx, by, bw, bh) = b;
-    let ar = ax + aw;
-    let ab = ay + ah;
-    let br = bx + bw;
-    let bb = by + bh;
-    ax < br && ar > bx && ay < bb && ab > by
-}
 
 /// Implementation of element highlighting for Windows UI elements
 pub fn highlight(
@@ -59,166 +44,15 @@ pub fn highlight(
     // Wrap UIA element into our cross-platform UIElement and use the helper
     let wrapped: TerminatorElement =
         convert_uiautomation_element_to_terminator(element.as_ref().clone());
-    // Determine if element intersects window viewport; if not, try to scroll it into view
-    let mut need_scroll = false;
-    if let Ok((ex, ey, ew, eh)) = wrapped.bounds() {
-        // info!("highlight: element bounds: x={ex}, y={ey}, w={ew}, h={eh}");
 
-        // Try to get window bounds, but if that fails, use heuristics
-        if let Ok(Some(win)) = wrapped.window() {
-            if let Ok((wx, wy, ww, wh)) = win.bounds() {
-                // info!("highlight: window bounds: x={wx}, y={wy}, w={ww}, h={wh}");
-                let e_box = (ex as i32, ey as i32, ew as i32, eh as i32);
-                let w_box = (wx as i32, wy as i32, ww as i32, wh as i32);
-                if !rects_intersect(e_box, w_box) {
-                    // info!("highlight: element NOT in viewport, need scroll");
-                    need_scroll = true;
-                } else {
-                    // info!("highlight: element IS in viewport, no scroll needed");
-                }
-            } else {
-                // info!("highlight: could not get window bounds, using heuristic");
-                // Heuristic: if element Y > 1080 (typical viewport height), probably needs scroll
-                if ey > 1080.0 {
-                    // info!("highlight: element Y={ey} > 1080, assuming need scroll");
-                    need_scroll = true;
-                }
-            }
-        } else {
-            // info!("highlight: could not get window, using heuristic");
-            // Heuristic: if element Y > 1080 (typical viewport height), probably needs scroll
-            if ey > 1080.0 {
-                // info!("highlight: element Y={ey} > 1080, assuming need scroll");
-                need_scroll = true;
-            }
-        }
-    } else if !wrapped.is_visible().unwrap_or(true) {
-        // info!("highlight: element not visible, need scroll");
-        need_scroll = true;
-    }
-    if need_scroll {
-        // First try focusing the element to allow the application to auto-scroll it into view.
-        // info!("highlight: element outside viewport; attempting focus() to auto-scroll into view");
-        match wrapped.focus() {
-            Ok(()) => {
-                // Re-check visibility/intersection after focus
-                let mut still_offscreen = false;
-                if let Ok((_ex2, ey2, _ew2, _eh2)) = wrapped.bounds() {
-                    // info!("highlight: after focus(), element bounds: x={ex2}, y={ey2}, w={ew2}, h={eh2}");
-                    // Use same heuristic as before
-                    if ey2 > 1080.0 {
-                        // info!("highlight: after focus(), element Y={ey2} still > 1080");
-                        still_offscreen = true;
-                    } else {
-                        // info!("highlight: after focus(), element Y={ey2} now <= 1080, in view!");
-                    }
-                } else if !wrapped.is_visible().unwrap_or(true) {
-                    still_offscreen = true;
-                }
-                if !still_offscreen {
-                    // info!(
-                    //     "highlight: focus() brought element into view; skipping scroll_into_view"
-                    // );
-                    need_scroll = false;
-                } else {
-                    // info!("highlight: focus() did not bring element into view; will attempt scroll_into_view()");
-                }
-            }
-            Err(_e) => {
-                // info!("highlight: focus() failed: {e}; will attempt scroll_into_view()");
-            }
-        }
-
-        if need_scroll {
-            // info!("highlight: element outside viewport; attempting scroll_into_view()");
-            if let Err(_e) = wrapped.scroll_into_view() {
-                // info!("highlight: scroll_into_view failed: {e}");
-            } else {
-                // info!("highlight: scroll_into_view succeeded");
-
-                // After initial scroll, verify element position and adjust if needed
-                std::thread::sleep(Duration::from_millis(50)); // Let initial scroll settle
-
-                if let Ok((_ex, ey, _ew, eh)) = wrapped.bounds() {
-                    // info!("highlight: after scroll_into_view, element at y={ey}");
-
-                    // Define optimal viewport zones (assuming typical 1080p screen)
-                    const VIEWPORT_TOP_EDGE: f64 = 100.0; // Too close to top
-                    const VIEWPORT_OPTIMAL_BOTTOM: f64 = 700.0; // Good zone ends here
-                    const VIEWPORT_BOTTOM_EDGE: f64 = 900.0; // Too close to bottom
-
-                    // Check if we have window bounds for more accurate positioning
-                    let mut needs_adjustment = false;
-                    let mut adjustment_direction: Option<&str> = None;
-
-                    if let Ok(Some(window)) = wrapped.window() {
-                        if let Ok((_wx, wy, _ww, wh)) = window.bounds() {
-                            // We have window bounds - use precise positioning
-                            let element_relative_y = ey - wy;
-                            let element_bottom = element_relative_y + eh;
-
-                            // info!("highlight: element relative_y={element_relative_y}, window_height={wh}");
-
-                            // Check if element is poorly positioned
-                            if element_relative_y < 50.0 {
-                                // Too close to top - scroll up a bit
-                                // info!("highlight: element too close to top ({element_relative_y}px)");
-                                needs_adjustment = true;
-                                adjustment_direction = Some("up");
-                            } else if element_bottom > wh - 50.0 {
-                                // Too close to bottom or cut off - scroll down a bit
-                                // info!("highlight: element too close to bottom or cut off");
-                                needs_adjustment = true;
-                                adjustment_direction = Some("down");
-                            } else if element_relative_y > wh * 0.7 {
-                                // Element is in lower 30% of viewport - not ideal
-                                // info!("highlight: element in lower portion of viewport");
-                                needs_adjustment = true;
-                                adjustment_direction = Some("down");
-                            }
-                        } else {
-                            // No window bounds - use heuristic based on absolute Y position
-                            if ey < VIEWPORT_TOP_EDGE {
-                                // info!("highlight: element at y={ey} < {VIEWPORT_TOP_EDGE}, too high");
-                                needs_adjustment = true;
-                                adjustment_direction = Some("up");
-                            } else if ey > VIEWPORT_BOTTOM_EDGE {
-                                // info!("highlight: element at y={ey} > {VIEWPORT_BOTTOM_EDGE}, too low");
-                                needs_adjustment = true;
-                                adjustment_direction = Some("down");
-                            } else if ey > VIEWPORT_OPTIMAL_BOTTOM {
-                                // Element is lower than optimal but not at edge
-                                // info!("highlight: element at y={ey} lower than optimal");
-                                needs_adjustment = true;
-                                adjustment_direction = Some("down");
-                            }
-                        }
-                    } else {
-                        // No window available - use simple heuristics
-                        if !(VIEWPORT_TOP_EDGE..=VIEWPORT_BOTTOM_EDGE).contains(&ey) {
-                            needs_adjustment = true;
-                            adjustment_direction =
-                                Some(if ey < VIEWPORT_TOP_EDGE { "up" } else { "down" });
-                        }
-                    }
-
-                    // Perform fine adjustment if needed
-                    if needs_adjustment {
-                        if let Some(direction) = adjustment_direction {
-                            // info!("highlight: performing fine adjustment scroll {direction}");
-                            // Use smaller scroll amount for fine adjustment (0.3 = ~3 lines)
-                            let _ = wrapped.scroll(direction, 0.3);
-                            std::thread::sleep(Duration::from_millis(50));
-
-                            // Check final position
-                            if let Ok((_, _final_y, _, _)) = wrapped.bounds() {
-                                // info!("highlight: final position after adjustment: y={_final_y}");
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    // Simply use the core library's scroll_into_view method
+    // This method already handles viewport detection, focus attempts, and iterative scrolling
+    // We don't need all the sophisticated logic here - that's now in the MCP server
+    if let Err(e) = wrapped.scroll_into_view() {
+        // Log but don't fail - scrolling is best-effort for highlighting
+        debug!("highlight: scroll_into_view failed (best-effort): {}", e);
+    } else {
+        debug!("highlight: scroll_into_view succeeded");
     }
 
     // Get the (possibly updated) element bounding rectangle
@@ -243,26 +77,18 @@ pub fn highlight(
     //     rect.get_height()
     // );
 
-    // Try to get scale factor from focused window first, fall back to cursor position,
-    // but allow disabling via env for debugging
-    let scale_factor = if std::env::var("TERMINATOR_NO_DPI").is_ok() {
-        1.0
-    } else {
-        get_scale_factor_from_focused_window().unwrap_or_else(get_scale_factor_from_cursor)
-    };
+    // UI Automation coordinates are already in physical pixels (DPI-aware)
+    // No scaling needed - use coordinates directly
+    let x = rect.get_left();
+    let y = rect.get_top();
+    let width = rect.get_width();
+    let height = rect.get_height();
 
     // Constants for border appearance
     const DEFAULT_RED_COLOR: u32 = 0x0000FF; // Pure red in BGR format
 
     // Use provided color or default to red
     let highlight_color = color.unwrap_or(DEFAULT_RED_COLOR);
-
-    // Scale the coordinates and dimensions
-    // info!("highlight: applying scale_factor={scale_factor} to coordinates");
-    let mut x = (rect.get_left() as f64 * scale_factor) as i32;
-    let mut y = (rect.get_top() as f64 * scale_factor) as i32;
-    let mut width = (rect.get_width() as f64 * scale_factor) as i32;
-    let mut height = (rect.get_height() as f64 * scale_factor) as i32;
 
     // Validate coordinates
     if width <= 0 || height <= 0 {
@@ -271,34 +97,10 @@ pub fn highlight(
         )));
     }
 
-    // info!(
-    //     "highlight: scaled coordinates for overlay: x={}, y={}, width={}, height={}",
-    //     x, y, width, height
-    // );
-
-    // Validate coordinates against virtual screen bounds; if out-of-bounds, fallback to no-DPI scaling
-    let vs_x = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
-    let vs_y = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
-    let vs_w = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
-    let vs_h = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
-    let out_of_bounds = x < vs_x - 100
-        || y < vs_y - 100
-        || x + width > vs_x + vs_w + 100
-        || y + height > vs_y + vs_h + 100;
-    if out_of_bounds && (scale_factor - 1.0).abs() > f64::EPSILON {
-        // info!(
-        //     "DPI fallback: coords out of virtual screen (vs: {},{} {}x{}). Using unscaled bounds.",
-        //     vs_x, vs_y, vs_w, vs_h
-        // );
-        x = rect.get_left();
-        y = rect.get_top();
-        width = rect.get_width();
-        height = rect.get_height();
-        debug!(
-            "Unscaled highlight coordinates: x={}, y={}, width={}, height={}",
-            x, y, width, height
-        );
-    }
+    debug!(
+        "Highlight coordinates (physical pixels): x={}, y={}, width={}, height={}",
+        x, y, width, height
+    );
 
     // Prepare text overlay data (no truncation for better readability)
     let text_data = text.map(|t| {
@@ -407,42 +209,6 @@ pub fn highlight(
         should_close,
         handle: Some(handle),
     })
-}
-
-/// Helper function to get scale factor from cursor position
-fn get_scale_factor_from_cursor() -> f64 {
-    let mut point = POINT { x: 0, y: 0 };
-    unsafe {
-        let _ = GetCursorPos(&mut point);
-    }
-    match xcap::Monitor::from_point(point.x, point.y) {
-        Ok(monitor) => match monitor.scale_factor() {
-            Ok(factor) => factor as f64,
-            Err(e) => {
-                error!("Failed to get scale factor from cursor position: {}", e);
-                1.0 // Fallback to default scale factor
-            }
-        },
-        Err(e) => {
-            error!("Failed to get monitor from cursor position: {}", e);
-            1.0 // Fallback to default scale factor
-        }
-    }
-}
-
-/// Helper function to get scale factor from focused window
-fn get_scale_factor_from_focused_window() -> Option<f64> {
-    match xcap::Window::all() {
-        Ok(windows) => windows
-            .iter()
-            .find(|w| w.is_focused().unwrap_or(false))
-            .and_then(|focused_window| focused_window.current_monitor().ok())
-            .and_then(|monitor| monitor.scale_factor().ok().map(|factor| factor as f64)),
-        Err(e) => {
-            error!("Failed to get windows: {}", e);
-            None
-        }
-    }
 }
 
 // Thread-local storage for the last created overlay window to destroy later

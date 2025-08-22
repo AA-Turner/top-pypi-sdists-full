@@ -1,5 +1,6 @@
 # coding=utf-8
 from .._impl import (
+    timeseries_archetype_api_ApiLocatorTemplate as ApiLocatorTemplate,
     timeseries_archetype_api_BatchCreateSeriesArchetypeRequest as BatchCreateSeriesArchetypeRequest,
     timeseries_archetype_api_BatchGetSeriesArchetypeRequest as BatchGetSeriesArchetypeRequest,
     timeseries_archetype_api_BatchGetSeriesArchetypeResponse as BatchGetSeriesArchetypeResponse,
@@ -21,6 +22,7 @@ from .._impl import (
 )
 
 __all__ = [
+    'ApiLocatorTemplate',
     'BatchCreateSeriesArchetypeRequest',
     'BatchGetSeriesArchetypeRequest',
     'BatchGetSeriesArchetypeResponse',

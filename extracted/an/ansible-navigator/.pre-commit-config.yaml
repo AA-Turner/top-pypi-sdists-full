@@ -9,7 +9,7 @@ exclude: >
   )$
 repos:
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: "v3.5.3"
+    rev: "v3.6.2"
     hooks:
       - id: prettier
         # Original hook implementation is flaky due to *several* bugs described
@@ -39,19 +39,19 @@ repos:
       - id: toml-sort-fix
 
   - repo: https://github.com/tox-dev/tox-ini-fmt
-    rev: 1.5.0
+    rev: 1.6.0
     hooks:
       - id: tox-ini-fmt
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.11.10"
+    rev: "v0.12.9"
     hooks:
       - id: ruff
         entry: sh -c 'ruff check --fix --force-exclude && ruff format --force-exclude'
         types_or: [python, pyi]
 
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v9.0.1
+    rev: v9.2.0
     hooks:
       - id: cspell
         name: Spell check with cspell
@@ -66,7 +66,7 @@ repos:
           )$
 
   - repo: https://github.com/pre-commit/pre-commit-hooks.git
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       # Side-effects:
       - id: trailing-whitespace
@@ -138,7 +138,7 @@ repos:
         types: [file, yaml]
 
   - repo: https://github.com/PyCQA/flake8.git
-    rev: 7.2.0
+    rev: 7.3.0
     hooks:
       - id: flake8
         language_version: python3
@@ -146,18 +146,18 @@ repos:
           - flake8-docstrings # uses pydocstyle
 
   - repo: https://github.com/jsh9/pydoclint
-    rev: 0.6.7
+    rev: 0.6.10
     hooks:
       - id: pydoclint
 
   - repo: https://github.com/asottile/pyupgrade
     # keep it after flake8
-    rev: v3.19.1
+    rev: v3.20.0
     hooks:
       - id: pyupgrade
         args: ["--py310-plus"]
   - repo: https://github.com/pre-commit/mirrors-mypy.git
-    rev: v1.15.0
+    rev: v1.17.1
     hooks:
       - id: mypy
         additional_dependencies:
@@ -174,7 +174,7 @@ repos:
           - types-typed-ast
 
   - repo: https://github.com/pycqa/pylint.git
-    rev: v3.3.7
+    rev: v3.3.8
     hooks:
       - id: pylint
         args:

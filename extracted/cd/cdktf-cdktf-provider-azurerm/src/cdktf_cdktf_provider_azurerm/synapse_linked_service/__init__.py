@@ -1,7 +1,7 @@
 r'''
 # `azurerm_synapse_linked_service`
 
-Refer to the Terraform Registry for docs: [`azurerm_synapse_linked_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service).
+Refer to the Terraform Registry for docs: [`azurerm_synapse_linked_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SynapseLinkedService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.synapseLinkedService.SynapseLinkedService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service azurerm_synapse_linked_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service azurerm_synapse_linked_service}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class SynapseLinkedService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service azurerm_synapse_linked_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service azurerm_synapse_linked_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.
-        :param synapse_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#synapse_workspace_id SynapseLinkedService#synapse_workspace_id}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#type SynapseLinkedService#type}.
-        :param type_properties_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#type_properties_json SynapseLinkedService#type_properties_json}.
-        :param additional_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#additional_properties SynapseLinkedService#additional_properties}.
-        :param annotations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#annotations SynapseLinkedService#annotations}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#description SynapseLinkedService#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#id SynapseLinkedService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integration_runtime: integration_runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#integration_runtime SynapseLinkedService#integration_runtime}
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#timeouts SynapseLinkedService#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.
+        :param synapse_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#synapse_workspace_id SynapseLinkedService#synapse_workspace_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#type SynapseLinkedService#type}.
+        :param type_properties_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#type_properties_json SynapseLinkedService#type_properties_json}.
+        :param additional_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#additional_properties SynapseLinkedService#additional_properties}.
+        :param annotations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#annotations SynapseLinkedService#annotations}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#description SynapseLinkedService#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#id SynapseLinkedService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integration_runtime: integration_runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#integration_runtime SynapseLinkedService#integration_runtime}
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#timeouts SynapseLinkedService#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class SynapseLinkedService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SynapseLinkedService to import.
-        :param import_from_id: The id of the existing SynapseLinkedService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SynapseLinkedService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SynapseLinkedService to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class SynapseLinkedService(
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.
         '''
         value = SynapseLinkedServiceIntegrationRuntime(
             name=name, parameters=parameters
@@ -171,10 +171,10 @@ class SynapseLinkedService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#create SynapseLinkedService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#delete SynapseLinkedService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#read SynapseLinkedService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#update SynapseLinkedService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#create SynapseLinkedService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#delete SynapseLinkedService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#read SynapseLinkedService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#update SynapseLinkedService#update}.
         '''
         value = SynapseLinkedServiceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -465,17 +465,17 @@ class SynapseLinkedServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.
-        :param synapse_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#synapse_workspace_id SynapseLinkedService#synapse_workspace_id}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#type SynapseLinkedService#type}.
-        :param type_properties_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#type_properties_json SynapseLinkedService#type_properties_json}.
-        :param additional_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#additional_properties SynapseLinkedService#additional_properties}.
-        :param annotations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#annotations SynapseLinkedService#annotations}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#description SynapseLinkedService#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#id SynapseLinkedService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integration_runtime: integration_runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#integration_runtime SynapseLinkedService#integration_runtime}
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#timeouts SynapseLinkedService#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.
+        :param synapse_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#synapse_workspace_id SynapseLinkedService#synapse_workspace_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#type SynapseLinkedService#type}.
+        :param type_properties_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#type_properties_json SynapseLinkedService#type_properties_json}.
+        :param additional_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#additional_properties SynapseLinkedService#additional_properties}.
+        :param annotations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#annotations SynapseLinkedService#annotations}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#description SynapseLinkedService#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#id SynapseLinkedService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integration_runtime: integration_runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#integration_runtime SynapseLinkedService#integration_runtime}
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#timeouts SynapseLinkedService#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -604,28 +604,28 @@ class SynapseLinkedServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def synapse_workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#synapse_workspace_id SynapseLinkedService#synapse_workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#synapse_workspace_id SynapseLinkedService#synapse_workspace_id}.'''
         result = self._values.get("synapse_workspace_id")
         assert result is not None, "Required property 'synapse_workspace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#type SynapseLinkedService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#type SynapseLinkedService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type_properties_json(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#type_properties_json SynapseLinkedService#type_properties_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#type_properties_json SynapseLinkedService#type_properties_json}.'''
         result = self._values.get("type_properties_json")
         assert result is not None, "Required property 'type_properties_json' is missing"
         return typing.cast(builtins.str, result)
@@ -634,25 +634,25 @@ class SynapseLinkedServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def additional_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#additional_properties SynapseLinkedService#additional_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#additional_properties SynapseLinkedService#additional_properties}.'''
         result = self._values.get("additional_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def annotations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#annotations SynapseLinkedService#annotations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#annotations SynapseLinkedService#annotations}.'''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#description SynapseLinkedService#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#description SynapseLinkedService#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#id SynapseLinkedService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#id SynapseLinkedService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -666,14 +666,14 @@ class SynapseLinkedServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SynapseLinkedServiceIntegrationRuntime"]:
         '''integration_runtime block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#integration_runtime SynapseLinkedService#integration_runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#integration_runtime SynapseLinkedService#integration_runtime}
         '''
         result = self._values.get("integration_runtime")
         return typing.cast(typing.Optional["SynapseLinkedServiceIntegrationRuntime"], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -681,7 +681,7 @@ class SynapseLinkedServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SynapseLinkedServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#timeouts SynapseLinkedService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#timeouts SynapseLinkedService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SynapseLinkedServiceTimeouts"], result)
@@ -711,8 +711,8 @@ class SynapseLinkedServiceIntegrationRuntime:
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f127f9745024d508b7097f89ff75148d05a8ff298249bfc4c077ff3b2070a0b)
@@ -726,14 +726,14 @@ class SynapseLinkedServiceIntegrationRuntime:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#name SynapseLinkedService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#parameters SynapseLinkedService#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -845,10 +845,10 @@ class SynapseLinkedServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#create SynapseLinkedService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#delete SynapseLinkedService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#read SynapseLinkedService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#update SynapseLinkedService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#create SynapseLinkedService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#delete SynapseLinkedService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#read SynapseLinkedService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#update SynapseLinkedService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d6c73d249c1121884f4b454229c6fe6bdbef5c96fa811171fd5c1962ed4053f)
@@ -868,25 +868,25 @@ class SynapseLinkedServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#create SynapseLinkedService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#create SynapseLinkedService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#delete SynapseLinkedService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#delete SynapseLinkedService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#read SynapseLinkedService#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#read SynapseLinkedService#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/synapse_linked_service#update SynapseLinkedService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/synapse_linked_service#update SynapseLinkedService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

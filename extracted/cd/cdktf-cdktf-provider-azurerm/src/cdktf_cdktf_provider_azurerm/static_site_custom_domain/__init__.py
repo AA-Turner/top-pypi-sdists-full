@@ -1,7 +1,7 @@
 r'''
 # `azurerm_static_site_custom_domain`
 
-Refer to the Terraform Registry for docs: [`azurerm_static_site_custom_domain`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain).
+Refer to the Terraform Registry for docs: [`azurerm_static_site_custom_domain`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StaticSiteCustomDomain(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.staticSiteCustomDomain.StaticSiteCustomDomain",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain azurerm_static_site_custom_domain}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain azurerm_static_site_custom_domain}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class StaticSiteCustomDomain(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain azurerm_static_site_custom_domain} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain azurerm_static_site_custom_domain} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#domain_name StaticSiteCustomDomain#domain_name}.
-        :param static_site_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#static_site_id StaticSiteCustomDomain#static_site_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#id StaticSiteCustomDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#timeouts StaticSiteCustomDomain#timeouts}
-        :param validation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#validation_type StaticSiteCustomDomain#validation_type}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#domain_name StaticSiteCustomDomain#domain_name}.
+        :param static_site_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#static_site_id StaticSiteCustomDomain#static_site_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#id StaticSiteCustomDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#timeouts StaticSiteCustomDomain#timeouts}
+        :param validation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#validation_type StaticSiteCustomDomain#validation_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class StaticSiteCustomDomain(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StaticSiteCustomDomain to import.
-        :param import_from_id: The id of the existing StaticSiteCustomDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StaticSiteCustomDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StaticSiteCustomDomain to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class StaticSiteCustomDomain(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#create StaticSiteCustomDomain#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#delete StaticSiteCustomDomain#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#read StaticSiteCustomDomain#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#create StaticSiteCustomDomain#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#delete StaticSiteCustomDomain#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#read StaticSiteCustomDomain#read}.
         '''
         value = StaticSiteCustomDomainTimeouts(create=create, delete=delete, read=read)
 
@@ -297,11 +297,11 @@ class StaticSiteCustomDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#domain_name StaticSiteCustomDomain#domain_name}.
-        :param static_site_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#static_site_id StaticSiteCustomDomain#static_site_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#id StaticSiteCustomDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#timeouts StaticSiteCustomDomain#timeouts}
-        :param validation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#validation_type StaticSiteCustomDomain#validation_type}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#domain_name StaticSiteCustomDomain#domain_name}.
+        :param static_site_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#static_site_id StaticSiteCustomDomain#static_site_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#id StaticSiteCustomDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#timeouts StaticSiteCustomDomain#timeouts}
+        :param validation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#validation_type StaticSiteCustomDomain#validation_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -412,21 +412,21 @@ class StaticSiteCustomDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#domain_name StaticSiteCustomDomain#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#domain_name StaticSiteCustomDomain#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def static_site_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#static_site_id StaticSiteCustomDomain#static_site_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#static_site_id StaticSiteCustomDomain#static_site_id}.'''
         result = self._values.get("static_site_id")
         assert result is not None, "Required property 'static_site_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#id StaticSiteCustomDomain#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#id StaticSiteCustomDomain#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -438,14 +438,14 @@ class StaticSiteCustomDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["StaticSiteCustomDomainTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#timeouts StaticSiteCustomDomain#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#timeouts StaticSiteCustomDomain#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StaticSiteCustomDomainTimeouts"], result)
 
     @builtins.property
     def validation_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#validation_type StaticSiteCustomDomain#validation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#validation_type StaticSiteCustomDomain#validation_type}.'''
         result = self._values.get("validation_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -475,9 +475,9 @@ class StaticSiteCustomDomainTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#create StaticSiteCustomDomain#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#delete StaticSiteCustomDomain#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#read StaticSiteCustomDomain#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#create StaticSiteCustomDomain#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#delete StaticSiteCustomDomain#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#read StaticSiteCustomDomain#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26c9b4c5f18145702c8c2377e600327755dd668839a3047f1df8f62b9b9ee558)
@@ -494,19 +494,19 @@ class StaticSiteCustomDomainTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#create StaticSiteCustomDomain#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#create StaticSiteCustomDomain#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#delete StaticSiteCustomDomain#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#delete StaticSiteCustomDomain#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/static_site_custom_domain#read StaticSiteCustomDomain#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/static_site_custom_domain#read StaticSiteCustomDomain#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

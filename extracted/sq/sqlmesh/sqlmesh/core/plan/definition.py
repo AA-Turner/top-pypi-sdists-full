@@ -44,10 +44,12 @@ class Plan(PydanticModel, frozen=True):
     no_gaps: bool
     forward_only: bool
     allow_destructive_models: t.Set[str]
+    allow_additive_models: t.Set[str]
     include_unmodified: bool
     end_bounded: bool
     ensure_finalized_snapshots: bool
     explain: bool
+    ignore_cron: bool = False
 
     environment_ttl: t.Optional[str] = None
     environment_naming_info: EnvironmentNamingInfo
@@ -181,6 +183,7 @@ class Plan(PydanticModel, frozen=True):
                 start_override_per_model=self.start_override_per_model,
                 end_override_per_model=self.end_override_per_model,
                 end_bounded=self.end_bounded,
+                ignore_cron=self.ignore_cron,
             ).items()
             if snapshot.is_model and missing
         ]
@@ -256,9 +259,11 @@ class Plan(PydanticModel, frozen=True):
             restatements={s.name: i for s, i in self.restatements.items()},
             is_dev=self.is_dev,
             allow_destructive_models=self.allow_destructive_models,
+            allow_additive_models=self.allow_additive_models,
             forward_only=self.forward_only,
             end_bounded=self.end_bounded,
             ensure_finalized_snapshots=self.ensure_finalized_snapshots,
+            ignore_cron=self.ignore_cron,
             directly_modified_snapshots=sorted(self.directly_modified),
             indirectly_modified_snapshots={
                 s.name: sorted(snapshot_ids) for s, snapshot_ids in self.indirectly_modified.items()
@@ -297,9 +302,11 @@ class EvaluatablePlan(PydanticModel):
     restatements: t.Dict[str, Interval]
     is_dev: bool
     allow_destructive_models: t.Set[str]
+    allow_additive_models: t.Set[str]
     forward_only: bool
     end_bounded: bool
     ensure_finalized_snapshots: bool
+    ignore_cron: bool = False
     directly_modified_snapshots: t.List[SnapshotId]
     indirectly_modified_snapshots: t.Dict[str, t.List[SnapshotId]]
     metadata_updated_snapshots: t.List[SnapshotId]

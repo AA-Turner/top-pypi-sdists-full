@@ -166,7 +166,7 @@ def run_via_ssh(
     connection = get_ssh_connection(cloud, cluster.cluster_id)
     results = None
 
-    original_command = " ".join(command)
+    original_command = coiled.utils.join_command_parts(command)
     callstack = [{"code": original_command, "relative_line": 0}]
     # Extract and upload files from `command`
     command = shlex.split(original_command)
@@ -234,7 +234,7 @@ def run_via_ssh(
             # once container is suitably changed, we should just be able to use entrypoint like any other container
             entrypoint = "micromamba run -p /opt/coiled/env"
 
-    command_string = " ".join(command)
+    command_string = coiled.utils.join_command_parts(command)
 
     if container and "/uv:" in container and command_string.startswith("uv"):
         command_string = (
@@ -698,7 +698,7 @@ def start_run(
             workspace = workspace or cloud.default_workspace
             with LightRichClusterWidget(
                 workspace=workspace,
-                title=f"Running [bold]{' '.join(command)}[/bold]",
+                title=f"Running [bold]{coiled.utils.join_command_parts(command)}[/bold]",
                 include_total_cost=False,
                 extra_link="..." if open_extra_ports else None,
                 extra_link_title="Server",
@@ -807,7 +807,7 @@ def start_run(
 
         if cluster.cluster_id and not interactive:
             if detach:
-                print(f"Running [green]{' '.join(command)}[/green] in background.")
+                print(f"Running [green]{coiled.utils.join_command_parts(command)}[/green] in background.")
             else:
                 print()
 

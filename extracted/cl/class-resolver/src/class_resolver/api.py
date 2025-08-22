@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import warnings
 from collections.abc import Collection, Mapping, Sequence
 from typing import Any, Generic, TypeVar
 
@@ -75,7 +76,7 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
     #: The shared suffix fo all classes derived from the base class
     suffix: str
     #: The variable name to look up synonyms in classes that are registered with this resolver
-    synonyms_attribute: str | None
+    synonyms_attributes: list[str]
 
     def __init__(
         self,
@@ -85,7 +86,7 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
         default: type[X] | None = None,
         suffix: str | None = None,
         synonyms: Mapping[str, type[X]] | None = None,
-        synonym_attribute: str | None = "synonyms",
+        synonym_attribute: str | list[str] | None = "synonyms",
         base_as_suffix: bool = True,
         location: str | None = None,
     ) -> None:
@@ -97,14 +98,23 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
         :param suffix: The optional shared suffix of all instances. If not none, will
             override ``base_as_suffix``.
         :param synonyms: The optional synonym dictionary
-        :param synonym_attribute: The attribute to look in each class for synonyms.
-            Explicitly set to None to turn off synonym lookup.
+        :param synonym_attribute:
+            The attribute or list of attributes to look in each class for synonyms.
+            Defaults to ``synonyms``. Explicitly set to None to turn off synonym lookup.
         :param base_as_suffix: Should the base class's name be used as the suffix if
             none is given? Defaults to true.
         :param location: The location used to document the resolver in sphinx
         """
         self.base = base
-        self.synonyms_attribute = synonym_attribute
+        if isinstance(synonym_attribute, str):
+            self.synonyms_attributes = [synonym_attribute]
+        elif isinstance(synonym_attribute, list):
+            self.synonyms_attributes = synonym_attribute
+        elif synonym_attribute is None:
+            self.synonyms_attributes = []
+        else:
+            raise TypeError
+
         if suffix is not None:
             if suffix == "":
                 suffix = None
@@ -122,11 +132,34 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
         """Get the name for an element."""
         return element.__name__
 
+    @property
+    def synonym_attribute(self) -> str | None:
+        """Get the synonnym attribute for the class used for synonym lookup."""
+        warnings.warn(
+            "synonym_attribute is deprecated. Access the synonym_attributes list directly instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        lll = len(self.synonyms_attributes)
+        if lll == 0:
+            return None
+        elif lll == 1:
+            return self.synonyms_attributes[0]
+        else:
+            raise ValueError
+
     def extract_synonyms(self, element: type[X]) -> Collection[str]:
         """Get synonyms from an element."""
-        if not self.synonyms_attribute:
-            return []
-        return getattr(element, self.synonyms_attribute, None) or []
+        rv = []
+        for attribute in self.synonyms_attributes:
+            x = getattr(element, attribute, None)
+            if x is None:
+                pass
+            elif isinstance(x, str):
+                rv.append(x)
+            else:
+                rv.extend(x)  # it's a list
+        return rv
 
     @classmethod
     def from_subclasses(
@@ -198,7 +231,7 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
         **kwargs: Any,
     ) -> X:
         """Instantiate a class with optional kwargs."""
-        if query is None or isinstance(query, (str, type)):
+        if query is None or isinstance(query, str | type):
             cls: type[X] = self.lookup(query)
             try:
                 return cls(**(pos_kwargs or {}), **kwargs)
@@ -288,7 +321,7 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
             raise ValueError("Mismatch in number number of queries and kwargs")
         return [
             self.make(query=_result_tracker, pos_kwargs=_result_tracker_kwargs, **common_kwargs)
-            for _result_tracker, _result_tracker_kwargs in zip(_query_list, _kwargs_list)
+            for _result_tracker, _result_tracker_kwargs in zip(_query_list, _kwargs_list, strict=False)
         ]
 
     def make_table(
@@ -339,7 +372,7 @@ def get_cls(
         if default is None:
             raise ValueError(f"No default {base.__name__} set")
         return default
-    elif not isinstance(query, (str, type, base)):
+    elif not isinstance(query, str | type | base):
         raise TypeError(f"Invalid {base.__name__} type: {type(query)} - {query}")
     elif isinstance(query, str):
         key = normalize_string(query, suffix=suffix)

@@ -794,6 +794,7 @@ class DatasetRevisionImpl(DatasetRevision):
         dashboard_url: str | None = None,
         num_computers: int = 1,
         errors: list[ChalkError] | None = None,
+        query_has_errors: bool = False,
         metadata: Mapping[str, Any] | None = None,
     ):
         super().__init__()
@@ -820,6 +821,7 @@ class DatasetRevisionImpl(DatasetRevision):
         self._hydrated = self.status == QueryStatus.SUCCESSFUL
         self.num_computers = num_computers
         self.errors = errors
+        self.query_has_errors = query_has_errors
         # Threading `timeout` through because sometimes we don't await
         # the dataset at the initial `offline_query` call, but await
         # it when calling methods on the dataset like `to_polars()`.
@@ -1848,6 +1850,7 @@ def dataset_revision_from_response(
         dashboard_url=revision.dashboard_url,
         num_computers=revision.num_computers,
         errors=revision.errors,
+        query_has_errors=revision.query_has_errors,
         metadata=revision.metadata,
     )
 

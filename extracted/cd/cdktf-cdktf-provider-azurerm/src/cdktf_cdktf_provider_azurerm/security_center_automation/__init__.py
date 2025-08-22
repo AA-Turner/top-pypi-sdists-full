@@ -1,7 +1,7 @@
 r'''
 # `azurerm_security_center_automation`
 
-Refer to the Terraform Registry for docs: [`azurerm_security_center_automation`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation).
+Refer to the Terraform Registry for docs: [`azurerm_security_center_automation`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityCenterAutomation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.securityCenterAutomation.SecurityCenterAutomation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation azurerm_security_center_automation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation azurerm_security_center_automation}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class SecurityCenterAutomation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation azurerm_security_center_automation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation azurerm_security_center_automation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#action SecurityCenterAutomation#action}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#location SecurityCenterAutomation#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#name SecurityCenterAutomation#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#resource_group_name SecurityCenterAutomation#resource_group_name}.
-        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#scopes SecurityCenterAutomation#scopes}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#source SecurityCenterAutomation#source}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#description SecurityCenterAutomation#description}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#enabled SecurityCenterAutomation#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#id SecurityCenterAutomation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#tags SecurityCenterAutomation#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#timeouts SecurityCenterAutomation#timeouts}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#action SecurityCenterAutomation#action}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#location SecurityCenterAutomation#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#name SecurityCenterAutomation#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#resource_group_name SecurityCenterAutomation#resource_group_name}.
+        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#scopes SecurityCenterAutomation#scopes}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#source SecurityCenterAutomation#source}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#description SecurityCenterAutomation#description}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#enabled SecurityCenterAutomation#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#id SecurityCenterAutomation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#tags SecurityCenterAutomation#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#timeouts SecurityCenterAutomation#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class SecurityCenterAutomation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityCenterAutomation to import.
-        :param import_from_id: The id of the existing SecurityCenterAutomation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityCenterAutomation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityCenterAutomation to import is found.
         '''
         if __debug__:
@@ -180,10 +180,10 @@ class SecurityCenterAutomation(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#create SecurityCenterAutomation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#delete SecurityCenterAutomation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#read SecurityCenterAutomation#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#update SecurityCenterAutomation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#create SecurityCenterAutomation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#delete SecurityCenterAutomation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#read SecurityCenterAutomation#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#update SecurityCenterAutomation#update}.
         '''
         value = SecurityCenterAutomationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -422,10 +422,10 @@ class SecurityCenterAutomationAction:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#resource_id SecurityCenterAutomation#resource_id}.
-        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#connection_string SecurityCenterAutomation#connection_string}.
-        :param trigger_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#trigger_url SecurityCenterAutomation#trigger_url}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#type SecurityCenterAutomation#type}.
+        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#resource_id SecurityCenterAutomation#resource_id}.
+        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#connection_string SecurityCenterAutomation#connection_string}.
+        :param trigger_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#trigger_url SecurityCenterAutomation#trigger_url}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#type SecurityCenterAutomation#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3356c9b5f5eadcb0c0f7bbf2edd19e8181f373904a0e0c9acd39df663bb21aa0)
@@ -445,26 +445,26 @@ class SecurityCenterAutomationAction:
 
     @builtins.property
     def resource_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#resource_id SecurityCenterAutomation#resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#resource_id SecurityCenterAutomation#resource_id}.'''
         result = self._values.get("resource_id")
         assert result is not None, "Required property 'resource_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def connection_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#connection_string SecurityCenterAutomation#connection_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#connection_string SecurityCenterAutomation#connection_string}.'''
         result = self._values.get("connection_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def trigger_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#trigger_url SecurityCenterAutomation#trigger_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#trigger_url SecurityCenterAutomation#trigger_url}.'''
         result = self._values.get("trigger_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#type SecurityCenterAutomation#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#type SecurityCenterAutomation#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -752,17 +752,17 @@ class SecurityCenterAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#action SecurityCenterAutomation#action}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#location SecurityCenterAutomation#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#name SecurityCenterAutomation#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#resource_group_name SecurityCenterAutomation#resource_group_name}.
-        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#scopes SecurityCenterAutomation#scopes}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#source SecurityCenterAutomation#source}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#description SecurityCenterAutomation#description}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#enabled SecurityCenterAutomation#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#id SecurityCenterAutomation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#tags SecurityCenterAutomation#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#timeouts SecurityCenterAutomation#timeouts}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#action SecurityCenterAutomation#action}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#location SecurityCenterAutomation#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#name SecurityCenterAutomation#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#resource_group_name SecurityCenterAutomation#resource_group_name}.
+        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#scopes SecurityCenterAutomation#scopes}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#source SecurityCenterAutomation#source}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#description SecurityCenterAutomation#description}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#enabled SecurityCenterAutomation#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#id SecurityCenterAutomation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#tags SecurityCenterAutomation#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#timeouts SecurityCenterAutomation#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -891,7 +891,7 @@ class SecurityCenterAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityCenterAutomationAction]]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#action SecurityCenterAutomation#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#action SecurityCenterAutomation#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -899,28 +899,28 @@ class SecurityCenterAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#location SecurityCenterAutomation#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#location SecurityCenterAutomation#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#name SecurityCenterAutomation#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#name SecurityCenterAutomation#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#resource_group_name SecurityCenterAutomation#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#resource_group_name SecurityCenterAutomation#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def scopes(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#scopes SecurityCenterAutomation#scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#scopes SecurityCenterAutomation#scopes}.'''
         result = self._values.get("scopes")
         assert result is not None, "Required property 'scopes' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -931,7 +931,7 @@ class SecurityCenterAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityCenterAutomationSource"]]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#source SecurityCenterAutomation#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#source SecurityCenterAutomation#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -939,7 +939,7 @@ class SecurityCenterAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#description SecurityCenterAutomation#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#description SecurityCenterAutomation#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -947,13 +947,13 @@ class SecurityCenterAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#enabled SecurityCenterAutomation#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#enabled SecurityCenterAutomation#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#id SecurityCenterAutomation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#id SecurityCenterAutomation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -963,7 +963,7 @@ class SecurityCenterAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#tags SecurityCenterAutomation#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#tags SecurityCenterAutomation#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -971,7 +971,7 @@ class SecurityCenterAutomationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SecurityCenterAutomationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#timeouts SecurityCenterAutomation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#timeouts SecurityCenterAutomation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SecurityCenterAutomationTimeouts"], result)
@@ -1001,8 +1001,8 @@ class SecurityCenterAutomationSource:
         rule_set: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityCenterAutomationSourceRuleSet", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param event_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#event_source SecurityCenterAutomation#event_source}.
-        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#rule_set SecurityCenterAutomation#rule_set}
+        :param event_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#event_source SecurityCenterAutomation#event_source}.
+        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#rule_set SecurityCenterAutomation#rule_set}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa9ce5f01b508e3860029cd84f9adb061536175d367d37ea8d77930aa0cadb5b)
@@ -1016,7 +1016,7 @@ class SecurityCenterAutomationSource:
 
     @builtins.property
     def event_source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#event_source SecurityCenterAutomation#event_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#event_source SecurityCenterAutomation#event_source}.'''
         result = self._values.get("event_source")
         assert result is not None, "Required property 'event_source' is missing"
         return typing.cast(builtins.str, result)
@@ -1027,7 +1027,7 @@ class SecurityCenterAutomationSource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityCenterAutomationSourceRuleSet"]]]:
         '''rule_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#rule_set SecurityCenterAutomation#rule_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#rule_set SecurityCenterAutomation#rule_set}
         '''
         result = self._values.get("rule_set")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityCenterAutomationSourceRuleSet"]]], result)
@@ -1239,7 +1239,7 @@ class SecurityCenterAutomationSourceRuleSet:
         rule: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityCenterAutomationSourceRuleSetRule", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#rule SecurityCenterAutomation#rule}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#rule SecurityCenterAutomation#rule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bedec30c4339f01b0fc8e72539b7104fce84691b26e04544667fa813f4f9595c)
@@ -1254,7 +1254,7 @@ class SecurityCenterAutomationSourceRuleSet:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityCenterAutomationSourceRuleSetRule"]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#rule SecurityCenterAutomation#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#rule SecurityCenterAutomation#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -1454,10 +1454,10 @@ class SecurityCenterAutomationSourceRuleSetRule:
         property_type: builtins.str,
     ) -> None:
         '''
-        :param expected_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#expected_value SecurityCenterAutomation#expected_value}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#operator SecurityCenterAutomation#operator}.
-        :param property_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#property_path SecurityCenterAutomation#property_path}.
-        :param property_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#property_type SecurityCenterAutomation#property_type}.
+        :param expected_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#expected_value SecurityCenterAutomation#expected_value}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#operator SecurityCenterAutomation#operator}.
+        :param property_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#property_path SecurityCenterAutomation#property_path}.
+        :param property_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#property_type SecurityCenterAutomation#property_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3434fc27c6db904f58b1e18040144eda6104ce8cb55537621378965ba4d6b580)
@@ -1474,28 +1474,28 @@ class SecurityCenterAutomationSourceRuleSetRule:
 
     @builtins.property
     def expected_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#expected_value SecurityCenterAutomation#expected_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#expected_value SecurityCenterAutomation#expected_value}.'''
         result = self._values.get("expected_value")
         assert result is not None, "Required property 'expected_value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#operator SecurityCenterAutomation#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#operator SecurityCenterAutomation#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def property_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#property_path SecurityCenterAutomation#property_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#property_path SecurityCenterAutomation#property_path}.'''
         result = self._values.get("property_path")
         assert result is not None, "Required property 'property_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def property_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#property_type SecurityCenterAutomation#property_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#property_type SecurityCenterAutomation#property_type}.'''
         result = self._values.get("property_type")
         assert result is not None, "Required property 'property_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1737,10 +1737,10 @@ class SecurityCenterAutomationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#create SecurityCenterAutomation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#delete SecurityCenterAutomation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#read SecurityCenterAutomation#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#update SecurityCenterAutomation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#create SecurityCenterAutomation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#delete SecurityCenterAutomation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#read SecurityCenterAutomation#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#update SecurityCenterAutomation#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61bdf429fe56fda41e911deaa5c708df8ba7e30826003a09f400e9bbaa8d177b)
@@ -1760,25 +1760,25 @@ class SecurityCenterAutomationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#create SecurityCenterAutomation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#create SecurityCenterAutomation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#delete SecurityCenterAutomation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#delete SecurityCenterAutomation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#read SecurityCenterAutomation#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#read SecurityCenterAutomation#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/security_center_automation#update SecurityCenterAutomation#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/security_center_automation#update SecurityCenterAutomation#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

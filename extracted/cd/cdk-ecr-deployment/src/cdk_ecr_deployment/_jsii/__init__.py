@@ -32,7 +32,7 @@ import aws_cdk._jsii
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "cdk-ecr-deployment", "4.0.1", __name__[0:-6], "cdk-ecr-deployment@4.0.1.jsii.tgz"
+    "cdk-ecr-deployment", "4.0.2", __name__[0:-6], "cdk-ecr-deployment@4.0.2.jsii.tgz"
 )
 
 __all__ = [

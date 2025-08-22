@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: e2b
-Version: 1.11.1
+Version: 2.0.0
 Summary: E2B SDK that give agents cloud environments
 Home-page: https://e2b.dev/
 License: MIT
@@ -59,7 +59,7 @@ E2B_API_KEY=e2b_***
 ```py
 from e2b_code_interpreter import Sandbox
 
-with Sandbox() as sandbox:
+with Sandbox.create() as sandbox:
     sandbox.run_code("x = 1")
     execution = sandbox.run_code("x+=1; x")
     print(execution.text)  # outputs 2

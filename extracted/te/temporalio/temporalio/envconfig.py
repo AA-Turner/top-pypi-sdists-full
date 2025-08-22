@@ -230,15 +230,10 @@ class ClientConfigProfile:
 
     def to_client_connect_config(self) -> ClientConnectConfig:
         """Create a `ClientConnectConfig` from this profile."""
-        if not self.address:
-            raise ValueError(
-                "Configuration profile must contain an 'address' to be used for "
-                "client connection"
-            )
-
         # Only include non-None values
         config: Dict[str, Any] = {}
-        config["target_host"] = self.address
+        if self.address:
+            config["target_host"] = self.address
         if self.namespace is not None:
             config["namespace"] = self.namespace
         if self.api_key is not None:
@@ -253,7 +248,7 @@ class ClientConfigProfile:
 
     @staticmethod
     def load(
-        profile: str = "default",
+        profile: Optional[str] = None,
         *,
         config_source: Optional[DataSource] = None,
         disable_file: bool = False,
@@ -377,7 +372,7 @@ class ClientConfig:
 
     @staticmethod
     def load_client_connect_config(
-        profile: str = "default",
+        profile: Optional[str] = None,
         *,
         config_file: Optional[str] = None,
         disable_file: bool = False,

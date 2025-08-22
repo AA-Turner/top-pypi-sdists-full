@@ -3,12 +3,12 @@ Search functionality for parsed documents.
 """
 
 import re
+from typing import List, Optional, Dict, Tuple, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Dict
 
 from edgar.documents.document import Document
-from edgar.documents.nodes import Node, HeadingNode
+from edgar.documents.nodes import Node, TextNode, HeadingNode
 from edgar.documents.table_nodes import TableNode
 from edgar.documents.types import NodeType, SemanticType
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marEx
-Version: 3.0.2
+Version: 3.0.3
 Summary: Marine Extremes Detection and Tracking
 Author-email: Aaron Wienkers <aaron@wienkers.com>
 Project-URL: Homepage, https://github.com/wienkers/marEx
@@ -86,8 +86,7 @@ Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: coverage[toml]>=6.0.0; extra == "test"
 Requires-Dist: psutil; extra == "test"
 
-
-![Logo](media/logo.png)
+<img width="4913" height="1784" alt="logo" src="https://github.com/user-attachments/assets/17868fac-d112-4ada-805b-d2bd079c60f0" />
 
 [![Continuous Integration](https://github.com/wienkers/marEx/actions/workflows/ci.yml/badge.svg)](https://github.com/wienkers/marEx/actions/workflows/ci.yml)
 [![Tests](https://github.com/wienkers/marEx/workflows/Tests/badge.svg)](https://github.com/wienkers/marEx/actions/workflows/tests.yml)

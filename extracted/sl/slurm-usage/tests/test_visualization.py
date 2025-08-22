@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import polars as pl
-import pytest
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -91,30 +90,33 @@ class TestNodeUsageAnalysis:
 
         df = pl.DataFrame(test_data)
         result = slurm_usage._extract_node_usage_data(df)
+        result_dicts = result.to_dicts()
 
         # Should have 3 nodes (node-001, node-002, node-003)
         expected_nodes = 3
         assert len(result) == expected_nodes
-        assert result[0]["node"] == "node-001"
-        assert result[1]["node"] == "node-002"
-        assert result[2]["node"] == "node-003"
+        assert result_dicts[0]["node"] == "node-001"
+        assert result_dicts[1]["node"] == "node-002"
+        assert result_dicts[2]["node"] == "node-003"
 
     def test_extract_node_usage_data_empty(self) -> None:
         """Test extracting node usage data from empty DataFrame."""
         df = pl.DataFrame()
         result = slurm_usage._extract_node_usage_data(df)
-        assert result == []
+        assert result.is_empty()
 
     def test_aggregate_node_statistics(self) -> None:
         """Test aggregating node statistics."""
-        node_usage_data: list[dict[str, float | str]] = [
-            {"node": "node-001", "cpu_hours": 10.0, "gpu_hours": 2.0, "elapsed_hours": 1.0},
-            {"node": "node-001", "cpu_hours": 15.0, "gpu_hours": 0.0, "elapsed_hours": 1.5},
-            {"node": "node-002", "cpu_hours": 20.0, "gpu_hours": 4.0, "elapsed_hours": 2.0},
-        ]
+        node_usage_df = pl.DataFrame(
+            [
+                {"node": "node-001", "cpu_hours": 10.0, "gpu_hours": 2.0, "elapsed_hours": 1.0},
+                {"node": "node-001", "cpu_hours": 15.0, "gpu_hours": 0.0, "elapsed_hours": 1.5},
+                {"node": "node-002", "cpu_hours": 20.0, "gpu_hours": 4.0, "elapsed_hours": 2.0},
+            ],
+        )
 
         with patch("slurm_usage._get_node_cpus", return_value=64):
-            result = slurm_usage._aggregate_node_statistics(node_usage_data, period_days=1)
+            result = slurm_usage._aggregate_node_statistics(node_usage_df, period_days=1)
 
             assert not result.is_empty()
             expected_unique_nodes = 2
@@ -129,13 +131,11 @@ class TestNodeUsageAnalysis:
 
     def test_aggregate_node_statistics_empty(self) -> None:
         """Test aggregating empty node statistics."""
-        result = slurm_usage._aggregate_node_statistics([], period_days=1)
+        result = slurm_usage._aggregate_node_statistics(pl.DataFrame(), period_days=1)
         assert result.is_empty()
 
     def test_calculate_analysis_period_days(self, test_dates: dict[str, str]) -> None:
         """Test calculating analysis period in days."""
-        from datetime import datetime, timedelta
-
         # Calculate dates relative to test_dates instead of hardcoding
         today = datetime.fromisoformat(f"{test_dates['today']}T00:00:00")
         tomorrow = today + timedelta(days=1)
@@ -143,12 +143,12 @@ class TestNodeUsageAnalysis:
 
         test_data = [
             {
-                "submit_time": f"{test_dates['today']}T10:00:00",
-                "end_time": f"{tomorrow.isoformat()}",  # 1 day after today
+                "submit_time": datetime.fromisoformat(f"{test_dates['today']}T10:00:00"),
+                "end_time": tomorrow,  # 1 day after today
             },
             {
-                "submit_time": f"{test_dates['tomorrow']}T10:00:00",
-                "end_time": f"{day_after_tomorrow.isoformat()}",  # 2 days after today
+                "submit_time": datetime.fromisoformat(f"{test_dates['tomorrow']}T10:00:00"),
+                "end_time": day_after_tomorrow,  # 2 days after today
             },
         ]
 
@@ -235,22 +235,25 @@ class TestNodeUsageAnalysis:
     ) -> None:
         """Test the main node usage stats function."""
         # Setup mocks
-        mock_extract.return_value = [
-            {"node": "node-001", "cpu_hours": 10.0, "gpu_hours": 0.0, "elapsed_hours": 1.0},
-        ]
+        mock_extract.return_value = pl.DataFrame(
+            [
+                {"node": "node-001", "cpu_hours": 10.0, "gpu_hours": 0.0, "elapsed_hours": 1.0},
+            ],
+        )
         mock_aggregate.return_value = pl.DataFrame(
             {"node": ["node-001"], "total_cpu_hours": [10.0]},
         )
 
-        # Create test DataFrame
+        # Create test DataFrame with datetime objects
+
         test_data = [
             {
                 "node_list": "node-001",
                 "cpu_hours_reserved": 10.0,
                 "gpu_hours_reserved": 0.0,
                 "elapsed_seconds": 3600,
-                "submit_time": f"{test_dates['today']}T10:00:00",
-                "end_time": f"{test_dates['today']}T11:00:00",
+                "submit_time": datetime.fromisoformat(f"{test_dates['today']}T10:00:00"),
+                "end_time": datetime.fromisoformat(f"{test_dates['today']}T11:00:00"),
             },
         ]
         df = pl.DataFrame(test_data)
@@ -303,9 +306,9 @@ class TestSummaryStatistics:
                 "req_mem_mb": 4096,
                 "cpu_efficiency": 80.0,
                 "memory_efficiency": 70.0,
-                "submit_time": f"{test_dates['today']}T10:00:00",
-                "start_time": f"{test_dates['today']}T10:05:00",
-                "end_time": f"{test_dates['today']}T11:05:00",
+                "submit_time": datetime.fromisoformat(f"{test_dates['today']}T10:00:00"),
+                "start_time": datetime.fromisoformat(f"{test_dates['today']}T10:05:00"),
+                "end_time": datetime.fromisoformat(f"{test_dates['today']}T11:05:00"),
                 "partition": "partition-01",
                 "job_name": "test_job",
                 "node_list": "node-001",
@@ -357,9 +360,9 @@ class TestSummaryStatistics:
                     "req_mem_mb": 4096,
                     "cpu_efficiency": 80.0 - i * 10,
                     "memory_efficiency": 70.0,
-                    "submit_time": f"{test_dates['today']}T10:00:00",
-                    "start_time": f"{test_dates['today']}T10:05:00",
-                    "end_time": f"{test_dates['today']}T11:05:00",
+                    "submit_time": datetime.fromisoformat(f"{test_dates['today']}T10:00:00"),
+                    "start_time": datetime.fromisoformat(f"{test_dates['today']}T10:05:00"),
+                    "end_time": datetime.fromisoformat(f"{test_dates['today']}T11:05:00"),
                     "partition": "partition-01",
                     "job_name": f"job_{user}",
                     "node_list": "node-001",
@@ -391,13 +394,15 @@ class TestErrorHandling:
 
     def test_get_node_cpus_error(self) -> None:
         """Test error handling when node not found."""
-        with pytest.raises(ValueError, match="Could not get CPU count"):
-            slurm_usage._get_node_cpus("nonexistent-node")
+        # Now returns None instead of raising exception
+        result = slurm_usage._get_node_cpus("nonexistent-node")
+        assert result is None
 
     def test_get_node_gpus_error(self) -> None:
         """Test error handling when node not found."""
-        with pytest.raises(ValueError, match="Could not get GPU count"):
-            slurm_usage._get_node_gpus("nonexistent-node")
+        # Now returns None instead of raising exception
+        result = slurm_usage._get_node_gpus("nonexistent-node")
+        assert result is None
 
     @patch("slurm_usage.run_sacct")
     def test_fetch_raw_records_error(self, mock_sacct: MagicMock, test_dates: dict[str, str]) -> None:

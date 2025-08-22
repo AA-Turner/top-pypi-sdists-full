@@ -1,7 +1,7 @@
 r'''
 # `azurerm_sentinel_data_connector_iot`
 
-Refer to the Terraform Registry for docs: [`azurerm_sentinel_data_connector_iot`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot).
+Refer to the Terraform Registry for docs: [`azurerm_sentinel_data_connector_iot`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SentinelDataConnectorIot(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.sentinelDataConnectorIot.SentinelDataConnectorIot",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot azurerm_sentinel_data_connector_iot}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot azurerm_sentinel_data_connector_iot}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class SentinelDataConnectorIot(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot azurerm_sentinel_data_connector_iot} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot azurerm_sentinel_data_connector_iot} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#log_analytics_workspace_id SentinelDataConnectorIot#log_analytics_workspace_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#name SentinelDataConnectorIot#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#id SentinelDataConnectorIot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#subscription_id SentinelDataConnectorIot#subscription_id}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#timeouts SentinelDataConnectorIot#timeouts}
+        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#log_analytics_workspace_id SentinelDataConnectorIot#log_analytics_workspace_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#name SentinelDataConnectorIot#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#id SentinelDataConnectorIot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#subscription_id SentinelDataConnectorIot#subscription_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#timeouts SentinelDataConnectorIot#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class SentinelDataConnectorIot(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SentinelDataConnectorIot to import.
-        :param import_from_id: The id of the existing SentinelDataConnectorIot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SentinelDataConnectorIot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SentinelDataConnectorIot to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class SentinelDataConnectorIot(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#create SentinelDataConnectorIot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#delete SentinelDataConnectorIot#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#read SentinelDataConnectorIot#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#create SentinelDataConnectorIot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#delete SentinelDataConnectorIot#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#read SentinelDataConnectorIot#read}.
         '''
         value = SentinelDataConnectorIotTimeouts(
             create=create, delete=delete, read=read
@@ -294,11 +294,11 @@ class SentinelDataConnectorIotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#log_analytics_workspace_id SentinelDataConnectorIot#log_analytics_workspace_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#name SentinelDataConnectorIot#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#id SentinelDataConnectorIot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#subscription_id SentinelDataConnectorIot#subscription_id}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#timeouts SentinelDataConnectorIot#timeouts}
+        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#log_analytics_workspace_id SentinelDataConnectorIot#log_analytics_workspace_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#name SentinelDataConnectorIot#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#id SentinelDataConnectorIot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#subscription_id SentinelDataConnectorIot#subscription_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#timeouts SentinelDataConnectorIot#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -409,21 +409,21 @@ class SentinelDataConnectorIotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def log_analytics_workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#log_analytics_workspace_id SentinelDataConnectorIot#log_analytics_workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#log_analytics_workspace_id SentinelDataConnectorIot#log_analytics_workspace_id}.'''
         result = self._values.get("log_analytics_workspace_id")
         assert result is not None, "Required property 'log_analytics_workspace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#name SentinelDataConnectorIot#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#name SentinelDataConnectorIot#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#id SentinelDataConnectorIot#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#id SentinelDataConnectorIot#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -433,7 +433,7 @@ class SentinelDataConnectorIotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def subscription_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#subscription_id SentinelDataConnectorIot#subscription_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#subscription_id SentinelDataConnectorIot#subscription_id}.'''
         result = self._values.get("subscription_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -441,7 +441,7 @@ class SentinelDataConnectorIotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SentinelDataConnectorIotTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#timeouts SentinelDataConnectorIot#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#timeouts SentinelDataConnectorIot#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SentinelDataConnectorIotTimeouts"], result)
@@ -472,9 +472,9 @@ class SentinelDataConnectorIotTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#create SentinelDataConnectorIot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#delete SentinelDataConnectorIot#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#read SentinelDataConnectorIot#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#create SentinelDataConnectorIot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#delete SentinelDataConnectorIot#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#read SentinelDataConnectorIot#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aeb3c7bd31f1d332cb9a18e44aa7e59888399175650cf8f1573581294086df27)
@@ -491,19 +491,19 @@ class SentinelDataConnectorIotTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#create SentinelDataConnectorIot#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#create SentinelDataConnectorIot#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#delete SentinelDataConnectorIot#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#delete SentinelDataConnectorIot#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_data_connector_iot#read SentinelDataConnectorIot#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_data_connector_iot#read SentinelDataConnectorIot#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

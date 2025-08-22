@@ -1,16 +1,17 @@
 Metadata-Version: 2.4
 Name: daft
-Version: 0.5.20
+Version: 0.5.21
 Requires-Dist: pyarrow>=8.0.0
 Requires-Dist: fsspec
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.0.0
-Requires-Dist: daft[aws,azure,gcp,ray,pandas,numpy,iceberg,deltalake,spark,sql,unity,clickhouse] ; extra == 'all'
+Requires-Dist: daft[aws,azure,gcp,ray,pandas,numpy,iceberg,deltalake,spark,sql,unity,clickhouse,huggingface] ; extra == 'all'
 Requires-Dist: boto3 ; extra == 'aws'
 Requires-Dist: clickhouse-connect ; extra == 'clickhouse'
 Requires-Dist: deltalake ; extra == 'deltalake'
 Requires-Dist: packaging ; extra == 'deltalake'
 Requires-Dist: pyarrow>=8.0.0 ; extra == 'hudi'
+Requires-Dist: huggingface-hub ; extra == 'huggingface'
 Requires-Dist: pyiceberg>=0.7.0 ; extra == 'iceberg'
 Requires-Dist: packaging ; extra == 'iceberg'
 Requires-Dist: pylance ; extra == 'lance'
@@ -38,6 +39,7 @@ Provides-Extra: clickhouse
 Provides-Extra: deltalake
 Provides-Extra: gcp
 Provides-Extra: hudi
+Provides-Extra: huggingface
 Provides-Extra: iceberg
 Provides-Extra: lance
 Provides-Extra: numpy

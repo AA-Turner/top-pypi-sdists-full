@@ -12,7 +12,9 @@
 #   under the License.
 
 from unittest import mock
+import uuid
 
+from openstack.block_storage.v2 import snapshot as _snapshot
 from openstack.block_storage.v2 import volume as _volume
 from openstack import exceptions as sdk_exceptions
 from openstack.test import fakes as sdk_fakes
@@ -20,6 +22,7 @@ from osc_lib.cli import format_columns
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient.api import volume_v2
 from openstackclient.tests.unit.identity.v3 import fakes as identity_fakes
 from openstackclient.tests.unit.image.v2 import fakes as image_fakes
 from openstackclient.tests.unit import utils as test_utils
@@ -50,129 +53,156 @@ class TestVolume(volume_fakes.TestVolume):
         self.consistencygroups_mock.reset_mock()
 
 
-class TestVolumeCreate(TestVolume):
-    project = identity_fakes.FakeProject.create_one_project()
-    user = identity_fakes.FakeUser.create_one_user()
-
+class TestVolumeCreate(volume_fakes.TestVolume):
     columns = (
         'attachments',
         'availability_zone',
         'bootable',
+        'consistencygroup_id',
+        'created_at',
         'description',
+        'encrypted',
         'id',
+        'multiattach',
         'name',
+        'os-vol-host-attr:host',
+        'os-vol-mig-status-attr:migstat',
+        'os-vol-mig-status-attr:name_id',
+        'os-vol-tenant-attr:tenant_id',
+        'os-volume-replication:driver_data',
+        'os-volume-replication:extended_status',
         'properties',
+        'replication_status',
         'size',
         'snapshot_id',
+        'source_volid',
         'status',
         'type',
+        'updated_at',
+        'user_id',
+        'volume_image_metadata',
     )
 
     def setUp(self):
         super().setUp()
 
-        self.new_volume = volume_fakes.create_one_volume()
-        self.volumes_mock.create.return_value = self.new_volume
+        self.volume = sdk_fakes.generate_fake_resource(_volume.Volume)
+        self.volume_sdk_client.create_volume.return_value = self.volume
 
         self.datalist = (
-            self.new_volume.attachments,
-            self.new_volume.availability_zone,
-            self.new_volume.bootable,
-            self.new_volume.description,
-            self.new_volume.id,
-            self.new_volume.name,
-            format_columns.DictColumn(self.new_volume.metadata),
-            self.new_volume.size,
-            self.new_volume.snapshot_id,
-            self.new_volume.status,
-            self.new_volume.volume_type,
+            self.volume.attachments,
+            self.volume.availability_zone,
+            self.volume.is_bootable,
+            self.volume.consistency_group_id,
+            self.volume.created_at,
+            self.volume.description,
+            self.volume.is_encrypted,
+            self.volume.id,
+            self.volume.is_multiattach,
+            self.volume.name,
+            self.volume.host,
+            self.volume.migration_status,
+            self.volume.migration_id,
+            self.volume.project_id,
+            self.volume.replication_driver_data,
+            self.volume.extended_replication_status,
+            format_columns.DictColumn(self.volume.metadata),
+            self.volume.replication_status,
+            self.volume.size,
+            self.volume.snapshot_id,
+            self.volume.source_volume_id,
+            self.volume.status,
+            self.volume.volume_type,
+            self.volume.updated_at,
+            self.volume.user_id,
+            self.volume.volume_image_metadata,
         )
-
         # Get the command object to test
         self.cmd = volume.CreateVolume(self.app, None)
 
     def test_volume_create_min_options(self):
         arglist = [
             '--size',
-            str(self.new_volume.size),
+            str(self.volume.size),
         ]
         verifylist = [
-            ('size', self.new_volume.size),
+            ('size', self.volume.size),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        # In base command class ShowOne in cliff, abstract method take_action()
-        # returns a two-part tuple with a tuple of column names and a tuple of
-        # data to be shown.
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=self.volume.size,
             snapshot_id=None,
             name=None,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata=None,
-            imageRef=None,
-            source_volid=None,
-            consistencygroup_id=None,
+            image_id=None,
+            source_volume_id=None,
+            consistency_group_id=None,
             scheduler_hints=None,
         )
 
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
+        self.assertEqual(self.datalist, data)
 
     def test_volume_create_options(self):
-        consistency_group = volume_fakes.create_one_consistency_group()
-        self.consistencygroups_mock.get.return_value = consistency_group
+        consistency_group_id = 'cg123'
         arglist = [
             '--size',
-            str(self.new_volume.size),
+            str(self.volume.size),
             '--description',
-            self.new_volume.description,
+            self.volume.description,
             '--type',
-            self.new_volume.volume_type,
+            self.volume.volume_type,
             '--availability-zone',
-            self.new_volume.availability_zone,
+            self.volume.availability_zone,
             '--consistency-group',
-            consistency_group.id,
+            consistency_group_id,
             '--hint',
             'k=v',
-            self.new_volume.name,
+            self.volume.name,
         ]
         verifylist = [
-            ('size', self.new_volume.size),
-            ('description', self.new_volume.description),
-            ('type', self.new_volume.volume_type),
-            ('availability_zone', self.new_volume.availability_zone),
-            ('consistency_group', consistency_group.id),
+            ('size', self.volume.size),
+            ('description', self.volume.description),
+            ('type', self.volume.volume_type),
+            ('availability_zone', self.volume.availability_zone),
+            ('consistency_group', consistency_group_id),
             ('hint', {'k': 'v'}),
-            ('name', self.new_volume.name),
+            ('name', self.volume.name),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        # In base command class ShowOne in cliff, abstract method take_action()
-        # returns a two-part tuple with a tuple of column names and a tuple of
-        # data to be shown.
-        columns, data = self.cmd.take_action(parsed_args)
+        with mock.patch.object(
+            volume_v2,
+            'find_consistency_group',
+            return_value={'id': consistency_group_id},
+        ) as mock_find_cg:
+            columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=self.volume.size,
             snapshot_id=None,
-            name=self.new_volume.name,
-            description=self.new_volume.description,
-            volume_type=self.new_volume.volume_type,
-            availability_zone=self.new_volume.availability_zone,
+            name=self.volume.name,
+            description=self.volume.description,
+            volume_type=self.volume.volume_type,
+            availability_zone=self.volume.availability_zone,
             metadata=None,
-            imageRef=None,
-            source_volid=None,
-            consistencygroup_id=consistency_group.id,
+            image_id=None,
+            source_volume_id=None,
+            consistency_group_id=consistency_group_id,
             scheduler_hints={'k': 'v'},
+        )
+        mock_find_cg.assert_called_once_with(
+            self.volume_sdk_client, consistency_group_id
         )
 
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
+        self.assertEqual(self.datalist, data)
 
     def test_volume_create_properties(self):
         arglist = [
@@ -181,39 +211,36 @@ class TestVolumeCreate(TestVolume):
             '--property',
             'Beta=b',
             '--size',
-            str(self.new_volume.size),
-            self.new_volume.name,
+            str(self.volume.size),
+            self.volume.name,
         ]
         verifylist = [
             ('properties', {'Alpha': 'a', 'Beta': 'b'}),
-            ('size', self.new_volume.size),
-            ('name', self.new_volume.name),
+            ('size', self.volume.size),
+            ('name', self.volume.name),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        # In base command class ShowOne in cliff, abstract method take_action()
-        # returns a two-part tuple with a tuple of column names and a tuple of
-        # data to be shown.
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=self.volume.size,
             snapshot_id=None,
-            name=self.new_volume.name,
+            name=self.volume.name,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata={'Alpha': 'a', 'Beta': 'b'},
-            imageRef=None,
-            source_volid=None,
-            consistencygroup_id=None,
+            image_id=None,
+            source_volume_id=None,
+            consistency_group_id=None,
             scheduler_hints=None,
         )
 
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
+        self.assertEqual(self.datalist, data)
 
-    def test_volume_create_image_id(self):
+    def test_volume_create_image(self):
         image = image_fakes.create_one_image()
         self.image_client.find_image.return_value = image
 
@@ -221,152 +248,111 @@ class TestVolumeCreate(TestVolume):
             '--image',
             image.id,
             '--size',
-            str(self.new_volume.size),
-            self.new_volume.name,
+            str(self.volume.size),
+            self.volume.name,
         ]
         verifylist = [
             ('image', image.id),
-            ('size', self.new_volume.size),
-            ('name', self.new_volume.name),
+            ('size', self.volume.size),
+            ('name', self.volume.name),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        # In base command class ShowOne in cliff, abstract method take_action()
-        # returns a two-part tuple with a tuple of column names and a tuple of
-        # data to be shown.
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=self.volume.size,
             snapshot_id=None,
-            name=self.new_volume.name,
+            name=self.volume.name,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata=None,
-            imageRef=image.id,
-            source_volid=None,
-            consistencygroup_id=None,
+            image_id=image.id,
+            source_volume_id=None,
+            consistency_group_id=None,
             scheduler_hints=None,
+        )
+        self.image_client.find_image.assert_called_once_with(
+            image.id, ignore_missing=False
         )
 
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
-
-    def test_volume_create_image_name(self):
-        image = image_fakes.create_one_image()
-        self.image_client.find_image.return_value = image
-
-        arglist = [
-            '--image',
-            image.name,
-            '--size',
-            str(self.new_volume.size),
-            self.new_volume.name,
-        ]
-        verifylist = [
-            ('image', image.name),
-            ('size', self.new_volume.size),
-            ('name', self.new_volume.name),
-        ]
-        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
-
-        # In base command class ShowOne in cliff, abstract method take_action()
-        # returns a two-part tuple with a tuple of column names and a tuple of
-        # data to be shown.
-        columns, data = self.cmd.take_action(parsed_args)
-
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
-            snapshot_id=None,
-            name=self.new_volume.name,
-            description=None,
-            volume_type=None,
-            availability_zone=None,
-            metadata=None,
-            imageRef=image.id,
-            source_volid=None,
-            consistencygroup_id=None,
-            scheduler_hints=None,
-        )
-
-        self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
+        self.assertEqual(self.datalist, data)
 
     def test_volume_create_with_snapshot(self):
-        snapshot = volume_fakes.create_one_snapshot()
-        self.new_volume.snapshot_id = snapshot.id
+        snapshot = sdk_fakes.generate_fake_resource(_snapshot.Snapshot)
+        self.volume_sdk_client.find_snapshot.return_value = snapshot
+
         arglist = [
             '--snapshot',
-            self.new_volume.snapshot_id,
-            self.new_volume.name,
+            snapshot.id,
+            self.volume.name,
         ]
         verifylist = [
-            ('snapshot', self.new_volume.snapshot_id),
-            ('name', self.new_volume.name),
+            ('snapshot', snapshot.id),
+            ('name', self.volume.name),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        self.snapshots_mock.get.return_value = snapshot
-
-        # In base command class ShowOne in cliff, abstract method take_action()
-        # returns a two-part tuple with a tuple of column names and a tuple of
-        # data to be shown.
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_once_with(
+        self.volume_sdk_client.create_volume.assert_called_with(
             size=snapshot.size,
             snapshot_id=snapshot.id,
-            name=self.new_volume.name,
+            name=self.volume.name,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata=None,
-            imageRef=None,
-            source_volid=None,
-            consistencygroup_id=None,
+            image_id=None,
+            source_volume_id=None,
+            consistency_group_id=None,
             scheduler_hints=None,
+        )
+        self.volume_sdk_client.find_snapshot.assert_called_once_with(
+            snapshot.id, ignore_missing=False
         )
 
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
+        self.assertEqual(self.datalist, data)
 
     def test_volume_create_with_source_volume(self):
-        source_vol = "source_vol"
+        source_volume = sdk_fakes.generate_fake_resource(_volume.Volume)
+        self.volume_sdk_client.find_volume.return_value = source_volume
+
         arglist = [
             '--source',
-            self.new_volume.id,
-            source_vol,
+            source_volume.id,
+            self.volume.name,
         ]
         verifylist = [
-            ('source', self.new_volume.id),
-            ('name', source_vol),
+            ('source', source_volume.id),
+            ('name', self.volume.name),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        self.volumes_mock.get.return_value = self.new_volume
-
-        # In base command class ShowOne in cliff, abstract method take_action()
-        # returns a two-part tuple with a tuple of column names and a tuple of
-        # data to be shown.
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_once_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=source_volume.size,
             snapshot_id=None,
-            name=source_vol,
+            name=self.volume.name,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata=None,
-            imageRef=None,
-            source_volid=self.new_volume.id,
-            consistencygroup_id=None,
+            image_id=None,
+            source_volume_id=source_volume.id,
+            consistency_group_id=None,
             scheduler_hints=None,
+        )
+        self.volume_sdk_client.find_volume.assert_called_once_with(
+            source_volume.id, ignore_missing=False
         )
 
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
+        self.assertEqual(self.datalist, data)
 
     @mock.patch.object(utils, 'wait_for_status', return_value=True)
     def test_volume_create_with_bootable_and_readonly(self, mock_wait):
@@ -374,42 +360,42 @@ class TestVolumeCreate(TestVolume):
             '--bootable',
             '--read-only',
             '--size',
-            str(self.new_volume.size),
-            self.new_volume.name,
+            str(self.volume.size),
+            self.volume.name,
         ]
         verifylist = [
             ('bootable', True),
             ('read_only', True),
-            ('size', self.new_volume.size),
-            ('name', self.new_volume.name),
+            ('size', self.volume.size),
+            ('name', self.volume.name),
         ]
 
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=self.volume.size,
             snapshot_id=None,
-            name=self.new_volume.name,
+            name=self.volume.name,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata=None,
-            imageRef=None,
-            source_volid=None,
-            consistencygroup_id=None,
+            image_id=None,
+            source_volume_id=None,
+            consistency_group_id=None,
             scheduler_hints=None,
+        )
+        self.volume_sdk_client.set_volume_bootable_status.assert_called_once_with(
+            self.volume, True
+        )
+        self.volume_sdk_client.set_volume_readonly.assert_called_once_with(
+            self.volume, True
         )
 
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
-        self.volumes_mock.set_bootable.assert_called_with(
-            self.new_volume.id, True
-        )
-        self.volumes_mock.update_readonly_flag.assert_called_with(
-            self.new_volume.id, True
-        )
+        self.assertEqual(self.datalist, data)
 
     @mock.patch.object(utils, 'wait_for_status', return_value=True)
     def test_volume_create_with_nonbootable_and_readwrite(self, mock_wait):
@@ -417,145 +403,144 @@ class TestVolumeCreate(TestVolume):
             '--non-bootable',
             '--read-write',
             '--size',
-            str(self.new_volume.size),
-            self.new_volume.name,
+            str(self.volume.size),
+            self.volume.name,
         ]
         verifylist = [
             ('bootable', False),
             ('read_only', False),
-            ('size', self.new_volume.size),
-            ('name', self.new_volume.name),
+            ('size', self.volume.size),
+            ('name', self.volume.name),
         ]
 
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=self.volume.size,
             snapshot_id=None,
-            name=self.new_volume.name,
+            name=self.volume.name,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata=None,
-            imageRef=None,
-            source_volid=None,
-            consistencygroup_id=None,
+            image_id=None,
+            source_volume_id=None,
+            consistency_group_id=None,
             scheduler_hints=None,
+        )
+        self.volume_sdk_client.set_volume_bootable_status.assert_called_once_with(
+            self.volume, False
+        )
+        self.volume_sdk_client.set_volume_readonly.assert_called_once_with(
+            self.volume, False
         )
 
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
-        self.volumes_mock.set_bootable.assert_called_with(
-            self.new_volume.id, False
-        )
-        self.volumes_mock.update_readonly_flag.assert_called_with(
-            self.new_volume.id, False
-        )
+        self.assertEqual(self.datalist, data)
 
     @mock.patch.object(volume.LOG, 'error')
     @mock.patch.object(utils, 'wait_for_status', return_value=True)
     def test_volume_create_with_bootable_and_readonly_fail(
         self, mock_wait, mock_error
     ):
-        self.volumes_mock.set_bootable.side_effect = exceptions.CommandError()
-
-        self.volumes_mock.update_readonly_flag.side_effect = (
-            exceptions.CommandError()
+        self.volume_sdk_client.set_volume_bootable_status.side_effect = (
+            sdk_exceptions.NotFoundException('foo')
+        )
+        self.volume_sdk_client.set_volume_readonly.side_effect = (
+            sdk_exceptions.NotFoundException('foo')
         )
 
         arglist = [
             '--bootable',
             '--read-only',
             '--size',
-            str(self.new_volume.size),
-            self.new_volume.name,
+            str(self.volume.size),
+            self.volume.name,
         ]
         verifylist = [
             ('bootable', True),
             ('read_only', True),
-            ('size', self.new_volume.size),
-            ('name', self.new_volume.name),
+            ('size', self.volume.size),
+            ('name', self.volume.name),
         ]
 
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=self.volume.size,
             snapshot_id=None,
-            name=self.new_volume.name,
+            name=self.volume.name,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata=None,
-            imageRef=None,
-            source_volid=None,
-            consistencygroup_id=None,
+            image_id=None,
+            source_volume_id=None,
+            consistency_group_id=None,
             scheduler_hints=None,
+        )
+        self.volume_sdk_client.set_volume_bootable_status.assert_called_once_with(
+            self.volume, True
+        )
+        self.volume_sdk_client.set_volume_readonly.assert_called_once_with(
+            self.volume, True
         )
 
         self.assertEqual(2, mock_error.call_count)
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
-        self.volumes_mock.set_bootable.assert_called_with(
-            self.new_volume.id, True
-        )
-        self.volumes_mock.update_readonly_flag.assert_called_with(
-            self.new_volume.id, True
-        )
+        self.assertEqual(self.datalist, data)
 
     @mock.patch.object(volume.LOG, 'error')
     @mock.patch.object(utils, 'wait_for_status', return_value=False)
     def test_volume_create_non_available_with_readonly(
-        self,
-        mock_wait,
-        mock_error,
+        self, mock_wait, mock_error
     ):
         arglist = [
             '--non-bootable',
             '--read-only',
             '--size',
-            str(self.new_volume.size),
-            self.new_volume.name,
+            str(self.volume.size),
+            self.volume.name,
         ]
         verifylist = [
             ('bootable', False),
             ('read_only', True),
-            ('size', self.new_volume.size),
-            ('name', self.new_volume.name),
+            ('size', self.volume.size),
+            ('name', self.volume.name),
         ]
 
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=self.volume.size,
             snapshot_id=None,
-            name=self.new_volume.name,
+            name=self.volume.name,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata=None,
-            imageRef=None,
-            source_volid=None,
-            consistencygroup_id=None,
+            image_id=None,
+            source_volume_id=None,
+            consistency_group_id=None,
             scheduler_hints=None,
         )
 
         self.assertEqual(2, mock_error.call_count)
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
+        self.assertEqual(self.datalist, data)
 
     def test_volume_create_without_size(self):
         arglist = [
-            self.new_volume.name,
+            self.volume.name,
         ]
         verifylist = [
-            ('name', self.new_volume.name),
+            ('name', self.volume.name),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
@@ -572,15 +557,15 @@ class TestVolumeCreate(TestVolume):
             '--snapshot',
             'source_snapshot',
             '--size',
-            str(self.new_volume.size),
-            self.new_volume.name,
+            str(self.volume.size),
+            self.volume.name,
         ]
         verifylist = [
             ('image', 'source_image'),
             ('source', 'source_volume'),
             ('snapshot', 'source_snapshot'),
-            ('size', self.new_volume.size),
-            ('name', self.new_volume.name),
+            ('size', self.volume.size),
+            ('name', self.volume.name),
         ]
 
         self.assertRaises(
@@ -599,7 +584,7 @@ class TestVolumeCreate(TestVolume):
         """
         arglist = [
             '--size',
-            str(self.new_volume.size),
+            str(self.volume.size),
             '--hint',
             'k=v',
             '--hint',
@@ -614,10 +599,10 @@ class TestVolumeCreate(TestVolume):
             'local_to_instance=v6',
             '--hint',
             'different_host=v7',
-            self.new_volume.name,
+            self.volume.name,
         ]
         verifylist = [
-            ('size', self.new_volume.size),
+            ('size', self.volume.size),
             (
                 'hint',
                 {
@@ -627,26 +612,23 @@ class TestVolumeCreate(TestVolume):
                     'different_host': ['v5', 'v7'],
                 },
             ),
-            ('name', self.new_volume.name),
+            ('name', self.volume.name),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        # In base command class ShowOne in cliff, abstract method take_action()
-        # returns a two-part tuple with a tuple of column names and a tuple of
-        # data to be shown.
         columns, data = self.cmd.take_action(parsed_args)
 
-        self.volumes_mock.create.assert_called_with(
-            size=self.new_volume.size,
+        self.volume_sdk_client.create_volume.assert_called_with(
+            size=self.volume.size,
             snapshot_id=None,
-            name=self.new_volume.name,
+            name=self.volume.name,
             description=None,
             volume_type=None,
             availability_zone=None,
             metadata=None,
-            imageRef=None,
-            source_volid=None,
-            consistencygroup_id=None,
+            image_id=None,
+            source_volume_id=None,
+            consistency_group_id=None,
             scheduler_hints={
                 'k': 'v2',
                 'same_host': ['v3', 'v4'],
@@ -656,7 +638,7 @@ class TestVolumeCreate(TestVolume):
         )
 
         self.assertEqual(self.columns, columns)
-        self.assertCountEqual(self.datalist, data)
+        self.assertEqual(self.datalist, data)
 
 
 class TestVolumeDelete(volume_fakes.TestVolume):
@@ -1312,37 +1294,42 @@ class TestVolumeList(TestVolume):
             self.assertIn(self.mock_volume.name, each_volume)
 
 
-class TestVolumeMigrate(TestVolume):
-    _volume = volume_fakes.create_one_volume()
-
+class TestVolumeMigrate(volume_fakes.TestVolume):
     def setUp(self):
         super().setUp()
 
-        self.volumes_mock.get.return_value = self._volume
-        self.volumes_mock.migrate_volume.return_value = None
-        # Get the command object to test
+        self.volume = sdk_fakes.generate_fake_resource(_volume.Volume)
+        self.volume_sdk_client.find_volume.return_value = self.volume
+        self.volume_sdk_client.migrate_volume.return_value = None
+
         self.cmd = volume.MigrateVolume(self.app, None)
 
     def test_volume_migrate(self):
         arglist = [
             "--host",
             "host@backend-name#pool",
-            self._volume.id,
+            self.volume.id,
         ]
         verifylist = [
             ("force_host_copy", False),
             ("lock_volume", False),
             ("host", "host@backend-name#pool"),
-            ("volume", self._volume.id),
+            ("volume", self.volume.id),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         result = self.cmd.take_action(parsed_args)
-        self.volumes_mock.get.assert_called_once_with(self._volume.id)
-        self.volumes_mock.migrate_volume.assert_called_once_with(
-            self._volume.id, "host@backend-name#pool", False, False
-        )
         self.assertIsNone(result)
+
+        self.volume_sdk_client.find_volume.assert_called_with(
+            self.volume.id, ignore_missing=False
+        )
+        self.volume_sdk_client.migrate_volume.assert_called_once_with(
+            self.volume.id,
+            host="host@backend-name#pool",
+            force_host_copy=False,
+            lock_volume=False,
+        )
 
     def test_volume_migrate_with_option(self):
         arglist = [
@@ -1350,31 +1337,37 @@ class TestVolumeMigrate(TestVolume):
             "--lock-volume",
             "--host",
             "host@backend-name#pool",
-            self._volume.id,
+            self.volume.id,
         ]
         verifylist = [
             ("force_host_copy", True),
             ("lock_volume", True),
             ("host", "host@backend-name#pool"),
-            ("volume", self._volume.id),
+            ("volume", self.volume.id),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         result = self.cmd.take_action(parsed_args)
-        self.volumes_mock.get.assert_called_once_with(self._volume.id)
-        self.volumes_mock.migrate_volume.assert_called_once_with(
-            self._volume.id, "host@backend-name#pool", True, True
-        )
         self.assertIsNone(result)
+
+        self.volume_sdk_client.find_volume.assert_called_with(
+            self.volume.id, ignore_missing=False
+        )
+        self.volume_sdk_client.migrate_volume.assert_called_once_with(
+            self.volume.id,
+            host="host@backend-name#pool",
+            force_host_copy=True,
+            lock_volume=True,
+        )
 
     def test_volume_migrate_without_host(self):
         arglist = [
-            self._volume.id,
+            self.volume.id,
         ]
         verifylist = [
             ("force_host_copy", False),
             ("lock_volume", False),
-            ("volume", self._volume.id),
+            ("volume", self.volume.id),
         ]
 
         self.assertRaises(
@@ -1384,6 +1377,9 @@ class TestVolumeMigrate(TestVolume):
             arglist,
             verifylist,
         )
+
+        self.volume_sdk_client.find_volume.assert_not_called()
+        self.volume_sdk_client.migrate_volume.assert_not_called()
 
 
 class TestVolumeSet(TestVolume):
@@ -1627,42 +1623,83 @@ class TestVolumeSet(TestVolume):
         self.assertIsNone(result)
 
 
-class TestVolumeShow(TestVolume):
+class TestVolumeShow(volume_fakes.TestVolume):
     def setUp(self):
         super().setUp()
 
-        self._volume = volume_fakes.create_one_volume()
-        self.volumes_mock.get.return_value = self._volume
-        # Get the command object to test
+        self.volume = sdk_fakes.generate_fake_resource(_volume.Volume)
+        self.volume_sdk_client.find_volume.return_value = self.volume
+
+        self.columns = (
+            'attachments',
+            'availability_zone',
+            'bootable',
+            'consistencygroup_id',
+            'created_at',
+            'description',
+            'encrypted',
+            'id',
+            'multiattach',
+            'name',
+            'os-vol-host-attr:host',
+            'os-vol-mig-status-attr:migstat',
+            'os-vol-mig-status-attr:name_id',
+            'os-vol-tenant-attr:tenant_id',
+            'os-volume-replication:driver_data',
+            'os-volume-replication:extended_status',
+            'properties',
+            'replication_status',
+            'size',
+            'snapshot_id',
+            'source_volid',
+            'status',
+            'type',
+            'updated_at',
+            'user_id',
+            'volume_image_metadata',
+        )
+        self.data = (
+            self.volume.attachments,
+            self.volume.availability_zone,
+            self.volume.is_bootable,
+            self.volume.consistency_group_id,
+            self.volume.created_at,
+            self.volume.description,
+            self.volume.is_encrypted,
+            self.volume.id,
+            self.volume.is_multiattach,
+            self.volume.name,
+            self.volume.host,
+            self.volume.migration_status,
+            self.volume.migration_id,
+            self.volume.project_id,
+            self.volume.replication_driver_data,
+            self.volume.extended_replication_status,
+            format_columns.DictColumn(self.volume.metadata),
+            self.volume.replication_status,
+            self.volume.size,
+            self.volume.snapshot_id,
+            self.volume.source_volume_id,
+            self.volume.status,
+            self.volume.volume_type,
+            self.volume.updated_at,
+            self.volume.user_id,
+            self.volume.volume_image_metadata,
+        )
+
         self.cmd = volume.ShowVolume(self.app, None)
 
     def test_volume_show(self):
-        arglist = [self._volume.id]
-        verifylist = [("volume", self._volume.id)]
+        arglist = [self.volume.id]
+        verifylist = [("volume", self.volume.id)]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         columns, data = self.cmd.take_action(parsed_args)
-        self.volumes_mock.get.assert_called_with(self._volume.id)
 
-        self.assertEqual(
-            tuple(sorted(self._volume.keys())),
-            columns,
-        )
-        self.assertTupleEqual(
-            (
-                self._volume.attachments,
-                self._volume.availability_zone,
-                self._volume.bootable,
-                self._volume.description,
-                self._volume.id,
-                self._volume.name,
-                format_columns.DictColumn(self._volume.metadata),
-                self._volume.size,
-                self._volume.snapshot_id,
-                self._volume.status,
-                self._volume.volume_type,
-            ),
-            data,
+        self.assertEqual(self.columns, columns)
+        self.assertEqual(self.data, data)
+        self.volume_sdk_client.find_volume.assert_called_with(
+            self.volume.id, ignore_missing=False
         )
 
 
@@ -1753,31 +1790,47 @@ class TestVolumeUnset(TestVolume):
         )
 
 
-class TestColumns(TestVolume):
+class TestColumns(volume_fakes.TestVolume):
     def test_attachments_column_without_server_cache(self):
-        _volume = volume_fakes.create_one_volume()
-        server_id = _volume.attachments[0]['server_id']
-        device = _volume.attachments[0]['device']
+        vol = sdk_fakes.generate_fake_resource(
+            _volume.Volume,
+            attachments=[
+                {
+                    'device': '/dev/' + uuid.uuid4().hex,
+                    'server_id': uuid.uuid4().hex,
+                },
+            ],
+        )
+        server_id = vol.attachments[0]['server_id']
+        device = vol.attachments[0]['device']
 
-        col = volume.AttachmentsColumn(_volume.attachments, {})
+        col = volume.AttachmentsColumn(vol.attachments, {})
         self.assertEqual(
             f'Attached to {server_id} on {device} ',
             col.human_readable(),
         )
-        self.assertEqual(_volume.attachments, col.machine_readable())
+        self.assertEqual(vol.attachments, col.machine_readable())
 
     def test_attachments_column_with_server_cache(self):
-        _volume = volume_fakes.create_one_volume()
+        vol = sdk_fakes.generate_fake_resource(
+            _volume.Volume,
+            attachments=[
+                {
+                    'device': '/dev/' + uuid.uuid4().hex,
+                    'server_id': uuid.uuid4().hex,
+                },
+            ],
+        )
 
-        server_id = _volume.attachments[0]['server_id']
-        device = _volume.attachments[0]['device']
+        server_id = vol.attachments[0]['server_id']
+        device = vol.attachments[0]['device']
         fake_server = mock.Mock()
         fake_server.name = 'fake-server-name'
         server_cache = {server_id: fake_server}
 
-        col = volume.AttachmentsColumn(_volume.attachments, server_cache)
+        col = volume.AttachmentsColumn(vol.attachments, server_cache)
         self.assertEqual(
             'Attached to {} on {} '.format('fake-server-name', device),
             col.human_readable(),
         )
-        self.assertEqual(_volume.attachments, col.machine_readable())
+        self.assertEqual(vol.attachments, col.machine_readable())

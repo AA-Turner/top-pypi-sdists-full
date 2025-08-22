@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-cli
-Version: 0.3.7
+Version: 0.3.8
 Summary: CLI for interacting with LangGraph API
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
 License-Expression: MIT
@@ -9,7 +9,7 @@ Requires-Python: >=3.9
 Requires-Dist: click>=8.1.7
 Requires-Dist: langgraph-sdk>=0.1.0; python_version >= '3.11'
 Provides-Extra: inmem
-Requires-Dist: langgraph-api<0.3.0,>=0.2.120; (python_version >= '3.11') and extra == 'inmem'
+Requires-Dist: langgraph-api<0.4.0,>=0.2.120; (python_version >= '3.11') and extra == 'inmem'
 Requires-Dist: langgraph-runtime-inmem>=0.6.8; (python_version >= '3.11') and extra == 'inmem'
 Requires-Dist: python-dotenv>=0.8.0; extra == 'inmem'
 Description-Content-Type: text/markdown

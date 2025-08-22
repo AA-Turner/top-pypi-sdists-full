@@ -1,7 +1,7 @@
 r'''
 # `azurerm_container_app_job`
 
-Refer to the Terraform Registry for docs: [`azurerm_container_app_job`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job).
+Refer to the Terraform Registry for docs: [`azurerm_container_app_job`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerAppJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.containerAppJob.ContainerAppJob",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job azurerm_container_app_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job azurerm_container_app_job}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class ContainerAppJob(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job azurerm_container_app_job} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job azurerm_container_app_job} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param container_app_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#container_app_environment_id ContainerAppJob#container_app_environment_id}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#location ContainerAppJob#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}.
-        :param replica_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_timeout_in_seconds ContainerAppJob#replica_timeout_in_seconds}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#resource_group_name ContainerAppJob#resource_group_name}.
-        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#template ContainerAppJob#template}
-        :param event_trigger_config: event_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#event_trigger_config ContainerAppJob#event_trigger_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#id ContainerAppJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
-        :param manual_trigger_config: manual_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#manual_trigger_config ContainerAppJob#manual_trigger_config}
-        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#registry ContainerAppJob#registry}
-        :param replica_retry_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_retry_limit ContainerAppJob#replica_retry_limit}.
-        :param schedule_trigger_config: schedule_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#schedule_trigger_config ContainerAppJob#schedule_trigger_config}
-        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#secret ContainerAppJob#secret}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#tags ContainerAppJob#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#timeouts ContainerAppJob#timeouts}
-        :param workload_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#workload_profile_name ContainerAppJob#workload_profile_name}.
+        :param container_app_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#container_app_environment_id ContainerAppJob#container_app_environment_id}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#location ContainerAppJob#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}.
+        :param replica_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_timeout_in_seconds ContainerAppJob#replica_timeout_in_seconds}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#resource_group_name ContainerAppJob#resource_group_name}.
+        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#template ContainerAppJob#template}
+        :param event_trigger_config: event_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#event_trigger_config ContainerAppJob#event_trigger_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#id ContainerAppJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
+        :param manual_trigger_config: manual_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#manual_trigger_config ContainerAppJob#manual_trigger_config}
+        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#registry ContainerAppJob#registry}
+        :param replica_retry_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_retry_limit ContainerAppJob#replica_retry_limit}.
+        :param schedule_trigger_config: schedule_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#schedule_trigger_config ContainerAppJob#schedule_trigger_config}
+        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#secret ContainerAppJob#secret}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#tags ContainerAppJob#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#timeouts ContainerAppJob#timeouts}
+        :param workload_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#workload_profile_name ContainerAppJob#workload_profile_name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class ContainerAppJob(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerAppJob to import.
-        :param import_from_id: The id of the existing ContainerAppJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerAppJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerAppJob to import is found.
         '''
         if __debug__:
@@ -171,9 +171,9 @@ class ContainerAppJob(
         scale: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppJobEventTriggerConfigScale", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
-        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
-        :param scale: scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#scale ContainerAppJob#scale}
+        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
+        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
+        :param scale: scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#scale ContainerAppJob#scale}
         '''
         value = ContainerAppJobEventTriggerConfig(
             parallelism=parallelism,
@@ -191,8 +191,8 @@ class ContainerAppJob(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#type ContainerAppJob#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity_ids ContainerAppJob#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#type ContainerAppJob#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity_ids ContainerAppJob#identity_ids}.
         '''
         value = ContainerAppJobIdentity(type=type, identity_ids=identity_ids)
 
@@ -206,8 +206,8 @@ class ContainerAppJob(
         replica_completion_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
-        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
+        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
+        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
         '''
         value = ContainerAppJobManualTriggerConfig(
             parallelism=parallelism, replica_completion_count=replica_completion_count
@@ -237,9 +237,9 @@ class ContainerAppJob(
         replica_completion_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cron_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#cron_expression ContainerAppJob#cron_expression}.
-        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
-        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
+        :param cron_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#cron_expression ContainerAppJob#cron_expression}.
+        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
+        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
         '''
         value = ContainerAppJobScheduleTriggerConfig(
             cron_expression=cron_expression,
@@ -271,9 +271,9 @@ class ContainerAppJob(
         volume: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppJobTemplateVolume", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#container ContainerAppJob#container}
-        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#init_container ContainerAppJob#init_container}
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#volume ContainerAppJob#volume}
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#container ContainerAppJob#container}
+        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#init_container ContainerAppJob#init_container}
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#volume ContainerAppJob#volume}
         '''
         value = ContainerAppJobTemplate(
             container=container, init_container=init_container, volume=volume
@@ -291,10 +291,10 @@ class ContainerAppJob(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#create ContainerAppJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#delete ContainerAppJob#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#read ContainerAppJob#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#update ContainerAppJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#create ContainerAppJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#delete ContainerAppJob#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#read ContainerAppJob#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#update ContainerAppJob#update}.
         '''
         value = ContainerAppJobTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -688,23 +688,23 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param container_app_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#container_app_environment_id ContainerAppJob#container_app_environment_id}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#location ContainerAppJob#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}.
-        :param replica_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_timeout_in_seconds ContainerAppJob#replica_timeout_in_seconds}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#resource_group_name ContainerAppJob#resource_group_name}.
-        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#template ContainerAppJob#template}
-        :param event_trigger_config: event_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#event_trigger_config ContainerAppJob#event_trigger_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#id ContainerAppJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
-        :param manual_trigger_config: manual_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#manual_trigger_config ContainerAppJob#manual_trigger_config}
-        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#registry ContainerAppJob#registry}
-        :param replica_retry_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_retry_limit ContainerAppJob#replica_retry_limit}.
-        :param schedule_trigger_config: schedule_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#schedule_trigger_config ContainerAppJob#schedule_trigger_config}
-        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#secret ContainerAppJob#secret}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#tags ContainerAppJob#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#timeouts ContainerAppJob#timeouts}
-        :param workload_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#workload_profile_name ContainerAppJob#workload_profile_name}.
+        :param container_app_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#container_app_environment_id ContainerAppJob#container_app_environment_id}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#location ContainerAppJob#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}.
+        :param replica_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_timeout_in_seconds ContainerAppJob#replica_timeout_in_seconds}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#resource_group_name ContainerAppJob#resource_group_name}.
+        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#template ContainerAppJob#template}
+        :param event_trigger_config: event_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#event_trigger_config ContainerAppJob#event_trigger_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#id ContainerAppJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
+        :param manual_trigger_config: manual_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#manual_trigger_config ContainerAppJob#manual_trigger_config}
+        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#registry ContainerAppJob#registry}
+        :param replica_retry_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_retry_limit ContainerAppJob#replica_retry_limit}.
+        :param schedule_trigger_config: schedule_trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#schedule_trigger_config ContainerAppJob#schedule_trigger_config}
+        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#secret ContainerAppJob#secret}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#tags ContainerAppJob#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#timeouts ContainerAppJob#timeouts}
+        :param workload_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#workload_profile_name ContainerAppJob#workload_profile_name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -857,35 +857,35 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def container_app_environment_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#container_app_environment_id ContainerAppJob#container_app_environment_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#container_app_environment_id ContainerAppJob#container_app_environment_id}.'''
         result = self._values.get("container_app_environment_id")
         assert result is not None, "Required property 'container_app_environment_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#location ContainerAppJob#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#location ContainerAppJob#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def replica_timeout_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_timeout_in_seconds ContainerAppJob#replica_timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_timeout_in_seconds ContainerAppJob#replica_timeout_in_seconds}.'''
         result = self._values.get("replica_timeout_in_seconds")
         assert result is not None, "Required property 'replica_timeout_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#resource_group_name ContainerAppJob#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#resource_group_name ContainerAppJob#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -894,7 +894,7 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template(self) -> "ContainerAppJobTemplate":
         '''template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#template ContainerAppJob#template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#template ContainerAppJob#template}
         '''
         result = self._values.get("template")
         assert result is not None, "Required property 'template' is missing"
@@ -906,14 +906,14 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ContainerAppJobEventTriggerConfig"]:
         '''event_trigger_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#event_trigger_config ContainerAppJob#event_trigger_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#event_trigger_config ContainerAppJob#event_trigger_config}
         '''
         result = self._values.get("event_trigger_config")
         return typing.cast(typing.Optional["ContainerAppJobEventTriggerConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#id ContainerAppJob#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#id ContainerAppJob#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -925,7 +925,7 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["ContainerAppJobIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["ContainerAppJobIdentity"], result)
@@ -936,7 +936,7 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ContainerAppJobManualTriggerConfig"]:
         '''manual_trigger_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#manual_trigger_config ContainerAppJob#manual_trigger_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#manual_trigger_config ContainerAppJob#manual_trigger_config}
         '''
         result = self._values.get("manual_trigger_config")
         return typing.cast(typing.Optional["ContainerAppJobManualTriggerConfig"], result)
@@ -947,14 +947,14 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobRegistry"]]]:
         '''registry block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#registry ContainerAppJob#registry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#registry ContainerAppJob#registry}
         '''
         result = self._values.get("registry")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobRegistry"]]], result)
 
     @builtins.property
     def replica_retry_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_retry_limit ContainerAppJob#replica_retry_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_retry_limit ContainerAppJob#replica_retry_limit}.'''
         result = self._values.get("replica_retry_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -964,7 +964,7 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ContainerAppJobScheduleTriggerConfig"]:
         '''schedule_trigger_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#schedule_trigger_config ContainerAppJob#schedule_trigger_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#schedule_trigger_config ContainerAppJob#schedule_trigger_config}
         '''
         result = self._values.get("schedule_trigger_config")
         return typing.cast(typing.Optional["ContainerAppJobScheduleTriggerConfig"], result)
@@ -975,14 +975,14 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobSecret"]]]:
         '''secret block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#secret ContainerAppJob#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#secret ContainerAppJob#secret}
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobSecret"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#tags ContainerAppJob#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#tags ContainerAppJob#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -990,14 +990,14 @@ class ContainerAppJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerAppJobTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#timeouts ContainerAppJob#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#timeouts ContainerAppJob#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerAppJobTimeouts"], result)
 
     @builtins.property
     def workload_profile_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#workload_profile_name ContainerAppJob#workload_profile_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#workload_profile_name ContainerAppJob#workload_profile_name}.'''
         result = self._values.get("workload_profile_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1031,9 +1031,9 @@ class ContainerAppJobEventTriggerConfig:
         scale: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppJobEventTriggerConfigScale", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
-        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
-        :param scale: scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#scale ContainerAppJob#scale}
+        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
+        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
+        :param scale: scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#scale ContainerAppJob#scale}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e602c6cfccce9a0a264d4b8b0676884df0c7b3f55e9be77227e38c75a3fa229)
@@ -1050,13 +1050,13 @@ class ContainerAppJobEventTriggerConfig:
 
     @builtins.property
     def parallelism(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.'''
         result = self._values.get("parallelism")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def replica_completion_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.'''
         result = self._values.get("replica_completion_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1066,7 +1066,7 @@ class ContainerAppJobEventTriggerConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobEventTriggerConfigScale"]]]:
         '''scale block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#scale ContainerAppJob#scale}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#scale ContainerAppJob#scale}
         '''
         result = self._values.get("scale")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobEventTriggerConfigScale"]]], result)
@@ -1210,10 +1210,10 @@ class ContainerAppJobEventTriggerConfigScale:
         rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppJobEventTriggerConfigScaleRules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param max_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#max_executions ContainerAppJob#max_executions}.
-        :param min_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#min_executions ContainerAppJob#min_executions}.
-        :param polling_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#polling_interval_in_seconds ContainerAppJob#polling_interval_in_seconds}.
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#rules ContainerAppJob#rules}
+        :param max_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#max_executions ContainerAppJob#max_executions}.
+        :param min_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#min_executions ContainerAppJob#min_executions}.
+        :param polling_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#polling_interval_in_seconds ContainerAppJob#polling_interval_in_seconds}.
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#rules ContainerAppJob#rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9f65391973dacdc729ae4eb3829f11be66ed0982bbf0ba61b491c802c8ea99a)
@@ -1233,19 +1233,19 @@ class ContainerAppJobEventTriggerConfigScale:
 
     @builtins.property
     def max_executions(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#max_executions ContainerAppJob#max_executions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#max_executions ContainerAppJob#max_executions}.'''
         result = self._values.get("max_executions")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_executions(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#min_executions ContainerAppJob#min_executions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#min_executions ContainerAppJob#min_executions}.'''
         result = self._values.get("min_executions")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def polling_interval_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#polling_interval_in_seconds ContainerAppJob#polling_interval_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#polling_interval_in_seconds ContainerAppJob#polling_interval_in_seconds}.'''
         result = self._values.get("polling_interval_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1255,7 +1255,7 @@ class ContainerAppJobEventTriggerConfigScale:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobEventTriggerConfigScaleRules"]]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#rules ContainerAppJob#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#rules ContainerAppJob#rules}
         '''
         result = self._values.get("rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobEventTriggerConfigScaleRules"]]], result)
@@ -1521,10 +1521,10 @@ class ContainerAppJobEventTriggerConfigScaleRules:
         authentication: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppJobEventTriggerConfigScaleRulesAuthentication", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_rule_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#custom_rule_type ContainerAppJob#custom_rule_type}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#metadata ContainerAppJob#metadata}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}.
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#authentication ContainerAppJob#authentication}
+        :param custom_rule_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#custom_rule_type ContainerAppJob#custom_rule_type}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#metadata ContainerAppJob#metadata}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}.
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#authentication ContainerAppJob#authentication}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0de69a9aa737340d23c5adb605411b74ea777ebba6935435a4872a4723c66e8)
@@ -1542,21 +1542,21 @@ class ContainerAppJobEventTriggerConfigScaleRules:
 
     @builtins.property
     def custom_rule_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#custom_rule_type ContainerAppJob#custom_rule_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#custom_rule_type ContainerAppJob#custom_rule_type}.'''
         result = self._values.get("custom_rule_type")
         assert result is not None, "Required property 'custom_rule_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metadata(self) -> typing.Mapping[builtins.str, builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#metadata ContainerAppJob#metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#metadata ContainerAppJob#metadata}.'''
         result = self._values.get("metadata")
         assert result is not None, "Required property 'metadata' is missing"
         return typing.cast(typing.Mapping[builtins.str, builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1567,7 +1567,7 @@ class ContainerAppJobEventTriggerConfigScaleRules:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobEventTriggerConfigScaleRulesAuthentication"]]]:
         '''authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#authentication ContainerAppJob#authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#authentication ContainerAppJob#authentication}
         '''
         result = self._values.get("authentication")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobEventTriggerConfigScaleRulesAuthentication"]]], result)
@@ -1600,8 +1600,8 @@ class ContainerAppJobEventTriggerConfigScaleRulesAuthentication:
         trigger_parameter: builtins.str,
     ) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}.
-        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#trigger_parameter ContainerAppJob#trigger_parameter}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}.
+        :param trigger_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#trigger_parameter ContainerAppJob#trigger_parameter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fa94116e5b4030cdccb8b20b35ba1c2a269ae93b794c6de117030b3fe271eba)
@@ -1614,14 +1614,14 @@ class ContainerAppJobEventTriggerConfigScaleRulesAuthentication:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def trigger_parameter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#trigger_parameter ContainerAppJob#trigger_parameter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#trigger_parameter ContainerAppJob#trigger_parameter}.'''
         result = self._values.get("trigger_parameter")
         assert result is not None, "Required property 'trigger_parameter' is missing"
         return typing.cast(builtins.str, result)
@@ -2043,8 +2043,8 @@ class ContainerAppJobIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#type ContainerAppJob#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity_ids ContainerAppJob#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#type ContainerAppJob#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity_ids ContainerAppJob#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__947fdeb755ba46776844cdd8e1fa4a563d0650bb969ebe2ccf8109409aa64d29)
@@ -2058,14 +2058,14 @@ class ContainerAppJobIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#type ContainerAppJob#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#type ContainerAppJob#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity_ids ContainerAppJob#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity_ids ContainerAppJob#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2178,8 +2178,8 @@ class ContainerAppJobManualTriggerConfig:
         replica_completion_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
-        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
+        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
+        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdffda81a73d59602c52dc29122111580ffa1833f3419e39dc3211682b9f620a)
@@ -2193,13 +2193,13 @@ class ContainerAppJobManualTriggerConfig:
 
     @builtins.property
     def parallelism(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.'''
         result = self._values.get("parallelism")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def replica_completion_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.'''
         result = self._values.get("replica_completion_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2313,10 +2313,10 @@ class ContainerAppJobRegistry:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param server: The hostname for the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#server ContainerAppJob#server}
-        :param identity: ID of the System or User Managed Identity used to pull images from the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
-        :param password_secret_name: The name of the Secret Reference containing the password value for this user on the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#password_secret_name ContainerAppJob#password_secret_name}
-        :param username: The username to use for this Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#username ContainerAppJob#username}
+        :param server: The hostname for the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#server ContainerAppJob#server}
+        :param identity: ID of the System or User Managed Identity used to pull images from the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
+        :param password_secret_name: The name of the Secret Reference containing the password value for this user on the Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#password_secret_name ContainerAppJob#password_secret_name}
+        :param username: The username to use for this Container Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#username ContainerAppJob#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__399b5c1494f93a321703bb892b53ef82a96dd092eb61bbb45571745e96596778)
@@ -2338,7 +2338,7 @@ class ContainerAppJobRegistry:
     def server(self) -> builtins.str:
         '''The hostname for the Container Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#server ContainerAppJob#server}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#server ContainerAppJob#server}
         '''
         result = self._values.get("server")
         assert result is not None, "Required property 'server' is missing"
@@ -2348,7 +2348,7 @@ class ContainerAppJobRegistry:
     def identity(self) -> typing.Optional[builtins.str]:
         '''ID of the System or User Managed Identity used to pull images from the Container Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2357,7 +2357,7 @@ class ContainerAppJobRegistry:
     def password_secret_name(self) -> typing.Optional[builtins.str]:
         '''The name of the Secret Reference containing the password value for this user on the Container Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#password_secret_name ContainerAppJob#password_secret_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#password_secret_name ContainerAppJob#password_secret_name}
         '''
         result = self._values.get("password_secret_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2366,7 +2366,7 @@ class ContainerAppJobRegistry:
     def username(self) -> typing.Optional[builtins.str]:
         '''The username to use for this Container Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#username ContainerAppJob#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#username ContainerAppJob#username}
         '''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2615,9 +2615,9 @@ class ContainerAppJobScheduleTriggerConfig:
         replica_completion_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cron_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#cron_expression ContainerAppJob#cron_expression}.
-        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
-        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
+        :param cron_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#cron_expression ContainerAppJob#cron_expression}.
+        :param parallelism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.
+        :param replica_completion_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06721bb3db4b911ec41c64c41a0608d10f5011b2075d56ec99a53f616e638150)
@@ -2634,20 +2634,20 @@ class ContainerAppJobScheduleTriggerConfig:
 
     @builtins.property
     def cron_expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#cron_expression ContainerAppJob#cron_expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#cron_expression ContainerAppJob#cron_expression}.'''
         result = self._values.get("cron_expression")
         assert result is not None, "Required property 'cron_expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parallelism(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#parallelism ContainerAppJob#parallelism}.'''
         result = self._values.get("parallelism")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def replica_completion_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#replica_completion_count ContainerAppJob#replica_completion_count}.'''
         result = self._values.get("replica_completion_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2778,10 +2778,10 @@ class ContainerAppJobSecret:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The secret name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param identity: The identity to use for accessing key vault reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
-        :param key_vault_secret_id: The Key Vault Secret ID. Could be either one of ``id`` or ``versionless_id``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#key_vault_secret_id ContainerAppJob#key_vault_secret_id}
-        :param value: The value for this secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        :param name: The secret name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param identity: The identity to use for accessing key vault reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
+        :param key_vault_secret_id: The Key Vault Secret ID. Could be either one of ``id`` or ``versionless_id``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#key_vault_secret_id ContainerAppJob#key_vault_secret_id}
+        :param value: The value for this secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e227a8fa661e39c40c37f8cf4a187a8bf1fcd08196b281e8ce68e7d9ca6ab3d7)
@@ -2803,7 +2803,7 @@ class ContainerAppJobSecret:
     def name(self) -> builtins.str:
         '''The secret name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2813,7 +2813,7 @@ class ContainerAppJobSecret:
     def identity(self) -> typing.Optional[builtins.str]:
         '''The identity to use for accessing key vault reference.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#identity ContainerAppJob#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2822,7 +2822,7 @@ class ContainerAppJobSecret:
     def key_vault_secret_id(self) -> typing.Optional[builtins.str]:
         '''The Key Vault Secret ID. Could be either one of ``id`` or ``versionless_id``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#key_vault_secret_id ContainerAppJob#key_vault_secret_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#key_vault_secret_id ContainerAppJob#key_vault_secret_id}
         '''
         result = self._values.get("key_vault_secret_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2831,7 +2831,7 @@ class ContainerAppJobSecret:
     def value(self) -> typing.Optional[builtins.str]:
         '''The value for this secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3080,9 +3080,9 @@ class ContainerAppJobTemplate:
         volume: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppJobTemplateVolume", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#container ContainerAppJob#container}
-        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#init_container ContainerAppJob#init_container}
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#volume ContainerAppJob#volume}
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#container ContainerAppJob#container}
+        :param init_container: init_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#init_container ContainerAppJob#init_container}
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#volume ContainerAppJob#volume}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02e5a155995b94e5f42f123c16a49474a038637e503f597abaa73185169799cc)
@@ -3103,7 +3103,7 @@ class ContainerAppJobTemplate:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainer"]]:
         '''container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#container ContainerAppJob#container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#container ContainerAppJob#container}
         '''
         result = self._values.get("container")
         assert result is not None, "Required property 'container' is missing"
@@ -3115,7 +3115,7 @@ class ContainerAppJobTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateInitContainer"]]]:
         '''init_container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#init_container ContainerAppJob#init_container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#init_container ContainerAppJob#init_container}
         '''
         result = self._values.get("init_container")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateInitContainer"]]], result)
@@ -3126,7 +3126,7 @@ class ContainerAppJobTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateVolume"]]]:
         '''volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#volume ContainerAppJob#volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#volume ContainerAppJob#volume}
         '''
         result = self._values.get("volume")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateVolume"]]], result)
@@ -3177,17 +3177,17 @@ class ContainerAppJobTemplateContainer:
         volume_mounts: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppJobTemplateContainerVolumeMounts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cpu: The amount of vCPU to allocate to the container. Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#cpu ContainerAppJob#cpu}
-        :param image: The image to use to create the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#image ContainerAppJob#image}
-        :param memory: The amount of memory to allocate to the container. Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#memory ContainerAppJob#memory}
-        :param name: The name of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param args: A list of args to pass to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#args ContainerAppJob#args}
-        :param command: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#command ContainerAppJob#command}
-        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#env ContainerAppJob#env}
-        :param liveness_probe: liveness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#liveness_probe ContainerAppJob#liveness_probe}
-        :param readiness_probe: readiness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#readiness_probe ContainerAppJob#readiness_probe}
-        :param startup_probe: startup_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#startup_probe ContainerAppJob#startup_probe}
-        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#volume_mounts ContainerAppJob#volume_mounts}
+        :param cpu: The amount of vCPU to allocate to the container. Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#cpu ContainerAppJob#cpu}
+        :param image: The image to use to create the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#image ContainerAppJob#image}
+        :param memory: The amount of memory to allocate to the container. Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#memory ContainerAppJob#memory}
+        :param name: The name of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param args: A list of args to pass to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#args ContainerAppJob#args}
+        :param command: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#command ContainerAppJob#command}
+        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#env ContainerAppJob#env}
+        :param liveness_probe: liveness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#liveness_probe ContainerAppJob#liveness_probe}
+        :param readiness_probe: readiness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#readiness_probe ContainerAppJob#readiness_probe}
+        :param startup_probe: startup_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#startup_probe ContainerAppJob#startup_probe}
+        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#volume_mounts ContainerAppJob#volume_mounts}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e37ef73afaa383f789916257ed2f08f9fc9481954f233657fc5228fa13a2d172)
@@ -3229,7 +3229,7 @@ class ContainerAppJobTemplateContainer:
 
         Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#cpu ContainerAppJob#cpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#cpu ContainerAppJob#cpu}
         '''
         result = self._values.get("cpu")
         assert result is not None, "Required property 'cpu' is missing"
@@ -3239,7 +3239,7 @@ class ContainerAppJobTemplateContainer:
     def image(self) -> builtins.str:
         '''The image to use to create the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#image ContainerAppJob#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#image ContainerAppJob#image}
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
@@ -3251,7 +3251,7 @@ class ContainerAppJobTemplateContainer:
 
         Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#memory ContainerAppJob#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#memory ContainerAppJob#memory}
         '''
         result = self._values.get("memory")
         assert result is not None, "Required property 'memory' is missing"
@@ -3261,7 +3261,7 @@ class ContainerAppJobTemplateContainer:
     def name(self) -> builtins.str:
         '''The name of the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3271,7 +3271,7 @@ class ContainerAppJobTemplateContainer:
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of args to pass to the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#args ContainerAppJob#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#args ContainerAppJob#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3282,7 +3282,7 @@ class ContainerAppJobTemplateContainer:
 
         This is provided as a list of command line elements without spaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#command ContainerAppJob#command}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#command ContainerAppJob#command}
         '''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3293,7 +3293,7 @@ class ContainerAppJobTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerEnv"]]]:
         '''env block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#env ContainerAppJob#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#env ContainerAppJob#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerEnv"]]], result)
@@ -3304,7 +3304,7 @@ class ContainerAppJobTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerLivenessProbe"]]]:
         '''liveness_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#liveness_probe ContainerAppJob#liveness_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#liveness_probe ContainerAppJob#liveness_probe}
         '''
         result = self._values.get("liveness_probe")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerLivenessProbe"]]], result)
@@ -3315,7 +3315,7 @@ class ContainerAppJobTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerReadinessProbe"]]]:
         '''readiness_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#readiness_probe ContainerAppJob#readiness_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#readiness_probe ContainerAppJob#readiness_probe}
         '''
         result = self._values.get("readiness_probe")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerReadinessProbe"]]], result)
@@ -3326,7 +3326,7 @@ class ContainerAppJobTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerStartupProbe"]]]:
         '''startup_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#startup_probe ContainerAppJob#startup_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#startup_probe ContainerAppJob#startup_probe}
         '''
         result = self._values.get("startup_probe")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerStartupProbe"]]], result)
@@ -3337,7 +3337,7 @@ class ContainerAppJobTemplateContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerVolumeMounts"]]]:
         '''volume_mounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#volume_mounts ContainerAppJob#volume_mounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#volume_mounts ContainerAppJob#volume_mounts}
         '''
         result = self._values.get("volume_mounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerVolumeMounts"]]], result)
@@ -3368,9 +3368,9 @@ class ContainerAppJobTemplateContainerEnv:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the environment variable for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param secret_name: The name of the secret that contains the value for this environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}
-        :param value: The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        :param name: The name of the environment variable for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param secret_name: The name of the secret that contains the value for this environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}
+        :param value: The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d456ac7ca2ff351dab4d7e2ae62bedde123b48c1546957db861f994227df672)
@@ -3389,7 +3389,7 @@ class ContainerAppJobTemplateContainerEnv:
     def name(self) -> builtins.str:
         '''The name of the environment variable for the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3399,7 +3399,7 @@ class ContainerAppJobTemplateContainerEnv:
     def secret_name(self) -> typing.Optional[builtins.str]:
         '''The name of the secret that contains the value for this environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}
         '''
         result = self._values.get("secret_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3408,7 +3408,7 @@ class ContainerAppJobTemplateContainerEnv:
     def value(self) -> typing.Optional[builtins.str]:
         '''The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3744,15 +3744,15 @@ class ContainerAppJobTemplateContainerLivenessProbe:
         timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#port ContainerAppJob#port}
-        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
-        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#header ContainerAppJob#header}
-        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#host ContainerAppJob#host}
-        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``1`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
-        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
-        :param path: The URI to use with the ``host`` for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
-        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
+        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#port ContainerAppJob#port}
+        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
+        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#header ContainerAppJob#header}
+        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#host ContainerAppJob#host}
+        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``1`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
+        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
+        :param path: The URI to use with the ``host`` for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ef3de46ec4fd17e398043191934d9b8ae1baf4e23b4c1ab8974f7644a730b95)
@@ -3788,7 +3788,7 @@ class ContainerAppJobTemplateContainerLivenessProbe:
     def port(self) -> jsii.Number:
         '''The port number on which to connect. Possible values are between ``1`` and ``65535``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#port ContainerAppJob#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#port ContainerAppJob#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -3798,7 +3798,7 @@ class ContainerAppJobTemplateContainerLivenessProbe:
     def transport(self) -> builtins.str:
         '''Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
         '''
         result = self._values.get("transport")
         assert result is not None, "Required property 'transport' is missing"
@@ -3810,7 +3810,7 @@ class ContainerAppJobTemplateContainerLivenessProbe:
 
         Possible values are between ``1`` and ``30``. Defaults to ``3``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
         '''
         result = self._values.get("failure_count_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3821,7 +3821,7 @@ class ContainerAppJobTemplateContainerLivenessProbe:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerLivenessProbeHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#header ContainerAppJob#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#header ContainerAppJob#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerLivenessProbeHeader"]]], result)
@@ -3832,7 +3832,7 @@ class ContainerAppJobTemplateContainerLivenessProbe:
 
         Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#host ContainerAppJob#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#host ContainerAppJob#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3843,7 +3843,7 @@ class ContainerAppJobTemplateContainerLivenessProbe:
 
         Possible values are between ``0`` and ``60``. Defaults to ``1`` seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
         '''
         result = self._values.get("initial_delay")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3852,7 +3852,7 @@ class ContainerAppJobTemplateContainerLivenessProbe:
     def interval_seconds(self) -> typing.Optional[jsii.Number]:
         '''How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
         '''
         result = self._values.get("interval_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3863,7 +3863,7 @@ class ContainerAppJobTemplateContainerLivenessProbe:
 
         Not valid for ``TCP`` type probes. Defaults to ``/``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3872,7 +3872,7 @@ class ContainerAppJobTemplateContainerLivenessProbe:
     def timeout(self) -> typing.Optional[jsii.Number]:
         '''Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3897,8 +3897,8 @@ class ContainerAppJobTemplateContainerLivenessProbe:
 class ContainerAppJobTemplateContainerLivenessProbeHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef301633f66a2e1addc67b2010f895daaea7760b12295e4f15a4b053fe517730)
@@ -3913,7 +3913,7 @@ class ContainerAppJobTemplateContainerLivenessProbeHeader:
     def name(self) -> builtins.str:
         '''The HTTP Header Name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3923,7 +3923,7 @@ class ContainerAppJobTemplateContainerLivenessProbeHeader:
     def value(self) -> builtins.str:
         '''The HTTP Header value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -4779,16 +4779,16 @@ class ContainerAppJobTemplateContainerReadinessProbe:
         timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#port ContainerAppJob#port}
-        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
-        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#header ContainerAppJob#header}
-        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#host ContainerAppJob#host}
-        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
-        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
-        :param path: The URI to use for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
-        :param success_count_threshold: The number of consecutive successful responses required to consider this probe as successful. Possible values are between ``1`` and ``10``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#success_count_threshold ContainerAppJob#success_count_threshold}
-        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
+        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#port ContainerAppJob#port}
+        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
+        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#header ContainerAppJob#header}
+        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#host ContainerAppJob#host}
+        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
+        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
+        :param path: The URI to use for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        :param success_count_threshold: The number of consecutive successful responses required to consider this probe as successful. Possible values are between ``1`` and ``10``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#success_count_threshold ContainerAppJob#success_count_threshold}
+        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__264a9b65f1b0b6cb9f1aae254e796d281afb62fd6c0508a6ce86fd6369a19059)
@@ -4827,7 +4827,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
     def port(self) -> jsii.Number:
         '''The port number on which to connect. Possible values are between ``1`` and ``65535``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#port ContainerAppJob#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#port ContainerAppJob#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -4837,7 +4837,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
     def transport(self) -> builtins.str:
         '''Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
         '''
         result = self._values.get("transport")
         assert result is not None, "Required property 'transport' is missing"
@@ -4849,7 +4849,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
 
         Possible values are between ``1`` and ``30``. Defaults to ``3``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
         '''
         result = self._values.get("failure_count_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4860,7 +4860,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerReadinessProbeHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#header ContainerAppJob#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#header ContainerAppJob#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerReadinessProbeHeader"]]], result)
@@ -4871,7 +4871,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
 
         Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#host ContainerAppJob#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#host ContainerAppJob#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4882,7 +4882,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
 
         Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
         '''
         result = self._values.get("initial_delay")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4891,7 +4891,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
     def interval_seconds(self) -> typing.Optional[jsii.Number]:
         '''How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
         '''
         result = self._values.get("interval_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4900,7 +4900,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
     def path(self) -> typing.Optional[builtins.str]:
         '''The URI to use for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4911,7 +4911,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
 
         Possible values are between ``1`` and ``10``. Defaults to ``3``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#success_count_threshold ContainerAppJob#success_count_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#success_count_threshold ContainerAppJob#success_count_threshold}
         '''
         result = self._values.get("success_count_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4920,7 +4920,7 @@ class ContainerAppJobTemplateContainerReadinessProbe:
     def timeout(self) -> typing.Optional[jsii.Number]:
         '''Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4945,8 +4945,8 @@ class ContainerAppJobTemplateContainerReadinessProbe:
 class ContainerAppJobTemplateContainerReadinessProbeHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a455162272890bcf289098f120727c39bef548fd5f9f0d41485fbcbbb60529de)
@@ -4961,7 +4961,7 @@ class ContainerAppJobTemplateContainerReadinessProbeHeader:
     def name(self) -> builtins.str:
         '''The HTTP Header Name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4971,7 +4971,7 @@ class ContainerAppJobTemplateContainerReadinessProbeHeader:
     def value(self) -> builtins.str:
         '''The HTTP Header value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -5537,15 +5537,15 @@ class ContainerAppJobTemplateContainerStartupProbe:
         timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#port ContainerAppJob#port}
-        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
-        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#header ContainerAppJob#header}
-        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#host ContainerAppJob#host}
-        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
-        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
-        :param path: The URI to use with the ``host`` for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
-        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
+        :param port: The port number on which to connect. Possible values are between ``1`` and ``65535``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#port ContainerAppJob#port}
+        :param transport: Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
+        :param failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between ``1`` and ``30``. Defaults to ``3``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#header ContainerAppJob#header}
+        :param host: The probe hostname. Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#host ContainerAppJob#host}
+        :param initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
+        :param interval_seconds: How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
+        :param path: The URI to use with the ``host`` for http type probes. Not valid for ``TCP`` type probes. Defaults to ``/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        :param timeout: Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7442fbe3a061998abe8d308e6a1350364fb10e7e70084ab081e93d9c4e9a5f9d)
@@ -5581,7 +5581,7 @@ class ContainerAppJobTemplateContainerStartupProbe:
     def port(self) -> jsii.Number:
         '''The port number on which to connect. Possible values are between ``1`` and ``65535``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#port ContainerAppJob#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#port ContainerAppJob#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -5591,7 +5591,7 @@ class ContainerAppJobTemplateContainerStartupProbe:
     def transport(self) -> builtins.str:
         '''Type of probe. Possible values are ``TCP``, ``HTTP``, and ``HTTPS``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#transport ContainerAppJob#transport}
         '''
         result = self._values.get("transport")
         assert result is not None, "Required property 'transport' is missing"
@@ -5603,7 +5603,7 @@ class ContainerAppJobTemplateContainerStartupProbe:
 
         Possible values are between ``1`` and ``30``. Defaults to ``3``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#failure_count_threshold ContainerAppJob#failure_count_threshold}
         '''
         result = self._values.get("failure_count_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5614,7 +5614,7 @@ class ContainerAppJobTemplateContainerStartupProbe:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerStartupProbeHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#header ContainerAppJob#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#header ContainerAppJob#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateContainerStartupProbeHeader"]]], result)
@@ -5625,7 +5625,7 @@ class ContainerAppJobTemplateContainerStartupProbe:
 
         Defaults to the pod IP address. Setting a value for ``Host`` in ``headers`` can be used to override this for ``http`` and ``https`` type probes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#host ContainerAppJob#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#host ContainerAppJob#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5636,7 +5636,7 @@ class ContainerAppJobTemplateContainerStartupProbe:
 
         Possible values are between ``0`` and ``60``. Defaults to ``0`` seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#initial_delay ContainerAppJob#initial_delay}
         '''
         result = self._values.get("initial_delay")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5645,7 +5645,7 @@ class ContainerAppJobTemplateContainerStartupProbe:
     def interval_seconds(self) -> typing.Optional[jsii.Number]:
         '''How often, in seconds, the probe should run. Possible values are between ``1`` and ``240``. Defaults to ``10``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#interval_seconds ContainerAppJob#interval_seconds}
         '''
         result = self._values.get("interval_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5656,7 +5656,7 @@ class ContainerAppJobTemplateContainerStartupProbe:
 
         Not valid for ``TCP`` type probes. Defaults to ``/``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5665,7 +5665,7 @@ class ContainerAppJobTemplateContainerStartupProbe:
     def timeout(self) -> typing.Optional[jsii.Number]:
         '''Time in seconds after which the probe times out. Possible values are between ``1`` an ``240``. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#timeout ContainerAppJob#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5690,8 +5690,8 @@ class ContainerAppJobTemplateContainerStartupProbe:
 class ContainerAppJobTemplateContainerStartupProbeHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        :param name: The HTTP Header Name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param value: The HTTP Header value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cfa8a3f018cf5d5857d290451541f92e44a2b2fc65fec1e84e45af244e1fdea)
@@ -5706,7 +5706,7 @@ class ContainerAppJobTemplateContainerStartupProbeHeader:
     def name(self) -> builtins.str:
         '''The HTTP Header Name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5716,7 +5716,7 @@ class ContainerAppJobTemplateContainerStartupProbeHeader:
     def value(self) -> builtins.str:
         '''The HTTP Header value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -6250,9 +6250,9 @@ class ContainerAppJobTemplateContainerVolumeMounts:
         sub_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the Volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param path: The path in the container at which to mount this volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
-        :param sub_path: The sub path of the volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#sub_path ContainerAppJob#sub_path}
+        :param name: The name of the Volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param path: The path in the container at which to mount this volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        :param sub_path: The sub path of the volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#sub_path ContainerAppJob#sub_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f026b81d18f038d1031d6bdb4dc34f323e036aee2a37cc8307c3818987e198e)
@@ -6270,7 +6270,7 @@ class ContainerAppJobTemplateContainerVolumeMounts:
     def name(self) -> builtins.str:
         '''The name of the Volume to be mounted in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6280,7 +6280,7 @@ class ContainerAppJobTemplateContainerVolumeMounts:
     def path(self) -> builtins.str:
         '''The path in the container at which to mount this volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -6290,7 +6290,7 @@ class ContainerAppJobTemplateContainerVolumeMounts:
     def sub_path(self) -> typing.Optional[builtins.str]:
         '''The sub path of the volume to be mounted in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#sub_path ContainerAppJob#sub_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#sub_path ContainerAppJob#sub_path}
         '''
         result = self._values.get("sub_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6527,14 +6527,14 @@ class ContainerAppJobTemplateInitContainer:
         volume_mounts: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAppJobTemplateInitContainerVolumeMounts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param image: The image to use to create the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#image ContainerAppJob#image}
-        :param name: The name of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param args: A list of args to pass to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#args ContainerAppJob#args}
-        :param command: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#command ContainerAppJob#command}
-        :param cpu: The amount of vCPU to allocate to the container. Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#cpu ContainerAppJob#cpu}
-        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#env ContainerAppJob#env}
-        :param memory: The amount of memory to allocate to the container. Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#memory ContainerAppJob#memory}
-        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#volume_mounts ContainerAppJob#volume_mounts}
+        :param image: The image to use to create the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#image ContainerAppJob#image}
+        :param name: The name of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param args: A list of args to pass to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#args ContainerAppJob#args}
+        :param command: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#command ContainerAppJob#command}
+        :param cpu: The amount of vCPU to allocate to the container. Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#cpu ContainerAppJob#cpu}
+        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#env ContainerAppJob#env}
+        :param memory: The amount of memory to allocate to the container. Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#memory ContainerAppJob#memory}
+        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#volume_mounts ContainerAppJob#volume_mounts}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5deac8fd878404d54f964e6c3580728b94fd6055492477d2d690de82d620b57d)
@@ -6567,7 +6567,7 @@ class ContainerAppJobTemplateInitContainer:
     def image(self) -> builtins.str:
         '''The image to use to create the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#image ContainerAppJob#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#image ContainerAppJob#image}
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
@@ -6577,7 +6577,7 @@ class ContainerAppJobTemplateInitContainer:
     def name(self) -> builtins.str:
         '''The name of the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6587,7 +6587,7 @@ class ContainerAppJobTemplateInitContainer:
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of args to pass to the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#args ContainerAppJob#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#args ContainerAppJob#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6598,7 +6598,7 @@ class ContainerAppJobTemplateInitContainer:
 
         This is provided as a list of command line elements without spaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#command ContainerAppJob#command}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#command ContainerAppJob#command}
         '''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6609,7 +6609,7 @@ class ContainerAppJobTemplateInitContainer:
 
         Possible values include ``0.25``, ``0.5``, ``0.75``, ``1.0``, ``1.25``, ``1.5``, ``1.75``, and ``2.0``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.0`` / ``2.0`` or ``0.5`` / ``1.0``. When there's a workload profile specified, there's no such constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#cpu ContainerAppJob#cpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#cpu ContainerAppJob#cpu}
         '''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6620,7 +6620,7 @@ class ContainerAppJobTemplateInitContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateInitContainerEnv"]]]:
         '''env block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#env ContainerAppJob#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#env ContainerAppJob#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateInitContainerEnv"]]], result)
@@ -6631,7 +6631,7 @@ class ContainerAppJobTemplateInitContainer:
 
         Possible values include ``0.5Gi``, ``1.0Gi``, ``1.5Gi``, ``2.0Gi``, ``2.5Gi``, ``3.0Gi``, ``3.5Gi``, and ``4.0Gi``. **NOTE:** ``cpu`` and ``memory`` must be specified in ``0.25'/'0.5Gi`` combination increments. e.g. ``1.25`` / ``2.5Gi`` or ``0.75`` / ``1.5Gi``. When there's a workload profile specified, there's no such constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#memory ContainerAppJob#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#memory ContainerAppJob#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6642,7 +6642,7 @@ class ContainerAppJobTemplateInitContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateInitContainerVolumeMounts"]]]:
         '''volume_mounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#volume_mounts ContainerAppJob#volume_mounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#volume_mounts ContainerAppJob#volume_mounts}
         '''
         result = self._values.get("volume_mounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAppJobTemplateInitContainerVolumeMounts"]]], result)
@@ -6673,9 +6673,9 @@ class ContainerAppJobTemplateInitContainerEnv:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the environment variable for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param secret_name: The name of the secret that contains the value for this environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}
-        :param value: The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        :param name: The name of the environment variable for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param secret_name: The name of the secret that contains the value for this environment variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}
+        :param value: The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__103550d068e9d061ad0cd4c05371109edd386bd9ce685fc5d9bd50118e6baa60)
@@ -6694,7 +6694,7 @@ class ContainerAppJobTemplateInitContainerEnv:
     def name(self) -> builtins.str:
         '''The name of the environment variable for the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6704,7 +6704,7 @@ class ContainerAppJobTemplateInitContainerEnv:
     def secret_name(self) -> typing.Optional[builtins.str]:
         '''The name of the secret that contains the value for this environment variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#secret_name ContainerAppJob#secret_name}
         '''
         result = self._values.get("secret_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6713,7 +6713,7 @@ class ContainerAppJobTemplateInitContainerEnv:
     def value(self) -> typing.Optional[builtins.str]:
         '''The value for this environment variable. **NOTE:** This value is ignored if ``secret_name`` is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#value ContainerAppJob#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#value ContainerAppJob#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7258,9 +7258,9 @@ class ContainerAppJobTemplateInitContainerVolumeMounts:
         sub_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the Volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param path: The path in the container at which to mount this volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
-        :param sub_path: The sub path of the volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#sub_path ContainerAppJob#sub_path}
+        :param name: The name of the Volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param path: The path in the container at which to mount this volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        :param sub_path: The sub path of the volume to be mounted in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#sub_path ContainerAppJob#sub_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9a848fda985daa332434f949a0ab9167c2cb678ba93eea487ac6f849e37e8c6)
@@ -7278,7 +7278,7 @@ class ContainerAppJobTemplateInitContainerVolumeMounts:
     def name(self) -> builtins.str:
         '''The name of the Volume to be mounted in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -7288,7 +7288,7 @@ class ContainerAppJobTemplateInitContainerVolumeMounts:
     def path(self) -> builtins.str:
         '''The path in the container at which to mount this volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#path ContainerAppJob#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#path ContainerAppJob#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -7298,7 +7298,7 @@ class ContainerAppJobTemplateInitContainerVolumeMounts:
     def sub_path(self) -> typing.Optional[builtins.str]:
         '''The sub path of the volume to be mounted in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#sub_path ContainerAppJob#sub_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#sub_path ContainerAppJob#sub_path}
         '''
         result = self._values.get("sub_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7643,10 +7643,10 @@ class ContainerAppJobTemplateVolume:
         storage_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
-        :param mount_options: Mount options used while mounting the AzureFile. Must be a comma-separated string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#mount_options ContainerAppJob#mount_options}
-        :param storage_name: The name of the ``AzureFile`` storage. Required when ``storage_type`` is ``AzureFile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#storage_name ContainerAppJob#storage_name}
-        :param storage_type: The type of storage volume. Possible values include ``AzureFile`` and ``EmptyDir``. Defaults to ``EmptyDir``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#storage_type ContainerAppJob#storage_type}
+        :param name: The name of the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        :param mount_options: Mount options used while mounting the AzureFile. Must be a comma-separated string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#mount_options ContainerAppJob#mount_options}
+        :param storage_name: The name of the ``AzureFile`` storage. Required when ``storage_type`` is ``AzureFile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#storage_name ContainerAppJob#storage_name}
+        :param storage_type: The type of storage volume. Possible values include ``AzureFile`` and ``EmptyDir``. Defaults to ``EmptyDir``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#storage_type ContainerAppJob#storage_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d929009b0101d464a87fa7a9f35847c1f07f7d88cae30f58b1d1d4812a7fde25)
@@ -7668,7 +7668,7 @@ class ContainerAppJobTemplateVolume:
     def name(self) -> builtins.str:
         '''The name of the volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#name ContainerAppJob#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#name ContainerAppJob#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -7678,7 +7678,7 @@ class ContainerAppJobTemplateVolume:
     def mount_options(self) -> typing.Optional[builtins.str]:
         '''Mount options used while mounting the AzureFile. Must be a comma-separated string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#mount_options ContainerAppJob#mount_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#mount_options ContainerAppJob#mount_options}
         '''
         result = self._values.get("mount_options")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7687,7 +7687,7 @@ class ContainerAppJobTemplateVolume:
     def storage_name(self) -> typing.Optional[builtins.str]:
         '''The name of the ``AzureFile`` storage. Required when ``storage_type`` is ``AzureFile``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#storage_name ContainerAppJob#storage_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#storage_name ContainerAppJob#storage_name}
         '''
         result = self._values.get("storage_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7696,7 +7696,7 @@ class ContainerAppJobTemplateVolume:
     def storage_type(self) -> typing.Optional[builtins.str]:
         '''The type of storage volume. Possible values include ``AzureFile`` and ``EmptyDir``. Defaults to ``EmptyDir``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#storage_type ContainerAppJob#storage_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#storage_type ContainerAppJob#storage_type}
         '''
         result = self._values.get("storage_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7947,10 +7947,10 @@ class ContainerAppJobTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#create ContainerAppJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#delete ContainerAppJob#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#read ContainerAppJob#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#update ContainerAppJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#create ContainerAppJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#delete ContainerAppJob#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#read ContainerAppJob#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#update ContainerAppJob#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8452f201b5703548483d9f6436e72c9aab71614fb5f130c1f0d9fe5bcf6a133b)
@@ -7970,25 +7970,25 @@ class ContainerAppJobTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#create ContainerAppJob#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#create ContainerAppJob#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#delete ContainerAppJob#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#delete ContainerAppJob#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#read ContainerAppJob#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#read ContainerAppJob#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_app_job#update ContainerAppJob#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/container_app_job#update ContainerAppJob#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -20,7 +20,7 @@ from hera.shared._pydantic import PrivateAttr, get_field_annotations, get_fields
 from hera.shared._type_util import construct_io_from_annotation
 from hera.shared.serialization import serialize
 from hera.workflows._context import SubNodeMixin, _context
-from hera.workflows._meta_mixins import CallableTemplateMixin, HeraBuildObj, HookMixin
+from hera.workflows._meta_mixins import HeraBuildObj, HookMixin
 from hera.workflows.artifact import Artifact
 from hera.workflows.env import Env, _BaseEnv
 from hera.workflows.env_from import _BaseEnvFrom
@@ -54,7 +54,7 @@ from hera.workflows.models import (
     Probe,
     Prometheus as ModelPrometheus,
     ResourceRequirements,
-    RetryStrategy,
+    RetryStrategy as ModelRetryStrategy,
     Sequence,
     Synchronization,
     Template,
@@ -68,6 +68,7 @@ from hera.workflows.models import (
 from hera.workflows.parameter import Parameter
 from hera.workflows.protocol import Templatable
 from hera.workflows.resources import Resources
+from hera.workflows.retry_strategy import RetryStrategy
 from hera.workflows.user_container import UserContainer
 from hera.workflows.volume import Volume, _BaseVolume
 
@@ -136,6 +137,7 @@ ArgumentsT = Optional[
     Union[
         ModelArguments,
         OneOrMany[Union[Parameter, ModelParameter, Artifact, ModelArtifact, Dict[str, Any]]],
+        ModelOutputs,
     ]
 ]
 """`ArgumentsT` is the main type associated with arguments that can be used on DAG tasks, steps, etc.
@@ -456,7 +458,7 @@ class TemplateMixin(SubNodeMixin, HookMixin, MetricsMixin):
     pod_spec_patch: Optional[str] = None
     priority: Optional[int] = None
     priority_class_name: Optional[str] = None
-    retry_strategy: Optional[RetryStrategy] = None
+    retry_strategy: Optional[Union[RetryStrategy, ModelRetryStrategy]] = None
     scheduler_name: Optional[str] = None
     pod_security_context: Optional[PodSecurityContext] = None
     service_account_name: Optional[str] = None
@@ -497,6 +499,15 @@ class TemplateMixin(SubNodeMixin, HookMixin, MetricsMixin):
             annotations=self.annotations,
             labels=self.labels,
         )
+
+    def _build_retry_strategy(self) -> Optional[ModelRetryStrategy]:
+        if self.retry_strategy is None:
+            return None
+
+        if isinstance(self.retry_strategy, RetryStrategy):
+            return self.retry_strategy.build()
+
+        return self.retry_strategy
 
 
 class ResourceMixin(BaseMixin):
@@ -705,7 +716,7 @@ class ItemMixin(BaseMixin):
 
 
 class EnvIOMixin(EnvMixin, IOMixin):
-    """`EnvIOMixin` provides the capacity to use environment variables."""
+    """`EnvIOMixin` provides the capacity to create environment variables from inputs."""
 
     def _build_params_from_env(self) -> Optional[List[ModelParameter]]:
         """Assemble a list of any environment variables that are set to obtain values from `Parameter`s."""
@@ -751,7 +762,7 @@ class EnvIOMixin(EnvMixin, IOMixin):
         return inputs
 
 
-class TemplateInvocatorSubNodeMixin(BaseMixin):
+class TemplateInvocatorSubNodeMixin(SubNodeMixin):
     """Used for classes that form sub nodes of Template invocators - `Steps` and `DAG`.
 
     See Also:
@@ -763,9 +774,9 @@ class TemplateInvocatorSubNodeMixin(BaseMixin):
     continue_on: Optional[ContinueOn] = None
     hooks: Optional[Dict[str, LifecycleHook]] = None
     on_exit: Optional[Union[str, Templatable]] = None
-    template: Optional[Union[str, Template, TemplateMixin, CallableTemplateMixin]] = None
+    template: Optional[Union[str, Template, Templatable]] = None
     template_ref: Optional[TemplateRef] = None
-    inline: Optional[Union[Template, TemplateMixin]] = None
+    inline: Optional[Union[Template, Templatable]] = None
     when: Optional[str] = None
     with_sequence: Optional[Sequence] = None
 
@@ -914,15 +925,17 @@ class TemplateInvocatorSubNodeMixin(BaseMixin):
         # here, we build the template early to verify that we can get the outputs
         if isinstance(self.template, Templatable):
             template = self.template._build_template()
-        else:
+        elif isinstance(self.template, Template):
             template = self.template
+        else:
+            raise ValueError("Only 'template' is supported (not inline or template_ref)")
 
-        # at this point, we know that the template is a `Template` object
-        if template.outputs is None:  # type: ignore
-            raise ValueError(f"Cannot get output parameters when the template has no outputs: {template}")
-        if template.outputs.parameters is None:  # type: ignore
-            raise ValueError(f"Cannot get output parameters when the template has no output parameters: {template}")
-        parameters = template.outputs.parameters  # type: ignore
+        if template.outputs is None:
+            raise ValueError(f"Cannot get output parameters. Template '{template.name}' has no outputs")
+        if template.outputs.parameters is None:
+            raise ValueError(f"Cannot get output parameters. Template '{template.name}' has no output parameters")
+
+        parameters = template.outputs.parameters
 
         obj = next((output for output in parameters if output.name == name), None)
         if obj is not None:
@@ -961,19 +974,21 @@ class TemplateInvocatorSubNodeMixin(BaseMixin):
             When something else other than an `Artifact` is found for the specified name.
         """
         if isinstance(self.template, str):
-            raise ValueError(f"Cannot get output parameters when the template was set via a name: {self.template}")
+            raise ValueError(f"Cannot get output artifacts when the template was set via a name: {self.template}")
 
         # here, we build the template early to verify that we can get the outputs
         if isinstance(self.template, Templatable):
             template = self.template._build_template()
+        elif isinstance(self.template, Template):
+            template = self.template
         else:
-            template = cast(Template, self.template)
+            raise ValueError("Only 'template' is supported (not inline or template_ref)")
 
-        # at this point, we know that the template is a `Template` object
-        if template.outputs is None:  # type: ignore
-            raise ValueError(f"Cannot get output artifacts when the template has no outputs: {template}")
-        elif template.outputs.artifacts is None:  # type: ignore
-            raise ValueError(f"Cannot get output artifacts when the template has no output artifacts: {template}")
+        if template.outputs is None:
+            raise ValueError(f"Cannot get output artifacts. Template '{template.name}' has no outputs")
+        if template.outputs.artifacts is None:
+            raise ValueError(f"Cannot get output artifacts. Template '{template.name}' has no output artifacts")
+
         artifacts = cast(List[ModelArtifact], template.outputs.artifacts)
 
         obj = next((output for output in artifacts if output.name == name), None)
@@ -1003,3 +1018,33 @@ class TemplateInvocatorSubNodeMixin(BaseMixin):
     def get_parameter(self, name: str) -> Parameter:
         """Gets a parameter from the outputs of this subnode."""
         return self._get_parameter(name=name, subtype=self._subtype)
+
+    def get_outputs_as_arguments(self) -> List[Union[Parameter, Artifact]]:
+        """Get all output parameters and artifacts as a combined list from this task/step for use as arguments.
+
+        This is useful for when all the inputs of another template match all the outputs of this template. It
+        is also possible to combine the outputs of multiple templates if they collectively match the inputs of
+        another template.
+        """
+        if isinstance(self.template, str):
+            raise ValueError(f"Cannot get outputs when the template was set via a name: {self.template}")
+
+        # here, we build the template early to verify that we can get the outputs
+        if isinstance(self.template, Templatable):
+            template = self.template._build_template()
+        elif isinstance(self.template, Template):
+            template = self.template
+        else:
+            raise ValueError("Only 'template' is supported (not inline or template_ref)")
+
+        if template.outputs is None:
+            raise ValueError(f"Template '{template.name}' has no outputs")
+
+        parameters = [self.get_parameter(p.name) for p in template.outputs.parameters or []]
+        artifacts = [self.get_artifact(art.name) for art in template.outputs.artifacts or []]
+
+        result = parameters + artifacts
+        if not result:
+            raise ValueError(f"Template '{template.name}' has no outputs")
+
+        return result

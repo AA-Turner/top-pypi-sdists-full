@@ -1,7 +1,7 @@
 r'''
 # `azurerm_dynatrace_monitor`
 
-Refer to the Terraform Registry for docs: [`azurerm_dynatrace_monitor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor).
+Refer to the Terraform Registry for docs: [`azurerm_dynatrace_monitor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DynatraceMonitor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.dynatraceMonitor.DynatraceMonitor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor azurerm_dynatrace_monitor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor azurerm_dynatrace_monitor}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class DynatraceMonitor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor azurerm_dynatrace_monitor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor azurerm_dynatrace_monitor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#identity DynatraceMonitor#identity}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#location DynatraceMonitor#location}.
-        :param marketplace_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#marketplace_subscription DynatraceMonitor#marketplace_subscription}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#name DynatraceMonitor#name}.
-        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#resource_group_name DynatraceMonitor#resource_group_name}.
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#user DynatraceMonitor#user}
-        :param environment_properties: environment_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#environment_properties DynatraceMonitor#environment_properties}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#id DynatraceMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#monitoring_enabled DynatraceMonitor#monitoring_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#tags DynatraceMonitor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#timeouts DynatraceMonitor#timeouts}
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#identity DynatraceMonitor#identity}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#location DynatraceMonitor#location}.
+        :param marketplace_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#marketplace_subscription DynatraceMonitor#marketplace_subscription}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#name DynatraceMonitor#name}.
+        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#resource_group_name DynatraceMonitor#resource_group_name}.
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#user DynatraceMonitor#user}
+        :param environment_properties: environment_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#environment_properties DynatraceMonitor#environment_properties}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#id DynatraceMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#monitoring_enabled DynatraceMonitor#monitoring_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#tags DynatraceMonitor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#timeouts DynatraceMonitor#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class DynatraceMonitor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DynatraceMonitor to import.
-        :param import_from_id: The id of the existing DynatraceMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DynatraceMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DynatraceMonitor to import is found.
         '''
         if __debug__:
@@ -163,7 +163,7 @@ class DynatraceMonitor(
     @jsii.member(jsii_name="putIdentity")
     def put_identity(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#type DynatraceMonitor#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#type DynatraceMonitor#type}.
         '''
         value = DynatraceMonitorIdentity(type=type)
 
@@ -178,9 +178,9 @@ class DynatraceMonitor(
         usage_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}.
-        :param billing_cycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#billing_cycle DynatraceMonitor#billing_cycle}.
-        :param usage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#usage_type DynatraceMonitor#usage_type}.
+        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}.
+        :param billing_cycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#billing_cycle DynatraceMonitor#billing_cycle}.
+        :param usage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#usage_type DynatraceMonitor#usage_type}.
         '''
         value = DynatraceMonitorPlan(
             plan=plan, billing_cycle=billing_cycle, usage_type=usage_type
@@ -198,10 +198,10 @@ class DynatraceMonitor(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#create DynatraceMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#delete DynatraceMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#read DynatraceMonitor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#update DynatraceMonitor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#create DynatraceMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#delete DynatraceMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#read DynatraceMonitor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#update DynatraceMonitor#update}.
         '''
         value = DynatraceMonitorTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -220,11 +220,11 @@ class DynatraceMonitor(
         phone_number: builtins.str,
     ) -> None:
         '''
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#country DynatraceMonitor#country}.
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#email DynatraceMonitor#email}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#first_name DynatraceMonitor#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#last_name DynatraceMonitor#last_name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#phone_number DynatraceMonitor#phone_number}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#country DynatraceMonitor#country}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#email DynatraceMonitor#email}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#first_name DynatraceMonitor#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#last_name DynatraceMonitor#last_name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#phone_number DynatraceMonitor#phone_number}.
         '''
         value = DynatraceMonitorUser(
             country=country,
@@ -507,18 +507,18 @@ class DynatraceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#identity DynatraceMonitor#identity}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#location DynatraceMonitor#location}.
-        :param marketplace_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#marketplace_subscription DynatraceMonitor#marketplace_subscription}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#name DynatraceMonitor#name}.
-        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#resource_group_name DynatraceMonitor#resource_group_name}.
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#user DynatraceMonitor#user}
-        :param environment_properties: environment_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#environment_properties DynatraceMonitor#environment_properties}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#id DynatraceMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#monitoring_enabled DynatraceMonitor#monitoring_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#tags DynatraceMonitor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#timeouts DynatraceMonitor#timeouts}
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#identity DynatraceMonitor#identity}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#location DynatraceMonitor#location}.
+        :param marketplace_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#marketplace_subscription DynatraceMonitor#marketplace_subscription}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#name DynatraceMonitor#name}.
+        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#resource_group_name DynatraceMonitor#resource_group_name}.
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#user DynatraceMonitor#user}
+        :param environment_properties: environment_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#environment_properties DynatraceMonitor#environment_properties}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#id DynatraceMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#monitoring_enabled DynatraceMonitor#monitoring_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#tags DynatraceMonitor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#timeouts DynatraceMonitor#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -653,7 +653,7 @@ class DynatraceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> "DynatraceMonitorIdentity":
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#identity DynatraceMonitor#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#identity DynatraceMonitor#identity}
         '''
         result = self._values.get("identity")
         assert result is not None, "Required property 'identity' is missing"
@@ -661,21 +661,21 @@ class DynatraceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#location DynatraceMonitor#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#location DynatraceMonitor#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def marketplace_subscription(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#marketplace_subscription DynatraceMonitor#marketplace_subscription}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#marketplace_subscription DynatraceMonitor#marketplace_subscription}.'''
         result = self._values.get("marketplace_subscription")
         assert result is not None, "Required property 'marketplace_subscription' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#name DynatraceMonitor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#name DynatraceMonitor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -684,7 +684,7 @@ class DynatraceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def plan(self) -> "DynatraceMonitorPlan":
         '''plan block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}
         '''
         result = self._values.get("plan")
         assert result is not None, "Required property 'plan' is missing"
@@ -692,7 +692,7 @@ class DynatraceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#resource_group_name DynatraceMonitor#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#resource_group_name DynatraceMonitor#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -701,7 +701,7 @@ class DynatraceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user(self) -> "DynatraceMonitorUser":
         '''user block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#user DynatraceMonitor#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#user DynatraceMonitor#user}
         '''
         result = self._values.get("user")
         assert result is not None, "Required property 'user' is missing"
@@ -713,14 +713,14 @@ class DynatraceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DynatraceMonitorEnvironmentProperties"]]]:
         '''environment_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#environment_properties DynatraceMonitor#environment_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#environment_properties DynatraceMonitor#environment_properties}
         '''
         result = self._values.get("environment_properties")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DynatraceMonitorEnvironmentProperties"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#id DynatraceMonitor#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#id DynatraceMonitor#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -732,13 +732,13 @@ class DynatraceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitoring_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#monitoring_enabled DynatraceMonitor#monitoring_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#monitoring_enabled DynatraceMonitor#monitoring_enabled}.'''
         result = self._values.get("monitoring_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#tags DynatraceMonitor#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#tags DynatraceMonitor#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -746,7 +746,7 @@ class DynatraceMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DynatraceMonitorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#timeouts DynatraceMonitor#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#timeouts DynatraceMonitor#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DynatraceMonitorTimeouts"], result)
@@ -775,7 +775,7 @@ class DynatraceMonitorEnvironmentProperties:
         environment_info: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DynatraceMonitorEnvironmentPropertiesEnvironmentInfo", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param environment_info: environment_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#environment_info DynatraceMonitor#environment_info}
+        :param environment_info: environment_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#environment_info DynatraceMonitor#environment_info}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__694c12d7144a7b43bb1fba587961c8f33dc13f719b786c027b20cbb437015484)
@@ -790,7 +790,7 @@ class DynatraceMonitorEnvironmentProperties:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DynatraceMonitorEnvironmentPropertiesEnvironmentInfo"]]:
         '''environment_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#environment_info DynatraceMonitor#environment_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#environment_info DynatraceMonitor#environment_info}
         '''
         result = self._values.get("environment_info")
         assert result is not None, "Required property 'environment_info' is missing"
@@ -816,7 +816,7 @@ class DynatraceMonitorEnvironmentProperties:
 class DynatraceMonitorEnvironmentPropertiesEnvironmentInfo:
     def __init__(self, *, environment_id: builtins.str) -> None:
         '''
-        :param environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#environment_id DynatraceMonitor#environment_id}.
+        :param environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#environment_id DynatraceMonitor#environment_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f380622015681a6f881d03528126f131292376a308f2adf935717ba71dcb12e7)
@@ -827,7 +827,7 @@ class DynatraceMonitorEnvironmentPropertiesEnvironmentInfo:
 
     @builtins.property
     def environment_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#environment_id DynatraceMonitor#environment_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#environment_id DynatraceMonitor#environment_id}.'''
         result = self._values.get("environment_id")
         assert result is not None, "Required property 'environment_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1170,7 +1170,7 @@ class DynatraceMonitorEnvironmentPropertiesOutputReference(
 class DynatraceMonitorIdentity:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#type DynatraceMonitor#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#type DynatraceMonitor#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd5bf38d85eb8129bd90f649960ebc43a17b546b8fe62296554d30e1e536912a)
@@ -1181,7 +1181,7 @@ class DynatraceMonitorIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#type DynatraceMonitor#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#type DynatraceMonitor#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1276,9 +1276,9 @@ class DynatraceMonitorPlan:
         usage_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}.
-        :param billing_cycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#billing_cycle DynatraceMonitor#billing_cycle}.
-        :param usage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#usage_type DynatraceMonitor#usage_type}.
+        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}.
+        :param billing_cycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#billing_cycle DynatraceMonitor#billing_cycle}.
+        :param usage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#usage_type DynatraceMonitor#usage_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8141940c3858bbd1d2d967ad94866f7f1ab1adb22ed42469e0e50b04ee101a70)
@@ -1295,20 +1295,20 @@ class DynatraceMonitorPlan:
 
     @builtins.property
     def plan(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#plan DynatraceMonitor#plan}.'''
         result = self._values.get("plan")
         assert result is not None, "Required property 'plan' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def billing_cycle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#billing_cycle DynatraceMonitor#billing_cycle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#billing_cycle DynatraceMonitor#billing_cycle}.'''
         result = self._values.get("billing_cycle")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def usage_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#usage_type DynatraceMonitor#usage_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#usage_type DynatraceMonitor#usage_type}.'''
         result = self._values.get("usage_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1441,10 +1441,10 @@ class DynatraceMonitorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#create DynatraceMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#delete DynatraceMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#read DynatraceMonitor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#update DynatraceMonitor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#create DynatraceMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#delete DynatraceMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#read DynatraceMonitor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#update DynatraceMonitor#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__909c16d42b249a9b3f4adbbd482bac7af873fb4ab4098f3ed1e0349d19efd525)
@@ -1464,25 +1464,25 @@ class DynatraceMonitorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#create DynatraceMonitor#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#create DynatraceMonitor#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#delete DynatraceMonitor#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#delete DynatraceMonitor#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#read DynatraceMonitor#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#read DynatraceMonitor#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#update DynatraceMonitor#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#update DynatraceMonitor#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1642,11 +1642,11 @@ class DynatraceMonitorUser:
         phone_number: builtins.str,
     ) -> None:
         '''
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#country DynatraceMonitor#country}.
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#email DynatraceMonitor#email}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#first_name DynatraceMonitor#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#last_name DynatraceMonitor#last_name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#phone_number DynatraceMonitor#phone_number}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#country DynatraceMonitor#country}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#email DynatraceMonitor#email}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#first_name DynatraceMonitor#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#last_name DynatraceMonitor#last_name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#phone_number DynatraceMonitor#phone_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7bf1d2b935af8debea662012778762e28b508f2b3b334044f7af54045818c6a)
@@ -1665,35 +1665,35 @@ class DynatraceMonitorUser:
 
     @builtins.property
     def country(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#country DynatraceMonitor#country}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#country DynatraceMonitor#country}.'''
         result = self._values.get("country")
         assert result is not None, "Required property 'country' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def email(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#email DynatraceMonitor#email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#email DynatraceMonitor#email}.'''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def first_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#first_name DynatraceMonitor#first_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#first_name DynatraceMonitor#first_name}.'''
         result = self._values.get("first_name")
         assert result is not None, "Required property 'first_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def last_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#last_name DynatraceMonitor#last_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#last_name DynatraceMonitor#last_name}.'''
         result = self._values.get("last_name")
         assert result is not None, "Required property 'last_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def phone_number(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/dynatrace_monitor#phone_number DynatraceMonitor#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/dynatrace_monitor#phone_number DynatraceMonitor#phone_number}.'''
         result = self._values.get("phone_number")
         assert result is not None, "Required property 'phone_number' is missing"
         return typing.cast(builtins.str, result)

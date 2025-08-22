@@ -1,7 +1,7 @@
 r'''
 # `data_azurerm_cdn_frontdoor_profile`
 
-Refer to the Terraform Registry for docs: [`data_azurerm_cdn_frontdoor_profile`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile).
+Refer to the Terraform Registry for docs: [`data_azurerm_cdn_frontdoor_profile`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzurermCdnFrontdoorProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.dataAzurermCdnFrontdoorProfile.DataAzurermCdnFrontdoorProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile azurerm_cdn_frontdoor_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile azurerm_cdn_frontdoor_profile}.'''
 
     def __init__(
         self,
@@ -54,7 +54,6 @@ class DataAzurermCdnFrontdoorProfile(
         name: builtins.str,
         resource_group_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
-        identity: typing.Optional[typing.Union["DataAzurermCdnFrontdoorProfileIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         timeouts: typing.Optional[typing.Union["DataAzurermCdnFrontdoorProfileTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -64,15 +63,14 @@ class DataAzurermCdnFrontdoorProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile azurerm_cdn_frontdoor_profile} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile azurerm_cdn_frontdoor_profile} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#name DataAzurermCdnFrontdoorProfile#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#resource_group_name DataAzurermCdnFrontdoorProfile#resource_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#id DataAzurermCdnFrontdoorProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#identity DataAzurermCdnFrontdoorProfile#identity}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#timeouts DataAzurermCdnFrontdoorProfile#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#name DataAzurermCdnFrontdoorProfile#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#resource_group_name DataAzurermCdnFrontdoorProfile#resource_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#id DataAzurermCdnFrontdoorProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#timeouts DataAzurermCdnFrontdoorProfile#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -89,7 +87,6 @@ class DataAzurermCdnFrontdoorProfile(
             name=name,
             resource_group_name=resource_group_name,
             id=id,
-            identity=identity,
             timeouts=timeouts,
             connection=connection,
             count=count,
@@ -115,7 +112,7 @@ class DataAzurermCdnFrontdoorProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzurermCdnFrontdoorProfile to import.
-        :param import_from_id: The id of the existing DataAzurermCdnFrontdoorProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzurermCdnFrontdoorProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzurermCdnFrontdoorProfile to import is found.
         '''
         if __debug__:
@@ -126,27 +123,10 @@ class DataAzurermCdnFrontdoorProfile(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putIdentity")
-    def put_identity(
-        self,
-        *,
-        type: builtins.str,
-        identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#type DataAzurermCdnFrontdoorProfile#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#identity_ids DataAzurermCdnFrontdoorProfile#identity_ids}.
-        '''
-        value = DataAzurermCdnFrontdoorProfileIdentity(
-            type=type, identity_ids=identity_ids
-        )
-
-        return typing.cast(None, jsii.invoke(self, "putIdentity", [value]))
-
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#read DataAzurermCdnFrontdoorProfile#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#read DataAzurermCdnFrontdoorProfile#read}.
         '''
         value = DataAzurermCdnFrontdoorProfileTimeouts(read=read)
 
@@ -155,10 +135,6 @@ class DataAzurermCdnFrontdoorProfile(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
-
-    @jsii.member(jsii_name="resetIdentity")
-    def reset_identity(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetIdentity", []))
 
     @jsii.member(jsii_name="resetTimeouts")
     def reset_timeouts(self) -> None:
@@ -179,8 +155,15 @@ class DataAzurermCdnFrontdoorProfile(
 
     @builtins.property
     @jsii.member(jsii_name="identity")
-    def identity(self) -> "DataAzurermCdnFrontdoorProfileIdentityOutputReference":
-        return typing.cast("DataAzurermCdnFrontdoorProfileIdentityOutputReference", jsii.get(self, "identity"))
+    def identity(self) -> "DataAzurermCdnFrontdoorProfileIdentityList":
+        return typing.cast("DataAzurermCdnFrontdoorProfileIdentityList", jsii.get(self, "identity"))
+
+    @builtins.property
+    @jsii.member(jsii_name="logScrubbingRule")
+    def log_scrubbing_rule(
+        self,
+    ) -> "DataAzurermCdnFrontdoorProfileLogScrubbingRuleList":
+        return typing.cast("DataAzurermCdnFrontdoorProfileLogScrubbingRuleList", jsii.get(self, "logScrubbingRule"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceGuid")
@@ -206,13 +189,6 @@ class DataAzurermCdnFrontdoorProfile(
     @jsii.member(jsii_name="timeouts")
     def timeouts(self) -> "DataAzurermCdnFrontdoorProfileTimeoutsOutputReference":
         return typing.cast("DataAzurermCdnFrontdoorProfileTimeoutsOutputReference", jsii.get(self, "timeouts"))
-
-    @builtins.property
-    @jsii.member(jsii_name="identityInput")
-    def identity_input(
-        self,
-    ) -> typing.Optional["DataAzurermCdnFrontdoorProfileIdentity"]:
-        return typing.cast(typing.Optional["DataAzurermCdnFrontdoorProfileIdentity"], jsii.get(self, "identityInput"))
 
     @builtins.property
     @jsii.member(jsii_name="idInput")
@@ -287,7 +263,6 @@ class DataAzurermCdnFrontdoorProfile(
         "name": "name",
         "resource_group_name": "resourceGroupName",
         "id": "id",
-        "identity": "identity",
         "timeouts": "timeouts",
     },
 )
@@ -305,7 +280,6 @@ class DataAzurermCdnFrontdoorProfileConfig(_cdktf_9a9027ec.TerraformMetaArgument
         name: builtins.str,
         resource_group_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
-        identity: typing.Optional[typing.Union["DataAzurermCdnFrontdoorProfileIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         timeouts: typing.Optional[typing.Union["DataAzurermCdnFrontdoorProfileTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -316,16 +290,13 @@ class DataAzurermCdnFrontdoorProfileConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#name DataAzurermCdnFrontdoorProfile#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#resource_group_name DataAzurermCdnFrontdoorProfile#resource_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#id DataAzurermCdnFrontdoorProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#identity DataAzurermCdnFrontdoorProfile#identity}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#timeouts DataAzurermCdnFrontdoorProfile#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#name DataAzurermCdnFrontdoorProfile#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#resource_group_name DataAzurermCdnFrontdoorProfile#resource_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#id DataAzurermCdnFrontdoorProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#timeouts DataAzurermCdnFrontdoorProfile#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
-        if isinstance(identity, dict):
-            identity = DataAzurermCdnFrontdoorProfileIdentity(**identity)
         if isinstance(timeouts, dict):
             timeouts = DataAzurermCdnFrontdoorProfileTimeouts(**timeouts)
         if __debug__:
@@ -340,7 +311,6 @@ class DataAzurermCdnFrontdoorProfileConfig(_cdktf_9a9027ec.TerraformMetaArgument
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument resource_group_name", value=resource_group_name, expected_type=type_hints["resource_group_name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -362,8 +332,6 @@ class DataAzurermCdnFrontdoorProfileConfig(_cdktf_9a9027ec.TerraformMetaArgument
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
-        if identity is not None:
-            self._values["identity"] = identity
         if timeouts is not None:
             self._values["timeouts"] = timeouts
 
@@ -433,21 +401,21 @@ class DataAzurermCdnFrontdoorProfileConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#name DataAzurermCdnFrontdoorProfile#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#name DataAzurermCdnFrontdoorProfile#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#resource_group_name DataAzurermCdnFrontdoorProfile#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#resource_group_name DataAzurermCdnFrontdoorProfile#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#id DataAzurermCdnFrontdoorProfile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#id DataAzurermCdnFrontdoorProfile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -456,19 +424,10 @@ class DataAzurermCdnFrontdoorProfileConfig(_cdktf_9a9027ec.TerraformMetaArgument
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def identity(self) -> typing.Optional["DataAzurermCdnFrontdoorProfileIdentity"]:
-        '''identity block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#identity DataAzurermCdnFrontdoorProfile#identity}
-        '''
-        result = self._values.get("identity")
-        return typing.cast(typing.Optional["DataAzurermCdnFrontdoorProfileIdentity"], result)
-
-    @builtins.property
     def timeouts(self) -> typing.Optional["DataAzurermCdnFrontdoorProfileTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#timeouts DataAzurermCdnFrontdoorProfile#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#timeouts DataAzurermCdnFrontdoorProfile#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzurermCdnFrontdoorProfileTimeouts"], result)
@@ -488,41 +447,11 @@ class DataAzurermCdnFrontdoorProfileConfig(_cdktf_9a9027ec.TerraformMetaArgument
 @jsii.data_type(
     jsii_type="@cdktf/provider-azurerm.dataAzurermCdnFrontdoorProfile.DataAzurermCdnFrontdoorProfileIdentity",
     jsii_struct_bases=[],
-    name_mapping={"type": "type", "identity_ids": "identityIds"},
+    name_mapping={},
 )
 class DataAzurermCdnFrontdoorProfileIdentity:
-    def __init__(
-        self,
-        *,
-        type: builtins.str,
-        identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#type DataAzurermCdnFrontdoorProfile#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#identity_ids DataAzurermCdnFrontdoorProfile#identity_ids}.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65c6999b655a633a13b0c782f95ec76cb629f7994f754e0840df3f7c2e8d86e2)
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument identity_ids", value=identity_ids, expected_type=type_hints["identity_ids"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "type": type,
-        }
-        if identity_ids is not None:
-            self._values["identity_ids"] = identity_ids
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#type DataAzurermCdnFrontdoorProfile#type}.'''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#identity_ids DataAzurermCdnFrontdoorProfile#identity_ids}.'''
-        result = self._values.get("identity_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -536,6 +465,82 @@ class DataAzurermCdnFrontdoorProfileIdentity:
         )
 
 
+class DataAzurermCdnFrontdoorProfileIdentityList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-azurerm.dataAzurermCdnFrontdoorProfile.DataAzurermCdnFrontdoorProfileIdentityList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6054a51e33963029c318a7a1bb8fefd5952146282d7c5bff8d4a4d38a291275f)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAzurermCdnFrontdoorProfileIdentityOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b5dcfa6a7aa53c447ab857816f95233cd5ae62a879a577f0a38c3ef45009321)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAzurermCdnFrontdoorProfileIdentityOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5644e864784de42fd711ea12e69db1c0292e831d4246c3bbda2b5a181771ad33)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee4c5cc4a71b1a9bb2a64e531b37655546da2414f18c91d83a405b704b887e89)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61d0a2d0308c6c12293059a588287cd2b1fc1645a8507f0ba3264cb4970d8294)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
 class DataAzurermCdnFrontdoorProfileIdentityOutputReference(
     _cdktf_9a9027ec.ComplexObject,
     metaclass=jsii.JSIIMeta,
@@ -545,20 +550,27 @@ class DataAzurermCdnFrontdoorProfileIdentityOutputReference(
         self,
         terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
         terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
     ) -> None:
         '''
         :param terraform_resource: The parent resource.
         :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__199ba33a6511c4cff076fd7a95d2513328457f32c293bbc601372ed7dd89ee27)
             check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
-    @jsii.member(jsii_name="resetIdentityIds")
-    def reset_identity_ids(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetIdentityIds", []))
+    @builtins.property
+    @jsii.member(jsii_name="identityIds")
+    def identity_ids(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "identityIds"))
 
     @builtins.property
     @jsii.member(jsii_name="principalId")
@@ -571,38 +583,9 @@ class DataAzurermCdnFrontdoorProfileIdentityOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "tenantId"))
 
     @builtins.property
-    @jsii.member(jsii_name="identityIdsInput")
-    def identity_ids_input(self) -> typing.Optional[typing.List[builtins.str]]:
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "identityIdsInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="typeInput")
-    def type_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="identityIds")
-    def identity_ids(self) -> typing.List[builtins.str]:
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "identityIds"))
-
-    @identity_ids.setter
-    def identity_ids(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__358acaa556b25aa5200153f31e74efb89764f1a8f24887f47ba0ebc2d1696e66)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityIds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="type")
     def type(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "type"))
-
-    @type.setter
-    def type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82e1315685527dd18e87912d84b1fb193b6ba70ce5092bb2a59603a07a3bb46f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -621,6 +604,152 @@ class DataAzurermCdnFrontdoorProfileIdentityOutputReference(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-azurerm.dataAzurermCdnFrontdoorProfile.DataAzurermCdnFrontdoorProfileLogScrubbingRule",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataAzurermCdnFrontdoorProfileLogScrubbingRule:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAzurermCdnFrontdoorProfileLogScrubbingRule(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAzurermCdnFrontdoorProfileLogScrubbingRuleList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-azurerm.dataAzurermCdnFrontdoorProfile.DataAzurermCdnFrontdoorProfileLogScrubbingRuleList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5430d368e5c0f8369b6b79d4b7627e11122a5ba0c53d3745292bbc6b87ea928)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAzurermCdnFrontdoorProfileLogScrubbingRuleOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__008ea39666f24649e031e865a19420b2d002a7d8ab83ed656d62b8f9d0b0445f)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAzurermCdnFrontdoorProfileLogScrubbingRuleOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5fc391fac9b99d7537d534194dfb816add6bc055d539e00efd3345c4163d9521)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__309bc60f05520a4ba010174f442c4d4a11dafd31bd9089711112a5d18da49c83)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__947b4b173cd516bc78a3e10bfa99a8360c22042c0f897f1f669c2f27a241a166)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAzurermCdnFrontdoorProfileLogScrubbingRuleOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-azurerm.dataAzurermCdnFrontdoorProfile.DataAzurermCdnFrontdoorProfileLogScrubbingRuleOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0afde82a9ab1951a313734638cba4b3584b95d562b51d676a2433ff422ad752e)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="matchVariable")
+    def match_variable(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "matchVariable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataAzurermCdnFrontdoorProfileLogScrubbingRule]:
+        return typing.cast(typing.Optional[DataAzurermCdnFrontdoorProfileLogScrubbingRule], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataAzurermCdnFrontdoorProfileLogScrubbingRule],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__025c920026068555dca119b2020aebe4082f68e49436d216313d0d6b41059d4f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-azurerm.dataAzurermCdnFrontdoorProfile.DataAzurermCdnFrontdoorProfileTimeouts",
     jsii_struct_bases=[],
     name_mapping={"read": "read"},
@@ -628,7 +757,7 @@ class DataAzurermCdnFrontdoorProfileIdentityOutputReference(
 class DataAzurermCdnFrontdoorProfileTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#read DataAzurermCdnFrontdoorProfile#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#read DataAzurermCdnFrontdoorProfile#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a81b884a44560c1c8e6b04ad8a15c30f5c5796ce157adb0a27c2599c156302e)
@@ -639,7 +768,7 @@ class DataAzurermCdnFrontdoorProfileTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/cdn_frontdoor_profile#read DataAzurermCdnFrontdoorProfile#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/cdn_frontdoor_profile#read DataAzurermCdnFrontdoorProfile#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -718,7 +847,11 @@ __all__ = [
     "DataAzurermCdnFrontdoorProfile",
     "DataAzurermCdnFrontdoorProfileConfig",
     "DataAzurermCdnFrontdoorProfileIdentity",
+    "DataAzurermCdnFrontdoorProfileIdentityList",
     "DataAzurermCdnFrontdoorProfileIdentityOutputReference",
+    "DataAzurermCdnFrontdoorProfileLogScrubbingRule",
+    "DataAzurermCdnFrontdoorProfileLogScrubbingRuleList",
+    "DataAzurermCdnFrontdoorProfileLogScrubbingRuleOutputReference",
     "DataAzurermCdnFrontdoorProfileTimeouts",
     "DataAzurermCdnFrontdoorProfileTimeoutsOutputReference",
 ]
@@ -732,7 +865,6 @@ def _typecheckingstub__6e05fed0320308d4a88372dd3fcc2be299dd75e7de42eac2c7addbc49
     name: builtins.str,
     resource_group_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
-    identity: typing.Optional[typing.Union[DataAzurermCdnFrontdoorProfileIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     timeouts: typing.Optional[typing.Union[DataAzurermCdnFrontdoorProfileTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -784,16 +916,39 @@ def _typecheckingstub__039c4a59ffd78675429aeb1f3d4df8481991d7d259bacb5760fb914a7
     name: builtins.str,
     resource_group_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
-    identity: typing.Optional[typing.Union[DataAzurermCdnFrontdoorProfileIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     timeouts: typing.Optional[typing.Union[DataAzurermCdnFrontdoorProfileTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__65c6999b655a633a13b0c782f95ec76cb629f7994f754e0840df3f7c2e8d86e2(
-    *,
-    type: builtins.str,
-    identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+def _typecheckingstub__6054a51e33963029c318a7a1bb8fefd5952146282d7c5bff8d4a4d38a291275f(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b5dcfa6a7aa53c447ab857816f95233cd5ae62a879a577f0a38c3ef45009321(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5644e864784de42fd711ea12e69db1c0292e831d4246c3bbda2b5a181771ad33(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee4c5cc4a71b1a9bb2a64e531b37655546da2414f18c91d83a405b704b887e89(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61d0a2d0308c6c12293059a588287cd2b1fc1645a8507f0ba3264cb4970d8294(
+    value: builtins.bool,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -801,24 +956,61 @@ def _typecheckingstub__65c6999b655a633a13b0c782f95ec76cb629f7994f754e0840df3f7c2
 def _typecheckingstub__199ba33a6511c4cff076fd7a95d2513328457f32c293bbc601372ed7dd89ee27(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__358acaa556b25aa5200153f31e74efb89764f1a8f24887f47ba0ebc2d1696e66(
-    value: typing.List[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__82e1315685527dd18e87912d84b1fb193b6ba70ce5092bb2a59603a07a3bb46f(
-    value: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__61594dc98b602094c80de9e6788e4451804fda1525bb0083366ac978a496c590(
     value: typing.Optional[DataAzurermCdnFrontdoorProfileIdentity],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5430d368e5c0f8369b6b79d4b7627e11122a5ba0c53d3745292bbc6b87ea928(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__008ea39666f24649e031e865a19420b2d002a7d8ab83ed656d62b8f9d0b0445f(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fc391fac9b99d7537d534194dfb816add6bc055d539e00efd3345c4163d9521(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__309bc60f05520a4ba010174f442c4d4a11dafd31bd9089711112a5d18da49c83(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__947b4b173cd516bc78a3e10bfa99a8360c22042c0f897f1f669c2f27a241a166(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0afde82a9ab1951a313734638cba4b3584b95d562b51d676a2433ff422ad752e(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__025c920026068555dca119b2020aebe4082f68e49436d216313d0d6b41059d4f(
+    value: typing.Optional[DataAzurermCdnFrontdoorProfileLogScrubbingRule],
 ) -> None:
     """Type checking stubs"""
     pass

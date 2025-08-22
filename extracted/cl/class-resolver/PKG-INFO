@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: class-resolver
-Version: 0.6.0
+Version: 0.7.0
 Summary: Lookup and instantiate classes with style.
 Keywords: snekpack,cookiecutter,development tool,configurability
 Author: Charles Tapley Hoyt
@@ -16,16 +16,14 @@ Classifier: Framework :: tox
 Classifier: Framework :: Sphinx
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
-Requires-Dist: importlib-metadata>3.6 ; python_full_version < '3.10'
 Requires-Dist: typing-extensions
-Requires-Dist: click ; extra == 'click'
+Requires-Dist: click>=8.2 ; extra == 'click'
 Requires-Dist: numpy ; extra == 'numpy'
 Requires-Dist: optuna ; extra == 'optuna'
 Requires-Dist: scikit-learn ; extra == 'sklearn'
@@ -36,7 +34,7 @@ Requires-Dist: torch-sparse ; extra == 'torch-geometric'
 Requires-Dist: torch-geometric ; extra == 'torch-geometric'
 Maintainer: Charles Tapley Hoyt
 Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Project-URL: Bug Tracker, https://github.com/cthoyt/class-resolver/issues
 Project-URL: Documentation, https://class_resolver.readthedocs.io
 Project-URL: Funding, https://github.com/sponsors/cthoyt

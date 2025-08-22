@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-ibm-transpiler
-Version: 0.13.1
+Version: 0.14.0
 Summary: A library to use Qiskit IBM Transpiler (https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-transpiler) and the AI transpiler passes (https://quantum.cloud.ibm.com/docs/guides/ai-transpiler-passes)
 Home-page: https://github.com/Qiskit/qiskit-ibm-transpiler
 Author: Qiskit Development Team
@@ -29,9 +29,10 @@ Requires-Dist: backoff~=2.0
 Requires-Dist: qiskit-qasm3-import~=0.4
 Requires-Dist: requests~=2.0
 Requires-Dist: networkx==2.8.5
+Requires-Dist: qiskit_ibm_runtime~=0.40.1
+Requires-Dist: qiskit-serverless~=0.25.3
 Provides-Extra: ai-local-mode
 Requires-Dist: qiskit_ibm_ai_local_transpiler~=0.4; extra == "ai-local-mode"
-Requires-Dist: qiskit-ibm-runtime>=0.37.0; extra == "ai-local-mode"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

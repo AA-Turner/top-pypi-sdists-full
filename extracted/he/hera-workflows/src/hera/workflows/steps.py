@@ -4,7 +4,7 @@ See <https://argoproj.github.io/argo-workflows/walk-through/steps>
 for more on Steps.
 """
 
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Set, Union
 
 from hera.shared._pydantic import PrivateAttr
 from hera.workflows._context import _context
@@ -49,7 +49,6 @@ def parallel():
 class Step(
     TemplateInvocatorSubNodeMixin,
     ArgumentsMixin,
-    SubNodeMixin,
     ParameterMixin,
     ItemMixin,
 ):
@@ -111,6 +110,14 @@ class Parallel(
     _node_names = PrivateAttr(default_factory=set)
 
     def _add_sub(self, node: Any):
+        if isinstance(node, Templatable):
+            from hera.workflows.workflow import Workflow
+
+            # We must be under a workflow context due to checks in _HeraContext.add_sub_node
+            assert _context.pieces and isinstance(_context.pieces[0], Workflow)
+            _context.pieces[0]._add_sub(node)
+            return
+
         if not isinstance(node, Step):
             raise InvalidType(type(node))
         if node.name in self._node_names:
@@ -146,7 +153,7 @@ class Steps(
     * All Step objects initialised within a Parallel context will run in parallel.
     """
 
-    _node_names = PrivateAttr(default_factory=set)
+    _node_names: Set[str] = PrivateAttr(default_factory=set)
 
     sub_steps: List[
         Union[
@@ -181,6 +188,14 @@ class Steps(
         return steps or None
 
     def _add_sub(self, node: Any):
+        if isinstance(node, Templatable):
+            from hera.workflows.workflow import Workflow
+
+            # We must be under a workflow context due to checks in _HeraContext.add_sub_node
+            assert _context.pieces and isinstance(_context.pieces[0], Workflow)
+            _context.pieces[0]._add_sub(node)
+            return
+
         if not isinstance(node, (Step, Parallel)):
             raise InvalidType(type(node))
         if isinstance(node, Step):
@@ -224,7 +239,7 @@ class Steps(
             priority=self.priority,
             priority_class_name=self.priority_class_name,
             resource=None,
-            retry_strategy=self.retry_strategy,
+            retry_strategy=self._build_retry_strategy(),
             scheduler_name=self.scheduler_name,
             script=None,
             security_context=self.pod_security_context,

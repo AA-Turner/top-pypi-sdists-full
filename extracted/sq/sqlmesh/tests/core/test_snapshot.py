@@ -64,6 +64,7 @@ from sqlmesh.core.snapshot.definition import (
     table_name,
     TableNamingConvention,
 )
+from sqlmesh.core.config.common import VirtualEnvironmentMode
 from sqlmesh.utils import AttributeDict
 from sqlmesh.utils.date import DatetimeRanges, to_date, to_datetime, to_timestamp
 from sqlmesh.utils.errors import SQLMeshError, SignalEvalError
@@ -134,6 +135,7 @@ def test_json(snapshot: Snapshot):
                 "batch_size": 30,
                 "forward_only": False,
                 "on_destructive_change": "ERROR",
+                "on_additive_change": "ALLOW",
                 "partition_by_time_column": True,
                 "disable_restatement": False,
                 "dialect": "spark",
@@ -162,6 +164,7 @@ def test_json(snapshot: Snapshot):
             "signals": [],
             "enabled": True,
             "extract_dependencies_from_query": True,
+            "virtual_environment_mode": "full",
         },
         "name": '"name"',
         "parents": [{"name": '"parent"."tbl"', "identifier": snapshot.parents[0].identifier}],
@@ -910,8 +913,8 @@ def test_fingerprint(model: Model, parent_model: Model):
     fingerprint = fingerprint_from_node(model, nodes={})
 
     original_fingerprint = SnapshotFingerprint(
-        data_hash="1312415267",
-        metadata_hash="1125608408",
+        data_hash="3301649319",
+        metadata_hash="3575333731",
     )
 
     assert fingerprint == original_fingerprint
@@ -971,7 +974,7 @@ def test_fingerprint_seed_model():
     )
 
     expected_fingerprint = SnapshotFingerprint(
-        data_hash="1909791099",
+        data_hash="1586624913",
         metadata_hash="2315134974",
     )
 
@@ -1010,8 +1013,8 @@ def test_fingerprint_jinja_macros(model: Model):
         }
     )
     original_fingerprint = SnapshotFingerprint(
-        data_hash="923305614",
-        metadata_hash="1125608408",
+        data_hash="2908339239",
+        metadata_hash="3575333731",
     )
 
     fingerprint = fingerprint_from_node(model, nodes={})
@@ -1312,7 +1315,7 @@ def test_table_naming_convention_change_reuse_previous_version(make_snapshot):
     original_snapshot.categorize_as(SnapshotChangeCategory.BREAKING)
 
     assert original_snapshot.table_naming_convention == TableNamingConvention.SCHEMA_AND_TABLE
-    assert original_snapshot.table_name() == "sqlmesh__default.a__4145234055"
+    assert original_snapshot.table_name() == f"sqlmesh__default.a__{original_snapshot.version}"
 
     changed_snapshot: Snapshot = make_snapshot(
         SqlModel(name="a", query=parse_one("select 1, 'forward_only' as a, ds")),
@@ -1330,7 +1333,7 @@ def test_table_naming_convention_change_reuse_previous_version(make_snapshot):
         changed_snapshot.previous_version.table_naming_convention
         == TableNamingConvention.SCHEMA_AND_TABLE
     )
-    assert changed_snapshot.table_name() == "sqlmesh__default.a__4145234055"
+    assert changed_snapshot.table_name() == f"sqlmesh__default.a__{changed_snapshot.version}"
 
 
 def test_categorize_change_sql(make_snapshot):
@@ -2050,6 +2053,7 @@ def test_deployability_index(make_snapshot):
     snapshot_f.parents = (snapshot_e.snapshot_id, snapshot_a.snapshot_id)
 
     snapshot_g = make_snapshot(SqlModel(name="g", query=parse_one("SELECT 1")))
+    snapshot_g.intervals = [(to_timestamp("2023-01-01"), to_timestamp("2023-01-02"))]
     snapshot_g.categorize_as(SnapshotChangeCategory.INDIRECT_NON_BREAKING)
     snapshot_g.parents = (snapshot_e.snapshot_id,)
 
@@ -3099,7 +3103,7 @@ def test_apply_auto_restatements(make_snapshot):
         (to_timestamp("2020-01-01"), to_timestamp("2020-01-06")),
     ]
 
-    restated_intervals = apply_auto_restatements(
+    restated_intervals, _ = apply_auto_restatements(
         {
             snapshot_a.snapshot_id: snapshot_a,
             snapshot_b.snapshot_id: snapshot_b,
@@ -3236,7 +3240,7 @@ def test_apply_auto_restatements_disable_restatement_downstream(make_snapshot):
     snapshot_b.add_interval("2020-01-01", "2020-01-05")
     assert snapshot_a.snapshot_id in snapshot_b.parents
 
-    restated_intervals = apply_auto_restatements(
+    restated_intervals, _ = apply_auto_restatements(
         {
             snapshot_a.snapshot_id: snapshot_a,
             snapshot_b.snapshot_id: snapshot_b,
@@ -3273,6 +3277,116 @@ def test_apply_auto_restatements_disable_restatement_downstream(make_snapshot):
     snapshot_b.apply_pending_restatement_intervals()
     assert snapshot_b.intervals == [
         (to_timestamp("2020-01-01"), to_timestamp("2020-01-06")),
+    ]
+
+
+def test_auto_restatement_triggers(make_snapshot):
+    # Auto restatements:
+    #   a, c, d
+    # dag:
+    #   a -> b
+    #   a -> c
+    #   [b, c, d] -> e
+    model_a = SqlModel(
+        name="test_model_a",
+        kind=IncrementalByTimeRangeKind(
+            time_column=TimeColumn(column="ds"),
+            auto_restatement_cron="0 10 * * *",
+            auto_restatement_intervals=24,
+        ),
+        start="2020-01-01",
+        cron="@daily",
+        query=parse_one("SELECT 1 as ds"),
+    )
+    snapshot_a = make_snapshot(model_a, version="1")
+    snapshot_a.add_interval("2020-01-01", "2020-01-05")
+    snapshot_a.next_auto_restatement_ts = to_timestamp("2020-01-06 10:00:00")
+
+    model_b = SqlModel(
+        name="test_model_b",
+        kind=IncrementalByTimeRangeKind(
+            time_column=TimeColumn(column="ds"),
+        ),
+        start="2020-01-01",
+        cron="@daily",
+        query=parse_one("SELECT ds FROM test_model_a"),
+    )
+    snapshot_b = make_snapshot(model_b, nodes={model_a.fqn: model_a}, version="1")
+    snapshot_b.add_interval("2020-01-01", "2020-01-05")
+
+    model_c = SqlModel(
+        name="test_model_c",
+        kind=IncrementalByTimeRangeKind(
+            time_column=TimeColumn(column="ds"),
+            auto_restatement_cron="0 10 * * *",
+            auto_restatement_intervals=24,
+        ),
+        start="2020-01-01",
+        cron="@daily",
+        query=parse_one("SELECT ds FROM test_model_a"),
+    )
+    snapshot_c = make_snapshot(model_c, nodes={model_a.fqn: model_a}, version="1")
+    snapshot_c.add_interval("2020-01-01", "2020-01-05")
+    snapshot_c.next_auto_restatement_ts = to_timestamp("2020-01-06 10:00:00")
+
+    model_d = SqlModel(
+        name="test_model_d",
+        kind=IncrementalByTimeRangeKind(
+            time_column=TimeColumn(column="ds"),
+            auto_restatement_cron="0 10 * * *",
+            auto_restatement_intervals=24,
+        ),
+        start="2020-01-01",
+        cron="@daily",
+        query=parse_one("SELECT 1 as ds"),
+    )
+    snapshot_d = make_snapshot(model_d, version="1")
+    snapshot_d.add_interval("2020-01-01", "2020-01-05")
+    snapshot_d.next_auto_restatement_ts = to_timestamp("2020-01-06 10:00:00")
+
+    model_e = SqlModel(
+        name="test_model_e",
+        kind=IncrementalByTimeRangeKind(
+            time_column=TimeColumn(column="ds"),
+        ),
+        start="2020-01-01",
+        cron="@daily",
+        query=parse_one(
+            "SELECT ds from test_model_b UNION ALL SELECT ds from test_model_c UNION ALL SELECT ds from test_model_d"
+        ),
+    )
+    snapshot_e = make_snapshot(
+        model_e,
+        nodes={
+            model_a.fqn: model_a,
+            model_b.fqn: model_b,
+            model_c.fqn: model_c,
+            model_d.fqn: model_d,
+        },
+        version="1",
+    )
+    snapshot_e.add_interval("2020-01-01", "2020-01-05")
+
+    _, auto_restatement_triggers = apply_auto_restatements(
+        {
+            snapshot_a.snapshot_id: snapshot_a,
+            snapshot_b.snapshot_id: snapshot_b,
+            snapshot_c.snapshot_id: snapshot_c,
+            snapshot_d.snapshot_id: snapshot_d,
+            snapshot_e.snapshot_id: snapshot_e,
+        },
+        "2020-01-06 10:01:00",
+    )
+
+    assert auto_restatement_triggers[snapshot_a.snapshot_id] == [snapshot_a.snapshot_id]
+    assert auto_restatement_triggers[snapshot_c.snapshot_id] == [snapshot_c.snapshot_id]
+    assert auto_restatement_triggers[snapshot_d.snapshot_id] == [snapshot_d.snapshot_id]
+    assert auto_restatement_triggers[snapshot_b.snapshot_id] == [snapshot_a.snapshot_id]
+    # a via b, c and d directly
+    assert sorted(auto_restatement_triggers[snapshot_e.snapshot_id]) == [
+        snapshot_a.snapshot_id,
+        snapshot_c.snapshot_id,
+        snapshot_d.snapshot_id,
     ]
 
 
@@ -3340,3 +3454,42 @@ def test_partitioned_by_roundtrip(make_snapshot: t.Callable):
 
     assert isinstance(deserialized.node, SqlModel)
     assert deserialized.node.partitioned_by == snapshot.node.partitioned_by
+
+
+@pytest.mark.parametrize(
+    "virtual_env_mode,is_deployable,expected_uses_name_as_is",
+    [
+        (VirtualEnvironmentMode.DEV_ONLY, True, True),
+        (VirtualEnvironmentMode.DEV_ONLY, False, False),
+        (VirtualEnvironmentMode.FULL, True, False),
+        (VirtualEnvironmentMode.FULL, False, False),
+    ],
+)
+def test_table_name_virtual_environment_mode(
+    make_snapshot,
+    virtual_env_mode: VirtualEnvironmentMode,
+    is_deployable: bool,
+    expected_uses_name_as_is: bool,
+):
+    model = SqlModel(
+        name="my_schema.my_model",
+        kind=IncrementalByTimeRangeKind(time_column="ds"),
+        query=parse_one("SELECT 1, ds"),
+        virtual_environment_mode=virtual_env_mode,
+    )
+
+    snapshot = make_snapshot(model)
+    snapshot.categorize_as(SnapshotChangeCategory.BREAKING)
+
+    table_name_result = snapshot.table_name(is_deployable=is_deployable)
+
+    if expected_uses_name_as_is:
+        assert table_name_result == '"my_schema"."my_model"'
+    else:
+        # Should contain the versioned table name with schema prefix
+        assert "sqlmesh__my_schema" in table_name_result
+        assert "my_schema__my_model" in table_name_result
+        if is_deployable:
+            assert table_name_result.endswith(snapshot.version)
+        else:
+            assert table_name_result.endswith(f"{snapshot.dev_version}__dev")

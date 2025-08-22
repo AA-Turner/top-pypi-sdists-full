@@ -404,6 +404,9 @@ __all__ = (
     "DataQualityAnalyzerResultTypeDef",
     "DataQualityEncryptionTypeDef",
     "DataQualityEvaluationRunAdditionalRunOptionsTypeDef",
+    "DataQualityGlueTableOutputTypeDef",
+    "DataQualityGlueTableTypeDef",
+    "DataQualityGlueTableUnionTypeDef",
     "DataQualityMetricValuesTypeDef",
     "DataQualityObservationTypeDef",
     "DataQualityResultDescriptionTypeDef",
@@ -2311,6 +2314,22 @@ class DataQualityEvaluationRunAdditionalRunOptionsTypeDef(TypedDict):
     CloudWatchMetricsEnabled: NotRequired[bool]
     ResultsS3Prefix: NotRequired[str]
     CompositeRuleEvaluationMethod: NotRequired[DQCompositeRuleEvaluationMethodType]
+
+class DataQualityGlueTableOutputTypeDef(TypedDict):
+    DatabaseName: str
+    TableName: str
+    CatalogId: NotRequired[str]
+    ConnectionName: NotRequired[str]
+    AdditionalOptions: NotRequired[Dict[str, str]]
+    PreProcessingQuery: NotRequired[str]
+
+class DataQualityGlueTableTypeDef(TypedDict):
+    DatabaseName: str
+    TableName: str
+    CatalogId: NotRequired[str]
+    ConnectionName: NotRequired[str]
+    AdditionalOptions: NotRequired[Mapping[str, str]]
+    PreProcessingQuery: NotRequired[str]
 
 class DataQualityMetricValuesTypeDef(TypedDict):
     ActualValue: NotRequired[float]
@@ -4928,6 +4947,10 @@ class PrincipalPermissionsTypeDef(TypedDict):
     Principal: NotRequired[DataLakePrincipalTypeDef]
     Permissions: NotRequired[Sequence[PermissionType]]
 
+DataQualityGlueTableUnionTypeDef = Union[
+    DataQualityGlueTableTypeDef, DataQualityGlueTableOutputTypeDef
+]
+
 class MetricBasedObservationTypeDef(TypedDict):
     MetricName: NotRequired[str]
     StatisticId: NotRequired[str]
@@ -4935,7 +4958,8 @@ class MetricBasedObservationTypeDef(TypedDict):
     NewRules: NotRequired[List[str]]
 
 class DataSourceOutputTypeDef(TypedDict):
-    GlueTable: GlueTableOutputTypeDef
+    GlueTable: NotRequired[GlueTableOutputTypeDef]
+    DataQualityGlueTable: NotRequired[DataQualityGlueTableOutputTypeDef]
 
 class NullValueFieldTypeDef(TypedDict):
     Value: str
@@ -6682,7 +6706,8 @@ class SparkSQLTypeDef(TypedDict):
     OutputSchemas: NotRequired[Sequence[GlueSchemaTypeDef]]
 
 class DataSourceTypeDef(TypedDict):
-    GlueTable: GlueTableUnionTypeDef
+    GlueTable: NotRequired[GlueTableUnionTypeDef]
+    DataQualityGlueTable: NotRequired[DataQualityGlueTableUnionTypeDef]
 
 class TableOptimizerConfigurationTypeDef(TypedDict):
     roleArn: NotRequired[str]

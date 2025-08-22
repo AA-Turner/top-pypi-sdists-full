@@ -43,7 +43,15 @@ PAGER_DUTY_EVENT_ACTION_ACKNOWLEDGE: PagerDutyEventAction
 PAGER_DUTY_EVENT_ACTION_RESOLVE: PagerDutyEventAction
 
 class PagerDutyEventV2Payload(_message.Message):
-    __slots__ = ("summary", "timestamp", "severity", "source", "component", "group")
+    __slots__ = ("summary", "timestamp", "severity", "source", "component", "group", "custom_details")
+    class CustomDetailsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     SUMMARY_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     SEVERITY_FIELD_NUMBER: _ClassVar[int]
@@ -51,12 +59,14 @@ class PagerDutyEventV2Payload(_message.Message):
     COMPONENT_FIELD_NUMBER: _ClassVar[int]
     GROUP_FIELD_NUMBER: _ClassVar[int]
     CLASS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOM_DETAILS_FIELD_NUMBER: _ClassVar[int]
     summary: str
     timestamp: _timestamp_pb2.Timestamp
     severity: PagerDutySeverity
     source: str
     component: str
     group: str
+    custom_details: _containers.ScalarMap[str, str]
     def __init__(
         self,
         summary: _Optional[str] = ...,
@@ -65,6 +75,7 @@ class PagerDutyEventV2Payload(_message.Message):
         source: _Optional[str] = ...,
         component: _Optional[str] = ...,
         group: _Optional[str] = ...,
+        custom_details: _Optional[_Mapping[str, str]] = ...,
         **kwargs,
     ) -> None: ...
 

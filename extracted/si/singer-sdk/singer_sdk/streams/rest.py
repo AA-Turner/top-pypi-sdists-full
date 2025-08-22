@@ -36,7 +36,7 @@ if t.TYPE_CHECKING:
 
     from backoff.types import Details
 
-    from singer_sdk.helpers.types import Auth, Context
+    from singer_sdk.helpers.types import Auth, Context, RequestFunc
     from singer_sdk.singerlib import Schema
     from singer_sdk.tap_base import Tap
 
@@ -44,6 +44,7 @@ DEFAULT_PAGE_SIZE = 1000
 DEFAULT_REQUEST_TIMEOUT = 300  # 5 minutes
 
 _TToken = t.TypeVar("_TToken")
+_TNum = t.TypeVar("_TNum", int, float)
 
 
 class _HTTPStream(Stream, t.Generic[_TToken], metaclass=abc.ABCMeta):  # noqa: PLR0904
@@ -278,7 +279,7 @@ class _HTTPStream(Stream, t.Generic[_TToken], metaclass=abc.ABCMeta):  # noqa: P
 
         return msg
 
-    def request_decorator(self, func: t.Callable) -> t.Callable:
+    def request_decorator(self, func: RequestFunc) -> RequestFunc:
         """Instantiate a decorator for handling request failures.
 
         Uses a wait generator defined in `backoff_wait_generator` to
@@ -727,8 +728,8 @@ class _HTTPStream(Stream, t.Generic[_TToken], metaclass=abc.ABCMeta):  # noqa: P
     def backoff_runtime(  # noqa: PLR6301
         self,
         *,
-        value: t.Callable[[t.Any], int],
-    ) -> t.Generator[int, None, None]:
+        value: t.Callable[[t.Any], _TNum],
+    ) -> t.Generator[_TNum, None, None]:
         """Optional backoff wait generator that can replace the default `backoff.expo`.
 
         It is based on parsing the thrown exception of the decorated method, making it

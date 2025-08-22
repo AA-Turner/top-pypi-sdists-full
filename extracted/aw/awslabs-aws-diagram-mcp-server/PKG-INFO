@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.aws-diagram-mcp-server
-Version: 1.0.6
+Version: 1.0.8
 Summary: An MCP server that seamlessly creates diagrams using the Python diagrams package DSL
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/aws-diagram-mcp-server/
@@ -68,6 +68,35 @@ Configure the MCP server in your MCP client configuration (e.g., for Amazon Q De
   }
 }
 ```
+### Windows Installation
+
+For Windows users, the MCP server configuration format is slightly different:
+
+```json
+{
+  "mcpServers": {
+    "awslabs.aws-diagram-mcp-server": {
+      "disabled": false,
+      "timeout": 60,
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "awslabs.aws-diagram-mcp-server@latest",
+        "awslabs.aws-diagram-mcp-server.exe"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "AWS_PROFILE": "your-aws-profile",
+        "AWS_REGION": "us-east-1"
+      }
+    }
+  }
+}
+```
+
 
 or docker after a successful `docker build -t awslabs/aws-diagram-mcp-server .`:
 

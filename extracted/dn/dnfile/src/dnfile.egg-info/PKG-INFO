@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dnfile
-Version: 0.16.4
+Version: 0.17.0
 Summary: Parse .NET executable files.
 Author: MalwareFrank
 License: MIT License
@@ -132,6 +132,11 @@ This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypack
 =======
 History
 =======
+
+0.17.0 (2025)
+-------------
+
+* BUGFIX: DateTime object creation error.
 
 0.16.0 (2025)
 -------------

@@ -16,6 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -23,7 +24,7 @@ requires-python = ">=3.9"
 dependencies = [
     "requests~=2.32.3",
     "requests-cache~=1.2.1",
-    "singer-sdk~=0.48.0",
+    "singer-sdk~=0.48.1",
     "typing-extensions>=4.5.0; python_version < '3.12'",
 ]
 optional-dependencies.s3 = [

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -17,6 +17,7 @@ class EntityMappingRequest(BaseModel):
     top_n: int = 20
     max_prefilter: int = 1000
     semantic_rerank: bool = False
+    prefilter_sql: Optional[str] = None
 
 class EntityMappingResponse(BaseModel):
     results: List[SingleMappedEntity]

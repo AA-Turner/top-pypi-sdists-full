@@ -14,6 +14,7 @@ import jinja2
 from dataclasses import dataclass, is_dataclass
 from typing import TypeVar, Literal, Generic, Optional, Any, Union
 from collections.abc import Callable, Iterable, Iterator
+
 from beartype import beartype, BeartypeConf
 from beartype.door import is_bearable
 from typing_extensions import dataclass_transform
@@ -75,17 +76,35 @@ from .core import (
     union_func_name,
     GLOBAL_CLASS_SERIALIZER,
 )
-from .numpy import (
-    is_numpy_array,
-    is_numpy_jaxtyping,
-    is_numpy_datetime,
-    is_numpy_scalar,
-    serialize_numpy_array,
-    serialize_numpy_datetime,
-    serialize_numpy_scalar,
-)
+
+# Lazy numpy imports to improve startup time
 
 __all__ = ["serialize", "is_serializable", "to_dict", "to_tuple"]
+
+
+# Lazy numpy import wrappers to improve startup time
+def _is_numpy_array(typ: Any) -> bool:
+    from .numpy import is_numpy_array
+
+    return is_numpy_array(typ)
+
+
+def _is_numpy_scalar(typ: Any) -> bool:
+    from .numpy import is_numpy_scalar
+
+    return is_numpy_scalar(typ)
+
+
+def _is_numpy_jaxtyping(typ: Any) -> bool:
+    from .numpy import is_numpy_jaxtyping
+
+    return is_numpy_jaxtyping(typ)
+
+
+def _is_numpy_datetime(typ: Any) -> bool:
+    from .numpy import is_numpy_datetime
+
+    return is_numpy_datetime(typ)
 
 
 SerializeFunc = Callable[[type[Any], Any], Any]
@@ -373,13 +392,13 @@ def to_obj(
             return serializable_to_obj(o)
         elif is_serializable(o):
             return serializable_to_obj(o)
-        elif is_bearable(o, list):
+        elif is_bearable(o, list):  # pyright: ignore[reportArgumentType]
             return [thisfunc(e) for e in o]
-        elif is_bearable(o, tuple):
+        elif is_bearable(o, tuple):  # pyright: ignore[reportArgumentType]
             return tuple(thisfunc(e) for e in o)
-        elif is_bearable(o, set):
+        elif is_bearable(o, set):  # pyright: ignore[reportArgumentType]
             return [thisfunc(e) for e in o]
-        elif is_bearable(o, dict):
+        elif is_bearable(o, dict):  # pyright: ignore[reportArgumentType]
             return {k: thisfunc(v) for k, v in o.items()}
         elif is_str_serializable_instance(o) or is_datetime_instance(o):
             se_cls = o.__class__ if not c or c is Any else c
@@ -594,7 +613,7 @@ def {{func}}(obj, reuse_instances=None, convert_sets=None, skip_none=False):
   )
 """,
             "union": """
-def {{func}}(obj, reuse_instances, convert_sets):
+def {{func}}(obj, reuse_instances, convert_sets, skip_none=False):
   union_args = serde_scope.union_se_args['{{func}}']
 
   {% for t in union_args %}
@@ -775,13 +794,21 @@ class Renderer:
             res = self.tuple(arg)
         elif is_enum(arg.type):
             res = self.enum(arg)
-        elif is_numpy_datetime(arg.type):
+        elif _is_numpy_datetime(arg.type):
+            from .numpy import serialize_numpy_datetime
+
             res = serialize_numpy_datetime(arg)
-        elif is_numpy_scalar(arg.type):
+        elif _is_numpy_scalar(arg.type):
+            from .numpy import serialize_numpy_scalar
+
             res = serialize_numpy_scalar(arg)
-        elif is_numpy_array(arg.type):
+        elif _is_numpy_array(arg.type):
+            from .numpy import serialize_numpy_array
+
             res = serialize_numpy_array(arg)
-        elif is_numpy_jaxtyping(arg.type):
+        elif _is_numpy_jaxtyping(arg.type):
+            from .numpy import serialize_numpy_array
+
             res = serialize_numpy_array(arg)
         elif is_primitive(arg.type):
             res = self.primitive(arg)
@@ -793,8 +820,8 @@ class Renderer:
             res = f"{arg.varname} if reuse_instances else {arg.varname}.isoformat()"
         elif is_none(arg.type):
             res = "None"
-        elif is_any(arg.type) or is_bearable(arg.type, TypeVar):
-            res = f"to_obj({arg.varname}, True, False, False, c=typing.Any)"
+        elif is_any(arg.type) or is_bearable(arg.type, TypeVar):  # pyright: ignore
+            res = f"to_obj({arg.varname}, True, False, False, skip_none, typing.Any)"
         elif is_generic(arg.type):
             origin = get_origin(arg.type)
             assert origin
@@ -844,8 +871,8 @@ class Renderer:
             return ", ".join(flattened)
         else:
             return (
-                f"{arg.varname}.{SERDE_SCOPE}.funcs['{self.func}']({arg.varname},"
-                " reuse_instances=reuse_instances, convert_sets=convert_sets)"
+                f"{arg.varname}.{SERDE_SCOPE}.funcs['{self.func}']({arg.varname}, "
+                "reuse_instances=reuse_instances, convert_sets=convert_sets, skip_none=skip_none)"
             )
 
     def opt(self, arg: SeField[Any]) -> str:
@@ -939,7 +966,10 @@ class Renderer:
 
     def union_func(self, arg: SeField[Any]) -> str:
         func_name = union_func_name(UNION_SE_PREFIX, list(type_args(arg.type)))
-        return f"serde_scope.funcs['{func_name}']({arg.varname}, reuse_instances, convert_sets)"
+        return (
+            f"serde_scope.funcs['{func_name}']({arg.varname}, "
+            "reuse_instances, convert_sets, skip_none)"
+        )
 
     def literal(self, arg: SeField[Any]) -> str:
         return f"{arg.varname}"

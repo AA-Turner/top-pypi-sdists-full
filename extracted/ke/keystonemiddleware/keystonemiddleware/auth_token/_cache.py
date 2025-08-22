@@ -12,7 +12,6 @@
 
 import contextlib
 import hashlib
-import re
 
 from oslo_serialization import jsonutils
 from oslo_utils import timeutils
@@ -53,18 +52,11 @@ class _EnvCachePool(object):
 class _CachePool(list):
     """A lazy pool of cache references."""
 
-    def __init__(self, memcached_servers, log, arguments, tls_context=None):
-        if memcached_servers:
-            self._memcached_servers = [
-                re.sub(r'^inet[6]?:', '', server)
-                for server in memcached_servers
-            ]
-        else:
-            self._memcached_servers = memcached_servers
+    def __init__(self, memcached_servers, log, arguments):
+        self._memcached_servers = memcached_servers
         self._sasl_enabled = arguments.get("sasl_enabled", False)
         self._username = arguments.get("username", None)
         self._password = arguments.get("password", None)
-        self._tls_context = tls_context
         if not self._memcached_servers:
             log.warning(
                 "Using the in-process token cache is deprecated as of the "
@@ -75,10 +67,6 @@ class _CachePool(list):
                 "by default which may result in performance issues. It is "
                 "recommended to use  memcache for the auth_token token cache "
                 "by setting the memcached_servers option.")
-        if self._memcached_servers != memcached_servers:
-            log.warning(
-                "Usage of the inet(6): prefix is deprecated. It may need to "
-                "be removed in the future release")
 
     @contextlib.contextmanager
     def reserve(self):
@@ -93,9 +81,8 @@ class _CachePool(list):
                     c = bmemcached.Client(self._memcached_servers,
                                           self._username, self._password)
                 else:
-                    import pymemcache
-                    c = pymemcache.HashClient(self._memcached_servers,
-                                              tls_context=self._tls_context)
+                    import memcache
+                    c = memcache.Client(self._memcached_servers, debug=0)
             else:
                 c = _FakeClient()
 
@@ -195,7 +182,7 @@ class TokenCache(object):
                     "through config option memcache_use_advanced_pool = True")
 
             return _CachePool(self._memcached_servers, self._LOG,
-                              self._arguments, tls_context=self._tls_context)
+                              self._arguments)
 
     def initialize(self, env):
         if self._initialized:

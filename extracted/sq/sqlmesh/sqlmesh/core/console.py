@@ -27,6 +27,7 @@ from rich.table import Table
 from rich.tree import Tree
 from sqlglot import exp
 
+from sqlmesh.core.schema_diff import TableAlterOperation
 from sqlmesh.core.test.result import ModelTextTestResult
 from sqlmesh.core.environment import EnvironmentNamingInfo, EnvironmentSummary
 from sqlmesh.core.linter.rule import RuleViolation
@@ -47,6 +48,7 @@ from sqlmesh.utils.errors import (
     PythonModelEvalError,
     NodeAuditsErrors,
     format_destructive_change_msg,
+    format_additive_change_msg,
 )
 from sqlmesh.utils.rich import strip_ansi_codes
 
@@ -327,12 +329,21 @@ class PlanBuilderConsole(BaseConsole, abc.ABC):
     def log_destructive_change(
         self,
         snapshot_name: str,
-        dropped_column_names: t.List[str],
-        alter_expressions: t.List[exp.Alter],
+        alter_operations: t.List[TableAlterOperation],
         dialect: str,
         error: bool = True,
     ) -> None:
         """Display a destructive change error or warning to the user."""
+
+    @abc.abstractmethod
+    def log_additive_change(
+        self,
+        snapshot_name: str,
+        alter_operations: t.List[TableAlterOperation],
+        dialect: str,
+        error: bool = True,
+    ) -> None:
+        """Display an additive change error or warning to the user."""
 
 
 class UnitTestConsole(abc.ABC):
@@ -428,6 +439,7 @@ class Console(
         num_audits_passed: int,
         num_audits_failed: int,
         audit_only: bool = False,
+        auto_restatement_triggers: t.Optional[t.List[SnapshotId]] = None,
     ) -> None:
         """Updates the snapshot evaluation progress."""
 
@@ -575,6 +587,7 @@ class NoopConsole(Console):
         num_audits_passed: int,
         num_audits_failed: int,
         audit_only: bool = False,
+        auto_restatement_triggers: t.Optional[t.List[SnapshotId]] = None,
     ) -> None:
         pass
 
@@ -757,8 +770,16 @@ class NoopConsole(Console):
     def log_destructive_change(
         self,
         snapshot_name: str,
-        dropped_column_names: t.List[str],
-        alter_expressions: t.List[exp.Alter],
+        alter_operations: t.List[TableAlterOperation],
+        dialect: str,
+        error: bool = True,
+    ) -> None:
+        pass
+
+    def log_additive_change(
+        self,
+        snapshot_name: str,
+        alter_operations: t.List[TableAlterOperation],
         dialect: str,
         error: bool = True,
     ) -> None:
@@ -1056,6 +1077,7 @@ class TerminalConsole(Console):
         num_audits_passed: int,
         num_audits_failed: int,
         audit_only: bool = False,
+        auto_restatement_triggers: t.Optional[t.List[SnapshotId]] = None,
     ) -> None:
         """Update the snapshot evaluation progress."""
         if (
@@ -2199,22 +2221,29 @@ class TerminalConsole(Console):
     def log_destructive_change(
         self,
         snapshot_name: str,
-        dropped_column_names: t.List[str],
-        alter_expressions: t.List[exp.Alter],
+        alter_operations: t.List[TableAlterOperation],
         dialect: str,
         error: bool = True,
     ) -> None:
         if error:
-            self._print(
-                format_destructive_change_msg(
-                    snapshot_name, dropped_column_names, alter_expressions, dialect
-                )
-            )
+            self._print(format_destructive_change_msg(snapshot_name, alter_operations, dialect))
         else:
             self.log_warning(
-                format_destructive_change_msg(
-                    snapshot_name, dropped_column_names, alter_expressions, dialect, error
-                )
+                format_destructive_change_msg(snapshot_name, alter_operations, dialect, error)
+            )
+
+    def log_additive_change(
+        self,
+        snapshot_name: str,
+        alter_operations: t.List[TableAlterOperation],
+        dialect: str,
+        error: bool = True,
+    ) -> None:
+        if error:
+            self._print(format_additive_change_msg(snapshot_name, alter_operations, dialect))
+        else:
+            self.log_warning(
+                format_additive_change_msg(snapshot_name, alter_operations, dialect, error)
             )
 
     def log_error(self, message: str) -> None:
@@ -3639,6 +3668,7 @@ class DatabricksMagicConsole(CaptureTerminalConsole):
         num_audits_passed: int,
         num_audits_failed: int,
         audit_only: bool = False,
+        auto_restatement_triggers: t.Optional[t.List[SnapshotId]] = None,
     ) -> None:
         view_name, loaded_batches = self.evaluation_batch_progress[snapshot.snapshot_id]
 
@@ -3808,11 +3838,15 @@ class DebuggerTerminalConsole(TerminalConsole):
         num_audits_passed: int,
         num_audits_failed: int,
         audit_only: bool = False,
+        auto_restatement_triggers: t.Optional[t.List[SnapshotId]] = None,
     ) -> None:
-        message = f"Evaluating {snapshot.name} | batch={batch_idx} | duration={duration_ms}ms | num_audits_passed={num_audits_passed} | num_audits_failed={num_audits_failed}"
+        message = f"Evaluated {snapshot.name} | batch={batch_idx} | duration={duration_ms}ms | num_audits_passed={num_audits_passed} | num_audits_failed={num_audits_failed}"
+
+        if auto_restatement_triggers:
+            message += f" | auto_restatement_triggers=[{', '.join(trigger.name for trigger in auto_restatement_triggers)}]"
 
         if audit_only:
-            message = f"Auditing {snapshot.name} duration={duration_ms}ms | num_audits_passed={num_audits_passed} | num_audits_failed={num_audits_failed}"
+            message = f"Audited {snapshot.name} | duration={duration_ms}ms | num_audits_passed={num_audits_passed} | num_audits_failed={num_audits_failed}"
 
         self._write(message)
 
@@ -4074,8 +4108,8 @@ def _format_node_errors(errors: t.List[NodeExecutionFailedError]) -> t.Dict[str,
         node_name = ""
         if isinstance(error.node, SnapshotId):
             node_name = error.node.name
-        elif isinstance(error.node, tuple):
-            node_name = error.node[0]
+        elif hasattr(error.node, "snapshot_name"):
+            node_name = error.node.snapshot_name
 
         msg = _format_node_error(error)
         msg = "  " + msg.replace("\n", "\n  ")

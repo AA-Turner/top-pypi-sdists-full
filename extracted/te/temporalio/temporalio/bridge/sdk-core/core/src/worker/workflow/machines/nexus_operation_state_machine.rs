@@ -21,6 +21,8 @@ use temporal_sdk_core_protos::{
         enums::v1::{CommandType, EventType},
         failure::v1::{self as failure, Failure, failure::FailureInfo},
         history::v1::{
+            NexusOperationCancelRequestCompletedEventAttributes,
+            NexusOperationCancelRequestFailedEventAttributes,
             NexusOperationCanceledEventAttributes, NexusOperationCompletedEventAttributes,
             NexusOperationFailedEventAttributes, NexusOperationStartedEventAttributes,
             NexusOperationTimedOutEventAttributes, history_event,
@@ -63,6 +65,12 @@ fsm! {
       --(NexusOperationFailed(NexusOperationFailedEventAttributes), on_failed)--> Failed;
     Started
       --(NexusOperationCanceled(NexusOperationCanceledEventAttributes), on_canceled)--> Cancelled;
+
+
+    Started --(NexusOperationCancelRequestCompleted(NexusOperationCancelRequestCompletedEventAttributes), shared on_cancel_request_completed)--> Started;
+    Started --(NexusOperationCancelRequestCompleted(NexusOperationCancelRequestCompletedEventAttributes), shared on_cancel_request_completed)--> Cancelled;
+    Started --(NexusOperationCancelRequestFailed(NexusOperationCancelRequestFailedEventAttributes), shared on_cancel_request_failed)--> Started;
+
     Started
       --(NexusOperationTimedOut(NexusOperationTimedOutEventAttributes), on_timed_out)--> TimedOut;
 
@@ -72,12 +80,20 @@ fsm! {
     Cancelled --(NexusOperationCompleted(NexusOperationCompletedEventAttributes), shared on_completed)--> Cancelled;
     Cancelled --(NexusOperationFailed(NexusOperationFailedEventAttributes), shared on_failed)--> Cancelled;
     Cancelled --(NexusOperationTimedOut(NexusOperationTimedOutEventAttributes), shared on_timed_out)--> Cancelled;
+    Cancelled --(NexusOperationCancelRequestCompleted(NexusOperationCancelRequestCompletedEventAttributes), on_cancel_request_completed)--> Cancelled;
+    Cancelled --(NexusOperationCancelRequestFailed(NexusOperationCancelRequestFailedEventAttributes))--> Cancelled;
     Cancelled --(NexusOperationCanceled(NexusOperationCanceledEventAttributes))--> Cancelled;
 
     // Ignore cancels in all terminal states
     Completed --(Cancel)--> Completed;
     Failed --(Cancel)--> Failed;
     TimedOut --(Cancel)--> TimedOut;
+    Completed --(NexusOperationCancelRequestCompleted(NexusOperationCancelRequestCompletedEventAttributes))--> Completed;
+    Failed --(NexusOperationCancelRequestCompleted(NexusOperationCancelRequestCompletedEventAttributes))--> Failed;
+    TimedOut --(NexusOperationCancelRequestCompleted(NexusOperationCancelRequestCompletedEventAttributes))--> TimedOut;
+    Completed --(NexusOperationCancelRequestFailed(NexusOperationCancelRequestFailedEventAttributes))--> Completed;
+    Failed --(NexusOperationCancelRequestFailed(NexusOperationCancelRequestFailedEventAttributes))--> Failed;
+    TimedOut --(NexusOperationCancelRequestFailed(NexusOperationCancelRequestFailedEventAttributes))--> TimedOut;
 }
 
 #[derive(Debug, derive_more::Display)]
@@ -86,8 +102,8 @@ pub(super) enum NexusOperationCommand {
     Start { operation_token: String },
     #[display("StartSync")]
     StartSync,
-    #[display("CancelBeforeStart")]
-    CancelBeforeStart,
+    #[display("FailBeforeStart")]
+    FailBeforeStart(Failure),
     #[display("Complete")]
     Complete(Option<Payload>),
     #[display("Fail")]
@@ -174,7 +190,9 @@ impl ScheduleCommandCreated {
         state: &mut SharedState,
     ) -> NexusOperationMachineTransition<Cancelled> {
         state.cancelled_before_sent = true;
-        NexusOperationMachineTransition::commands([NexusOperationCommand::CancelBeforeStart])
+        NexusOperationMachineTransition::commands([NexusOperationCommand::FailBeforeStart(
+            state.cancelled_failure("Nexus Operation cancelled before scheduled".to_owned()),
+        )])
     }
 }
 
@@ -208,40 +226,37 @@ impl ScheduledEventRecorded {
         self,
         fa: NexusOperationFailedEventAttributes,
     ) -> NexusOperationMachineTransition<Failed> {
-        NexusOperationMachineTransition::commands([
-            NexusOperationCommand::StartSync,
-            NexusOperationCommand::Fail(fa.failure.unwrap_or_else(|| Failure {
+        NexusOperationMachineTransition::commands([NexusOperationCommand::FailBeforeStart(
+            fa.failure.unwrap_or_else(|| Failure {
                 message: "Nexus operation failed but failure field was not populated".to_owned(),
                 ..Default::default()
-            })),
-        ])
+            }),
+        )])
     }
 
     pub(super) fn on_canceled(
         self,
         ca: NexusOperationCanceledEventAttributes,
     ) -> NexusOperationMachineTransition<Cancelled> {
-        NexusOperationMachineTransition::commands([
-            NexusOperationCommand::StartSync,
-            NexusOperationCommand::Cancel(ca.failure.unwrap_or_else(|| Failure {
-                message:
-                    "Nexus operation was cancelled but failure field was not populated".to_owned(),
+        NexusOperationMachineTransition::commands([NexusOperationCommand::FailBeforeStart(
+            ca.failure.unwrap_or_else(|| Failure {
+                message: "Nexus operation was cancelled but failure field was not populated"
+                    .to_owned(),
                 ..Default::default()
-            })),
-        ])
+            }),
+        )])
     }
 
     pub(super) fn on_timed_out(
         self,
         toa: NexusOperationTimedOutEventAttributes,
     ) -> NexusOperationMachineTransition<TimedOut> {
-        NexusOperationMachineTransition::commands([
-            NexusOperationCommand::StartSync,
-            NexusOperationCommand::TimedOut(toa.failure.unwrap_or_else(|| Failure {
+        NexusOperationMachineTransition::commands([NexusOperationCommand::FailBeforeStart(
+            toa.failure.unwrap_or_else(|| Failure {
                 message: "Nexus operation timed out but failure field was not populated".to_owned(),
                 ..Default::default()
-            })),
-        ])
+            }),
+        )])
     }
 
     pub(super) fn on_started(
@@ -312,6 +327,45 @@ impl Started {
         )])
     }
 
+    pub(super) fn on_cancel_request_completed(
+        self,
+        ss: &mut SharedState,
+        _: NexusOperationCancelRequestCompletedEventAttributes,
+    ) -> NexusOperationMachineTransition<StartedOrCancelled> {
+        if ss.cancel_type == NexusOperationCancellationType::WaitCancellationRequested {
+            TransitionResult::ok(
+                [NexusOperationCommand::Cancel(ss.cancelled_failure(
+                    "Nexus operation cancellation request completed".to_owned(),
+                ))],
+                StartedOrCancelled::Cancelled(Default::default()),
+            )
+        } else {
+            TransitionResult::ok([], StartedOrCancelled::Started(Default::default()))
+        }
+    }
+
+    pub(super) fn on_cancel_request_failed(
+        self,
+        ss: &mut SharedState,
+        fa: NexusOperationCancelRequestFailedEventAttributes,
+    ) -> NexusOperationMachineTransition<Started> {
+        if ss.cancel_type == NexusOperationCancellationType::WaitCancellationRequested {
+            let message = "Nexus operation cancellation request failed".to_string();
+            TransitionResult::ok(
+                [NexusOperationCommand::Fail(ss.failure(
+                    message.clone(),
+                    fa.failure.unwrap_or_else(|| Failure {
+                        message,
+                        ..Default::default()
+                    }),
+                ))],
+                self,
+            )
+        } else {
+            TransitionResult::ok([], self)
+        }
+    }
+
     pub(super) fn on_timed_out(
         self,
         toa: NexusOperationTimedOutEventAttributes,
@@ -354,6 +408,13 @@ impl Cancelled {
         if ss.cancel_type == NexusOperationCancellationType::Abandon {
             return NexusOperationMachineTransition::Err(completion_of_not_abandoned_err());
         }
+        NexusOperationMachineTransition::ok([], self)
+    }
+
+    pub(super) fn on_cancel_request_completed(
+        self,
+        _: NexusOperationCancelRequestCompletedEventAttributes,
+    ) -> NexusOperationMachineTransition<Cancelled> {
         NexusOperationMachineTransition::ok([], self)
     }
 
@@ -455,6 +516,36 @@ impl TryFrom<HistEventData> for NexusOperationMachineEvents {
                 }
             }
             Ok(EventType::NexusOperationCancelRequested) => Self::NexusOperationCancelRequested,
+            Ok(EventType::NexusOperationCancelRequestCompleted) => {
+                if let Some(
+                    history_event::Attributes::NexusOperationCancelRequestCompletedEventAttributes(
+                        attrs,
+                    ),
+                ) = e.attributes
+                {
+                    Self::NexusOperationCancelRequestCompleted(attrs)
+                } else {
+                    return Err(WFMachinesError::Nondeterminism(
+                        "NexusOperationCancelRequestCompleted attributes were unset or malformed"
+                            .to_string(),
+                    ));
+                }
+            }
+            Ok(EventType::NexusOperationCancelRequestFailed) => {
+                if let Some(
+                    history_event::Attributes::NexusOperationCancelRequestFailedEventAttributes(
+                        attrs,
+                    ),
+                ) = e.attributes
+                {
+                    Self::NexusOperationCancelRequestFailed(attrs)
+                } else {
+                    return Err(WFMachinesError::Nondeterminism(
+                        "NexusOperationCancelRequestFailed attributes were unset or malformed"
+                            .to_string(),
+                    ));
+                }
+            }
             _ => {
                 return Err(WFMachinesError::Nondeterminism(format!(
                     "Nexus operation machine does not handle this event: {e:?}"
@@ -491,28 +582,13 @@ impl WFMachinesAdapter for NexusOperationMachine {
                     .into(),
                 ]
             }
-            NexusOperationCommand::CancelBeforeStart => {
+            NexusOperationCommand::FailBeforeStart(failure) => {
                 vec![
                     ResolveNexusOperationStart {
                         seq: self.shared_state.lang_seq_num,
-                        status: Some(resolve_nexus_operation_start::Status::CancelledBeforeStart(
-                            self.cancelled_failure(
-                                "Nexus Operation cancelled before scheduled".to_owned(),
-                                &self.shared_state.operation_token,
-                            ),
+                        status: Some(resolve_nexus_operation_start::Status::Failed(
+                            failure.clone(),
                         )),
-                    }
-                    .into(),
-                    ResolveNexusOperation {
-                        seq: self.shared_state.lang_seq_num,
-                        result: Some(NexusOperationResult {
-                            status: Some(nexus_operation_result::Status::Cancelled(
-                                self.cancelled_failure(
-                                    "Nexus Operation cancelled before scheduled".to_owned(),
-                                    &self.shared_state.operation_token,
-                                ),
-                            )),
-                        }),
                     }
                     .into(),
                 ]
@@ -586,9 +662,8 @@ impl WFMachinesAdapter for NexusOperationMachine {
                             seq: self.shared_state.lang_seq_num,
                             result: Some(NexusOperationResult {
                                 status: Some(nexus_operation_result::Status::Cancelled(
-                                    self.cancelled_failure(
+                                    self.shared_state.cancelled_failure(
                                         "Nexus operation cancelled after starting".to_owned(),
-                                        &self.shared_state.operation_token,
                                     ),
                                 )),
                             }),
@@ -614,21 +689,28 @@ impl TryFrom<CommandType> for NexusOperationMachineEvents {
     }
 }
 
-impl NexusOperationMachine {
-    fn cancelled_failure(&self, message: String, operation_token: &Option<String>) -> Failure {
-        Failure {
+impl SharedState {
+    fn cancelled_failure(&self, message: String) -> Failure {
+        self.failure(
             message,
-            cause: Some(Box::new(Failure {
+            Failure {
                 failure_info: Some(FailureInfo::CanceledFailureInfo(Default::default())),
                 ..Default::default()
-            })),
+            },
+        )
+    }
+
+    fn failure(&self, message: String, cause: Failure) -> Failure {
+        Failure {
+            message,
+            cause: Some(Box::new(cause)),
             failure_info: Some(FailureInfo::NexusOperationExecutionFailureInfo(
                 failure::NexusOperationFailureInfo {
-                    scheduled_event_id: self.shared_state.scheduled_event_id,
-                    endpoint: self.shared_state.endpoint.clone(),
-                    service: self.shared_state.service.clone(),
-                    operation: self.shared_state.operation.clone(),
-                    operation_token: operation_token.clone().unwrap_or_default(),
+                    scheduled_event_id: self.scheduled_event_id,
+                    endpoint: self.endpoint.clone(),
+                    service: self.service.clone(),
+                    operation: self.operation.clone(),
+                    operation_token: self.operation_token.clone().unwrap_or_default(),
                     ..Default::default()
                 },
             )),

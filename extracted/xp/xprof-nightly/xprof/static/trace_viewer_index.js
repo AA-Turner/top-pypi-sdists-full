@@ -14945,7 +14945,7 @@ var tf_component_traceviewer;
         // Overwrite the event args in the ThreadSlice.
         const fullEvent = data.traceEvents[data.traceEvents.length - 1];
         event.args = fullEvent.args;
-        const stackFrameName = data.stackFrames[1]?.name;
+        let stackFrameName = data.stackFrames[1]?.name;
         if (stackFrameName) {
           if (stackFrameName.startsWith('@@')) {
             stackFrameName = stackFrameName.substr(2);

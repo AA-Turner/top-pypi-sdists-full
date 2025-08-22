@@ -1,7 +1,7 @@
 r'''
 # `azurerm_machine_learning_workspace_network_outbound_rule_fqdn`
 
-Refer to the Terraform Registry for docs: [`azurerm_machine_learning_workspace_network_outbound_rule_fqdn`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn).
+Refer to the Terraform Registry for docs: [`azurerm_machine_learning_workspace_network_outbound_rule_fqdn`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MachineLearningWorkspaceNetworkOutboundRuleFqdn(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.machineLearningWorkspaceNetworkOutboundRuleFqdn.MachineLearningWorkspaceNetworkOutboundRuleFqdn",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn azurerm_machine_learning_workspace_network_outbound_rule_fqdn}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn azurerm_machine_learning_workspace_network_outbound_rule_fqdn}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class MachineLearningWorkspaceNetworkOutboundRuleFqdn(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn azurerm_machine_learning_workspace_network_outbound_rule_fqdn} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn azurerm_machine_learning_workspace_network_outbound_rule_fqdn} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination_fqdn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#destination_fqdn MachineLearningWorkspaceNetworkOutboundRuleFqdn#destination_fqdn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#name MachineLearningWorkspaceNetworkOutboundRuleFqdn#name}.
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#workspace_id MachineLearningWorkspaceNetworkOutboundRuleFqdn#workspace_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#id MachineLearningWorkspaceNetworkOutboundRuleFqdn#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#timeouts MachineLearningWorkspaceNetworkOutboundRuleFqdn#timeouts}
+        :param destination_fqdn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#destination_fqdn MachineLearningWorkspaceNetworkOutboundRuleFqdn#destination_fqdn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#name MachineLearningWorkspaceNetworkOutboundRuleFqdn#name}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#workspace_id MachineLearningWorkspaceNetworkOutboundRuleFqdn#workspace_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#id MachineLearningWorkspaceNetworkOutboundRuleFqdn#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#timeouts MachineLearningWorkspaceNetworkOutboundRuleFqdn#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class MachineLearningWorkspaceNetworkOutboundRuleFqdn(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MachineLearningWorkspaceNetworkOutboundRuleFqdn to import.
-        :param import_from_id: The id of the existing MachineLearningWorkspaceNetworkOutboundRuleFqdn that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MachineLearningWorkspaceNetworkOutboundRuleFqdn that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MachineLearningWorkspaceNetworkOutboundRuleFqdn to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class MachineLearningWorkspaceNetworkOutboundRuleFqdn(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#create MachineLearningWorkspaceNetworkOutboundRuleFqdn#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#delete MachineLearningWorkspaceNetworkOutboundRuleFqdn#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#read MachineLearningWorkspaceNetworkOutboundRuleFqdn#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#update MachineLearningWorkspaceNetworkOutboundRuleFqdn#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#create MachineLearningWorkspaceNetworkOutboundRuleFqdn#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#delete MachineLearningWorkspaceNetworkOutboundRuleFqdn#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#read MachineLearningWorkspaceNetworkOutboundRuleFqdn#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#update MachineLearningWorkspaceNetworkOutboundRuleFqdn#update}.
         '''
         value = MachineLearningWorkspaceNetworkOutboundRuleFqdnTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -296,11 +296,11 @@ class MachineLearningWorkspaceNetworkOutboundRuleFqdnConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination_fqdn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#destination_fqdn MachineLearningWorkspaceNetworkOutboundRuleFqdn#destination_fqdn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#name MachineLearningWorkspaceNetworkOutboundRuleFqdn#name}.
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#workspace_id MachineLearningWorkspaceNetworkOutboundRuleFqdn#workspace_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#id MachineLearningWorkspaceNetworkOutboundRuleFqdn#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#timeouts MachineLearningWorkspaceNetworkOutboundRuleFqdn#timeouts}
+        :param destination_fqdn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#destination_fqdn MachineLearningWorkspaceNetworkOutboundRuleFqdn#destination_fqdn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#name MachineLearningWorkspaceNetworkOutboundRuleFqdn#name}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#workspace_id MachineLearningWorkspaceNetworkOutboundRuleFqdn#workspace_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#id MachineLearningWorkspaceNetworkOutboundRuleFqdn#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#timeouts MachineLearningWorkspaceNetworkOutboundRuleFqdn#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -410,28 +410,28 @@ class MachineLearningWorkspaceNetworkOutboundRuleFqdnConfig(
 
     @builtins.property
     def destination_fqdn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#destination_fqdn MachineLearningWorkspaceNetworkOutboundRuleFqdn#destination_fqdn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#destination_fqdn MachineLearningWorkspaceNetworkOutboundRuleFqdn#destination_fqdn}.'''
         result = self._values.get("destination_fqdn")
         assert result is not None, "Required property 'destination_fqdn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#name MachineLearningWorkspaceNetworkOutboundRuleFqdn#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#name MachineLearningWorkspaceNetworkOutboundRuleFqdn#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#workspace_id MachineLearningWorkspaceNetworkOutboundRuleFqdn#workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#workspace_id MachineLearningWorkspaceNetworkOutboundRuleFqdn#workspace_id}.'''
         result = self._values.get("workspace_id")
         assert result is not None, "Required property 'workspace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#id MachineLearningWorkspaceNetworkOutboundRuleFqdn#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#id MachineLearningWorkspaceNetworkOutboundRuleFqdn#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -445,7 +445,7 @@ class MachineLearningWorkspaceNetworkOutboundRuleFqdnConfig(
     ) -> typing.Optional["MachineLearningWorkspaceNetworkOutboundRuleFqdnTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#timeouts MachineLearningWorkspaceNetworkOutboundRuleFqdn#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#timeouts MachineLearningWorkspaceNetworkOutboundRuleFqdn#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MachineLearningWorkspaceNetworkOutboundRuleFqdnTimeouts"], result)
@@ -482,10 +482,10 @@ class MachineLearningWorkspaceNetworkOutboundRuleFqdnTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#create MachineLearningWorkspaceNetworkOutboundRuleFqdn#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#delete MachineLearningWorkspaceNetworkOutboundRuleFqdn#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#read MachineLearningWorkspaceNetworkOutboundRuleFqdn#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#update MachineLearningWorkspaceNetworkOutboundRuleFqdn#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#create MachineLearningWorkspaceNetworkOutboundRuleFqdn#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#delete MachineLearningWorkspaceNetworkOutboundRuleFqdn#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#read MachineLearningWorkspaceNetworkOutboundRuleFqdn#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#update MachineLearningWorkspaceNetworkOutboundRuleFqdn#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04bd366a8437c921ea8e72c06d8679ade18cdb2829f844c65357c687709c170d)
@@ -505,25 +505,25 @@ class MachineLearningWorkspaceNetworkOutboundRuleFqdnTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#create MachineLearningWorkspaceNetworkOutboundRuleFqdn#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#create MachineLearningWorkspaceNetworkOutboundRuleFqdn#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#delete MachineLearningWorkspaceNetworkOutboundRuleFqdn#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#delete MachineLearningWorkspaceNetworkOutboundRuleFqdn#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#read MachineLearningWorkspaceNetworkOutboundRuleFqdn#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#read MachineLearningWorkspaceNetworkOutboundRuleFqdn#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#update MachineLearningWorkspaceNetworkOutboundRuleFqdn#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/machine_learning_workspace_network_outbound_rule_fqdn#update MachineLearningWorkspaceNetworkOutboundRuleFqdn#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

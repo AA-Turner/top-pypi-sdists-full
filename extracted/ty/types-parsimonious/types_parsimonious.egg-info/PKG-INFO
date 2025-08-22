@@ -1,37 +1,38 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: types-parsimonious
-Version: 0.10.0.20240331
+Version: 0.10.0.20250822
 Summary: Typing stubs for parsimonious
-Home-page: https://github.com/python/typeshed
-License: Apache-2.0 license
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/python/typeshed
 Project-URL: GitHub, https://github.com/python/typeshed
 Project-URL: Changes, https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/parsimonious.md
 Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
 
 ## Typing stubs for parsimonious
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`parsimonious`](https://github.com/erikrose/parsimonious) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-PyCharm, etc. to check code that uses
-`parsimonious`.
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`parsimonious`](https://github.com/erikrose/parsimonious) package. It can be used by type checkers
+to check code that uses `parsimonious`. This version of
+`types-parsimonious` aims to provide accurate annotations for
+`parsimonious==0.10.*`.
 
-This version of `types-parsimonious` aims to provide accurate annotations
-for `parsimonious==0.10.*`.
-The source for this package can be found at
-https://github.com/python/typeshed/tree/main/stubs/parsimonious. All fixes for
-types and metadata should be contributed there.
+This package is part of the [typeshed project](https://github.com/python/typeshed).
+All fixes for types and metadata should be contributed there.
+See [the README](https://github.com/python/typeshed/blob/main/README.md)
+for more details. The source for this package can be found in the
+[`stubs/parsimonious`](https://github.com/python/typeshed/tree/main/stubs/parsimonious)
+directory.
 
-See https://github.com/python/typeshed/blob/main/README.md for more details.
-This package was generated from typeshed commit `027115e6249f17f9dee2c0372c4609335a1b9e7d` and was tested
-with mypy 1.9.0, pyright 1.1.356, and
-pytype 2024.3.19.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.17.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.404
+
+It was generated from typeshed commit
+[`ca44e4c45dc40fb47602dc79a3145ba61879add8`](https://github.com/python/typeshed/commit/ca44e4c45dc40fb47602dc79a3145ba61879add8).

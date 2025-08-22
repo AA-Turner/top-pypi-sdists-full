@@ -22,7 +22,14 @@ from typing import TypeVar, Generic, Any, ClassVar, Optional, NewType, Union, Ha
 import typing_inspect
 from typing_extensions import TypeGuard, ParamSpec, TypeAliasType
 
-from .sqlalchemy import is_sqlalchemy_inspectable
+# Lazy SQLAlchemy imports to improve startup time
+
+
+# Lazy SQLAlchemy import wrapper to improve startup time
+def _is_sqlalchemy_inspectable(subject: Any) -> bool:
+    from .sqlalchemy import is_sqlalchemy_inspectable
+
+    return is_sqlalchemy_inspectable(subject)
 
 
 def get_np_origin(tp: type[Any]) -> Optional[Any]:
@@ -294,7 +301,7 @@ def dataclass_fields(cls: type[Any]) -> Iterator[dataclasses.Field]:  # type: ig
         real_type = resolved_hints.get(f.name)
         if real_type is not None:
             f.type = real_type
-            if is_generic(real_type) and is_sqlalchemy_inspectable(cls):
+            if is_generic(real_type) and _is_sqlalchemy_inspectable(cls):
                 f.type = get_args(real_type)[0]
 
     return iter(raw_fields)
@@ -318,8 +325,9 @@ def iter_types(cls: type[Any]) -> list[type[Any]]:
 
         if is_dataclass(cls):
             lst.add(cls)
-            for f in dataclass_fields(cls):
-                recursive(f.type)
+            if isinstance(cls, type):
+                for f in dataclass_fields(cls):
+                    recursive(f.type)
         elif isinstance(cls, str):
             lst.add(cls)
         elif is_opt(cls):
@@ -379,8 +387,9 @@ def iter_unions(cls: TypeLike) -> list[TypeLike]:
             recursive(cls.__value__)
         if is_dataclass(cls):
             stack.append(cls)
-            for f in dataclass_fields(cls):
-                recursive(f.type)
+            if isinstance(cls, type):
+                for f in dataclass_fields(cls):
+                    recursive(f.type)
             stack.pop()
         elif is_opt(cls):
             args = type_args(cls)
@@ -420,8 +429,9 @@ def iter_literals(cls: type[Any]) -> list[TypeLike]:
                 recursive(arg)
         if is_dataclass(cls):
             lst.add(cls)
-            for f in dataclass_fields(cls):
-                recursive(f.type)
+            if isinstance(cls, type):
+                for f in dataclass_fields(cls):
+                    recursive(f.type)
         elif is_opt(cls):
             args = type_args(cls)
             if args:

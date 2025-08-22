@@ -18,6 +18,10 @@ default-features = false
 path = "src/common/hashable-float-wrapper"
 default-features = false
 
+[dependencies.common-logging]
+path = "src/common/logging"
+default-features = false
+
 [dependencies.common-metrics]
 path = "src/common/metrics"
 default-features = false
@@ -254,7 +258,7 @@ name = "daft"
 edition = "2021"
 name = "daft"
 publish = false
-version = "0.5.20"
+version = "0.5.21"
 
 [package.metadata.cargo-machete]
 ignored = ["lzma-sys"]
@@ -308,6 +312,7 @@ features = ["disable_initial_exec_tls"]
 
 [workspace.dependencies]
 approx = "0.5.1"
+arc-swap = "1.7.1"
 async-compat = "0.2.3"
 async-stream = "0.3.6"
 async-trait = "0.1.79"
@@ -643,4 +648,4 @@ priority = 1
 
 [workspace.package]
 edition = "2021"
-version = "0.5.20"
+version = "0.5.21"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ms_swift
-Version: 3.7.1
+Version: 3.7.2
 Summary: Swift: Scalable lightWeight Infrastructure for Fine-Tuning
 Home-page: https://github.com/modelscope/swift
 Author: DAMO ModelScope teams
@@ -39,7 +39,7 @@ Requires-Dist: numpy
 Requires-Dist: openai
 Requires-Dist: oss2
 Requires-Dist: pandas
-Requires-Dist: peft<0.17,>=0.11
+Requires-Dist: peft<0.18,>=0.11
 Requires-Dist: pillow
 Requires-Dist: PyYAML>=5.4
 Requires-Dist: requests
@@ -86,7 +86,7 @@ Requires-Dist: numpy; extra == "all"
 Requires-Dist: openai; extra == "all"
 Requires-Dist: oss2; extra == "all"
 Requires-Dist: pandas; extra == "all"
-Requires-Dist: peft<0.17,>=0.11; extra == "all"
+Requires-Dist: peft<0.18,>=0.11; extra == "all"
 Requires-Dist: pillow; extra == "all"
 Requires-Dist: PyYAML>=5.4; extra == "all"
 Requires-Dist: requests; extra == "all"
@@ -237,7 +237,7 @@ Running Environment:
 | torch        | >=2.0        | 2.7.1               |                                           |
 | transformers | >=4.33       | 4.54.1              |                                           |
 | modelscope   | >=1.23       |                     |                                           |
-| peft         | >=0.11,<0.17 |                     |                                           |
+| peft         | >=0.11,<0.18 |                     |                                           |
 | flash_attn   |              | 2.7.4.post1/3.0.0b1 |                                           |
 | trl          | >=0.15,<0.21 | 0.20.0              | RLHF                                      |
 | deepspeed    | >=0.14       | 0.16.9              | Training                                  |

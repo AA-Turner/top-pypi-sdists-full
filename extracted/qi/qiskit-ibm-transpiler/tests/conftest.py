@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# (C) Copyright 2024 IBM. All Rights Reserved.
+# (C) Copyright 2025 IBM. All Rights Reserved.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -66,6 +66,11 @@ def non_valid_backend_name():
 @pytest.fixture(scope="module")
 def test_eagle_backend_name():
     return "test_eagle"
+
+
+@pytest.fixture(scope="module")
+def test_instance():
+    return os.getenv("QISKIT_IBM_INSTANCE")
 
 
 @pytest.fixture(scope="module")

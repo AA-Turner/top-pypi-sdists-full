@@ -1888,50 +1888,6 @@ def test_unpause_snapshots(state_sync: EngineAdapterStateSync, make_snapshot: t.
     assert not actual_snapshots[new_snapshot.snapshot_id].unrestorable
 
 
-def test_unpause_snapshots_hourly(state_sync: EngineAdapterStateSync, make_snapshot: t.Callable):
-    snapshot = make_snapshot(
-        SqlModel(
-            name="test_snapshot",
-            query=parse_one("select 1, ds"),
-            cron="@hourly",
-        ),
-    )
-    snapshot.categorize_as(SnapshotChangeCategory.BREAKING)
-    snapshot.version = "a"
-
-    assert not snapshot.unpaused_ts
-    state_sync.push_snapshots([snapshot])
-
-    # Unpaused timestamp not aligned with cron
-    unpaused_dt = "2022-01-01 01:22:33"
-    state_sync.unpause_snapshots([snapshot], unpaused_dt)
-
-    actual_snapshot = state_sync.get_snapshots([snapshot])[snapshot.snapshot_id]
-    assert actual_snapshot.unpaused_ts
-    assert actual_snapshot.unpaused_ts == to_timestamp("2022-01-01 01:00:00")
-
-    new_snapshot = make_snapshot(
-        SqlModel(
-            name="test_snapshot",
-            query=parse_one("select 2, ds"),
-            cron="@daily",
-            interval_unit="hour",
-        )
-    )
-    new_snapshot.categorize_as(SnapshotChangeCategory.BREAKING, forward_only=True)
-    new_snapshot.version = "a"
-
-    assert not new_snapshot.unpaused_ts
-    state_sync.push_snapshots([new_snapshot])
-    state_sync.unpause_snapshots([new_snapshot], unpaused_dt)
-
-    actual_snapshots = state_sync.get_snapshots([snapshot, new_snapshot])
-    assert not actual_snapshots[snapshot.snapshot_id].unpaused_ts
-    assert actual_snapshots[new_snapshot.snapshot_id].unpaused_ts == to_timestamp(
-        "2022-01-01 01:00:00"
-    )
-
-
 def test_unrestorable_snapshot(state_sync: EngineAdapterStateSync, make_snapshot: t.Callable):
     snapshot = make_snapshot(
         SqlModel(
@@ -1996,7 +1952,7 @@ def test_unrestorable_snapshot(state_sync: EngineAdapterStateSync, make_snapshot
     assert not actual_snapshots[new_forward_only_snapshot.snapshot_id].unrestorable
 
 
-def test_unpause_snapshots_remove_intervals(
+def test_unrestorable_snapshot_target_not_forward_only(
     state_sync: EngineAdapterStateSync, make_snapshot: t.Callable
 ):
     snapshot = make_snapshot(
@@ -2005,70 +1961,36 @@ def test_unpause_snapshots_remove_intervals(
             query=parse_one("select 1, ds"),
             cron="@daily",
         ),
-        version="a",
     )
-    snapshot.categorize_as(SnapshotChangeCategory.BREAKING)
+    snapshot.categorize_as(SnapshotChangeCategory.BREAKING, forward_only=True)
     snapshot.version = "a"
+
+    assert not snapshot.unpaused_ts
     state_sync.push_snapshots([snapshot])
-    state_sync.add_interval(snapshot, "2023-01-01", "2023-01-05")
 
-    new_snapshot = make_snapshot(
-        SqlModel(name="test_snapshot", query=parse_one("select 2, ds"), cron="@daily"),
-        version="a",
+    unpaused_dt = "2022-01-01"
+    state_sync.unpause_snapshots([snapshot], unpaused_dt)
+
+    actual_snapshot = state_sync.get_snapshots([snapshot])[snapshot.snapshot_id]
+    assert actual_snapshot.unpaused_ts
+    assert actual_snapshot.unpaused_ts == to_timestamp(unpaused_dt)
+
+    updated_snapshot = make_snapshot(
+        SqlModel(name="test_snapshot", query=parse_one("select 2, ds"), cron="@daily")
     )
-    new_snapshot.categorize_as(SnapshotChangeCategory.BREAKING, forward_only=True)
-    new_snapshot.version = "a"
-    new_snapshot.effective_from = "2023-01-03"
-    state_sync.push_snapshots([new_snapshot])
-    state_sync.add_interval(snapshot, "2023-01-06", "2023-01-06")
-    state_sync.unpause_snapshots([new_snapshot], "2023-01-06")
+    updated_snapshot.categorize_as(SnapshotChangeCategory.BREAKING, forward_only=False)
+    updated_snapshot.version = "a"
 
-    actual_snapshots = state_sync.get_snapshots([snapshot, new_snapshot])
-    assert actual_snapshots[new_snapshot.snapshot_id].intervals == [
-        (to_timestamp("2023-01-01"), to_timestamp("2023-01-03")),
-    ]
-    assert actual_snapshots[snapshot.snapshot_id].intervals == [
-        (to_timestamp("2023-01-01"), to_timestamp("2023-01-03")),
-    ]
+    assert not updated_snapshot.unpaused_ts
+    state_sync.push_snapshots([updated_snapshot])
+    state_sync.unpause_snapshots([updated_snapshot], unpaused_dt)
 
+    actual_snapshots = state_sync.get_snapshots([snapshot, updated_snapshot])
+    assert not actual_snapshots[snapshot.snapshot_id].unpaused_ts
+    assert actual_snapshots[updated_snapshot.snapshot_id].unpaused_ts == to_timestamp(unpaused_dt)
 
-def test_unpause_snapshots_remove_intervals_disabled_restatement(
-    state_sync: EngineAdapterStateSync, make_snapshot: t.Callable
-):
-    kind = dict(name="INCREMENTAL_BY_TIME_RANGE", time_column="ds", disable_restatement=True)
-    snapshot = make_snapshot(
-        SqlModel(
-            name="test_snapshot",
-            query=parse_one("select 1, ds"),
-            cron="@daily",
-            kind=kind,
-        ),
-        version="a",
-    )
-    snapshot.categorize_as(SnapshotChangeCategory.BREAKING)
-    snapshot.version = "a"
-    state_sync.push_snapshots([snapshot])
-    state_sync.add_interval(snapshot, "2023-01-01", "2023-01-05")
-
-    new_snapshot = make_snapshot(
-        SqlModel(name="test_snapshot", query=parse_one("select 2, ds"), cron="@daily", kind=kind),
-        version="a",
-    )
-    new_snapshot.categorize_as(SnapshotChangeCategory.BREAKING, forward_only=True)
-    new_snapshot.version = "a"
-    new_snapshot.effective_from = "2023-01-03"
-    state_sync.push_snapshots([new_snapshot])
-    state_sync.add_interval(snapshot, "2023-01-06", "2023-01-06")
-    state_sync.unpause_snapshots([new_snapshot], "2023-01-06")
-
-    actual_snapshots = state_sync.get_snapshots([snapshot, new_snapshot])
-    assert actual_snapshots[new_snapshot.snapshot_id].intervals == [
-        (to_timestamp("2023-01-01"), to_timestamp("2023-01-03")),
-    ]
-    # The intervals shouldn't have been removed because restatement is disabled
-    assert actual_snapshots[snapshot.snapshot_id].intervals == [
-        (to_timestamp("2023-01-01"), to_timestamp("2023-01-07")),
-    ]
+    assert actual_snapshots[snapshot.snapshot_id].unrestorable
+    assert not actual_snapshots[updated_snapshot.snapshot_id].unrestorable
 
 
 def test_version_schema(state_sync: EngineAdapterStateSync, tmp_path) -> None:
@@ -2283,7 +2205,7 @@ def test_migrate_rows(state_sync: EngineAdapterStateSync, mocker: MockerFixture)
     state_sync.engine_adapter.replace_query(
         "sqlmesh._snapshots",
         pd.read_json("tests/fixtures/migrations/snapshots.json"),
-        columns_to_types={
+        target_columns_to_types={
             "name": exp.DataType.build("text"),
             "identifier": exp.DataType.build("text"),
             "version": exp.DataType.build("text"),
@@ -2294,7 +2216,7 @@ def test_migrate_rows(state_sync: EngineAdapterStateSync, mocker: MockerFixture)
     state_sync.engine_adapter.replace_query(
         "sqlmesh._environments",
         pd.read_json("tests/fixtures/migrations/environments.json"),
-        columns_to_types={
+        target_columns_to_types={
             "name": exp.DataType.build("text"),
             "snapshots": exp.DataType.build("text"),
             "start_at": exp.DataType.build("text"),
@@ -2363,7 +2285,7 @@ def test_backup_state(state_sync: EngineAdapterStateSync, mocker: MockerFixture)
     state_sync.engine_adapter.replace_query(
         "sqlmesh._snapshots",
         pd.read_json("tests/fixtures/migrations/snapshots.json"),
-        columns_to_types={
+        target_columns_to_types={
             "name": exp.DataType.build("text"),
             "identifier": exp.DataType.build("text"),
             "version": exp.DataType.build("text"),
@@ -2388,7 +2310,7 @@ def test_restore_snapshots_table(state_sync: EngineAdapterStateSync) -> None:
     state_sync.engine_adapter.replace_query(
         "sqlmesh._snapshots",
         pd.read_json("tests/fixtures/migrations/snapshots.json"),
-        columns_to_types=snapshot_columns_to_types,
+        target_columns_to_types=snapshot_columns_to_types,
     )
 
     old_snapshots = state_sync.engine_adapter.fetchdf("select * from sqlmesh._snapshots")
@@ -2958,6 +2880,7 @@ def test_snapshot_batching(state_sync, mocker, make_snapshot):
                 1,
                 1,
                 False,
+                False,
                 None,
             ],
             [
@@ -2969,6 +2892,7 @@ def test_snapshot_batching(state_sync, mocker, make_snapshot):
                 "2",
                 1,
                 1,
+                False,
                 False,
                 None,
             ],
@@ -2983,6 +2907,7 @@ def test_snapshot_batching(state_sync, mocker, make_snapshot):
                 "3",
                 1,
                 1,
+                False,
                 False,
                 None,
             ],

@@ -2,8 +2,12 @@ import asyncio
 import time
 from pathlib import Path
 from typing import Any, List, Type
+from orionis.console.base.contracts.scheduler import IBaseScheduler
+from orionis.console.base.scheduler import BaseScheduler
 from orionis.container.container import Container
 from orionis.container.contracts.service_provider import IServiceProvider
+from orionis.failure.base.handler import BaseExceptionHandler
+from orionis.failure.contracts.handler import IBaseExceptionHandler
 from orionis.foundation.config.app.entities.app import App
 from orionis.foundation.config.auth.entities.auth import Auth
 from orionis.foundation.config.cache.entities.cache import Cache
@@ -113,6 +117,12 @@ class Application(Container, IApplication):
             # This will be initialized with default values or from configurators
             self.__config: dict = {}
 
+            # Property to store the scheduler instance
+            self.__scheduler: BaseScheduler = None
+
+            # Property to store the exception handler class
+            self.__exception_handler: Type[BaseExceptionHandler] = None
+
             # Flag to prevent re-initialization
             self.__initialized = True
 
@@ -182,6 +192,8 @@ class Application(Container, IApplication):
         from orionis.foundation.providers.reactor_provider import ReactorProvider
         from orionis.foundation.providers.performance_counter_provider import PerformanceCounterProvider
         from orionis.foundation.providers.scheduler_provider import ScheduleProvider
+        from orionis.foundation.providers.catch_provider import CathcProvider
+        from orionis.foundation.providers.directory_provider import DirectoryProvider
 
         # Core framework providers
         core_providers = [
@@ -195,7 +207,9 @@ class Application(Container, IApplication):
             ConsoleExecuteProvider,
             ReactorProvider,
             PerformanceCounterProvider,
-            ScheduleProvider
+            ScheduleProvider,
+            CathcProvider,
+            DirectoryProvider
         ]
 
         # Register each core provider
@@ -376,6 +390,157 @@ class Application(Container, IApplication):
     # These configurator loading methods allow developers to tailor the architecture
     # for complex and unique application requirements, supporting advanced customization
     # of every subsystem as needed.
+
+    def setExceptionHandler(
+        self,
+        handler: IBaseExceptionHandler
+    ) -> 'Application':
+        """
+        Register a custom exception handler class for the application.
+
+        This method allows you to specify a custom exception handler class that
+        inherits from BaseExceptionHandler. The handler class will be used to
+        manage exceptions raised within the application, including reporting and
+        rendering error messages. The provided handler must be a class (not an
+        instance) and must inherit from BaseExceptionHandler.
+
+        Parameters
+        ----------
+        handler : Type[BaseExceptionHandler]
+            The exception handler class to be used by the application. Must be a
+            subclass of BaseExceptionHandler.
+
+        Returns
+        -------
+        Application
+            The current Application instance, allowing for method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the provided handler is not a class or is not a subclass of BaseExceptionHandler.
+
+        Notes
+        -----
+        The handler is stored internally and will be instantiated when needed.
+        This method does not instantiate the handler; it only registers the class.
+        """
+
+        # Ensure the provided handler is a subclass of BaseExceptionHandler
+        if not issubclass(handler, BaseExceptionHandler):
+            raise OrionisTypeError(f"Expected BaseExceptionHandler subclass, got {type(handler).__name__}")
+
+        # Store the handler class in the application for later use
+        self.__exception_handler = handler
+
+        # Return the application instance for method chaining
+        return self
+
+    def getExceptionHandler(
+        self
+    ) -> IBaseExceptionHandler:
+        """
+        Retrieve the currently registered exception handler instance.
+
+        This method returns an instance of the exception handler that has been set using
+        the `setExceptionHandler` method. If no custom handler has been set, it returns
+        a default `BaseExceptionHandler` instance. The returned object is responsible
+        for handling exceptions within the application, including reporting and rendering
+        error messages.
+
+        Returns
+        -------
+        BaseExceptionHandler
+            An instance of the currently registered exception handler. If no handler
+            has been set, returns a default `BaseExceptionHandler` instance.
+
+        Notes
+        -----
+        This method always returns an instance (not a class) of the exception handler.
+        If a custom handler was registered, it is instantiated and returned; otherwise,
+        a default handler is used.
+        """
+
+        # Check if an exception handler has been set
+        if self.__exception_handler is None:
+
+            # Return the default exception handler instance
+            return BaseExceptionHandler()
+
+        # Instantiate and return the registered exception handler
+        return self.__exception_handler()
+
+    def setScheduler(
+        self,
+        scheduler: IBaseScheduler
+    ) -> 'Application':
+        """
+        Register a custom scheduler class for the application.
+
+        This method allows you to specify a custom scheduler class that inherits from
+        `BaseScheduler`. The scheduler is responsible for managing scheduled tasks
+        within the application. The provided class will be validated to ensure it is
+        a subclass of `BaseScheduler` and then stored for later use.
+
+        Parameters
+        ----------
+        scheduler : Type[BaseScheduler]
+            The scheduler class to be used by the application. Must inherit from
+            `BaseScheduler`.
+
+        Returns
+        -------
+        Application
+            Returns the current `Application` instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the provided scheduler is not a subclass of `BaseScheduler`.
+
+        Notes
+        -----
+        The scheduler class is stored internally and can be used by the application
+        to manage scheduled jobs or tasks. This method does not instantiate the
+        scheduler; it only registers the class for later use.
+        """
+
+        # Ensure the provided scheduler is a subclass of BaseScheduler
+        if not issubclass(scheduler, BaseScheduler):
+            raise OrionisTypeError(f"Expected BaseScheduler subclass, got {type(scheduler).__name__}")
+
+        # Store the scheduler class in the application for later use
+        self.__scheduler = scheduler
+
+        # Return the application instance for method chaining
+        return self
+
+    def getScheduler(
+        self
+    ) -> IBaseScheduler:
+        """
+        Retrieve the currently registered scheduler instance.
+
+        This method returns the scheduler instance that has been set using the
+        `setScheduler` method. If no scheduler has been set, it raises an error.
+
+        Returns
+        -------
+        BaseScheduler
+            The currently registered scheduler instance.
+
+        Raises
+        ------
+        OrionisRuntimeError
+            If no scheduler has been set in the application.
+        """
+
+        # Check if a scheduler has been set
+        if self.__scheduler is None:
+            return BaseScheduler()
+
+        # Return the registered scheduler instance
+        return self.__scheduler()
 
     def withConfigurators(
         self,
@@ -1212,11 +1377,11 @@ class Application(Container, IApplication):
     def setPaths(
         self,
         *,
-        console_scheduler: str | Path = (Path.cwd() / 'app' / 'console' / 'kernel.py').resolve(),
-        console_commands: str | Path = (Path.cwd() / 'app' / 'console' / 'commands').resolve(),
-        http_controllers: str | Path = (Path.cwd() / 'app' / 'http' / 'controllers').resolve(),
-        http_middleware: str | Path = (Path.cwd() / 'app' / 'http' / 'middleware').resolve(),
-        http_requests: str | Path = (Path.cwd() / 'app' / 'http' / 'requests').resolve(),
+        root: str | Path = Path.cwd().resolve(),
+        commands: str | Path = (Path.cwd() / 'app' / 'console' / 'commands').resolve(),
+        controllers: str | Path = (Path.cwd() / 'app' / 'http' / 'controllers').resolve(),
+        middleware: str | Path = (Path.cwd() / 'app' / 'http' / 'middleware').resolve(),
+        requests: str | Path = (Path.cwd() / 'app' / 'http' / 'requests').resolve(),
         models: str | Path = (Path.cwd() / 'app' / 'models').resolve(),
         providers: str | Path = (Path.cwd() / 'app' / 'providers').resolve(),
         events: str | Path = (Path.cwd() / 'app' / 'events').resolve(),
@@ -1229,139 +1394,122 @@ class Application(Container, IApplication):
         views: str | Path = (Path.cwd() / 'resources' / 'views').resolve(),
         lang: str | Path = (Path.cwd() / 'resources' / 'lang').resolve(),
         assets: str | Path = (Path.cwd() / 'resources' / 'assets').resolve(),
-        routes_web: str | Path = (Path.cwd() / 'routes' / 'web.py').resolve(),
-        routes_api: str | Path = (Path.cwd() / 'routes' / 'api.py').resolve(),
-        routes_console: str | Path = (Path.cwd() / 'routes' / 'console.py').resolve(),
-        routes_channels: str | Path = (Path.cwd() / 'routes' / 'channels.py').resolve(),
+        routes: str | Path = (Path.cwd() / 'routes').resolve(),
         config: str | Path = (Path.cwd() / 'config').resolve(),
         migrations: str | Path = (Path.cwd() / 'database' / 'migrations').resolve(),
         seeders: str | Path = (Path.cwd() / 'database' / 'seeders').resolve(),
         factories: str | Path = (Path.cwd() / 'database' / 'factories').resolve(),
-        storage_logs: str | Path = (Path.cwd() / 'storage' / 'logs').resolve(),
-        storage_framework: str | Path = (Path.cwd() / 'storage' / 'framework').resolve(),
-        storage_sessions: str | Path = (Path.cwd() / 'storage' / 'framework' / 'sessions').resolve(),
-        storage_cache: str | Path = (Path.cwd() / 'storage' / 'framework' / 'cache').resolve(),
-        storage_views: str | Path = (Path.cwd() / 'storage' / 'framework' / 'views').resolve(),
-        storage_testing: str | Path = (Path.cwd() / 'storage' / 'framework' / 'testing').resolve(),
+        logs: str | Path = (Path.cwd() / 'storage' / 'logs').resolve(),
+        sessions: str | Path = (Path.cwd() / 'storage' / 'framework' / 'sessions').resolve(),
+        cache: str | Path = (Path.cwd() / 'storage' / 'framework' / 'cache').resolve(),
+        testing: str | Path = (Path.cwd() / 'storage' / 'framework' / 'testing').resolve(),
+        storage: str | Path = (Path.cwd() / 'storage').resolve()
     ) -> 'Application':
         """
-        Configure application directory paths using keyword arguments.
+        Set and resolve application directory paths using keyword arguments.
 
-        This method allows customization of all application directory paths including
+        This method allows customization of all major application directory paths, such as
         console components, HTTP components, application layers, resources, routes,
-        database files, and storage locations. All paths are resolved to absolute
-        paths and stored as strings in the configuration.
+        database files, and storage locations. All provided paths are resolved to absolute
+        paths and stored as strings in the configuration dictionary.
 
         Parameters
         ----------
-        console_scheduler : str or Path, optional
-            Path to the console kernel/scheduler file. Default is 'app/console/kernel.py'.
-        console_commands : str or Path, optional
-            Directory path for console command classes. Default is 'app/console/commands'.
-        http_controllers : str or Path, optional
-            Directory path for HTTP controller classes. Default is 'app/http/controllers'.
-        http_middleware : str or Path, optional
-            Directory path for HTTP middleware classes. Default is 'app/http/middleware'.
-        http_requests : str or Path, optional
-            Directory path for HTTP request classes. Default is 'app/http/requests'.
+        root : str or Path, optional
+            Root directory of the application. Defaults to the current working directory.
+        commands : str or Path, optional
+            Directory for console command classes. Defaults to 'app/console/commands'.
+        controllers : str or Path, optional
+            Directory for HTTP controller classes. Defaults to 'app/http/controllers'.
+        middleware : str or Path, optional
+            Directory for HTTP middleware classes. Defaults to 'app/http/middleware'.
+        requests : str or Path, optional
+            Directory for HTTP request classes. Defaults to 'app/http/requests'.
         models : str or Path, optional
-            Directory path for data model classes. Default is 'app/models'.
+            Directory for data model classes. Defaults to 'app/models'.
         providers : str or Path, optional
-            Directory path for service provider classes. Default is 'app/providers'.
+            Directory for service provider classes. Defaults to 'app/providers'.
         events : str or Path, optional
-            Directory path for event classes. Default is 'app/events'.
+            Directory for event classes. Defaults to 'app/events'.
         listeners : str or Path, optional
-            Directory path for event listener classes. Default is 'app/listeners'.
+            Directory for event listener classes. Defaults to 'app/listeners'.
         notifications : str or Path, optional
-            Directory path for notification classes. Default is 'app/notifications'.
+            Directory for notification classes. Defaults to 'app/notifications'.
         jobs : str or Path, optional
-            Directory path for queue job classes. Default is 'app/jobs'.
+            Directory for queue job classes. Defaults to 'app/jobs'.
         policies : str or Path, optional
-            Directory path for authorization policy classes. Default is 'app/policies'.
+            Directory for authorization policy classes. Defaults to 'app/policies'.
         exceptions : str or Path, optional
-            Directory path for custom exception classes. Default is 'app/exceptions'.
+            Directory for custom exception classes. Defaults to 'app/exceptions'.
         services : str or Path, optional
-            Directory path for application service classes. Default is 'app/services'.
+            Directory for application service classes. Defaults to 'app/services'.
         views : str or Path, optional
-            Directory path for view templates. Default is 'resources/views'.
+            Directory for view templates. Defaults to 'resources/views'.
         lang : str or Path, optional
-            Directory path for language files. Default is 'resources/lang'.
+            Directory for language files. Defaults to 'resources/lang'.
         assets : str or Path, optional
-            Directory path for asset files. Default is 'resources/assets'.
-        routes_web : str or Path, optional
-            File path for web route definitions. Default is 'routes/web.py'.
-        routes_api : str or Path, optional
-            File path for API route definitions. Default is 'routes/api.py'.
-        routes_console : str or Path, optional
-            File path for console route definitions. Default is 'routes/console.py'.
-        routes_channels : str or Path, optional
-            File path for broadcast channel definitions. Default is 'routes/channels.py'.
+            Directory for asset files. Defaults to 'resources/assets'.
+        routes : str or Path, optional
+            Directory for route definitions. Defaults to 'routes'.
         config : str or Path, optional
-            Directory path for configuration files. Default is 'config'.
+            Directory for configuration files. Defaults to 'config'.
         migrations : str or Path, optional
-            Directory path for database migration files. Default is 'database/migrations'.
+            Directory for database migration files. Defaults to 'database/migrations'.
         seeders : str or Path, optional
-            Directory path for database seeder files. Default is 'database/seeders'.
+            Directory for database seeder files. Defaults to 'database/seeders'.
         factories : str or Path, optional
-            Directory path for model factory files. Default is 'database/factories'.
-        storage_logs : str or Path, optional
-            Directory path for log file storage. Default is 'storage/logs'.
-        storage_framework : str or Path, optional
-            Directory path for framework storage. Default is 'storage/framework'.
-        storage_sessions : str or Path, optional
-            Directory path for session file storage. Default is 'storage/framework/sessions'.
-        storage_cache : str or Path, optional
-            Directory path for cache file storage. Default is 'storage/framework/cache'.
-        storage_views : str or Path, optional
-            Directory path for compiled view storage. Default is 'storage/framework/views'.
-        storage_testing : str or Path, optional
-            Directory path for testing file storage. Default is 'storage/framework/testing'.
+            Directory for model factory files. Defaults to 'database/factories'.
+        logs : str or Path, optional
+            Directory for log file storage. Defaults to 'storage/logs'.
+        sessions : str or Path, optional
+            Directory for session file storage. Defaults to 'storage/framework/sessions'.
+        cache : str or Path, optional
+            Directory for cache file storage. Defaults to 'storage/framework/cache'.
+        testing : str or Path, optional
+            Directory for testing file storage. Defaults to 'storage/framework/testing'.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current Application instance to enable method chaining.
 
         Notes
         -----
         All path parameters accept either string or Path objects and are automatically
         resolved to absolute paths relative to the current working directory. The
-        resolved paths are stored as strings in the internal configuration system.
+        resolved paths are stored as strings in the internal configuration dictionary.
         """
 
+        # Prepare and store all resolved paths as strings in the configurators dictionary
         # Ensure 'paths' exists in configurators
-        self.__configurators['paths'] = {
-            'console_scheduler': str(console_scheduler),
-            'console_commands': str(console_commands),
-            'http_controllers': str(http_controllers),
-            'http_middleware': str(http_middleware),
-            'http_requests': str(http_requests),
-            'models': str(models),
-            'providers': str(providers),
-            'events': str(events),
-            'listeners': str(listeners),
-            'notifications': str(notifications),
-            'jobs': str(jobs),
-            'policies': str(policies),
-            'exceptions': str(exceptions),
-            'services': str(services),
-            'views': str(views),
-            'lang': str(lang),
-            'assets': str(assets),
-            'routes_web': str(routes_web),
-            'routes_api': str(routes_api),
-            'routes_console': str(routes_console),
-            'routes_channels': str(routes_channels),
-            'config': str(config),
-            'migrations': str(migrations),
-            'seeders': str(seeders),
-            'factories': str(factories),
-            'storage_logs': str(storage_logs),
-            'storage_framework': str(storage_framework),
-            'storage_sessions': str(storage_sessions),
-            'storage_cache': str(storage_cache),
-            'storage_views': str(storage_views),
-            'storage_testing': str(storage_testing),
+        self.__configurators['path'] = {
+            'root' : str(root),
+            'commands' : str(commands),
+            'controllers' : str(controllers),
+            'middleware' : str(middleware),
+            'requests' : str(requests),
+            'models' : str(models),
+            'providers' : str(providers),
+            'events' : str(events),
+            'listeners' : str(listeners),
+            'notifications' : str(notifications),
+            'jobs' : str(jobs),
+            'policies' : str(policies),
+            'exceptions' : str(exceptions),
+            'services' : str(services),
+            'views' : str(views),
+            'lang' : str(lang),
+            'assets' : str(assets),
+            'routes' : str(routes),
+            'config' : str(config),
+            'migrations' : str(migrations),
+            'seeders' : str(seeders),
+            'factories' : str(factories),
+            'logs' : str(logs),
+            'sessions' : str(sessions),
+            'cache' : str(cache),
+            'testing' : str(testing),
+            'storage' : str(storage)
         }
 
         # Return self instance for method chaining
@@ -1410,7 +1558,7 @@ class Application(Container, IApplication):
             paths = Paths(**paths)
 
         # Store the configuration
-        self.__configurators['paths'] = paths
+        self.__configurators['path'] = paths
 
         # Return the application instance for method chaining
         return self

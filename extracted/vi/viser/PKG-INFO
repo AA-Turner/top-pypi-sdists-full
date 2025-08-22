@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: viser
-Version: 1.0.4
+Version: 1.0.6
 Summary: 3D visualization + Python
 Project-URL: GitHub, https://github.com/nerfstudio-project/viser
 License: MIT
@@ -19,7 +19,6 @@ Requires-Dist: imageio<3.0.0,>=2.0.0
 Requires-Dist: msgspec<1.0.0,>=0.18.6
 Requires-Dist: nodeenv<2.0.0,>=1.8.0
 Requires-Dist: numpy<3.0.0,>=1.0.0
-Requires-Dist: opencv-python<5.0.0,>=4.0.0.21
 Requires-Dist: psutil<8.0.0,>=5.9.5
 Requires-Dist: requests<3.0.0,>=2.0.0
 Requires-Dist: rich<15.0.0,>=13.3.3
@@ -32,6 +31,7 @@ Requires-Dist: websockets<16.0.0,>=13.1
 Requires-Dist: yourdfpy<1.0.0,>=0.0.53
 Provides-Extra: dev
 Requires-Dist: hypothesis[numpy]; extra == 'dev'
+Requires-Dist: opencv-python<5.0.0,>=4.0.0.21; extra == 'dev'
 Requires-Dist: pre-commit==3.3.2; extra == 'dev'
 Requires-Dist: pyright>=1.1.308; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'

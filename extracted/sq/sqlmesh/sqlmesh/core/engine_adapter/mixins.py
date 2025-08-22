@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import abc
 import logging
 import typing as t
+from dataclasses import dataclass
 
 from sqlglot import exp, parse_one
 from sqlglot.helper import seq_get
@@ -10,6 +12,7 @@ from sqlmesh.core.engine_adapter.base import EngineAdapter
 from sqlmesh.core.engine_adapter.shared import InsertOverwriteStrategy, SourceQuery
 from sqlmesh.core.node import IntervalUnit
 from sqlmesh.core.dialect import schema_
+from sqlmesh.core.schema_diff import TableAlterOperation
 from sqlmesh.utils.errors import SQLMeshError
 
 if t.TYPE_CHECKING:
@@ -28,20 +31,22 @@ class LogicalMergeMixin(EngineAdapter):
         self,
         target_table: TableName,
         source_table: QueryOrDF,
-        columns_to_types: t.Optional[t.Dict[str, exp.DataType]],
+        target_columns_to_types: t.Optional[t.Dict[str, exp.DataType]],
         unique_key: t.Sequence[exp.Expression],
         when_matched: t.Optional[exp.Whens] = None,
         merge_filter: t.Optional[exp.Expression] = None,
+        source_columns: t.Optional[t.List[str]] = None,
         **kwargs: t.Any,
     ) -> None:
         logical_merge(
             self,
             target_table,
             source_table,
-            columns_to_types,
+            target_columns_to_types,
             unique_key,
             when_matched=when_matched,
             merge_filter=merge_filter,
+            source_columns=source_columns,
         )
 
 
@@ -75,7 +80,7 @@ class InsertOverwriteWithMergeMixin(EngineAdapter):
         self,
         table_name: TableName,
         source_queries: t.List[SourceQuery],
-        columns_to_types: t.Optional[t.Dict[str, exp.DataType]] = None,
+        target_columns_to_types: t.Optional[t.Dict[str, exp.DataType]] = None,
         where: t.Optional[exp.Condition] = None,
         insert_overwrite_strategy_override: t.Optional[InsertOverwriteStrategy] = None,
         **kwargs: t.Any,
@@ -85,11 +90,13 @@ class InsertOverwriteWithMergeMixin(EngineAdapter):
         doing an "INSERT OVERWRITE" using a Merge expression but with the
         predicate being `False`.
         """
-        columns_to_types = columns_to_types or self.columns(table_name)
+        target_columns_to_types = target_columns_to_types or self.columns(table_name)
         for source_query in source_queries:
             with source_query as query:
-                query = self._order_projections_and_filter(query, columns_to_types, where=where)
-                columns = [exp.column(col) for col in columns_to_types]
+                query = self._order_projections_and_filter(
+                    query, target_columns_to_types, where=where
+                )
+                columns = [exp.column(col) for col in target_columns_to_types]
                 when_not_matched_by_source = exp.When(
                     matched=False,
                     source=True,
@@ -157,7 +164,7 @@ class HiveMetastoreTablePropertiesMixin(EngineAdapter):
         partition_interval_unit: t.Optional[IntervalUnit] = None,
         clustered_by: t.Optional[t.List[exp.Expression]] = None,
         table_properties: t.Optional[t.Dict[str, exp.Expression]] = None,
-        columns_to_types: t.Optional[t.Dict[str, exp.DataType]] = None,
+        target_columns_to_types: t.Optional[t.Dict[str, exp.DataType]] = None,
         table_description: t.Optional[str] = None,
         table_kind: t.Optional[str] = None,
         **kwargs: t.Any,
@@ -276,7 +283,7 @@ class VarcharSizeWorkaroundMixin(EngineAdapter):
         expression: t.Optional[exp.Expression],
         exists: bool = True,
         replace: bool = False,
-        columns_to_types: t.Optional[t.Dict[str, exp.DataType]] = None,
+        target_columns_to_types: t.Optional[t.Dict[str, exp.DataType]] = None,
         table_description: t.Optional[str] = None,
         table_kind: t.Optional[str] = None,
         **kwargs: t.Any,
@@ -286,7 +293,7 @@ class VarcharSizeWorkaroundMixin(EngineAdapter):
             expression=expression,
             exists=exists,
             replace=replace,
-            columns_to_types=columns_to_types,
+            target_columns_to_types=target_columns_to_types,
             table_description=table_description,
             table_kind=table_kind,
             **kwargs,
@@ -326,7 +333,7 @@ class VarcharSizeWorkaroundMixin(EngineAdapter):
                     None,
                     exists=exists,
                     replace=replace,
-                    columns_to_types=columns_to_types_from_view,
+                    target_columns_to_types=columns_to_types_from_view,
                     table_description=table_description,
                     **kwargs,
                 )
@@ -334,6 +341,53 @@ class VarcharSizeWorkaroundMixin(EngineAdapter):
                 self.drop_view(temp_view_name)
 
         return statement
+
+
+@dataclass(frozen=True)
+class TableAlterClusterByOperation(TableAlterOperation, abc.ABC):
+    pass
+
+
+@dataclass(frozen=True)
+class TableAlterChangeClusterKeyOperation(TableAlterClusterByOperation):
+    clustering_key: str
+    dialect: str
+
+    @property
+    def is_additive(self) -> bool:
+        return False
+
+    @property
+    def is_destructive(self) -> bool:
+        return False
+
+    @property
+    def _alter_actions(self) -> t.List[exp.Expression]:
+        return [exp.Cluster(expressions=self.cluster_key_expressions)]
+
+    @property
+    def cluster_key_expressions(self) -> t.List[exp.Expression]:
+        # Note: Assumes `clustering_key` as a string like:
+        # - "(col_a)"
+        # - "(col_a, col_b)"
+        # - "func(col_a, transform(col_b))"
+        parsed_cluster_key = parse_one(self.clustering_key, dialect=self.dialect)
+        return parsed_cluster_key.expressions or [parsed_cluster_key.this]
+
+
+@dataclass(frozen=True)
+class TableAlterDropClusterKeyOperation(TableAlterClusterByOperation):
+    @property
+    def is_additive(self) -> bool:
+        return False
+
+    @property
+    def is_destructive(self) -> bool:
+        return False
+
+    @property
+    def _alter_actions(self) -> t.List[exp.Expression]:
+        return [exp.Command(this="DROP", expression="CLUSTERING KEY")]
 
 
 class ClusteredByMixin(EngineAdapter):
@@ -344,22 +398,20 @@ class ClusteredByMixin(EngineAdapter):
     ) -> t.Optional[exp.Cluster]:
         return exp.Cluster(expressions=[c.copy() for c in clustered_by])
 
-    def _parse_clustering_key(self, clustering_key: t.Optional[str]) -> t.List[exp.Expression]:
-        if not clustering_key:
-            return []
-
-        # Note: Assumes `clustering_key` as a string like:
-        # - "(col_a)"
-        # - "(col_a, col_b)"
-        # - "func(col_a, transform(col_b))"
-        parsed_cluster_key = parse_one(clustering_key, dialect=self.dialect)
-
-        return parsed_cluster_key.expressions or [parsed_cluster_key.this]
-
-    def get_alter_expressions(
-        self, current_table_name: TableName, target_table_name: TableName
-    ) -> t.List[exp.Alter]:
-        expressions = super().get_alter_expressions(current_table_name, target_table_name)
+    def get_alter_operations(
+        self,
+        current_table_name: TableName,
+        target_table_name: TableName,
+        *,
+        ignore_destructive: bool = False,
+        ignore_additive: bool = False,
+    ) -> t.List[TableAlterOperation]:
+        operations = super().get_alter_operations(
+            current_table_name,
+            target_table_name,
+            ignore_destructive=ignore_destructive,
+            ignore_additive=ignore_additive,
+        )
 
         # check for a change in clustering
         current_table = exp.to_table(current_table_name)
@@ -380,42 +432,28 @@ class ClusteredByMixin(EngineAdapter):
                 if target_table_info.clustering_key and (
                     current_table_info.clustering_key != target_table_info.clustering_key
                 ):
-                    expressions.append(
-                        self._change_clustering_key_expr(
-                            current_table,
-                            self._parse_clustering_key(target_table_info.clustering_key),
+                    operations.append(
+                        TableAlterChangeClusterKeyOperation(
+                            target_table=current_table,
+                            clustering_key=target_table_info.clustering_key,
+                            dialect=self.dialect,
                         )
                     )
             elif current_table_info.is_clustered:
-                expressions.append(self._drop_clustering_key_expr(current_table))
+                operations.append(TableAlterDropClusterKeyOperation(target_table=current_table))
 
-        return expressions
-
-    def _change_clustering_key_expr(
-        self, table: exp.Table, cluster_by: t.List[exp.Expression]
-    ) -> exp.Alter:
-        return exp.Alter(
-            this=table,
-            kind="TABLE",
-            actions=[exp.Cluster(expressions=cluster_by)],
-        )
-
-    def _drop_clustering_key_expr(self, table: exp.Table) -> exp.Alter:
-        return exp.Alter(
-            this=table,
-            kind="TABLE",
-            actions=[exp.Command(this="DROP", expression="CLUSTERING KEY")],
-        )
+        return operations
 
 
 def logical_merge(
     engine_adapter: EngineAdapter,
     target_table: TableName,
     source_table: QueryOrDF,
-    columns_to_types: t.Optional[t.Dict[str, exp.DataType]],
+    target_columns_to_types: t.Optional[t.Dict[str, exp.DataType]],
     unique_key: t.Sequence[exp.Expression],
     when_matched: t.Optional[exp.Whens] = None,
     merge_filter: t.Optional[exp.Expression] = None,
+    source_columns: t.Optional[t.List[str]] = None,
 ) -> None:
     """
     Merge implementation for engine adapters that do not support merge natively.
@@ -434,7 +472,12 @@ def logical_merge(
         )
 
     engine_adapter._replace_by_key(
-        target_table, source_table, columns_to_types, unique_key, is_unique_key=True
+        target_table,
+        source_table,
+        target_columns_to_types,
+        unique_key,
+        is_unique_key=True,
+        source_columns=source_columns,
     )
 
 

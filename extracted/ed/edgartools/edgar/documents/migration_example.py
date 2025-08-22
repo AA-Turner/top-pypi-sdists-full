@@ -52,7 +52,7 @@ def new_parser_example():
     print("\n=== NEW PARSER EXAMPLE ===")
     
     # New imports
-    from edgar.documents import HTMLParser, ParserConfig, DocumentSearch
+    from edgar.documents import HTMLParser, Document, ParserConfig, DocumentSearch
     from edgar.documents.renderers import MarkdownRenderer
     
     # Create parser with new config

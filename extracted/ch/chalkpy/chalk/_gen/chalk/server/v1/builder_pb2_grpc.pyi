@@ -20,8 +20,12 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     CreateClusterGatewayResponse,
     CreateClusterTimescaleDBRequest,
     CreateClusterTimescaleDBResponse,
+    CreateDeploymentRequest,
+    CreateDeploymentResponse,
     CreateKafkaTopicsRequest,
     CreateKafkaTopicsResponse,
+    DeleteClusterTimescaleDBRequest,
+    DeleteClusterTimescaleDBResponse,
     DeleteKarpenterNodepoolRequest,
     DeleteKarpenterNodepoolResponse,
     DeleteNodepoolRequest,
@@ -32,10 +36,14 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetBranchProfileResponse,
     GetClusterBackgroundPersistenceRequest,
     GetClusterBackgroundPersistenceResponse,
+    GetClusterGatewayDefaultRequest,
+    GetClusterGatewayDefaultResponse,
     GetClusterGatewayRequest,
     GetClusterGatewayResponse,
     GetClusterTimescaleDBRequest,
     GetClusterTimescaleDBResponse,
+    GetClusterTimescaleDefaultRequest,
+    GetClusterTimescaleDefaultResponse,
     GetDeploymentLogsRequest,
     GetDeploymentLogsResponse,
     GetDeploymentStepsRequest,
@@ -145,6 +153,10 @@ class BuilderServiceStub:
         GetClusterGatewayRequest,
         GetClusterGatewayResponse,
     ]
+    GetClusterGatewayDefault: UnaryUnaryMultiCallable[
+        GetClusterGatewayDefaultRequest,
+        GetClusterGatewayDefaultResponse,
+    ]
     GetClusterBackgroundPersistence: UnaryUnaryMultiCallable[
         GetClusterBackgroundPersistenceRequest,
         GetClusterBackgroundPersistenceResponse,
@@ -152,6 +164,14 @@ class BuilderServiceStub:
     CreateClusterTimescaleDB: UnaryUnaryMultiCallable[
         CreateClusterTimescaleDBRequest,
         CreateClusterTimescaleDBResponse,
+    ]
+    GetClusterTimescaleDefault: UnaryUnaryMultiCallable[
+        GetClusterTimescaleDefaultRequest,
+        GetClusterTimescaleDefaultResponse,
+    ]
+    DeleteClusterTimescaleDB: UnaryUnaryMultiCallable[
+        DeleteClusterTimescaleDBRequest,
+        DeleteClusterTimescaleDBResponse,
     ]
     MigrateClusterTimescaleDB: UnaryUnaryMultiCallable[
         MigrateClusterTimescaleDBRequest,
@@ -201,22 +221,18 @@ class BuilderServiceStub:
         GetKarpenterNodepoolsRequest,
         GetKarpenterNodepoolsResponse,
     ]
-    """to be deprecated"""
     AddKarpenterNodepool: UnaryUnaryMultiCallable[
         AddKarpenterNodepoolRequest,
         AddKarpenterNodepoolResponse,
     ]
-    """to be deprecated"""
     UpdateKarpenterNodepool: UnaryUnaryMultiCallable[
         UpdateKarpenterNodepoolRequest,
         UpdateKarpenterNodepoolResponse,
     ]
-    """to be deprecated"""
     DeleteKarpenterNodepool: UnaryUnaryMultiCallable[
         DeleteKarpenterNodepoolRequest,
         DeleteKarpenterNodepoolResponse,
     ]
-    """to be deprecated"""
     GetKarpenterInstallationMetadata: UnaryUnaryMultiCallable[
         GetKarpenterInstallationMetadataRequest,
         GetKarpenterInstallationMetadataResponse,
@@ -228,6 +244,10 @@ class BuilderServiceStub:
     SetTagWeights: UnaryUnaryMultiCallable[
         SetTagWeightsRequest,
         SetTagWeightsResponse,
+    ]
+    CreateDeployment: UnaryUnaryMultiCallable[
+        CreateDeploymentRequest,
+        CreateDeploymentResponse,
     ]
 
 class BuilderServiceServicer(metaclass=ABCMeta):
@@ -315,6 +335,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetClusterGatewayResponse: ...
     @abstractmethod
+    def GetClusterGatewayDefault(
+        self,
+        request: GetClusterGatewayDefaultRequest,
+        context: ServicerContext,
+    ) -> GetClusterGatewayDefaultResponse: ...
+    @abstractmethod
     def GetClusterBackgroundPersistence(
         self,
         request: GetClusterBackgroundPersistenceRequest,
@@ -326,6 +352,18 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: CreateClusterTimescaleDBRequest,
         context: ServicerContext,
     ) -> CreateClusterTimescaleDBResponse: ...
+    @abstractmethod
+    def GetClusterTimescaleDefault(
+        self,
+        request: GetClusterTimescaleDefaultRequest,
+        context: ServicerContext,
+    ) -> GetClusterTimescaleDefaultResponse: ...
+    @abstractmethod
+    def DeleteClusterTimescaleDB(
+        self,
+        request: DeleteClusterTimescaleDBRequest,
+        context: ServicerContext,
+    ) -> DeleteClusterTimescaleDBResponse: ...
     @abstractmethod
     def MigrateClusterTimescaleDB(
         self,
@@ -397,29 +435,25 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         self,
         request: GetKarpenterNodepoolsRequest,
         context: ServicerContext,
-    ) -> GetKarpenterNodepoolsResponse:
-        """to be deprecated"""
+    ) -> GetKarpenterNodepoolsResponse: ...
     @abstractmethod
     def AddKarpenterNodepool(
         self,
         request: AddKarpenterNodepoolRequest,
         context: ServicerContext,
-    ) -> AddKarpenterNodepoolResponse:
-        """to be deprecated"""
+    ) -> AddKarpenterNodepoolResponse: ...
     @abstractmethod
     def UpdateKarpenterNodepool(
         self,
         request: UpdateKarpenterNodepoolRequest,
         context: ServicerContext,
-    ) -> UpdateKarpenterNodepoolResponse:
-        """to be deprecated"""
+    ) -> UpdateKarpenterNodepoolResponse: ...
     @abstractmethod
     def DeleteKarpenterNodepool(
         self,
         request: DeleteKarpenterNodepoolRequest,
         context: ServicerContext,
-    ) -> DeleteKarpenterNodepoolResponse:
-        """to be deprecated"""
+    ) -> DeleteKarpenterNodepoolResponse: ...
     @abstractmethod
     def GetKarpenterInstallationMetadata(
         self,
@@ -438,6 +472,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: SetTagWeightsRequest,
         context: ServicerContext,
     ) -> SetTagWeightsResponse: ...
+    @abstractmethod
+    def CreateDeployment(
+        self,
+        request: CreateDeploymentRequest,
+        context: ServicerContext,
+    ) -> CreateDeploymentResponse: ...
 
 def add_BuilderServiceServicer_to_server(servicer: BuilderServiceServicer, server: Server) -> None: ...
 

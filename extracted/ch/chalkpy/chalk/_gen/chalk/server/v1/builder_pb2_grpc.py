@@ -75,6 +75,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayResponse.FromString,
         )
+        self.GetClusterGatewayDefault = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetClusterGatewayDefault",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayDefaultRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayDefaultResponse.FromString,
+        )
         self.GetClusterBackgroundPersistence = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetClusterBackgroundPersistence",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterBackgroundPersistenceRequest.SerializeToString,
@@ -84,6 +89,16 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/CreateClusterTimescaleDB",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBResponse.FromString,
+        )
+        self.GetClusterTimescaleDefault = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetClusterTimescaleDefault",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDefaultRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDefaultResponse.FromString,
+        )
+        self.DeleteClusterTimescaleDB = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/DeleteClusterTimescaleDB",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBResponse.FromString,
         )
         self.MigrateClusterTimescaleDB = channel.unary_unary(
             "/chalk.server.v1.BuilderService/MigrateClusterTimescaleDB",
@@ -175,6 +190,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.SetTagWeightsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.SetTagWeightsResponse.FromString,
         )
+        self.CreateDeployment = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/CreateDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentResponse.FromString,
+        )
 
 
 class BuilderServiceServicer(object):
@@ -258,6 +278,12 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetClusterGatewayDefault(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetClusterBackgroundPersistence(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -265,6 +291,18 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def CreateClusterTimescaleDB(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetClusterTimescaleDefault(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteClusterTimescaleDB(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -337,25 +375,25 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetKarpenterNodepools(self, request, context):
-        """to be deprecated"""
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def AddKarpenterNodepool(self, request, context):
-        """to be deprecated"""
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def UpdateKarpenterNodepool(self, request, context):
-        """to be deprecated"""
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def DeleteKarpenterNodepool(self, request, context):
-        """to be deprecated"""
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -373,6 +411,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def SetTagWeights(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateDeployment(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -441,6 +485,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayResponse.SerializeToString,
         ),
+        "GetClusterGatewayDefault": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterGatewayDefault,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayDefaultRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayDefaultResponse.SerializeToString,
+        ),
         "GetClusterBackgroundPersistence": grpc.unary_unary_rpc_method_handler(
             servicer.GetClusterBackgroundPersistence,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterBackgroundPersistenceRequest.FromString,
@@ -450,6 +499,16 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.CreateClusterTimescaleDB,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBResponse.SerializeToString,
+        ),
+        "GetClusterTimescaleDefault": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterTimescaleDefault,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDefaultRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDefaultResponse.SerializeToString,
+        ),
+        "DeleteClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteClusterTimescaleDB,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBResponse.SerializeToString,
         ),
         "MigrateClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
             servicer.MigrateClusterTimescaleDB,
@@ -540,6 +599,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.SetTagWeights,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.SetTagWeightsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.SetTagWeightsResponse.SerializeToString,
+        ),
+        "CreateDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.BuilderService", rpc_method_handlers)
@@ -899,6 +963,35 @@ class BuilderService(object):
         )
 
     @staticmethod
+    def GetClusterGatewayDefault(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetClusterGatewayDefault",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayDefaultRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayDefaultResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetClusterBackgroundPersistence(
         request,
         target,
@@ -946,6 +1039,64 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/CreateClusterTimescaleDB",
             chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClusterTimescaleDefault(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetClusterTimescaleDefault",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDefaultRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDefaultResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteClusterTimescaleDB(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/DeleteClusterTimescaleDB",
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterTimescaleDBResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1468,6 +1619,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/SetTagWeights",
             chalk_dot_server_dot_v1_dot_builder__pb2.SetTagWeightsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.SetTagWeightsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/CreateDeployment",
+            chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentResponse.FromString,
             options,
             channel_credentials,
             insecure,

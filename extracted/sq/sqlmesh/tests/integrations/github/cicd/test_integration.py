@@ -89,10 +89,17 @@ def test_linter(
     mock_pull_request.merged = False
     mock_pull_request.merge = mocker.MagicMock()
 
+    before_all = [
+        "CREATE SCHEMA IF NOT EXISTS raw",
+        "DROP VIEW IF EXISTS raw.demographics",
+        "CREATE VIEW raw.demographics AS (SELECT 1 AS customer_id, '00000' AS zip)",
+    ]
+
     # Case 1: Test for linter errors
     config = Config(
         model_defaults=ModelDefaultsConfig(dialect="duckdb"),
         linter=LinterConfig(enabled=True, rules="ALL"),
+        before_all=before_all,
     )
 
     controller = make_controller(
@@ -142,6 +149,7 @@ def test_linter(
     config = Config(
         model_defaults=ModelDefaultsConfig(dialect="duckdb"),
         linter=LinterConfig(enabled=True, warn_rules="ALL"),
+        before_all=before_all,
     )
 
     controller = make_controller(
@@ -305,7 +313,7 @@ def test_merge_pr_has_non_breaking_change(
   
   +++ 
   
-  @@ -16,7 +16,8 @@
+  @@ -17,7 +17,8 @@
   
    SELECT
      CAST(o.waiter_id AS INT) AS waiter_id,
@@ -516,7 +524,7 @@ def test_merge_pr_has_non_breaking_change_diff_start(
   
   +++ 
   
-  @@ -16,7 +16,8 @@
+  @@ -17,7 +17,8 @@
   
    SELECT
      CAST(o.waiter_id AS INT) AS waiter_id,
@@ -1039,7 +1047,7 @@ def test_no_merge_since_no_deploy_signal(
   
   +++ 
   
-  @@ -16,7 +16,8 @@
+  @@ -17,7 +17,8 @@
   
    SELECT
      CAST(o.waiter_id AS INT) AS waiter_id,
@@ -1239,7 +1247,7 @@ def test_no_merge_since_no_deploy_signal_no_approvers_defined(
   
   +++ 
   
-  @@ -16,7 +16,8 @@
+  @@ -17,7 +17,8 @@
   
    SELECT
      CAST(o.waiter_id AS INT) AS waiter_id,
@@ -1421,7 +1429,7 @@ def test_deploy_comment_pre_categorized(
   
   +++ 
   
-  @@ -16,7 +16,8 @@
+  @@ -17,7 +17,8 @@
   
    SELECT
      CAST(o.waiter_id AS INT) AS waiter_id,
@@ -1789,7 +1797,7 @@ def test_overlapping_changes_models(
   
   +++ 
   
-  @@ -29,7 +29,8 @@
+  @@ -32,7 +32,8 @@
   
    SELECT DISTINCT
      CAST(o.customer_id AS INT) AS customer_id,
@@ -2338,7 +2346,7 @@ def test_has_required_approval_but_not_base_branch(
   
   +++ 
   
-  @@ -16,7 +16,8 @@
+  @@ -17,7 +17,8 @@
   
    SELECT
      CAST(o.waiter_id AS INT) AS waiter_id,

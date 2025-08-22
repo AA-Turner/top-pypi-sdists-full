@@ -1,7 +1,7 @@
 r'''
 # `azurerm_spring_cloud_service`
 
-Refer to the Terraform Registry for docs: [`azurerm_spring_cloud_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service).
+Refer to the Terraform Registry for docs: [`azurerm_spring_cloud_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SpringCloudService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.springCloudService.SpringCloudService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service azurerm_spring_cloud_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service azurerm_spring_cloud_service}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class SpringCloudService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service azurerm_spring_cloud_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service azurerm_spring_cloud_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#location SpringCloudService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#resource_group_name SpringCloudService#resource_group_name}.
-        :param build_agent_pool_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#build_agent_pool_size SpringCloudService#build_agent_pool_size}.
-        :param config_server_git_setting: config_server_git_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#config_server_git_setting SpringCloudService#config_server_git_setting}
-        :param container_registry: container_registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#container_registry SpringCloudService#container_registry}
-        :param default_build_service: default_build_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#default_build_service SpringCloudService#default_build_service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#id SpringCloudService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_stream_public_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#log_stream_public_endpoint_enabled SpringCloudService#log_stream_public_endpoint_enabled}.
-        :param managed_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#managed_environment_id SpringCloudService#managed_environment_id}.
-        :param marketplace: marketplace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#marketplace SpringCloudService#marketplace}
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#network SpringCloudService#network}
-        :param service_registry_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#service_registry_enabled SpringCloudService#service_registry_enabled}.
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#sku_name SpringCloudService#sku_name}.
-        :param sku_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#sku_tier SpringCloudService#sku_tier}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#tags SpringCloudService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#timeouts SpringCloudService#timeouts}
-        :param trace: trace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#trace SpringCloudService#trace}
-        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#zone_redundant SpringCloudService#zone_redundant}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#location SpringCloudService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#resource_group_name SpringCloudService#resource_group_name}.
+        :param build_agent_pool_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#build_agent_pool_size SpringCloudService#build_agent_pool_size}.
+        :param config_server_git_setting: config_server_git_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#config_server_git_setting SpringCloudService#config_server_git_setting}
+        :param container_registry: container_registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#container_registry SpringCloudService#container_registry}
+        :param default_build_service: default_build_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#default_build_service SpringCloudService#default_build_service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#id SpringCloudService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_stream_public_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#log_stream_public_endpoint_enabled SpringCloudService#log_stream_public_endpoint_enabled}.
+        :param managed_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#managed_environment_id SpringCloudService#managed_environment_id}.
+        :param marketplace: marketplace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#marketplace SpringCloudService#marketplace}
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#network SpringCloudService#network}
+        :param service_registry_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#service_registry_enabled SpringCloudService#service_registry_enabled}.
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#sku_name SpringCloudService#sku_name}.
+        :param sku_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#sku_tier SpringCloudService#sku_tier}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#tags SpringCloudService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#timeouts SpringCloudService#timeouts}
+        :param trace: trace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#trace SpringCloudService#trace}
+        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#zone_redundant SpringCloudService#zone_redundant}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class SpringCloudService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SpringCloudService to import.
-        :param import_from_id: The id of the existing SpringCloudService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SpringCloudService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SpringCloudService to import is found.
         '''
         if __debug__:
@@ -180,12 +180,12 @@ class SpringCloudService(
         ssh_auth: typing.Optional[typing.Union["SpringCloudServiceConfigServerGitSettingSshAuth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.
-        :param http_basic_auth: http_basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.
-        :param repository: repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#repository SpringCloudService#repository}
-        :param search_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.
-        :param ssh_auth: ssh_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.
+        :param http_basic_auth: http_basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.
+        :param repository: repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#repository SpringCloudService#repository}
+        :param search_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.
+        :param ssh_auth: ssh_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
         '''
         value = SpringCloudServiceConfigServerGitSetting(
             uri=uri,
@@ -218,7 +218,7 @@ class SpringCloudService(
         container_registry_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_registry_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#container_registry_name SpringCloudService#container_registry_name}.
+        :param container_registry_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#container_registry_name SpringCloudService#container_registry_name}.
         '''
         value = SpringCloudServiceDefaultBuildService(
             container_registry_name=container_registry_name
@@ -235,9 +235,9 @@ class SpringCloudService(
         publisher: builtins.str,
     ) -> None:
         '''
-        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#plan SpringCloudService#plan}.
-        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#product SpringCloudService#product}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#publisher SpringCloudService#publisher}.
+        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#plan SpringCloudService#plan}.
+        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#product SpringCloudService#product}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#publisher SpringCloudService#publisher}.
         '''
         value = SpringCloudServiceMarketplace(
             plan=plan, product=product, publisher=publisher
@@ -258,13 +258,13 @@ class SpringCloudService(
         service_runtime_network_resource_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#app_subnet_id SpringCloudService#app_subnet_id}.
-        :param cidr_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#cidr_ranges SpringCloudService#cidr_ranges}.
-        :param service_runtime_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#service_runtime_subnet_id SpringCloudService#service_runtime_subnet_id}.
-        :param app_network_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#app_network_resource_group SpringCloudService#app_network_resource_group}.
-        :param outbound_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#outbound_type SpringCloudService#outbound_type}.
-        :param read_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#read_timeout_seconds SpringCloudService#read_timeout_seconds}.
-        :param service_runtime_network_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#service_runtime_network_resource_group SpringCloudService#service_runtime_network_resource_group}.
+        :param app_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#app_subnet_id SpringCloudService#app_subnet_id}.
+        :param cidr_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#cidr_ranges SpringCloudService#cidr_ranges}.
+        :param service_runtime_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#service_runtime_subnet_id SpringCloudService#service_runtime_subnet_id}.
+        :param app_network_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#app_network_resource_group SpringCloudService#app_network_resource_group}.
+        :param outbound_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#outbound_type SpringCloudService#outbound_type}.
+        :param read_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#read_timeout_seconds SpringCloudService#read_timeout_seconds}.
+        :param service_runtime_network_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#service_runtime_network_resource_group SpringCloudService#service_runtime_network_resource_group}.
         '''
         value = SpringCloudServiceNetwork(
             app_subnet_id=app_subnet_id,
@@ -288,10 +288,10 @@ class SpringCloudService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#create SpringCloudService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#delete SpringCloudService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#read SpringCloudService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#update SpringCloudService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#create SpringCloudService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#delete SpringCloudService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#read SpringCloudService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#update SpringCloudService#update}.
         '''
         value = SpringCloudServiceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -307,8 +307,8 @@ class SpringCloudService(
         sample_rate: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#connection_string SpringCloudService#connection_string}.
-        :param sample_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#sample_rate SpringCloudService#sample_rate}.
+        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#connection_string SpringCloudService#connection_string}.
+        :param sample_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#sample_rate SpringCloudService#sample_rate}.
         '''
         value = SpringCloudServiceTrace(
             connection_string=connection_string, sample_rate=sample_rate
@@ -789,25 +789,25 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#location SpringCloudService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#resource_group_name SpringCloudService#resource_group_name}.
-        :param build_agent_pool_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#build_agent_pool_size SpringCloudService#build_agent_pool_size}.
-        :param config_server_git_setting: config_server_git_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#config_server_git_setting SpringCloudService#config_server_git_setting}
-        :param container_registry: container_registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#container_registry SpringCloudService#container_registry}
-        :param default_build_service: default_build_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#default_build_service SpringCloudService#default_build_service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#id SpringCloudService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_stream_public_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#log_stream_public_endpoint_enabled SpringCloudService#log_stream_public_endpoint_enabled}.
-        :param managed_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#managed_environment_id SpringCloudService#managed_environment_id}.
-        :param marketplace: marketplace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#marketplace SpringCloudService#marketplace}
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#network SpringCloudService#network}
-        :param service_registry_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#service_registry_enabled SpringCloudService#service_registry_enabled}.
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#sku_name SpringCloudService#sku_name}.
-        :param sku_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#sku_tier SpringCloudService#sku_tier}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#tags SpringCloudService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#timeouts SpringCloudService#timeouts}
-        :param trace: trace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#trace SpringCloudService#trace}
-        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#zone_redundant SpringCloudService#zone_redundant}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#location SpringCloudService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#resource_group_name SpringCloudService#resource_group_name}.
+        :param build_agent_pool_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#build_agent_pool_size SpringCloudService#build_agent_pool_size}.
+        :param config_server_git_setting: config_server_git_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#config_server_git_setting SpringCloudService#config_server_git_setting}
+        :param container_registry: container_registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#container_registry SpringCloudService#container_registry}
+        :param default_build_service: default_build_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#default_build_service SpringCloudService#default_build_service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#id SpringCloudService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_stream_public_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#log_stream_public_endpoint_enabled SpringCloudService#log_stream_public_endpoint_enabled}.
+        :param managed_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#managed_environment_id SpringCloudService#managed_environment_id}.
+        :param marketplace: marketplace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#marketplace SpringCloudService#marketplace}
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#network SpringCloudService#network}
+        :param service_registry_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#service_registry_enabled SpringCloudService#service_registry_enabled}.
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#sku_name SpringCloudService#sku_name}.
+        :param sku_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#sku_tier SpringCloudService#sku_tier}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#tags SpringCloudService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#timeouts SpringCloudService#timeouts}
+        :param trace: trace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#trace SpringCloudService#trace}
+        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#zone_redundant SpringCloudService#zone_redundant}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -969,28 +969,28 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#location SpringCloudService#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#location SpringCloudService#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#resource_group_name SpringCloudService#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#resource_group_name SpringCloudService#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def build_agent_pool_size(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#build_agent_pool_size SpringCloudService#build_agent_pool_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#build_agent_pool_size SpringCloudService#build_agent_pool_size}.'''
         result = self._values.get("build_agent_pool_size")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1000,7 +1000,7 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SpringCloudServiceConfigServerGitSetting"]:
         '''config_server_git_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#config_server_git_setting SpringCloudService#config_server_git_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#config_server_git_setting SpringCloudService#config_server_git_setting}
         '''
         result = self._values.get("config_server_git_setting")
         return typing.cast(typing.Optional["SpringCloudServiceConfigServerGitSetting"], result)
@@ -1011,7 +1011,7 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpringCloudServiceContainerRegistry"]]]:
         '''container_registry block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#container_registry SpringCloudService#container_registry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#container_registry SpringCloudService#container_registry}
         '''
         result = self._values.get("container_registry")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpringCloudServiceContainerRegistry"]]], result)
@@ -1022,14 +1022,14 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SpringCloudServiceDefaultBuildService"]:
         '''default_build_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#default_build_service SpringCloudService#default_build_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#default_build_service SpringCloudService#default_build_service}
         '''
         result = self._values.get("default_build_service")
         return typing.cast(typing.Optional["SpringCloudServiceDefaultBuildService"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#id SpringCloudService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#id SpringCloudService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1041,13 +1041,13 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_stream_public_endpoint_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#log_stream_public_endpoint_enabled SpringCloudService#log_stream_public_endpoint_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#log_stream_public_endpoint_enabled SpringCloudService#log_stream_public_endpoint_enabled}.'''
         result = self._values.get("log_stream_public_endpoint_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def managed_environment_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#managed_environment_id SpringCloudService#managed_environment_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#managed_environment_id SpringCloudService#managed_environment_id}.'''
         result = self._values.get("managed_environment_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1055,7 +1055,7 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def marketplace(self) -> typing.Optional["SpringCloudServiceMarketplace"]:
         '''marketplace block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#marketplace SpringCloudService#marketplace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#marketplace SpringCloudService#marketplace}
         '''
         result = self._values.get("marketplace")
         return typing.cast(typing.Optional["SpringCloudServiceMarketplace"], result)
@@ -1064,7 +1064,7 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network(self) -> typing.Optional["SpringCloudServiceNetwork"]:
         '''network block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#network SpringCloudService#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#network SpringCloudService#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional["SpringCloudServiceNetwork"], result)
@@ -1073,25 +1073,25 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_registry_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#service_registry_enabled SpringCloudService#service_registry_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#service_registry_enabled SpringCloudService#service_registry_enabled}.'''
         result = self._values.get("service_registry_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def sku_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#sku_name SpringCloudService#sku_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#sku_name SpringCloudService#sku_name}.'''
         result = self._values.get("sku_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sku_tier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#sku_tier SpringCloudService#sku_tier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#sku_tier SpringCloudService#sku_tier}.'''
         result = self._values.get("sku_tier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#tags SpringCloudService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#tags SpringCloudService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1099,7 +1099,7 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SpringCloudServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#timeouts SpringCloudService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#timeouts SpringCloudService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SpringCloudServiceTimeouts"], result)
@@ -1108,7 +1108,7 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def trace(self) -> typing.Optional["SpringCloudServiceTrace"]:
         '''trace block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#trace SpringCloudService#trace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#trace SpringCloudService#trace}
         '''
         result = self._values.get("trace")
         return typing.cast(typing.Optional["SpringCloudServiceTrace"], result)
@@ -1117,7 +1117,7 @@ class SpringCloudServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone_redundant(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#zone_redundant SpringCloudService#zone_redundant}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#zone_redundant SpringCloudService#zone_redundant}.'''
         result = self._values.get("zone_redundant")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1157,12 +1157,12 @@ class SpringCloudServiceConfigServerGitSetting:
         ssh_auth: typing.Optional[typing.Union["SpringCloudServiceConfigServerGitSettingSshAuth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.
-        :param http_basic_auth: http_basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.
-        :param repository: repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#repository SpringCloudService#repository}
-        :param search_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.
-        :param ssh_auth: ssh_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.
+        :param http_basic_auth: http_basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.
+        :param repository: repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#repository SpringCloudService#repository}
+        :param search_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.
+        :param ssh_auth: ssh_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
         '''
         if isinstance(http_basic_auth, dict):
             http_basic_auth = SpringCloudServiceConfigServerGitSettingHttpBasicAuth(**http_basic_auth)
@@ -1192,7 +1192,7 @@ class SpringCloudServiceConfigServerGitSetting:
 
     @builtins.property
     def uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.'''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
         return typing.cast(builtins.str, result)
@@ -1203,14 +1203,14 @@ class SpringCloudServiceConfigServerGitSetting:
     ) -> typing.Optional["SpringCloudServiceConfigServerGitSettingHttpBasicAuth"]:
         '''http_basic_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
         '''
         result = self._values.get("http_basic_auth")
         return typing.cast(typing.Optional["SpringCloudServiceConfigServerGitSettingHttpBasicAuth"], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.'''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1220,14 +1220,14 @@ class SpringCloudServiceConfigServerGitSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpringCloudServiceConfigServerGitSettingRepository"]]]:
         '''repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#repository SpringCloudService#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#repository SpringCloudService#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpringCloudServiceConfigServerGitSettingRepository"]]], result)
 
     @builtins.property
     def search_paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.'''
         result = self._values.get("search_paths")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1237,7 +1237,7 @@ class SpringCloudServiceConfigServerGitSetting:
     ) -> typing.Optional["SpringCloudServiceConfigServerGitSettingSshAuth"]:
         '''ssh_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
         '''
         result = self._values.get("ssh_auth")
         return typing.cast(typing.Optional["SpringCloudServiceConfigServerGitSettingSshAuth"], result)
@@ -1262,8 +1262,8 @@ class SpringCloudServiceConfigServerGitSetting:
 class SpringCloudServiceConfigServerGitSettingHttpBasicAuth:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd790ed58b3d2ca9cae7a842e5a23db71fa4210c2d0130eae9aefdd649684051)
@@ -1276,14 +1276,14 @@ class SpringCloudServiceConfigServerGitSettingHttpBasicAuth:
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -1400,8 +1400,8 @@ class SpringCloudServiceConfigServerGitSettingOutputReference(
         username: builtins.str,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
         '''
         value = SpringCloudServiceConfigServerGitSettingHttpBasicAuth(
             password=password, username=username
@@ -1432,10 +1432,10 @@ class SpringCloudServiceConfigServerGitSettingOutputReference(
         strict_host_key_checking_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.
-        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.
-        :param host_key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.
-        :param strict_host_key_checking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.
+        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.
+        :param host_key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.
+        :param strict_host_key_checking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.
         '''
         value = SpringCloudServiceConfigServerGitSettingSshAuth(
             private_key=private_key,
@@ -1601,13 +1601,13 @@ class SpringCloudServiceConfigServerGitSettingRepository:
         ssh_auth: typing.Optional[typing.Union["SpringCloudServiceConfigServerGitSettingRepositorySshAuth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.
-        :param http_basic_auth: http_basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.
-        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#pattern SpringCloudService#pattern}.
-        :param search_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.
-        :param ssh_auth: ssh_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.
+        :param http_basic_auth: http_basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.
+        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#pattern SpringCloudService#pattern}.
+        :param search_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.
+        :param ssh_auth: ssh_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
         '''
         if isinstance(http_basic_auth, dict):
             http_basic_auth = SpringCloudServiceConfigServerGitSettingRepositoryHttpBasicAuth(**http_basic_auth)
@@ -1639,14 +1639,14 @@ class SpringCloudServiceConfigServerGitSettingRepository:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#uri SpringCloudService#uri}.'''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
         return typing.cast(builtins.str, result)
@@ -1657,26 +1657,26 @@ class SpringCloudServiceConfigServerGitSettingRepository:
     ) -> typing.Optional["SpringCloudServiceConfigServerGitSettingRepositoryHttpBasicAuth"]:
         '''http_basic_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#http_basic_auth SpringCloudService#http_basic_auth}
         '''
         result = self._values.get("http_basic_auth")
         return typing.cast(typing.Optional["SpringCloudServiceConfigServerGitSettingRepositoryHttpBasicAuth"], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#label SpringCloudService#label}.'''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pattern(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#pattern SpringCloudService#pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#pattern SpringCloudService#pattern}.'''
         result = self._values.get("pattern")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def search_paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#search_paths SpringCloudService#search_paths}.'''
         result = self._values.get("search_paths")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1686,7 +1686,7 @@ class SpringCloudServiceConfigServerGitSettingRepository:
     ) -> typing.Optional["SpringCloudServiceConfigServerGitSettingRepositorySshAuth"]:
         '''ssh_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#ssh_auth SpringCloudService#ssh_auth}
         '''
         result = self._values.get("ssh_auth")
         return typing.cast(typing.Optional["SpringCloudServiceConfigServerGitSettingRepositorySshAuth"], result)
@@ -1711,8 +1711,8 @@ class SpringCloudServiceConfigServerGitSettingRepository:
 class SpringCloudServiceConfigServerGitSettingRepositoryHttpBasicAuth:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65f98e0f9d80ac487d7c7c106a5914b06bcaf8ee7db2161bebc476b54f345c98)
@@ -1725,14 +1725,14 @@ class SpringCloudServiceConfigServerGitSettingRepositoryHttpBasicAuth:
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -1948,8 +1948,8 @@ class SpringCloudServiceConfigServerGitSettingRepositoryOutputReference(
         username: builtins.str,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
         '''
         value = SpringCloudServiceConfigServerGitSettingRepositoryHttpBasicAuth(
             password=password, username=username
@@ -1967,10 +1967,10 @@ class SpringCloudServiceConfigServerGitSettingRepositoryOutputReference(
         strict_host_key_checking_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.
-        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.
-        :param host_key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.
-        :param strict_host_key_checking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.
+        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.
+        :param host_key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.
+        :param strict_host_key_checking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.
         '''
         value = SpringCloudServiceConfigServerGitSettingRepositorySshAuth(
             private_key=private_key,
@@ -2152,10 +2152,10 @@ class SpringCloudServiceConfigServerGitSettingRepositorySshAuth:
         strict_host_key_checking_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.
-        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.
-        :param host_key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.
-        :param strict_host_key_checking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.
+        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.
+        :param host_key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.
+        :param strict_host_key_checking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49e59b074589c03aa4b0752dd084ae1171a06af6158d78bee6f32df0bc76ec32)
@@ -2175,20 +2175,20 @@ class SpringCloudServiceConfigServerGitSettingRepositorySshAuth:
 
     @builtins.property
     def private_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.'''
         result = self._values.get("private_key")
         assert result is not None, "Required property 'private_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.'''
         result = self._values.get("host_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host_key_algorithm(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.'''
         result = self._values.get("host_key_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2196,7 +2196,7 @@ class SpringCloudServiceConfigServerGitSettingRepositorySshAuth:
     def strict_host_key_checking_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.'''
         result = self._values.get("strict_host_key_checking_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2357,10 +2357,10 @@ class SpringCloudServiceConfigServerGitSettingSshAuth:
         strict_host_key_checking_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.
-        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.
-        :param host_key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.
-        :param strict_host_key_checking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.
+        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.
+        :param host_key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.
+        :param strict_host_key_checking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f7532691b857066ae56670b2a7f082bdce3e6b3ae327b245be21a5faec87be5)
@@ -2380,20 +2380,20 @@ class SpringCloudServiceConfigServerGitSettingSshAuth:
 
     @builtins.property
     def private_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#private_key SpringCloudService#private_key}.'''
         result = self._values.get("private_key")
         assert result is not None, "Required property 'private_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key SpringCloudService#host_key}.'''
         result = self._values.get("host_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host_key_algorithm(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#host_key_algorithm SpringCloudService#host_key_algorithm}.'''
         result = self._values.get("host_key_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2401,7 +2401,7 @@ class SpringCloudServiceConfigServerGitSettingSshAuth:
     def strict_host_key_checking_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#strict_host_key_checking_enabled SpringCloudService#strict_host_key_checking_enabled}.'''
         result = self._values.get("strict_host_key_checking_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2562,10 +2562,10 @@ class SpringCloudServiceContainerRegistry:
         username: builtins.str,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
-        :param server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#server SpringCloudService#server}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.
+        :param server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#server SpringCloudService#server}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ce265d2bb968386a1187b8971ed3a9d607c69c231856a7e45c0f9b244acb3a1)
@@ -2582,28 +2582,28 @@ class SpringCloudServiceContainerRegistry:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#name SpringCloudService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#password SpringCloudService#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def server(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#server SpringCloudService#server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#server SpringCloudService#server}.'''
         result = self._values.get("server")
         assert result is not None, "Required property 'server' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#username SpringCloudService#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -2837,7 +2837,7 @@ class SpringCloudServiceDefaultBuildService:
         container_registry_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_registry_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#container_registry_name SpringCloudService#container_registry_name}.
+        :param container_registry_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#container_registry_name SpringCloudService#container_registry_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2cc09276bb3af22e3d80c59be5234eb9b662ef2dc0d83140ba28accea582c31)
@@ -2848,7 +2848,7 @@ class SpringCloudServiceDefaultBuildService:
 
     @builtins.property
     def container_registry_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#container_registry_name SpringCloudService#container_registry_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#container_registry_name SpringCloudService#container_registry_name}.'''
         result = self._values.get("container_registry_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2935,9 +2935,9 @@ class SpringCloudServiceMarketplace:
         publisher: builtins.str,
     ) -> None:
         '''
-        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#plan SpringCloudService#plan}.
-        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#product SpringCloudService#product}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#publisher SpringCloudService#publisher}.
+        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#plan SpringCloudService#plan}.
+        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#product SpringCloudService#product}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#publisher SpringCloudService#publisher}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f9e4bbcd040381b5d1ffe139f7e54f05fbf700faef3ef22f1d113f539643e3f)
@@ -2952,21 +2952,21 @@ class SpringCloudServiceMarketplace:
 
     @builtins.property
     def plan(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#plan SpringCloudService#plan}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#plan SpringCloudService#plan}.'''
         result = self._values.get("plan")
         assert result is not None, "Required property 'plan' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def product(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#product SpringCloudService#product}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#product SpringCloudService#product}.'''
         result = self._values.get("product")
         assert result is not None, "Required property 'product' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def publisher(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#publisher SpringCloudService#publisher}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#publisher SpringCloudService#publisher}.'''
         result = self._values.get("publisher")
         assert result is not None, "Required property 'publisher' is missing"
         return typing.cast(builtins.str, result)
@@ -3096,13 +3096,13 @@ class SpringCloudServiceNetwork:
         service_runtime_network_resource_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#app_subnet_id SpringCloudService#app_subnet_id}.
-        :param cidr_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#cidr_ranges SpringCloudService#cidr_ranges}.
-        :param service_runtime_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#service_runtime_subnet_id SpringCloudService#service_runtime_subnet_id}.
-        :param app_network_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#app_network_resource_group SpringCloudService#app_network_resource_group}.
-        :param outbound_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#outbound_type SpringCloudService#outbound_type}.
-        :param read_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#read_timeout_seconds SpringCloudService#read_timeout_seconds}.
-        :param service_runtime_network_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#service_runtime_network_resource_group SpringCloudService#service_runtime_network_resource_group}.
+        :param app_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#app_subnet_id SpringCloudService#app_subnet_id}.
+        :param cidr_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#cidr_ranges SpringCloudService#cidr_ranges}.
+        :param service_runtime_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#service_runtime_subnet_id SpringCloudService#service_runtime_subnet_id}.
+        :param app_network_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#app_network_resource_group SpringCloudService#app_network_resource_group}.
+        :param outbound_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#outbound_type SpringCloudService#outbound_type}.
+        :param read_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#read_timeout_seconds SpringCloudService#read_timeout_seconds}.
+        :param service_runtime_network_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#service_runtime_network_resource_group SpringCloudService#service_runtime_network_resource_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69751b81327a0e961b3c8271acbf3fcc441d5552872d671599ed3c5ae060b85a)
@@ -3129,46 +3129,46 @@ class SpringCloudServiceNetwork:
 
     @builtins.property
     def app_subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#app_subnet_id SpringCloudService#app_subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#app_subnet_id SpringCloudService#app_subnet_id}.'''
         result = self._values.get("app_subnet_id")
         assert result is not None, "Required property 'app_subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cidr_ranges(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#cidr_ranges SpringCloudService#cidr_ranges}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#cidr_ranges SpringCloudService#cidr_ranges}.'''
         result = self._values.get("cidr_ranges")
         assert result is not None, "Required property 'cidr_ranges' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def service_runtime_subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#service_runtime_subnet_id SpringCloudService#service_runtime_subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#service_runtime_subnet_id SpringCloudService#service_runtime_subnet_id}.'''
         result = self._values.get("service_runtime_subnet_id")
         assert result is not None, "Required property 'service_runtime_subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def app_network_resource_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#app_network_resource_group SpringCloudService#app_network_resource_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#app_network_resource_group SpringCloudService#app_network_resource_group}.'''
         result = self._values.get("app_network_resource_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def outbound_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#outbound_type SpringCloudService#outbound_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#outbound_type SpringCloudService#outbound_type}.'''
         result = self._values.get("outbound_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#read_timeout_seconds SpringCloudService#read_timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#read_timeout_seconds SpringCloudService#read_timeout_seconds}.'''
         result = self._values.get("read_timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def service_runtime_network_resource_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#service_runtime_network_resource_group SpringCloudService#service_runtime_network_resource_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#service_runtime_network_resource_group SpringCloudService#service_runtime_network_resource_group}.'''
         result = self._values.get("service_runtime_network_resource_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3540,10 +3540,10 @@ class SpringCloudServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#create SpringCloudService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#delete SpringCloudService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#read SpringCloudService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#update SpringCloudService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#create SpringCloudService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#delete SpringCloudService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#read SpringCloudService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#update SpringCloudService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1df6602921dfa74929aabbee65c50741e4c2237d1727c6551ab8af9b2f5b95c3)
@@ -3563,25 +3563,25 @@ class SpringCloudServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#create SpringCloudService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#create SpringCloudService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#delete SpringCloudService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#delete SpringCloudService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#read SpringCloudService#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#read SpringCloudService#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#update SpringCloudService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#update SpringCloudService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3735,8 +3735,8 @@ class SpringCloudServiceTrace:
         sample_rate: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#connection_string SpringCloudService#connection_string}.
-        :param sample_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#sample_rate SpringCloudService#sample_rate}.
+        :param connection_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#connection_string SpringCloudService#connection_string}.
+        :param sample_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#sample_rate SpringCloudService#sample_rate}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9dfa5ef8b8a93d3a913651f68b4547dcf7d3ec089b3b2ce8b08f8297d7bbe185)
@@ -3750,13 +3750,13 @@ class SpringCloudServiceTrace:
 
     @builtins.property
     def connection_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#connection_string SpringCloudService#connection_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#connection_string SpringCloudService#connection_string}.'''
         result = self._values.get("connection_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sample_rate(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/spring_cloud_service#sample_rate SpringCloudService#sample_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/spring_cloud_service#sample_rate SpringCloudService#sample_rate}.'''
         result = self._values.get("sample_rate")
         return typing.cast(typing.Optional[jsii.Number], result)
 

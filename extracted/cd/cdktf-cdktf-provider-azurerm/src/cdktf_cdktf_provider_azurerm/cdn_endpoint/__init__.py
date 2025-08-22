@@ -1,7 +1,7 @@
 r'''
 # `azurerm_cdn_endpoint`
 
-Refer to the Terraform Registry for docs: [`azurerm_cdn_endpoint`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint).
+Refer to the Terraform Registry for docs: [`azurerm_cdn_endpoint`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CdnEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.cdnEndpoint.CdnEndpoint",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint azurerm_cdn_endpoint}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint azurerm_cdn_endpoint}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class CdnEndpoint(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint azurerm_cdn_endpoint} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint azurerm_cdn_endpoint} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#location CdnEndpoint#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
-        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#origin CdnEndpoint#origin}
-        :param profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#profile_name CdnEndpoint#profile_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#resource_group_name CdnEndpoint#resource_group_name}.
-        :param content_types_to_compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#content_types_to_compress CdnEndpoint#content_types_to_compress}.
-        :param delivery_rule: delivery_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#delivery_rule CdnEndpoint#delivery_rule}
-        :param geo_filter: geo_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#geo_filter CdnEndpoint#geo_filter}
-        :param global_delivery_rule: global_delivery_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#global_delivery_rule CdnEndpoint#global_delivery_rule}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#id CdnEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_compression_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#is_compression_enabled CdnEndpoint#is_compression_enabled}.
-        :param is_http_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#is_http_allowed CdnEndpoint#is_http_allowed}.
-        :param is_https_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#is_https_allowed CdnEndpoint#is_https_allowed}.
-        :param optimization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#optimization_type CdnEndpoint#optimization_type}.
-        :param origin_host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#origin_host_header CdnEndpoint#origin_host_header}.
-        :param origin_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#origin_path CdnEndpoint#origin_path}.
-        :param probe_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#probe_path CdnEndpoint#probe_path}.
-        :param querystring_caching_behaviour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#querystring_caching_behaviour CdnEndpoint#querystring_caching_behaviour}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#tags CdnEndpoint#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#timeouts CdnEndpoint#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#location CdnEndpoint#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
+        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#origin CdnEndpoint#origin}
+        :param profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#profile_name CdnEndpoint#profile_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#resource_group_name CdnEndpoint#resource_group_name}.
+        :param content_types_to_compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#content_types_to_compress CdnEndpoint#content_types_to_compress}.
+        :param delivery_rule: delivery_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#delivery_rule CdnEndpoint#delivery_rule}
+        :param geo_filter: geo_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#geo_filter CdnEndpoint#geo_filter}
+        :param global_delivery_rule: global_delivery_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#global_delivery_rule CdnEndpoint#global_delivery_rule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#id CdnEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_compression_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#is_compression_enabled CdnEndpoint#is_compression_enabled}.
+        :param is_http_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#is_http_allowed CdnEndpoint#is_http_allowed}.
+        :param is_https_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#is_https_allowed CdnEndpoint#is_https_allowed}.
+        :param optimization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#optimization_type CdnEndpoint#optimization_type}.
+        :param origin_host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#origin_host_header CdnEndpoint#origin_host_header}.
+        :param origin_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#origin_path CdnEndpoint#origin_path}.
+        :param probe_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#probe_path CdnEndpoint#probe_path}.
+        :param querystring_caching_behaviour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#querystring_caching_behaviour CdnEndpoint#querystring_caching_behaviour}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#tags CdnEndpoint#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#timeouts CdnEndpoint#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class CdnEndpoint(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CdnEndpoint to import.
-        :param import_from_id: The id of the existing CdnEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CdnEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CdnEndpoint to import is found.
         '''
         if __debug__:
@@ -209,12 +209,12 @@ class CdnEndpoint(
         url_rewrite_action: typing.Optional[typing.Union["CdnEndpointGlobalDeliveryRuleUrlRewriteAction", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cache_expiration_action: cache_expiration_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
-        :param cache_key_query_string_action: cache_key_query_string_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
-        :param modify_request_header_action: modify_request_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
-        :param modify_response_header_action: modify_response_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
-        :param url_redirect_action: url_redirect_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
-        :param url_rewrite_action: url_rewrite_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
+        :param cache_expiration_action: cache_expiration_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
+        :param cache_key_query_string_action: cache_key_query_string_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
+        :param modify_request_header_action: modify_request_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
+        :param modify_response_header_action: modify_response_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
+        :param url_redirect_action: url_redirect_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
+        :param url_rewrite_action: url_rewrite_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
         '''
         value = CdnEndpointGlobalDeliveryRule(
             cache_expiration_action=cache_expiration_action,
@@ -250,10 +250,10 @@ class CdnEndpoint(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#create CdnEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#delete CdnEndpoint#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#read CdnEndpoint#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#update CdnEndpoint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#create CdnEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#delete CdnEndpoint#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#read CdnEndpoint#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#update CdnEndpoint#update}.
         '''
         value = CdnEndpointTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -751,26 +751,26 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#location CdnEndpoint#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
-        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#origin CdnEndpoint#origin}
-        :param profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#profile_name CdnEndpoint#profile_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#resource_group_name CdnEndpoint#resource_group_name}.
-        :param content_types_to_compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#content_types_to_compress CdnEndpoint#content_types_to_compress}.
-        :param delivery_rule: delivery_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#delivery_rule CdnEndpoint#delivery_rule}
-        :param geo_filter: geo_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#geo_filter CdnEndpoint#geo_filter}
-        :param global_delivery_rule: global_delivery_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#global_delivery_rule CdnEndpoint#global_delivery_rule}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#id CdnEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_compression_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#is_compression_enabled CdnEndpoint#is_compression_enabled}.
-        :param is_http_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#is_http_allowed CdnEndpoint#is_http_allowed}.
-        :param is_https_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#is_https_allowed CdnEndpoint#is_https_allowed}.
-        :param optimization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#optimization_type CdnEndpoint#optimization_type}.
-        :param origin_host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#origin_host_header CdnEndpoint#origin_host_header}.
-        :param origin_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#origin_path CdnEndpoint#origin_path}.
-        :param probe_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#probe_path CdnEndpoint#probe_path}.
-        :param querystring_caching_behaviour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#querystring_caching_behaviour CdnEndpoint#querystring_caching_behaviour}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#tags CdnEndpoint#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#timeouts CdnEndpoint#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#location CdnEndpoint#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
+        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#origin CdnEndpoint#origin}
+        :param profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#profile_name CdnEndpoint#profile_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#resource_group_name CdnEndpoint#resource_group_name}.
+        :param content_types_to_compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#content_types_to_compress CdnEndpoint#content_types_to_compress}.
+        :param delivery_rule: delivery_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#delivery_rule CdnEndpoint#delivery_rule}
+        :param geo_filter: geo_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#geo_filter CdnEndpoint#geo_filter}
+        :param global_delivery_rule: global_delivery_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#global_delivery_rule CdnEndpoint#global_delivery_rule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#id CdnEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_compression_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#is_compression_enabled CdnEndpoint#is_compression_enabled}.
+        :param is_http_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#is_http_allowed CdnEndpoint#is_http_allowed}.
+        :param is_https_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#is_https_allowed CdnEndpoint#is_https_allowed}.
+        :param optimization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#optimization_type CdnEndpoint#optimization_type}.
+        :param origin_host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#origin_host_header CdnEndpoint#origin_host_header}.
+        :param origin_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#origin_path CdnEndpoint#origin_path}.
+        :param probe_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#probe_path CdnEndpoint#probe_path}.
+        :param querystring_caching_behaviour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#querystring_caching_behaviour CdnEndpoint#querystring_caching_behaviour}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#tags CdnEndpoint#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#timeouts CdnEndpoint#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -925,14 +925,14 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#location CdnEndpoint#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#location CdnEndpoint#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -943,7 +943,7 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointOrigin"]]:
         '''origin block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#origin CdnEndpoint#origin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#origin CdnEndpoint#origin}
         '''
         result = self._values.get("origin")
         assert result is not None, "Required property 'origin' is missing"
@@ -951,21 +951,21 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def profile_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#profile_name CdnEndpoint#profile_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#profile_name CdnEndpoint#profile_name}.'''
         result = self._values.get("profile_name")
         assert result is not None, "Required property 'profile_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#resource_group_name CdnEndpoint#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#resource_group_name CdnEndpoint#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_types_to_compress(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#content_types_to_compress CdnEndpoint#content_types_to_compress}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#content_types_to_compress CdnEndpoint#content_types_to_compress}.'''
         result = self._values.get("content_types_to_compress")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -975,7 +975,7 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRule"]]]:
         '''delivery_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#delivery_rule CdnEndpoint#delivery_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#delivery_rule CdnEndpoint#delivery_rule}
         '''
         result = self._values.get("delivery_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRule"]]], result)
@@ -986,7 +986,7 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointGeoFilter"]]]:
         '''geo_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#geo_filter CdnEndpoint#geo_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#geo_filter CdnEndpoint#geo_filter}
         '''
         result = self._values.get("geo_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointGeoFilter"]]], result)
@@ -995,14 +995,14 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def global_delivery_rule(self) -> typing.Optional["CdnEndpointGlobalDeliveryRule"]:
         '''global_delivery_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#global_delivery_rule CdnEndpoint#global_delivery_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#global_delivery_rule CdnEndpoint#global_delivery_rule}
         '''
         result = self._values.get("global_delivery_rule")
         return typing.cast(typing.Optional["CdnEndpointGlobalDeliveryRule"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#id CdnEndpoint#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#id CdnEndpoint#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1014,7 +1014,7 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_compression_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#is_compression_enabled CdnEndpoint#is_compression_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#is_compression_enabled CdnEndpoint#is_compression_enabled}.'''
         result = self._values.get("is_compression_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1022,7 +1022,7 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_http_allowed(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#is_http_allowed CdnEndpoint#is_http_allowed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#is_http_allowed CdnEndpoint#is_http_allowed}.'''
         result = self._values.get("is_http_allowed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1030,43 +1030,43 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_https_allowed(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#is_https_allowed CdnEndpoint#is_https_allowed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#is_https_allowed CdnEndpoint#is_https_allowed}.'''
         result = self._values.get("is_https_allowed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def optimization_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#optimization_type CdnEndpoint#optimization_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#optimization_type CdnEndpoint#optimization_type}.'''
         result = self._values.get("optimization_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def origin_host_header(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#origin_host_header CdnEndpoint#origin_host_header}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#origin_host_header CdnEndpoint#origin_host_header}.'''
         result = self._values.get("origin_host_header")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def origin_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#origin_path CdnEndpoint#origin_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#origin_path CdnEndpoint#origin_path}.'''
         result = self._values.get("origin_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def probe_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#probe_path CdnEndpoint#probe_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#probe_path CdnEndpoint#probe_path}.'''
         result = self._values.get("probe_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def querystring_caching_behaviour(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#querystring_caching_behaviour CdnEndpoint#querystring_caching_behaviour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#querystring_caching_behaviour CdnEndpoint#querystring_caching_behaviour}.'''
         result = self._values.get("querystring_caching_behaviour")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#tags CdnEndpoint#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#tags CdnEndpoint#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1074,7 +1074,7 @@ class CdnEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CdnEndpointTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#timeouts CdnEndpoint#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#timeouts CdnEndpoint#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CdnEndpointTimeouts"], result)
@@ -1147,28 +1147,28 @@ class CdnEndpointDeliveryRule:
         url_rewrite_action: typing.Optional[typing.Union["CdnEndpointDeliveryRuleUrlRewriteAction", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
-        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#order CdnEndpoint#order}.
-        :param cache_expiration_action: cache_expiration_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
-        :param cache_key_query_string_action: cache_key_query_string_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
-        :param cookies_condition: cookies_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cookies_condition CdnEndpoint#cookies_condition}
-        :param device_condition: device_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#device_condition CdnEndpoint#device_condition}
-        :param http_version_condition: http_version_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#http_version_condition CdnEndpoint#http_version_condition}
-        :param modify_request_header_action: modify_request_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
-        :param modify_response_header_action: modify_response_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
-        :param post_arg_condition: post_arg_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#post_arg_condition CdnEndpoint#post_arg_condition}
-        :param query_string_condition: query_string_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#query_string_condition CdnEndpoint#query_string_condition}
-        :param remote_address_condition: remote_address_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#remote_address_condition CdnEndpoint#remote_address_condition}
-        :param request_body_condition: request_body_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_body_condition CdnEndpoint#request_body_condition}
-        :param request_header_condition: request_header_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_header_condition CdnEndpoint#request_header_condition}
-        :param request_method_condition: request_method_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_method_condition CdnEndpoint#request_method_condition}
-        :param request_scheme_condition: request_scheme_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_scheme_condition CdnEndpoint#request_scheme_condition}
-        :param request_uri_condition: request_uri_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_uri_condition CdnEndpoint#request_uri_condition}
-        :param url_file_extension_condition: url_file_extension_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_file_extension_condition CdnEndpoint#url_file_extension_condition}
-        :param url_file_name_condition: url_file_name_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_file_name_condition CdnEndpoint#url_file_name_condition}
-        :param url_path_condition: url_path_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_path_condition CdnEndpoint#url_path_condition}
-        :param url_redirect_action: url_redirect_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
-        :param url_rewrite_action: url_rewrite_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
+        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#order CdnEndpoint#order}.
+        :param cache_expiration_action: cache_expiration_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
+        :param cache_key_query_string_action: cache_key_query_string_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
+        :param cookies_condition: cookies_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cookies_condition CdnEndpoint#cookies_condition}
+        :param device_condition: device_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#device_condition CdnEndpoint#device_condition}
+        :param http_version_condition: http_version_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#http_version_condition CdnEndpoint#http_version_condition}
+        :param modify_request_header_action: modify_request_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
+        :param modify_response_header_action: modify_response_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
+        :param post_arg_condition: post_arg_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#post_arg_condition CdnEndpoint#post_arg_condition}
+        :param query_string_condition: query_string_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#query_string_condition CdnEndpoint#query_string_condition}
+        :param remote_address_condition: remote_address_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#remote_address_condition CdnEndpoint#remote_address_condition}
+        :param request_body_condition: request_body_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_body_condition CdnEndpoint#request_body_condition}
+        :param request_header_condition: request_header_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_header_condition CdnEndpoint#request_header_condition}
+        :param request_method_condition: request_method_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_method_condition CdnEndpoint#request_method_condition}
+        :param request_scheme_condition: request_scheme_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_scheme_condition CdnEndpoint#request_scheme_condition}
+        :param request_uri_condition: request_uri_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_uri_condition CdnEndpoint#request_uri_condition}
+        :param url_file_extension_condition: url_file_extension_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_file_extension_condition CdnEndpoint#url_file_extension_condition}
+        :param url_file_name_condition: url_file_name_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_file_name_condition CdnEndpoint#url_file_name_condition}
+        :param url_path_condition: url_path_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_path_condition CdnEndpoint#url_path_condition}
+        :param url_redirect_action: url_redirect_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
+        :param url_rewrite_action: url_rewrite_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
         '''
         if isinstance(cache_expiration_action, dict):
             cache_expiration_action = CdnEndpointDeliveryRuleCacheExpirationAction(**cache_expiration_action)
@@ -1255,14 +1255,14 @@ class CdnEndpointDeliveryRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def order(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#order CdnEndpoint#order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#order CdnEndpoint#order}.'''
         result = self._values.get("order")
         assert result is not None, "Required property 'order' is missing"
         return typing.cast(jsii.Number, result)
@@ -1273,7 +1273,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional["CdnEndpointDeliveryRuleCacheExpirationAction"]:
         '''cache_expiration_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
         '''
         result = self._values.get("cache_expiration_action")
         return typing.cast(typing.Optional["CdnEndpointDeliveryRuleCacheExpirationAction"], result)
@@ -1284,7 +1284,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional["CdnEndpointDeliveryRuleCacheKeyQueryStringAction"]:
         '''cache_key_query_string_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
         '''
         result = self._values.get("cache_key_query_string_action")
         return typing.cast(typing.Optional["CdnEndpointDeliveryRuleCacheKeyQueryStringAction"], result)
@@ -1295,7 +1295,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleCookiesCondition"]]]:
         '''cookies_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cookies_condition CdnEndpoint#cookies_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cookies_condition CdnEndpoint#cookies_condition}
         '''
         result = self._values.get("cookies_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleCookiesCondition"]]], result)
@@ -1306,7 +1306,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional["CdnEndpointDeliveryRuleDeviceCondition"]:
         '''device_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#device_condition CdnEndpoint#device_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#device_condition CdnEndpoint#device_condition}
         '''
         result = self._values.get("device_condition")
         return typing.cast(typing.Optional["CdnEndpointDeliveryRuleDeviceCondition"], result)
@@ -1317,7 +1317,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleHttpVersionCondition"]]]:
         '''http_version_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#http_version_condition CdnEndpoint#http_version_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#http_version_condition CdnEndpoint#http_version_condition}
         '''
         result = self._values.get("http_version_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleHttpVersionCondition"]]], result)
@@ -1328,7 +1328,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleModifyRequestHeaderAction"]]]:
         '''modify_request_header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
         '''
         result = self._values.get("modify_request_header_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleModifyRequestHeaderAction"]]], result)
@@ -1339,7 +1339,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleModifyResponseHeaderAction"]]]:
         '''modify_response_header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
         '''
         result = self._values.get("modify_response_header_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleModifyResponseHeaderAction"]]], result)
@@ -1350,7 +1350,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRulePostArgCondition"]]]:
         '''post_arg_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#post_arg_condition CdnEndpoint#post_arg_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#post_arg_condition CdnEndpoint#post_arg_condition}
         '''
         result = self._values.get("post_arg_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRulePostArgCondition"]]], result)
@@ -1361,7 +1361,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleQueryStringCondition"]]]:
         '''query_string_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#query_string_condition CdnEndpoint#query_string_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#query_string_condition CdnEndpoint#query_string_condition}
         '''
         result = self._values.get("query_string_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleQueryStringCondition"]]], result)
@@ -1372,7 +1372,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleRemoteAddressCondition"]]]:
         '''remote_address_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#remote_address_condition CdnEndpoint#remote_address_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#remote_address_condition CdnEndpoint#remote_address_condition}
         '''
         result = self._values.get("remote_address_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleRemoteAddressCondition"]]], result)
@@ -1383,7 +1383,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleRequestBodyCondition"]]]:
         '''request_body_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_body_condition CdnEndpoint#request_body_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_body_condition CdnEndpoint#request_body_condition}
         '''
         result = self._values.get("request_body_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleRequestBodyCondition"]]], result)
@@ -1394,7 +1394,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleRequestHeaderCondition"]]]:
         '''request_header_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_header_condition CdnEndpoint#request_header_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_header_condition CdnEndpoint#request_header_condition}
         '''
         result = self._values.get("request_header_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleRequestHeaderCondition"]]], result)
@@ -1405,7 +1405,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional["CdnEndpointDeliveryRuleRequestMethodCondition"]:
         '''request_method_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_method_condition CdnEndpoint#request_method_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_method_condition CdnEndpoint#request_method_condition}
         '''
         result = self._values.get("request_method_condition")
         return typing.cast(typing.Optional["CdnEndpointDeliveryRuleRequestMethodCondition"], result)
@@ -1416,7 +1416,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional["CdnEndpointDeliveryRuleRequestSchemeCondition"]:
         '''request_scheme_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_scheme_condition CdnEndpoint#request_scheme_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_scheme_condition CdnEndpoint#request_scheme_condition}
         '''
         result = self._values.get("request_scheme_condition")
         return typing.cast(typing.Optional["CdnEndpointDeliveryRuleRequestSchemeCondition"], result)
@@ -1427,7 +1427,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleRequestUriCondition"]]]:
         '''request_uri_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#request_uri_condition CdnEndpoint#request_uri_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#request_uri_condition CdnEndpoint#request_uri_condition}
         '''
         result = self._values.get("request_uri_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleRequestUriCondition"]]], result)
@@ -1438,7 +1438,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleUrlFileExtensionCondition"]]]:
         '''url_file_extension_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_file_extension_condition CdnEndpoint#url_file_extension_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_file_extension_condition CdnEndpoint#url_file_extension_condition}
         '''
         result = self._values.get("url_file_extension_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleUrlFileExtensionCondition"]]], result)
@@ -1449,7 +1449,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleUrlFileNameCondition"]]]:
         '''url_file_name_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_file_name_condition CdnEndpoint#url_file_name_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_file_name_condition CdnEndpoint#url_file_name_condition}
         '''
         result = self._values.get("url_file_name_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleUrlFileNameCondition"]]], result)
@@ -1460,7 +1460,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleUrlPathCondition"]]]:
         '''url_path_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_path_condition CdnEndpoint#url_path_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_path_condition CdnEndpoint#url_path_condition}
         '''
         result = self._values.get("url_path_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointDeliveryRuleUrlPathCondition"]]], result)
@@ -1471,7 +1471,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional["CdnEndpointDeliveryRuleUrlRedirectAction"]:
         '''url_redirect_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
         '''
         result = self._values.get("url_redirect_action")
         return typing.cast(typing.Optional["CdnEndpointDeliveryRuleUrlRedirectAction"], result)
@@ -1482,7 +1482,7 @@ class CdnEndpointDeliveryRule:
     ) -> typing.Optional["CdnEndpointDeliveryRuleUrlRewriteAction"]:
         '''url_rewrite_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
         '''
         result = self._values.get("url_rewrite_action")
         return typing.cast(typing.Optional["CdnEndpointDeliveryRuleUrlRewriteAction"], result)
@@ -1512,8 +1512,8 @@ class CdnEndpointDeliveryRuleCacheExpirationAction:
         duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19bce8b7e4b2b2a7df235f531dc44a4bd89855cfdf77a5192e52430252ca67f5)
@@ -1527,14 +1527,14 @@ class CdnEndpointDeliveryRuleCacheExpirationAction:
 
     @builtins.property
     def behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.'''
         result = self._values.get("behavior")
         assert result is not None, "Required property 'behavior' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.'''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1639,8 +1639,8 @@ class CdnEndpointDeliveryRuleCacheKeyQueryStringAction:
         parameters: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c025233fbe4c8d443f80fb098acaf3b827ea2e299bc917082fb8457bb0cebc8)
@@ -1654,14 +1654,14 @@ class CdnEndpointDeliveryRuleCacheKeyQueryStringAction:
 
     @builtins.property
     def behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.'''
         result = self._values.get("behavior")
         assert result is not None, "Required property 'behavior' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1775,11 +1775,11 @@ class CdnEndpointDeliveryRuleCookiesCondition:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ecf2372e11692f1e741a996622cb87f256e5242e26ace19798dd6b6164911f74)
@@ -1801,21 +1801,21 @@ class CdnEndpointDeliveryRuleCookiesCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def selector(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.'''
         result = self._values.get("selector")
         assert result is not None, "Required property 'selector' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1823,13 +1823,13 @@ class CdnEndpointDeliveryRuleCookiesCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2104,9 +2104,9 @@ class CdnEndpointDeliveryRuleDeviceCondition:
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__818535170437e567ee8a7fd38ad8d5f56963a51ca5d71a63a9689e52dfad1dd1)
@@ -2123,7 +2123,7 @@ class CdnEndpointDeliveryRuleDeviceCondition:
 
     @builtins.property
     def match_values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         assert result is not None, "Required property 'match_values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2132,13 +2132,13 @@ class CdnEndpointDeliveryRuleDeviceCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2274,9 +2274,9 @@ class CdnEndpointDeliveryRuleHttpVersionCondition:
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93a5a5db1db80efdfbdc2e6ad7f1c0f09f1c7a904566dd6da94ef281a19ff3b3)
@@ -2293,7 +2293,7 @@ class CdnEndpointDeliveryRuleHttpVersionCondition:
 
     @builtins.property
     def match_values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         assert result is not None, "Required property 'match_values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2302,13 +2302,13 @@ class CdnEndpointDeliveryRuleHttpVersionCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2631,9 +2631,9 @@ class CdnEndpointDeliveryRuleModifyRequestHeaderAction:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9c8d6b6ccae17e80855ef445a8bedc4d94d8b168b255e33db689832a321ff36)
@@ -2649,21 +2649,21 @@ class CdnEndpointDeliveryRuleModifyRequestHeaderAction:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2885,9 +2885,9 @@ class CdnEndpointDeliveryRuleModifyResponseHeaderAction:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3a0dc236b6b588ba24aca9249964f5ceb2fdc50d3d09659a4cde22712ded26c)
@@ -2903,21 +2903,21 @@ class CdnEndpointDeliveryRuleModifyResponseHeaderAction:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3159,8 +3159,8 @@ class CdnEndpointDeliveryRuleOutputReference(
         duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.
         '''
         value = CdnEndpointDeliveryRuleCacheExpirationAction(
             behavior=behavior, duration=duration
@@ -3176,8 +3176,8 @@ class CdnEndpointDeliveryRuleOutputReference(
         parameters: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.
         '''
         value = CdnEndpointDeliveryRuleCacheKeyQueryStringAction(
             behavior=behavior, parameters=parameters
@@ -3207,9 +3207,9 @@ class CdnEndpointDeliveryRuleOutputReference(
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
         '''
         value = CdnEndpointDeliveryRuleDeviceCondition(
             match_values=match_values,
@@ -3332,9 +3332,9 @@ class CdnEndpointDeliveryRuleOutputReference(
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
         '''
         value = CdnEndpointDeliveryRuleRequestMethodCondition(
             match_values=match_values,
@@ -3353,9 +3353,9 @@ class CdnEndpointDeliveryRuleOutputReference(
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
         '''
         value = CdnEndpointDeliveryRuleRequestSchemeCondition(
             match_values=match_values,
@@ -3429,12 +3429,12 @@ class CdnEndpointDeliveryRuleOutputReference(
         query_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.
-        :param fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.
-        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.
+        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.
+        :param fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.
+        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.
         '''
         value = CdnEndpointDeliveryRuleUrlRedirectAction(
             redirect_type=redirect_type,
@@ -3456,9 +3456,9 @@ class CdnEndpointDeliveryRuleOutputReference(
         preserve_unmatched_path: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.
-        :param source_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.
-        :param preserve_unmatched_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.
+        :param source_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.
+        :param preserve_unmatched_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.
         '''
         value = CdnEndpointDeliveryRuleUrlRewriteAction(
             destination=destination,
@@ -3890,11 +3890,11 @@ class CdnEndpointDeliveryRulePostArgCondition:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3a922fa5e3499db75cb1692240aee610ca2e5a3499fe4fa8befa572d8c727cb)
@@ -3916,21 +3916,21 @@ class CdnEndpointDeliveryRulePostArgCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def selector(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.'''
         result = self._values.get("selector")
         assert result is not None, "Required property 'selector' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3938,13 +3938,13 @@ class CdnEndpointDeliveryRulePostArgCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4221,10 +4221,10 @@ class CdnEndpointDeliveryRuleQueryStringCondition:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b4ab3bf66c80aaf836df029adc4b59bad5d30b16156a8f205c91083dce5894e1)
@@ -4244,14 +4244,14 @@ class CdnEndpointDeliveryRuleQueryStringCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4259,13 +4259,13 @@ class CdnEndpointDeliveryRuleQueryStringCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4523,9 +4523,9 @@ class CdnEndpointDeliveryRuleRemoteAddressCondition:
         negate_condition: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__138e33eab1a3b5cda90ec33cad5c684da6ce2975dad58d056de2e8aa22fbb798)
@@ -4542,14 +4542,14 @@ class CdnEndpointDeliveryRuleRemoteAddressCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4557,7 +4557,7 @@ class CdnEndpointDeliveryRuleRemoteAddressCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4796,10 +4796,10 @@ class CdnEndpointDeliveryRuleRequestBodyCondition:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c6d4947d23c8b709b12c3f502240871d557acc73f881cf0a9ced3579eab3d8d)
@@ -4819,14 +4819,14 @@ class CdnEndpointDeliveryRuleRequestBodyCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4834,13 +4834,13 @@ class CdnEndpointDeliveryRuleRequestBodyCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5102,11 +5102,11 @@ class CdnEndpointDeliveryRuleRequestHeaderCondition:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f5d6836fee5f078e531f7d463a678cfeeb21c9824502eef2c950b3bd0441b46)
@@ -5128,21 +5128,21 @@ class CdnEndpointDeliveryRuleRequestHeaderCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def selector(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#selector CdnEndpoint#selector}.'''
         result = self._values.get("selector")
         assert result is not None, "Required property 'selector' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5150,13 +5150,13 @@ class CdnEndpointDeliveryRuleRequestHeaderCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5431,9 +5431,9 @@ class CdnEndpointDeliveryRuleRequestMethodCondition:
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27c515ef3e210f4a6b5a57a8fd428f556e2a9f1fb22509e612506d966429ef5d)
@@ -5450,7 +5450,7 @@ class CdnEndpointDeliveryRuleRequestMethodCondition:
 
     @builtins.property
     def match_values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         assert result is not None, "Required property 'match_values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -5459,13 +5459,13 @@ class CdnEndpointDeliveryRuleRequestMethodCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5603,9 +5603,9 @@ class CdnEndpointDeliveryRuleRequestSchemeCondition:
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4fa7a2b972eefa4ae63dd0bf66f7baacb8376dc936730865601aa25377aa32ca)
@@ -5622,7 +5622,7 @@ class CdnEndpointDeliveryRuleRequestSchemeCondition:
 
     @builtins.property
     def match_values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         assert result is not None, "Required property 'match_values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -5631,13 +5631,13 @@ class CdnEndpointDeliveryRuleRequestSchemeCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5777,10 +5777,10 @@ class CdnEndpointDeliveryRuleRequestUriCondition:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ae428c59678975c18d7a3275a171de68e30084dc80d6d0fa31e248bb8095860)
@@ -5800,14 +5800,14 @@ class CdnEndpointDeliveryRuleRequestUriCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5815,13 +5815,13 @@ class CdnEndpointDeliveryRuleRequestUriCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6081,10 +6081,10 @@ class CdnEndpointDeliveryRuleUrlFileExtensionCondition:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__703634b12940042e8c57de7eefcf646011e0df25d54d2f4d04dd733fd70a6584)
@@ -6104,14 +6104,14 @@ class CdnEndpointDeliveryRuleUrlFileExtensionCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6119,13 +6119,13 @@ class CdnEndpointDeliveryRuleUrlFileExtensionCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6385,10 +6385,10 @@ class CdnEndpointDeliveryRuleUrlFileNameCondition:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__faaee70ffb1b6f95e78503936d73976f50923635a62c789e692c4c7024dc1b37)
@@ -6408,14 +6408,14 @@ class CdnEndpointDeliveryRuleUrlFileNameCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6423,13 +6423,13 @@ class CdnEndpointDeliveryRuleUrlFileNameCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6689,10 +6689,10 @@ class CdnEndpointDeliveryRuleUrlPathCondition:
         transforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
-        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
-        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.
+        :param match_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.
+        :param transforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7509a1d01039b8a13f3411425015bd7afc2cf9440b2913a01f2740de0b4df7b9)
@@ -6712,14 +6712,14 @@ class CdnEndpointDeliveryRuleUrlPathCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#operator CdnEndpoint#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#match_values CdnEndpoint#match_values}.'''
         result = self._values.get("match_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6727,13 +6727,13 @@ class CdnEndpointDeliveryRuleUrlPathCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#negate_condition CdnEndpoint#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def transforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#transforms CdnEndpoint#transforms}.'''
         result = self._values.get("transforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6997,12 +6997,12 @@ class CdnEndpointDeliveryRuleUrlRedirectAction:
         query_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.
-        :param fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.
-        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.
+        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.
+        :param fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.
+        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88a744d7a12d76e6bc98858ac792617004f8b93ff01c6b01ef381bf0d1187fd1)
@@ -7028,38 +7028,38 @@ class CdnEndpointDeliveryRuleUrlRedirectAction:
 
     @builtins.property
     def redirect_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.'''
         result = self._values.get("redirect_type")
         assert result is not None, "Required property 'redirect_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def fragment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.'''
         result = self._values.get("fragment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def hostname(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.'''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def query_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.'''
         result = self._values.get("query_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7253,9 +7253,9 @@ class CdnEndpointDeliveryRuleUrlRewriteAction:
         preserve_unmatched_path: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.
-        :param source_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.
-        :param preserve_unmatched_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.
+        :param source_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.
+        :param preserve_unmatched_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d9f64919e97d1884529a47a04f6aed55d24396c6c0053adabb72c7b2cc16fe4)
@@ -7271,14 +7271,14 @@ class CdnEndpointDeliveryRuleUrlRewriteAction:
 
     @builtins.property
     def destination(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.'''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_pattern(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.'''
         result = self._values.get("source_pattern")
         assert result is not None, "Required property 'source_pattern' is missing"
         return typing.cast(builtins.str, result)
@@ -7287,7 +7287,7 @@ class CdnEndpointDeliveryRuleUrlRewriteAction:
     def preserve_unmatched_path(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.'''
         result = self._values.get("preserve_unmatched_path")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7421,9 +7421,9 @@ class CdnEndpointGeoFilter:
         relative_path: builtins.str,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
-        :param country_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#country_codes CdnEndpoint#country_codes}.
-        :param relative_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#relative_path CdnEndpoint#relative_path}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
+        :param country_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#country_codes CdnEndpoint#country_codes}.
+        :param relative_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#relative_path CdnEndpoint#relative_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__835122195e697e8caf7643c81deb8d14372657458cf463f5bfcc3ec35f7495e3)
@@ -7438,21 +7438,21 @@ class CdnEndpointGeoFilter:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def country_codes(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#country_codes CdnEndpoint#country_codes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#country_codes CdnEndpoint#country_codes}.'''
         result = self._values.get("country_codes")
         assert result is not None, "Required property 'country_codes' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def relative_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#relative_path CdnEndpoint#relative_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#relative_path CdnEndpoint#relative_path}.'''
         result = self._values.get("relative_path")
         assert result is not None, "Required property 'relative_path' is missing"
         return typing.cast(builtins.str, result)
@@ -7678,12 +7678,12 @@ class CdnEndpointGlobalDeliveryRule:
         url_rewrite_action: typing.Optional[typing.Union["CdnEndpointGlobalDeliveryRuleUrlRewriteAction", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cache_expiration_action: cache_expiration_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
-        :param cache_key_query_string_action: cache_key_query_string_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
-        :param modify_request_header_action: modify_request_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
-        :param modify_response_header_action: modify_response_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
-        :param url_redirect_action: url_redirect_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
-        :param url_rewrite_action: url_rewrite_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
+        :param cache_expiration_action: cache_expiration_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
+        :param cache_key_query_string_action: cache_key_query_string_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
+        :param modify_request_header_action: modify_request_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
+        :param modify_response_header_action: modify_response_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
+        :param url_redirect_action: url_redirect_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
+        :param url_rewrite_action: url_rewrite_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
         '''
         if isinstance(cache_expiration_action, dict):
             cache_expiration_action = CdnEndpointGlobalDeliveryRuleCacheExpirationAction(**cache_expiration_action)
@@ -7721,7 +7721,7 @@ class CdnEndpointGlobalDeliveryRule:
     ) -> typing.Optional["CdnEndpointGlobalDeliveryRuleCacheExpirationAction"]:
         '''cache_expiration_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_expiration_action CdnEndpoint#cache_expiration_action}
         '''
         result = self._values.get("cache_expiration_action")
         return typing.cast(typing.Optional["CdnEndpointGlobalDeliveryRuleCacheExpirationAction"], result)
@@ -7732,7 +7732,7 @@ class CdnEndpointGlobalDeliveryRule:
     ) -> typing.Optional["CdnEndpointGlobalDeliveryRuleCacheKeyQueryStringAction"]:
         '''cache_key_query_string_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#cache_key_query_string_action CdnEndpoint#cache_key_query_string_action}
         '''
         result = self._values.get("cache_key_query_string_action")
         return typing.cast(typing.Optional["CdnEndpointGlobalDeliveryRuleCacheKeyQueryStringAction"], result)
@@ -7743,7 +7743,7 @@ class CdnEndpointGlobalDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointGlobalDeliveryRuleModifyRequestHeaderAction"]]]:
         '''modify_request_header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_request_header_action CdnEndpoint#modify_request_header_action}
         '''
         result = self._values.get("modify_request_header_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointGlobalDeliveryRuleModifyRequestHeaderAction"]]], result)
@@ -7754,7 +7754,7 @@ class CdnEndpointGlobalDeliveryRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointGlobalDeliveryRuleModifyResponseHeaderAction"]]]:
         '''modify_response_header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#modify_response_header_action CdnEndpoint#modify_response_header_action}
         '''
         result = self._values.get("modify_response_header_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CdnEndpointGlobalDeliveryRuleModifyResponseHeaderAction"]]], result)
@@ -7765,7 +7765,7 @@ class CdnEndpointGlobalDeliveryRule:
     ) -> typing.Optional["CdnEndpointGlobalDeliveryRuleUrlRedirectAction"]:
         '''url_redirect_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_redirect_action CdnEndpoint#url_redirect_action}
         '''
         result = self._values.get("url_redirect_action")
         return typing.cast(typing.Optional["CdnEndpointGlobalDeliveryRuleUrlRedirectAction"], result)
@@ -7776,7 +7776,7 @@ class CdnEndpointGlobalDeliveryRule:
     ) -> typing.Optional["CdnEndpointGlobalDeliveryRuleUrlRewriteAction"]:
         '''url_rewrite_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#url_rewrite_action CdnEndpoint#url_rewrite_action}
         '''
         result = self._values.get("url_rewrite_action")
         return typing.cast(typing.Optional["CdnEndpointGlobalDeliveryRuleUrlRewriteAction"], result)
@@ -7806,8 +7806,8 @@ class CdnEndpointGlobalDeliveryRuleCacheExpirationAction:
         duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fad8609cc1c491888a7bce9e7f842bbe358d78b910956c8ddee0ae1b25e7b9df)
@@ -7821,14 +7821,14 @@ class CdnEndpointGlobalDeliveryRuleCacheExpirationAction:
 
     @builtins.property
     def behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.'''
         result = self._values.get("behavior")
         assert result is not None, "Required property 'behavior' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.'''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7933,8 +7933,8 @@ class CdnEndpointGlobalDeliveryRuleCacheKeyQueryStringAction:
         parameters: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09293d84162fabad8033c719dd977bdd0ec690421959e98ba209c8f88d34e60e)
@@ -7948,14 +7948,14 @@ class CdnEndpointGlobalDeliveryRuleCacheKeyQueryStringAction:
 
     @builtins.property
     def behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.'''
         result = self._values.get("behavior")
         assert result is not None, "Required property 'behavior' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8061,9 +8061,9 @@ class CdnEndpointGlobalDeliveryRuleModifyRequestHeaderAction:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f0ccc682a89ad629523bbadca36d1969792653eb9f86757575e610d4316432a)
@@ -8079,21 +8079,21 @@ class CdnEndpointGlobalDeliveryRuleModifyRequestHeaderAction:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8315,9 +8315,9 @@ class CdnEndpointGlobalDeliveryRuleModifyResponseHeaderAction:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43215636beb1a77449a41e4f012eaf4b5c20108806a362c0bd114cc6879e6ba0)
@@ -8333,21 +8333,21 @@ class CdnEndpointGlobalDeliveryRuleModifyResponseHeaderAction:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#action CdnEndpoint#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#value CdnEndpoint#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8583,8 +8583,8 @@ class CdnEndpointGlobalDeliveryRuleOutputReference(
         duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#duration CdnEndpoint#duration}.
         '''
         value = CdnEndpointGlobalDeliveryRuleCacheExpirationAction(
             behavior=behavior, duration=duration
@@ -8600,8 +8600,8 @@ class CdnEndpointGlobalDeliveryRuleOutputReference(
         parameters: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.
+        :param behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#behavior CdnEndpoint#behavior}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#parameters CdnEndpoint#parameters}.
         '''
         value = CdnEndpointGlobalDeliveryRuleCacheKeyQueryStringAction(
             behavior=behavior, parameters=parameters
@@ -8647,12 +8647,12 @@ class CdnEndpointGlobalDeliveryRuleOutputReference(
         query_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.
-        :param fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.
-        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.
+        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.
+        :param fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.
+        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.
         '''
         value = CdnEndpointGlobalDeliveryRuleUrlRedirectAction(
             redirect_type=redirect_type,
@@ -8674,9 +8674,9 @@ class CdnEndpointGlobalDeliveryRuleOutputReference(
         preserve_unmatched_path: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.
-        :param source_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.
-        :param preserve_unmatched_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.
+        :param source_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.
+        :param preserve_unmatched_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.
         '''
         value = CdnEndpointGlobalDeliveryRuleUrlRewriteAction(
             destination=destination,
@@ -8834,12 +8834,12 @@ class CdnEndpointGlobalDeliveryRuleUrlRedirectAction:
         query_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.
-        :param fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.
-        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.
+        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.
+        :param fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.
+        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__266be95137650349fc0fba1620d556d515a51a3997877181d1597fd6faf3da8f)
@@ -8865,38 +8865,38 @@ class CdnEndpointGlobalDeliveryRuleUrlRedirectAction:
 
     @builtins.property
     def redirect_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#redirect_type CdnEndpoint#redirect_type}.'''
         result = self._values.get("redirect_type")
         assert result is not None, "Required property 'redirect_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def fragment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#fragment CdnEndpoint#fragment}.'''
         result = self._values.get("fragment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def hostname(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#hostname CdnEndpoint#hostname}.'''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#path CdnEndpoint#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#protocol CdnEndpoint#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def query_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#query_string CdnEndpoint#query_string}.'''
         result = self._values.get("query_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9090,9 +9090,9 @@ class CdnEndpointGlobalDeliveryRuleUrlRewriteAction:
         preserve_unmatched_path: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.
-        :param source_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.
-        :param preserve_unmatched_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.
+        :param source_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.
+        :param preserve_unmatched_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67829debe997502b2cfe991a043b0d92078543a059910f0d52108588915482f6)
@@ -9108,14 +9108,14 @@ class CdnEndpointGlobalDeliveryRuleUrlRewriteAction:
 
     @builtins.property
     def destination(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#destination CdnEndpoint#destination}.'''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_pattern(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#source_pattern CdnEndpoint#source_pattern}.'''
         result = self._values.get("source_pattern")
         assert result is not None, "Required property 'source_pattern' is missing"
         return typing.cast(builtins.str, result)
@@ -9124,7 +9124,7 @@ class CdnEndpointGlobalDeliveryRuleUrlRewriteAction:
     def preserve_unmatched_path(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#preserve_unmatched_path CdnEndpoint#preserve_unmatched_path}.'''
         result = self._values.get("preserve_unmatched_path")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -9260,10 +9260,10 @@ class CdnEndpointOrigin:
         https_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#host_name CdnEndpoint#host_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
-        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#http_port CdnEndpoint#http_port}.
-        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#https_port CdnEndpoint#https_port}.
+        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#host_name CdnEndpoint#host_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.
+        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#http_port CdnEndpoint#http_port}.
+        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#https_port CdnEndpoint#https_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f4b1c0dbdcee7a2b737569e0828916451459f0c3267780c6eb527073cf1d468)
@@ -9282,27 +9282,27 @@ class CdnEndpointOrigin:
 
     @builtins.property
     def host_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#host_name CdnEndpoint#host_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#host_name CdnEndpoint#host_name}.'''
         result = self._values.get("host_name")
         assert result is not None, "Required property 'host_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#name CdnEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def http_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#http_port CdnEndpoint#http_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#http_port CdnEndpoint#http_port}.'''
         result = self._values.get("http_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def https_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#https_port CdnEndpoint#https_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#https_port CdnEndpoint#https_port}.'''
         result = self._values.get("https_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -9548,10 +9548,10 @@ class CdnEndpointTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#create CdnEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#delete CdnEndpoint#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#read CdnEndpoint#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#update CdnEndpoint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#create CdnEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#delete CdnEndpoint#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#read CdnEndpoint#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#update CdnEndpoint#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4894374ca5afdb8aeb2b58f2af2fea8daab45ff0bbe4835f09f353aa58263de8)
@@ -9571,25 +9571,25 @@ class CdnEndpointTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#create CdnEndpoint#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#create CdnEndpoint#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#delete CdnEndpoint#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#delete CdnEndpoint#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#read CdnEndpoint#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#read CdnEndpoint#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cdn_endpoint#update CdnEndpoint#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cdn_endpoint#update CdnEndpoint#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

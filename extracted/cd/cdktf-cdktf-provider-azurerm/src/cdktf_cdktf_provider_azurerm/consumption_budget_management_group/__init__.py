@@ -1,7 +1,7 @@
 r'''
 # `azurerm_consumption_budget_management_group`
 
-Refer to the Terraform Registry for docs: [`azurerm_consumption_budget_management_group`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group).
+Refer to the Terraform Registry for docs: [`azurerm_consumption_budget_management_group`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConsumptionBudgetManagementGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.consumptionBudgetManagementGroup.ConsumptionBudgetManagementGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group azurerm_consumption_budget_management_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group azurerm_consumption_budget_management_group}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ConsumptionBudgetManagementGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group azurerm_consumption_budget_management_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group azurerm_consumption_budget_management_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#amount ConsumptionBudgetManagementGroup#amount}.
-        :param management_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#management_group_id ConsumptionBudgetManagementGroup#management_group_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.
-        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#notification ConsumptionBudgetManagementGroup#notification}
-        :param time_period: time_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#time_period ConsumptionBudgetManagementGroup#time_period}
-        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#etag ConsumptionBudgetManagementGroup#etag}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#filter ConsumptionBudgetManagementGroup#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#id ConsumptionBudgetManagementGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param time_grain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#time_grain ConsumptionBudgetManagementGroup#time_grain}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#timeouts ConsumptionBudgetManagementGroup#timeouts}
+        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#amount ConsumptionBudgetManagementGroup#amount}.
+        :param management_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#management_group_id ConsumptionBudgetManagementGroup#management_group_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.
+        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#notification ConsumptionBudgetManagementGroup#notification}
+        :param time_period: time_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#time_period ConsumptionBudgetManagementGroup#time_period}
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#etag ConsumptionBudgetManagementGroup#etag}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#filter ConsumptionBudgetManagementGroup#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#id ConsumptionBudgetManagementGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param time_grain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#time_grain ConsumptionBudgetManagementGroup#time_grain}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#timeouts ConsumptionBudgetManagementGroup#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ConsumptionBudgetManagementGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConsumptionBudgetManagementGroup to import.
-        :param import_from_id: The id of the existing ConsumptionBudgetManagementGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConsumptionBudgetManagementGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConsumptionBudgetManagementGroup to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class ConsumptionBudgetManagementGroup(
         tag: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ConsumptionBudgetManagementGroupFilterTag", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#dimension ConsumptionBudgetManagementGroup#dimension}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#tag ConsumptionBudgetManagementGroup#tag}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#dimension ConsumptionBudgetManagementGroup#dimension}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#tag ConsumptionBudgetManagementGroup#tag}
         '''
         value = ConsumptionBudgetManagementGroupFilter(dimension=dimension, tag=tag)
 
@@ -179,10 +179,10 @@ class ConsumptionBudgetManagementGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#create ConsumptionBudgetManagementGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#delete ConsumptionBudgetManagementGroup#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#read ConsumptionBudgetManagementGroup#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#update ConsumptionBudgetManagementGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#create ConsumptionBudgetManagementGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#delete ConsumptionBudgetManagementGroup#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#read ConsumptionBudgetManagementGroup#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#update ConsumptionBudgetManagementGroup#update}.
         '''
         value = ConsumptionBudgetManagementGroupTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -198,8 +198,8 @@ class ConsumptionBudgetManagementGroup(
         end_date: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#start_date ConsumptionBudgetManagementGroup#start_date}.
-        :param end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#end_date ConsumptionBudgetManagementGroup#end_date}.
+        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#start_date ConsumptionBudgetManagementGroup#start_date}.
+        :param end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#end_date ConsumptionBudgetManagementGroup#end_date}.
         '''
         value = ConsumptionBudgetManagementGroupTimePeriod(
             start_date=start_date, end_date=end_date
@@ -444,16 +444,16 @@ class ConsumptionBudgetManagementGroupConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#amount ConsumptionBudgetManagementGroup#amount}.
-        :param management_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#management_group_id ConsumptionBudgetManagementGroup#management_group_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.
-        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#notification ConsumptionBudgetManagementGroup#notification}
-        :param time_period: time_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#time_period ConsumptionBudgetManagementGroup#time_period}
-        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#etag ConsumptionBudgetManagementGroup#etag}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#filter ConsumptionBudgetManagementGroup#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#id ConsumptionBudgetManagementGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param time_grain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#time_grain ConsumptionBudgetManagementGroup#time_grain}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#timeouts ConsumptionBudgetManagementGroup#timeouts}
+        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#amount ConsumptionBudgetManagementGroup#amount}.
+        :param management_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#management_group_id ConsumptionBudgetManagementGroup#management_group_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.
+        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#notification ConsumptionBudgetManagementGroup#notification}
+        :param time_period: time_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#time_period ConsumptionBudgetManagementGroup#time_period}
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#etag ConsumptionBudgetManagementGroup#etag}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#filter ConsumptionBudgetManagementGroup#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#id ConsumptionBudgetManagementGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param time_grain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#time_grain ConsumptionBudgetManagementGroup#time_grain}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#timeouts ConsumptionBudgetManagementGroup#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -580,21 +580,21 @@ class ConsumptionBudgetManagementGroupConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
     @builtins.property
     def amount(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#amount ConsumptionBudgetManagementGroup#amount}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#amount ConsumptionBudgetManagementGroup#amount}.'''
         result = self._values.get("amount")
         assert result is not None, "Required property 'amount' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def management_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#management_group_id ConsumptionBudgetManagementGroup#management_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#management_group_id ConsumptionBudgetManagementGroup#management_group_id}.'''
         result = self._values.get("management_group_id")
         assert result is not None, "Required property 'management_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -605,7 +605,7 @@ class ConsumptionBudgetManagementGroupConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConsumptionBudgetManagementGroupNotification"]]:
         '''notification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#notification ConsumptionBudgetManagementGroup#notification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#notification ConsumptionBudgetManagementGroup#notification}
         '''
         result = self._values.get("notification")
         assert result is not None, "Required property 'notification' is missing"
@@ -615,7 +615,7 @@ class ConsumptionBudgetManagementGroupConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def time_period(self) -> "ConsumptionBudgetManagementGroupTimePeriod":
         '''time_period block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#time_period ConsumptionBudgetManagementGroup#time_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#time_period ConsumptionBudgetManagementGroup#time_period}
         '''
         result = self._values.get("time_period")
         assert result is not None, "Required property 'time_period' is missing"
@@ -623,7 +623,7 @@ class ConsumptionBudgetManagementGroupConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
     @builtins.property
     def etag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#etag ConsumptionBudgetManagementGroup#etag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#etag ConsumptionBudgetManagementGroup#etag}.'''
         result = self._values.get("etag")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -631,14 +631,14 @@ class ConsumptionBudgetManagementGroupConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def filter(self) -> typing.Optional["ConsumptionBudgetManagementGroupFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#filter ConsumptionBudgetManagementGroup#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#filter ConsumptionBudgetManagementGroup#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["ConsumptionBudgetManagementGroupFilter"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#id ConsumptionBudgetManagementGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#id ConsumptionBudgetManagementGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -648,7 +648,7 @@ class ConsumptionBudgetManagementGroupConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
     @builtins.property
     def time_grain(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#time_grain ConsumptionBudgetManagementGroup#time_grain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#time_grain ConsumptionBudgetManagementGroup#time_grain}.'''
         result = self._values.get("time_grain")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -656,7 +656,7 @@ class ConsumptionBudgetManagementGroupConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def timeouts(self) -> typing.Optional["ConsumptionBudgetManagementGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#timeouts ConsumptionBudgetManagementGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#timeouts ConsumptionBudgetManagementGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ConsumptionBudgetManagementGroupTimeouts"], result)
@@ -686,8 +686,8 @@ class ConsumptionBudgetManagementGroupFilter:
         tag: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ConsumptionBudgetManagementGroupFilterTag", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#dimension ConsumptionBudgetManagementGroup#dimension}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#tag ConsumptionBudgetManagementGroup#tag}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#dimension ConsumptionBudgetManagementGroup#dimension}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#tag ConsumptionBudgetManagementGroup#tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09db611b6b90e0519147097a8a36a0a3bbea879a90f1bee462c7041b201be50a)
@@ -705,7 +705,7 @@ class ConsumptionBudgetManagementGroupFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConsumptionBudgetManagementGroupFilterDimension"]]]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#dimension ConsumptionBudgetManagementGroup#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#dimension ConsumptionBudgetManagementGroup#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConsumptionBudgetManagementGroupFilterDimension"]]], result)
@@ -716,7 +716,7 @@ class ConsumptionBudgetManagementGroupFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConsumptionBudgetManagementGroupFilterTag"]]]:
         '''tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#tag ConsumptionBudgetManagementGroup#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#tag ConsumptionBudgetManagementGroup#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConsumptionBudgetManagementGroupFilterTag"]]], result)
@@ -747,9 +747,9 @@ class ConsumptionBudgetManagementGroupFilterDimension:
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#values ConsumptionBudgetManagementGroup#values}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#values ConsumptionBudgetManagementGroup#values}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ef4ec23c3f424259850c13a328ed158ffd34154b2ebc3a910f8ac6ba3709bbd)
@@ -765,21 +765,21 @@ class ConsumptionBudgetManagementGroupFilterDimension:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#values ConsumptionBudgetManagementGroup#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#values ConsumptionBudgetManagementGroup#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.'''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1095,9 +1095,9 @@ class ConsumptionBudgetManagementGroupFilterTag:
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#values ConsumptionBudgetManagementGroup#values}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#values ConsumptionBudgetManagementGroup#values}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a81a834b4e64c8e43b8fdd39b0a434fde016b8b5a0314988f22bf4cada480d56)
@@ -1113,21 +1113,21 @@ class ConsumptionBudgetManagementGroupFilterTag:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#name ConsumptionBudgetManagementGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#values ConsumptionBudgetManagementGroup#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#values ConsumptionBudgetManagementGroup#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.'''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1357,11 +1357,11 @@ class ConsumptionBudgetManagementGroupNotification:
         threshold_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contact_emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#contact_emails ConsumptionBudgetManagementGroup#contact_emails}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.
-        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#threshold ConsumptionBudgetManagementGroup#threshold}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#enabled ConsumptionBudgetManagementGroup#enabled}.
-        :param threshold_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#threshold_type ConsumptionBudgetManagementGroup#threshold_type}.
+        :param contact_emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#contact_emails ConsumptionBudgetManagementGroup#contact_emails}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.
+        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#threshold ConsumptionBudgetManagementGroup#threshold}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#enabled ConsumptionBudgetManagementGroup#enabled}.
+        :param threshold_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#threshold_type ConsumptionBudgetManagementGroup#threshold_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__667f617635ceefba280a167d02eb6bd3230991f6f785114fd2d84088bb39e6a3)
@@ -1382,21 +1382,21 @@ class ConsumptionBudgetManagementGroupNotification:
 
     @builtins.property
     def contact_emails(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#contact_emails ConsumptionBudgetManagementGroup#contact_emails}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#contact_emails ConsumptionBudgetManagementGroup#contact_emails}.'''
         result = self._values.get("contact_emails")
         assert result is not None, "Required property 'contact_emails' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#operator ConsumptionBudgetManagementGroup#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def threshold(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#threshold ConsumptionBudgetManagementGroup#threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#threshold ConsumptionBudgetManagementGroup#threshold}.'''
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
         return typing.cast(jsii.Number, result)
@@ -1405,13 +1405,13 @@ class ConsumptionBudgetManagementGroupNotification:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#enabled ConsumptionBudgetManagementGroup#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#enabled ConsumptionBudgetManagementGroup#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def threshold_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#threshold_type ConsumptionBudgetManagementGroup#threshold_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#threshold_type ConsumptionBudgetManagementGroup#threshold_type}.'''
         result = self._values.get("threshold_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1675,8 +1675,8 @@ class ConsumptionBudgetManagementGroupTimePeriod:
         end_date: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#start_date ConsumptionBudgetManagementGroup#start_date}.
-        :param end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#end_date ConsumptionBudgetManagementGroup#end_date}.
+        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#start_date ConsumptionBudgetManagementGroup#start_date}.
+        :param end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#end_date ConsumptionBudgetManagementGroup#end_date}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96d47422eaa52ad447f5f09c374dc5da2ce9b5abeb44d1dc562ab60b5bb66143)
@@ -1690,14 +1690,14 @@ class ConsumptionBudgetManagementGroupTimePeriod:
 
     @builtins.property
     def start_date(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#start_date ConsumptionBudgetManagementGroup#start_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#start_date ConsumptionBudgetManagementGroup#start_date}.'''
         result = self._values.get("start_date")
         assert result is not None, "Required property 'start_date' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def end_date(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#end_date ConsumptionBudgetManagementGroup#end_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#end_date ConsumptionBudgetManagementGroup#end_date}.'''
         result = self._values.get("end_date")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1809,10 +1809,10 @@ class ConsumptionBudgetManagementGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#create ConsumptionBudgetManagementGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#delete ConsumptionBudgetManagementGroup#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#read ConsumptionBudgetManagementGroup#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#update ConsumptionBudgetManagementGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#create ConsumptionBudgetManagementGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#delete ConsumptionBudgetManagementGroup#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#read ConsumptionBudgetManagementGroup#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#update ConsumptionBudgetManagementGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0bf7e800d01f78df2aee223c1ce71698bbcb1616d0e45e4be8236ed15d259cf)
@@ -1832,25 +1832,25 @@ class ConsumptionBudgetManagementGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#create ConsumptionBudgetManagementGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#create ConsumptionBudgetManagementGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#delete ConsumptionBudgetManagementGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#delete ConsumptionBudgetManagementGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#read ConsumptionBudgetManagementGroup#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#read ConsumptionBudgetManagementGroup#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/consumption_budget_management_group#update ConsumptionBudgetManagementGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/consumption_budget_management_group#update ConsumptionBudgetManagementGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

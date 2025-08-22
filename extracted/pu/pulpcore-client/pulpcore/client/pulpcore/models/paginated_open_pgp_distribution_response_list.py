@@ -24,6 +24,14 @@ from pulpcore.client.pulpcore.models.open_pgp_distribution_response import OpenP
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class PaginatedOpenPGPDistributionResponseList(BaseModel):
     """
     PaginatedOpenPGPDistributionResponseList

@@ -2,12 +2,12 @@
 Node hierarchy for the document tree.
 """
 
-import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Callable, Iterator
-
-from edgar.documents.types import NodeType, SemanticType, Style
+from typing import List, Optional, Dict, Any, Callable, Union, Iterator
+import uuid
+import re
+from edgar.documents.types import NodeType, SemanticType, Style, TableType
 
 
 @dataclass

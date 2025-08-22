@@ -4892,8 +4892,6 @@ class DeploySagemakerEndpointResponse:
         "dynamo_table_props": "dynamoTableProps",
         "existing_table_interface": "existingTableInterface",
         "existing_table_obj": "existingTableObj",
-        "point_in_time_recovery": "pointInTimeRecovery",
-        "point_in_time_recovery_specification": "pointInTimeRecoverySpecification",
     },
 )
 class DynamoDBProps:
@@ -4903,27 +4901,19 @@ class DynamoDBProps:
         dynamo_table_props: typing.Optional[typing.Union[_aws_cdk_aws_dynamodb_ceddda9d.TableProps, typing.Dict[builtins.str, typing.Any]]] = None,
         existing_table_interface: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable] = None,
         existing_table_obj: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table] = None,
-        point_in_time_recovery: typing.Optional[builtins.bool] = None,
-        point_in_time_recovery_specification: typing.Optional[typing.Union[_aws_cdk_aws_dynamodb_ceddda9d.PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param dynamo_table_props: -
         :param existing_table_interface: -
         :param existing_table_obj: -
-        :param point_in_time_recovery: -
-        :param point_in_time_recovery_specification: -
         '''
         if isinstance(dynamo_table_props, dict):
             dynamo_table_props = _aws_cdk_aws_dynamodb_ceddda9d.TableProps(**dynamo_table_props)
-        if isinstance(point_in_time_recovery_specification, dict):
-            point_in_time_recovery_specification = _aws_cdk_aws_dynamodb_ceddda9d.PointInTimeRecoverySpecification(**point_in_time_recovery_specification)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb247f6ada82965a3afeba568ee3ee0a3bacfe3f70c90eb7a7d261e9aba05147)
             check_type(argname="argument dynamo_table_props", value=dynamo_table_props, expected_type=type_hints["dynamo_table_props"])
             check_type(argname="argument existing_table_interface", value=existing_table_interface, expected_type=type_hints["existing_table_interface"])
             check_type(argname="argument existing_table_obj", value=existing_table_obj, expected_type=type_hints["existing_table_obj"])
-            check_type(argname="argument point_in_time_recovery", value=point_in_time_recovery, expected_type=type_hints["point_in_time_recovery"])
-            check_type(argname="argument point_in_time_recovery_specification", value=point_in_time_recovery_specification, expected_type=type_hints["point_in_time_recovery_specification"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if dynamo_table_props is not None:
             self._values["dynamo_table_props"] = dynamo_table_props
@@ -4931,10 +4921,6 @@ class DynamoDBProps:
             self._values["existing_table_interface"] = existing_table_interface
         if existing_table_obj is not None:
             self._values["existing_table_obj"] = existing_table_obj
-        if point_in_time_recovery is not None:
-            self._values["point_in_time_recovery"] = point_in_time_recovery
-        if point_in_time_recovery_specification is not None:
-            self._values["point_in_time_recovery_specification"] = point_in_time_recovery_specification
 
     @builtins.property
     def dynamo_table_props(
@@ -4956,18 +4942,6 @@ class DynamoDBProps:
     ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table]:
         result = self._values.get("existing_table_obj")
         return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table], result)
-
-    @builtins.property
-    def point_in_time_recovery(self) -> typing.Optional[builtins.bool]:
-        result = self._values.get("point_in_time_recovery")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def point_in_time_recovery_specification(
-        self,
-    ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.PointInTimeRecoverySpecification]:
-        result = self._values.get("point_in_time_recovery_specification")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.PointInTimeRecoverySpecification], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7706,8 +7680,6 @@ def _typecheckingstub__fb247f6ada82965a3afeba568ee3ee0a3bacfe3f70c90eb7a7d261e9a
     dynamo_table_props: typing.Optional[typing.Union[_aws_cdk_aws_dynamodb_ceddda9d.TableProps, typing.Dict[builtins.str, typing.Any]]] = None,
     existing_table_interface: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable] = None,
     existing_table_obj: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table] = None,
-    point_in_time_recovery: typing.Optional[builtins.bool] = None,
-    point_in_time_recovery_specification: typing.Optional[typing.Union[_aws_cdk_aws_dynamodb_ceddda9d.PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

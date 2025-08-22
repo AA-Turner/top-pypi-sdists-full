@@ -1,7 +1,7 @@
 r'''
 # `data_azurerm_storage_table`
 
-Refer to the Terraform Registry for docs: [`data_azurerm_storage_table`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table).
+Refer to the Terraform Registry for docs: [`data_azurerm_storage_table`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzurermStorageTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.dataAzurermStorageTable.DataAzurermStorageTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table azurerm_storage_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table azurerm_storage_table}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataAzurermStorageTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table azurerm_storage_table} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table azurerm_storage_table} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#name DataAzurermStorageTable#name}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#storage_account_name DataAzurermStorageTable#storage_account_name}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#timeouts DataAzurermStorageTable#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#name DataAzurermStorageTable#name}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#storage_account_name DataAzurermStorageTable#storage_account_name}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#timeouts DataAzurermStorageTable#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataAzurermStorageTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzurermStorageTable to import.
-        :param import_from_id: The id of the existing DataAzurermStorageTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzurermStorageTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzurermStorageTable to import is found.
         '''
         if __debug__:
@@ -123,7 +123,7 @@ class DataAzurermStorageTable(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#read DataAzurermStorageTable#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#read DataAzurermStorageTable#read}.
         '''
         value = DataAzurermStorageTableTimeouts(read=read)
 
@@ -547,9 +547,9 @@ class DataAzurermStorageTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#name DataAzurermStorageTable#name}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#storage_account_name DataAzurermStorageTable#storage_account_name}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#timeouts DataAzurermStorageTable#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#name DataAzurermStorageTable#name}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#storage_account_name DataAzurermStorageTable#storage_account_name}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#timeouts DataAzurermStorageTable#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -654,14 +654,14 @@ class DataAzurermStorageTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#name DataAzurermStorageTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#name DataAzurermStorageTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#storage_account_name DataAzurermStorageTable#storage_account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#storage_account_name DataAzurermStorageTable#storage_account_name}.'''
         result = self._values.get("storage_account_name")
         assert result is not None, "Required property 'storage_account_name' is missing"
         return typing.cast(builtins.str, result)
@@ -670,7 +670,7 @@ class DataAzurermStorageTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataAzurermStorageTableTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#timeouts DataAzurermStorageTable#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#timeouts DataAzurermStorageTable#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzurermStorageTableTimeouts"], result)
@@ -695,7 +695,7 @@ class DataAzurermStorageTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataAzurermStorageTableTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#read DataAzurermStorageTable#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#read DataAzurermStorageTable#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fa34c27a706ffa3c76413f969c8218d3e6cd1869cbba1a6342a82301833244c)
@@ -706,7 +706,7 @@ class DataAzurermStorageTableTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/data-sources/storage_table#read DataAzurermStorageTable#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/data-sources/storage_table#read DataAzurermStorageTable#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

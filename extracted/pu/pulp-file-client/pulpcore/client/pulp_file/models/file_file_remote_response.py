@@ -27,6 +27,14 @@ from pulpcore.client.pulp_file.models.policy_enum import PolicyEnum
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class FileFileRemoteResponse(BaseModel):
     """
     Serializer for File Remotes.

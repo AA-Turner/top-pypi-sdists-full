@@ -987,6 +987,22 @@ async def entrada_de_notas_503(task: RpaProcessoEntradaDTO) -> RpaRetornoProcess
                 console.print(f"Aguardando confirmação de nota incluida...\n")
                 await worker_sleep(5)
                 i += 1
+                nf_imported = await check_nota_importada(nota.get("nfe"))
+                console.print("\Consultando se a nota ja foi lançada...")
+                try:
+                    status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
+                    if status_nf_emsys.get("status") == "Lançada":
+                        console.print(
+                            "\nNota lançada com sucesso, processo finalizado...",
+                            style="bold green",
+                        )
+                        return RpaRetornoProcessoDTO(
+                            sucesso=True,
+                            retorno="Nota Lançada com sucesso!",
+                            status=RpaHistoricoStatusEnum.Sucesso,
+                        )
+                except:
+                    pass
         
         await worker_sleep(15)
         console.print("\nVerifica se a nota ja foi lançada...")

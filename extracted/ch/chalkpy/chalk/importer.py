@@ -13,21 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import TracebackType
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-    cast,
-    get_args,
-    get_origin,
-)
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type, Union, cast, get_args, get_origin
 
 import pyarrow as pa
 
@@ -60,7 +46,7 @@ from chalk.parsed.duplicate_input_gql import (
 from chalk.sql import SQLSourceGroup
 from chalk.sql._internal.sql_file_resolver import get_sql_file_resolvers, get_sql_file_resolvers_from_paths
 from chalk.sql._internal.sql_source import BaseSQLSource
-from chalk.utils.collections import ensure_tuple
+from chalk.utils.collections import FrozenOrderedSet, ensure_tuple
 from chalk.utils.duration import parse_chalk_duration_s, timedelta_to_duration
 from chalk.utils.import_utils import py_path_to_module
 from chalk.utils.log_with_context import get_logger
@@ -277,7 +263,7 @@ def _get_underlying_type(t: type, feature_name: str) -> type:
     return t
 
 
-def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore, Sequence[Tuple[Any, Any]]]:
+def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore, FrozenOrderedSet[Tuple[str, Any]]]:
     if not isinstance(expr, UnderscoreCall):
         raise ChalkParseError(
             "missing aggregation function call for materialized aggregate feature -- if materialization is enabled, the expression must include an aggregation function (e.g. .count())"
@@ -304,7 +290,7 @@ def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore, 
     elif len(call_expr._chalk__args) > 0 or len(call_expr._chalk__kwargs) > 0:
         raise ChalkParseError("should not have any arguments or keyword arguments")
 
-    return aggregation, function_attribute._chalk__parent, tuple(call_expr._chalk__kwargs.items())
+    return aggregation, function_attribute._chalk__parent, FrozenOrderedSet(call_expr._chalk__kwargs.items())
 
 
 def _parse_projection(expr: Underscore | None) -> str:

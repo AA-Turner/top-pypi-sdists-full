@@ -27,6 +27,7 @@ from chalk.sql._internal.query_registry import QUERY_REGISTRY, CancellableQuery
 from chalk.sql._internal.sql_source import BaseSQLSource, SQLSourceKind, validate_dtypes_for_efficient_execution
 from chalk.sql.finalized_query import FinalizedChalkQuery
 from chalk.utils.df_utils import is_list_like, pa_array_to_pl_series
+from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore
 from chalk.utils.tracing import safe_incr, safe_set_gauge
@@ -299,7 +300,7 @@ class SnowflakeSourceImpl(BaseSQLSource):
 
         snowflake_cnx = cast("SnowflakeConnection", connection.connection.dbapi_connection)
         with snowflake_cnx.cursor() as cursor:
-            chalk_logger.info(f"Creating temporary table {temp_table.name} in Snowflake.")
+            chalk_logger.info(f"Creating temporary table {temp_table.name} in Snowflake with {temp_value.num_rows} rows.")
             cursor.execute(create_temp_table.compile(dialect=self.get_sqlalchemy_dialect()).string)
             try:
                 pandas_tools.write_pandas(
@@ -311,7 +312,8 @@ class SnowflakeSourceImpl(BaseSQLSource):
             finally:
                 # "temp table", to snowflake, means that it belongs to the session. However, we keep using the same Snowflake session
                 chalk_logger.info(f"Dropping temporary table {temp_table.name} in Snowflake.")
-                cursor.execute(drop_temp_table.compile(dialect=self.get_sqlalchemy_dialect()).string)
+                if not env_var_bool("CHALK_RETAIN_SNOWFLAKE_TEMPTABLES", default=False):
+                    cursor.execute(drop_temp_table.compile(dialect=self.get_sqlalchemy_dialect()).string)
 
     def _postprocess_table(self, features: Mapping[str, Feature], tbl: pa.Table):
         columns: list[pa.Array] = []

@@ -50,7 +50,6 @@ from airflow.sdk import DAG, BaseOperator, Connection, dag as dag_decorator, get
 from airflow.sdk.api.datamodels._generated import (
     AssetProfile,
     AssetResponse,
-    DagRun,
     DagRunState,
     TaskInstance,
     TaskInstanceState,
@@ -72,14 +71,12 @@ from airflow.sdk.execution_time.comms import (
     GetConnection,
     GetDagRunState,
     GetDRCount,
-    GetPreviousDagRun,
     GetTaskStates,
     GetTICount,
     GetVariable,
     GetXCom,
     GetXComSequenceSlice,
     OKResponse,
-    PreviousDagRunResult,
     PrevSuccessfulDagRunResult,
     SetRenderedFields,
     SetXCom,
@@ -1805,66 +1802,6 @@ class TestRuntimeTaskInstance:
         )
         assert states == {"run1": {"task1": "running"}}
 
-    def test_get_previous_dagrun_basic(self, create_runtime_ti, mock_supervisor_comms):
-        """Test that get_previous_dagrun sends the correct request without state filter."""
-
-        task = BaseOperator(task_id="hello")
-        dag_id = "test_dag"
-        runtime_ti = create_runtime_ti(task=task, dag_id=dag_id, logical_date=timezone.datetime(2025, 1, 2))
-
-        dag_run_data = DagRun(
-            dag_id=dag_id,
-            run_id="prev_run",
-            logical_date=timezone.datetime(2025, 1, 1),
-            start_date=timezone.datetime(2025, 1, 1),
-            run_after=timezone.datetime(2025, 1, 1),
-            run_type="scheduled",
-            state="success",
-            consumed_asset_events=[],
-        )
-
-        mock_supervisor_comms.send.return_value = PreviousDagRunResult(dag_run=dag_run_data)
-
-        dr = runtime_ti.get_previous_dagrun()
-
-        mock_supervisor_comms.send.assert_called_once_with(
-            msg=GetPreviousDagRun(dag_id="test_dag", logical_date=timezone.datetime(2025, 1, 2), state=None),
-        )
-        assert dr.dag_id == "test_dag"
-        assert dr.run_id == "prev_run"
-        assert dr.state == "success"
-
-    def test_get_previous_dagrun_with_state(self, create_runtime_ti, mock_supervisor_comms):
-        """Test that get_previous_dagrun sends the correct request with state filter."""
-
-        task = BaseOperator(task_id="hello")
-        dag_id = "test_dag"
-        runtime_ti = create_runtime_ti(task=task, dag_id=dag_id, logical_date=timezone.datetime(2025, 1, 2))
-
-        dag_run_data = DagRun(
-            dag_id=dag_id,
-            run_id="prev_success_run",
-            logical_date=timezone.datetime(2025, 1, 1),
-            start_date=timezone.datetime(2025, 1, 1),
-            run_after=timezone.datetime(2025, 1, 1),
-            run_type="scheduled",
-            state="success",
-            consumed_asset_events=[],
-        )
-
-        mock_supervisor_comms.send.return_value = PreviousDagRunResult(dag_run=dag_run_data)
-
-        dr = runtime_ti.get_previous_dagrun(state="success")
-
-        mock_supervisor_comms.send.assert_called_once_with(
-            msg=GetPreviousDagRun(
-                dag_id="test_dag", logical_date=timezone.datetime(2025, 1, 2), state="success"
-            ),
-        )
-        assert dr.dag_id == "test_dag"
-        assert dr.run_id == "prev_success_run"
-        assert dr.state == "success"
-
 
 class TestXComAfterTaskExecution:
     @pytest.mark.parametrize(
@@ -2049,7 +1986,8 @@ class TestXComAfterTaskExecution:
 
         class CustomOperator(BaseOperator):
             def execute(self, context):
-                context["ti"].xcom_pull(task_ids="pull_task", key="key")
+                value = context["ti"].xcom_pull(task_ids="pull_task", key="key")
+                print(f"Pulled XCom Value: {value}")
 
         task = CustomOperator(task_id="pull_task")
         runtime_ti = create_runtime_ti(task=task)
@@ -2060,7 +1998,6 @@ class TestXComAfterTaskExecution:
             dag_id="test_dag",
             task_id="pull_task",
             run_id="test_run",
-            include_prior_dates=False,
         )
 
         assert not any(
@@ -2075,81 +2012,6 @@ class TestXComAfterTaskExecution:
                 ),
             )
             for x in mock_supervisor_comms.send.call_args_list
-        )
-
-    def test_get_all_uses_custom_deserialize_value(self, mock_supervisor_comms):
-        """
-        Tests that XCom.get_all() calls the custom deserialize_value method.
-        """
-
-        class CustomXCom(BaseXCom):
-            @classmethod
-            def deserialize_value(cls, result):
-                """Custom deserialization that adds a prefix to show it was called."""
-                original_value = super().deserialize_value(result)
-                return f"from custom xcom deserialize:{original_value}"
-
-        serialized_values = ["value1", "value2", "value3"]
-        mock_supervisor_comms.send.return_value = XComSequenceSliceResult(root=serialized_values)
-
-        result = CustomXCom.get_all(key="test_key", dag_id="test_dag", task_id="test_task", run_id="test_run")
-
-        expected = [
-            "from custom xcom deserialize:value1",
-            "from custom xcom deserialize:value2",
-            "from custom xcom deserialize:value3",
-        ]
-        assert result == expected
-
-    @pytest.mark.parametrize(
-        ("include_prior_dates", "expected_value"),
-        [
-            pytest.param(True, True, id="include_prior_dates_true"),
-            pytest.param(False, False, id="include_prior_dates_false"),
-            pytest.param(None, False, id="include_prior_dates_default"),
-        ],
-    )
-    def test_xcom_pull_with_include_prior_dates(
-        self,
-        create_runtime_ti,
-        mock_supervisor_comms,
-        include_prior_dates,
-        expected_value,
-    ):
-        """Test that xcom_pull with include_prior_dates parameter correctly behaves as we expect."""
-        task = BaseOperator(task_id="pull_task")
-        runtime_ti = create_runtime_ti(task=task)
-
-        value = {"previous_run_data": "test_value"}
-        ser_value = BaseXCom.serialize_value(value)
-
-        def mock_send_side_effect(*args, **kwargs):
-            msg = kwargs.get("msg") or args[0]
-            if isinstance(msg, GetXComSequenceSlice):
-                assert msg.include_prior_dates is expected_value, (
-                    f"include_prior_dates should be {expected_value} in GetXComSequenceSlice"
-                )
-                return XComSequenceSliceResult(root=[ser_value])
-            return XComResult(key="test_key", value=None)
-
-        mock_supervisor_comms.send.side_effect = mock_send_side_effect
-        kwargs = {"key": "test_key", "task_ids": "previous_task"}
-        if include_prior_dates is not None:
-            kwargs["include_prior_dates"] = include_prior_dates
-        result = runtime_ti.xcom_pull(**kwargs)
-        assert result == value
-
-        mock_supervisor_comms.send.assert_called_once_with(
-            msg=GetXComSequenceSlice(
-                key="test_key",
-                dag_id=runtime_ti.dag_id,
-                run_id=runtime_ti.run_id,
-                task_id="previous_task",
-                start=None,
-                stop=None,
-                step=None,
-                include_prior_dates=expected_value,
-            ),
         )
 
 
@@ -2565,133 +2427,6 @@ class TestTaskRunnerCallsCallbacks:
 
         assert state == expected_state
         assert collected_results == expected_results
-
-    def test_task_runner_on_failure_callback_context(self, create_runtime_ti):
-        """Test that on_failure_callback context has end_date and duration."""
-        from airflow.exceptions import AirflowException
-
-        def failure_callback(context):
-            ti = context["task_instance"]
-            assert isinstance(ti.end_date, datetime)
-            duration = (ti.end_date - ti.start_date).total_seconds()
-            assert duration is not None
-            assert duration >= 0
-
-        class FailingOperator(BaseOperator):
-            def execute(self, context):
-                raise AirflowException("Failing task")
-
-        task = FailingOperator(task_id="failing_task", on_failure_callback=failure_callback)
-        runtime_ti = create_runtime_ti(dag_id="dag", task=task)
-        log = mock.MagicMock()
-        context = runtime_ti.get_template_context()
-        state, _, error = run(runtime_ti, context, log)
-        finalize(runtime_ti, state, context, log, error)
-
-        assert state == TaskInstanceState.FAILED
-
-    def test_task_runner_on_success_callback_context(self, create_runtime_ti):
-        """Test that on_success_callback context has end_date and duration."""
-        callback_data = {}  # Store callback data for inspection
-
-        def success_callback(context):
-            ti = context["task_instance"]
-            callback_data["end_date"] = ti.end_date
-            callback_data["duration"] = (ti.end_date - ti.start_date).total_seconds() if ti.end_date else None
-            callback_data["start_date"] = ti.start_date
-
-        class SuccessOperator(BaseOperator):
-            def execute(self, context):
-                return "success"
-
-        task = SuccessOperator(task_id="success_task", on_success_callback=success_callback)
-        runtime_ti = create_runtime_ti(dag_id="dag", task=task)
-        log = mock.MagicMock()
-        context = runtime_ti.get_template_context()
-
-        state, _, error = run(runtime_ti, context, log)
-        finalize(runtime_ti, state, context, log, error)
-
-        assert state == TaskInstanceState.SUCCESS
-
-        # Verify callback was called and data was captured
-        assert "end_date" in callback_data, "Success callback should have been called"
-        assert isinstance(callback_data["end_date"], datetime), (
-            f"end_date should be datetime, got {type(callback_data['end_date'])}"
-        )
-        assert callback_data["duration"] is not None, (
-            f"duration should not be None, got {callback_data['duration']}"
-        )
-        assert callback_data["duration"] >= 0, f"duration should be >= 0, got {callback_data['duration']}"
-
-    def test_task_runner_both_callbacks_have_timing_info(self, create_runtime_ti):
-        """Test that both success and failure callbacks receive accurate timing information."""
-        import time
-
-        from airflow.exceptions import AirflowException
-
-        success_data = {}
-        failure_data = {}
-
-        def success_callback(context):
-            ti = context["task_instance"]
-            success_data["end_date"] = ti.end_date
-            success_data["start_date"] = ti.start_date
-            success_data["duration"] = (ti.end_date - ti.start_date).total_seconds() if ti.end_date else None
-
-        def failure_callback(context):
-            ti = context["task_instance"]
-            failure_data["end_date"] = ti.end_date
-            failure_data["start_date"] = ti.start_date
-            failure_data["duration"] = (ti.end_date - ti.start_date).total_seconds() if ti.end_date else None
-
-        # Test success callback
-        class SuccessOperator(BaseOperator):
-            def execute(self, context):
-                time.sleep(0.01)  # Add small delay to ensure measurable duration
-                return "success"
-
-        success_task = SuccessOperator(task_id="success_task", on_success_callback=success_callback)
-        success_runtime_ti = create_runtime_ti(dag_id="dag", task=success_task)
-        success_log = mock.MagicMock()
-        success_context = success_runtime_ti.get_template_context()
-
-        success_state, _, success_error = run(success_runtime_ti, success_context, success_log)
-        finalize(success_runtime_ti, success_state, success_context, success_log, success_error)
-
-        # Test failure callback
-        class FailureOperator(BaseOperator):
-            def execute(self, context):
-                time.sleep(0.01)  # Add small delay to ensure measurable duration
-                raise AirflowException("Test failure")
-
-        failure_task = FailureOperator(task_id="failure_task", on_failure_callback=failure_callback)
-        failure_runtime_ti = create_runtime_ti(dag_id="dag", task=failure_task)
-        failure_log = mock.MagicMock()
-        failure_context = failure_runtime_ti.get_template_context()
-
-        failure_state, _, failure_error = run(failure_runtime_ti, failure_context, failure_log)
-        finalize(failure_runtime_ti, failure_state, failure_context, failure_log, failure_error)
-
-        # Assertions for success callback
-        assert success_state == TaskInstanceState.SUCCESS
-        assert "end_date" in success_data, "Success callback should have been called"
-        assert isinstance(success_data["end_date"], datetime)
-        assert isinstance(success_data["start_date"], datetime)
-        assert success_data["duration"] is not None
-        assert success_data["duration"] >= 0.01, (
-            f"Success duration should be >= 0.01, got {success_data['duration']}"
-        )
-
-        # Assertions for failure callback
-        assert failure_state == TaskInstanceState.FAILED
-        assert "end_date" in failure_data, "Failure callback should have been called"
-        assert isinstance(failure_data["end_date"], datetime)
-        assert isinstance(failure_data["start_date"], datetime)
-        assert failure_data["duration"] is not None
-        assert failure_data["duration"] >= 0.01, (
-            f"Failure duration should be >= 0.01, got {failure_data['duration']}"
-        )
 
     @pytest.mark.parametrize(
         "callback_to_test, execute_impl, should_retry, expected_state, expected_results, extra_exceptions",

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_backup_policy_file_share`
 
-Refer to the Terraform Registry for docs: [`azurerm_backup_policy_file_share`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share).
+Refer to the Terraform Registry for docs: [`azurerm_backup_policy_file_share`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BackupPolicyFileShare(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.backupPolicyFileShare.BackupPolicyFileShare",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share azurerm_backup_policy_file_share}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share azurerm_backup_policy_file_share}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class BackupPolicyFileShare(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share azurerm_backup_policy_file_share} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share azurerm_backup_policy_file_share} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#backup BackupPolicyFileShare#backup}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#name BackupPolicyFileShare#name}.
-        :param recovery_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#recovery_vault_name BackupPolicyFileShare#recovery_vault_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#resource_group_name BackupPolicyFileShare#resource_group_name}.
-        :param retention_daily: retention_daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_daily BackupPolicyFileShare#retention_daily}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#id BackupPolicyFileShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param retention_monthly: retention_monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_monthly BackupPolicyFileShare#retention_monthly}
-        :param retention_weekly: retention_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_weekly BackupPolicyFileShare#retention_weekly}
-        :param retention_yearly: retention_yearly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_yearly BackupPolicyFileShare#retention_yearly}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#timeouts BackupPolicyFileShare#timeouts}
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#timezone BackupPolicyFileShare#timezone}.
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#backup BackupPolicyFileShare#backup}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#name BackupPolicyFileShare#name}.
+        :param recovery_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#recovery_vault_name BackupPolicyFileShare#recovery_vault_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#resource_group_name BackupPolicyFileShare#resource_group_name}.
+        :param retention_daily: retention_daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_daily BackupPolicyFileShare#retention_daily}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#id BackupPolicyFileShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param retention_monthly: retention_monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_monthly BackupPolicyFileShare#retention_monthly}
+        :param retention_weekly: retention_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_weekly BackupPolicyFileShare#retention_weekly}
+        :param retention_yearly: retention_yearly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_yearly BackupPolicyFileShare#retention_yearly}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#timeouts BackupPolicyFileShare#timeouts}
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#timezone BackupPolicyFileShare#timezone}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class BackupPolicyFileShare(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BackupPolicyFileShare to import.
-        :param import_from_id: The id of the existing BackupPolicyFileShare that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BackupPolicyFileShare that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BackupPolicyFileShare to import is found.
         '''
         if __debug__:
@@ -153,9 +153,9 @@ class BackupPolicyFileShare(
         time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#frequency BackupPolicyFileShare#frequency}.
-        :param hourly: hourly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#hourly BackupPolicyFileShare#hourly}
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#time BackupPolicyFileShare#time}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#frequency BackupPolicyFileShare#frequency}.
+        :param hourly: hourly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#hourly BackupPolicyFileShare#hourly}
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#time BackupPolicyFileShare#time}.
         '''
         value = BackupPolicyFileShareBackup(
             frequency=frequency, hourly=hourly, time=time
@@ -166,7 +166,7 @@ class BackupPolicyFileShare(
     @jsii.member(jsii_name="putRetentionDaily")
     def put_retention_daily(self, *, count: jsii.Number) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
         '''
         value = BackupPolicyFileShareRetentionDaily(count=count)
 
@@ -183,11 +183,11 @@ class BackupPolicyFileShare(
         weeks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.
-        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
-        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.
+        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
+        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.
         '''
         value = BackupPolicyFileShareRetentionMonthly(
             count=count,
@@ -207,8 +207,8 @@ class BackupPolicyFileShare(
         weekdays: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
         '''
         value = BackupPolicyFileShareRetentionWeekly(count=count, weekdays=weekdays)
 
@@ -226,12 +226,12 @@ class BackupPolicyFileShare(
         weeks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
-        :param months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#months BackupPolicyFileShare#months}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.
-        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
-        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
+        :param months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#months BackupPolicyFileShare#months}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.
+        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
+        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.
         '''
         value = BackupPolicyFileShareRetentionYearly(
             count=count,
@@ -254,10 +254,10 @@ class BackupPolicyFileShare(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#create BackupPolicyFileShare#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#delete BackupPolicyFileShare#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#read BackupPolicyFileShare#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#update BackupPolicyFileShare#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#create BackupPolicyFileShare#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#delete BackupPolicyFileShare#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#read BackupPolicyFileShare#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#update BackupPolicyFileShare#update}.
         '''
         value = BackupPolicyFileShareTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -474,9 +474,9 @@ class BackupPolicyFileShareBackup:
         time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#frequency BackupPolicyFileShare#frequency}.
-        :param hourly: hourly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#hourly BackupPolicyFileShare#hourly}
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#time BackupPolicyFileShare#time}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#frequency BackupPolicyFileShare#frequency}.
+        :param hourly: hourly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#hourly BackupPolicyFileShare#hourly}
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#time BackupPolicyFileShare#time}.
         '''
         if isinstance(hourly, dict):
             hourly = BackupPolicyFileShareBackupHourly(**hourly)
@@ -495,7 +495,7 @@ class BackupPolicyFileShareBackup:
 
     @builtins.property
     def frequency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#frequency BackupPolicyFileShare#frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#frequency BackupPolicyFileShare#frequency}.'''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
         return typing.cast(builtins.str, result)
@@ -504,14 +504,14 @@ class BackupPolicyFileShareBackup:
     def hourly(self) -> typing.Optional["BackupPolicyFileShareBackupHourly"]:
         '''hourly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#hourly BackupPolicyFileShare#hourly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#hourly BackupPolicyFileShare#hourly}
         '''
         result = self._values.get("hourly")
         return typing.cast(typing.Optional["BackupPolicyFileShareBackupHourly"], result)
 
     @builtins.property
     def time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#time BackupPolicyFileShare#time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#time BackupPolicyFileShare#time}.'''
         result = self._values.get("time")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -545,9 +545,9 @@ class BackupPolicyFileShareBackupHourly:
         window_duration: jsii.Number,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#interval BackupPolicyFileShare#interval}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#start_time BackupPolicyFileShare#start_time}.
-        :param window_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#window_duration BackupPolicyFileShare#window_duration}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#interval BackupPolicyFileShare#interval}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#start_time BackupPolicyFileShare#start_time}.
+        :param window_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#window_duration BackupPolicyFileShare#window_duration}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6953f72f034ff798daaf117215cb41a39ae5dde1d439d51ba20a94c3dba5bcce)
@@ -562,21 +562,21 @@ class BackupPolicyFileShareBackupHourly:
 
     @builtins.property
     def interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#interval BackupPolicyFileShare#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#interval BackupPolicyFileShare#interval}.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def start_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#start_time BackupPolicyFileShare#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#start_time BackupPolicyFileShare#start_time}.'''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def window_duration(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#window_duration BackupPolicyFileShare#window_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#window_duration BackupPolicyFileShare#window_duration}.'''
         result = self._values.get("window_duration")
         assert result is not None, "Required property 'window_duration' is missing"
         return typing.cast(jsii.Number, result)
@@ -709,9 +709,9 @@ class BackupPolicyFileShareBackupOutputReference(
         window_duration: jsii.Number,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#interval BackupPolicyFileShare#interval}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#start_time BackupPolicyFileShare#start_time}.
-        :param window_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#window_duration BackupPolicyFileShare#window_duration}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#interval BackupPolicyFileShare#interval}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#start_time BackupPolicyFileShare#start_time}.
+        :param window_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#window_duration BackupPolicyFileShare#window_duration}.
         '''
         value = BackupPolicyFileShareBackupHourly(
             interval=interval, start_time=start_time, window_duration=window_duration
@@ -842,17 +842,17 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#backup BackupPolicyFileShare#backup}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#name BackupPolicyFileShare#name}.
-        :param recovery_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#recovery_vault_name BackupPolicyFileShare#recovery_vault_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#resource_group_name BackupPolicyFileShare#resource_group_name}.
-        :param retention_daily: retention_daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_daily BackupPolicyFileShare#retention_daily}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#id BackupPolicyFileShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param retention_monthly: retention_monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_monthly BackupPolicyFileShare#retention_monthly}
-        :param retention_weekly: retention_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_weekly BackupPolicyFileShare#retention_weekly}
-        :param retention_yearly: retention_yearly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_yearly BackupPolicyFileShare#retention_yearly}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#timeouts BackupPolicyFileShare#timeouts}
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#timezone BackupPolicyFileShare#timezone}.
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#backup BackupPolicyFileShare#backup}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#name BackupPolicyFileShare#name}.
+        :param recovery_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#recovery_vault_name BackupPolicyFileShare#recovery_vault_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#resource_group_name BackupPolicyFileShare#resource_group_name}.
+        :param retention_daily: retention_daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_daily BackupPolicyFileShare#retention_daily}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#id BackupPolicyFileShare#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param retention_monthly: retention_monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_monthly BackupPolicyFileShare#retention_monthly}
+        :param retention_weekly: retention_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_weekly BackupPolicyFileShare#retention_weekly}
+        :param retention_yearly: retention_yearly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_yearly BackupPolicyFileShare#retention_yearly}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#timeouts BackupPolicyFileShare#timeouts}
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#timezone BackupPolicyFileShare#timezone}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -990,7 +990,7 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup(self) -> BackupPolicyFileShareBackup:
         '''backup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#backup BackupPolicyFileShare#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#backup BackupPolicyFileShare#backup}
         '''
         result = self._values.get("backup")
         assert result is not None, "Required property 'backup' is missing"
@@ -998,21 +998,21 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#name BackupPolicyFileShare#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#name BackupPolicyFileShare#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def recovery_vault_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#recovery_vault_name BackupPolicyFileShare#recovery_vault_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#recovery_vault_name BackupPolicyFileShare#recovery_vault_name}.'''
         result = self._values.get("recovery_vault_name")
         assert result is not None, "Required property 'recovery_vault_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#resource_group_name BackupPolicyFileShare#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#resource_group_name BackupPolicyFileShare#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1021,7 +1021,7 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_daily(self) -> "BackupPolicyFileShareRetentionDaily":
         '''retention_daily block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_daily BackupPolicyFileShare#retention_daily}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_daily BackupPolicyFileShare#retention_daily}
         '''
         result = self._values.get("retention_daily")
         assert result is not None, "Required property 'retention_daily' is missing"
@@ -1029,7 +1029,7 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#id BackupPolicyFileShare#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#id BackupPolicyFileShare#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1043,7 +1043,7 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["BackupPolicyFileShareRetentionMonthly"]:
         '''retention_monthly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_monthly BackupPolicyFileShare#retention_monthly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_monthly BackupPolicyFileShare#retention_monthly}
         '''
         result = self._values.get("retention_monthly")
         return typing.cast(typing.Optional["BackupPolicyFileShareRetentionMonthly"], result)
@@ -1054,7 +1054,7 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["BackupPolicyFileShareRetentionWeekly"]:
         '''retention_weekly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_weekly BackupPolicyFileShare#retention_weekly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_weekly BackupPolicyFileShare#retention_weekly}
         '''
         result = self._values.get("retention_weekly")
         return typing.cast(typing.Optional["BackupPolicyFileShareRetentionWeekly"], result)
@@ -1065,7 +1065,7 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["BackupPolicyFileShareRetentionYearly"]:
         '''retention_yearly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#retention_yearly BackupPolicyFileShare#retention_yearly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#retention_yearly BackupPolicyFileShare#retention_yearly}
         '''
         result = self._values.get("retention_yearly")
         return typing.cast(typing.Optional["BackupPolicyFileShareRetentionYearly"], result)
@@ -1074,14 +1074,14 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BackupPolicyFileShareTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#timeouts BackupPolicyFileShare#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#timeouts BackupPolicyFileShare#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BackupPolicyFileShareTimeouts"], result)
 
     @builtins.property
     def timezone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#timezone BackupPolicyFileShare#timezone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#timezone BackupPolicyFileShare#timezone}.'''
         result = self._values.get("timezone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1105,7 +1105,7 @@ class BackupPolicyFileShareConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class BackupPolicyFileShareRetentionDaily:
     def __init__(self, *, count: jsii.Number) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8dff3ac8d0d7d409bd61a6a4007165acc48b40798d551941a8186c199e445e6d)
@@ -1116,7 +1116,7 @@ class BackupPolicyFileShareRetentionDaily:
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
@@ -1208,11 +1208,11 @@ class BackupPolicyFileShareRetentionMonthly:
         weeks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.
-        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
-        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.
+        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
+        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fdb181078a50430be1991221b4ee1d19fe7dd9dad19281810a79c5939d34769)
@@ -1235,14 +1235,14 @@ class BackupPolicyFileShareRetentionMonthly:
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def days(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -1250,19 +1250,19 @@ class BackupPolicyFileShareRetentionMonthly:
     def include_last_days(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.'''
         result = self._values.get("include_last_days")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def weekdays(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.'''
         result = self._values.get("weekdays")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def weeks(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.'''
         result = self._values.get("weeks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1435,8 +1435,8 @@ class BackupPolicyFileShareRetentionWeekly:
         weekdays: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5805539c2b799dbb49353021bd7fa782f553a403be791939d56ee18ccaa9b1c)
@@ -1449,14 +1449,14 @@ class BackupPolicyFileShareRetentionWeekly:
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def weekdays(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.'''
         result = self._values.get("weekdays")
         assert result is not None, "Required property 'weekdays' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1567,12 +1567,12 @@ class BackupPolicyFileShareRetentionYearly:
         weeks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
-        :param months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#months BackupPolicyFileShare#months}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.
-        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
-        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.
+        :param months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#months BackupPolicyFileShare#months}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.
+        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.
+        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9bc1f6449d56f130cde5cece0f8a351445738f212e20c06b92fab36b12a88b3)
@@ -1597,21 +1597,21 @@ class BackupPolicyFileShareRetentionYearly:
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#count BackupPolicyFileShare#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def months(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#months BackupPolicyFileShare#months}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#months BackupPolicyFileShare#months}.'''
         result = self._values.get("months")
         assert result is not None, "Required property 'months' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def days(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#days BackupPolicyFileShare#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -1619,19 +1619,19 @@ class BackupPolicyFileShareRetentionYearly:
     def include_last_days(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#include_last_days BackupPolicyFileShare#include_last_days}.'''
         result = self._values.get("include_last_days")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def weekdays(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weekdays BackupPolicyFileShare#weekdays}.'''
         result = self._values.get("weekdays")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def weeks(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#weeks BackupPolicyFileShare#weeks}.'''
         result = self._values.get("weeks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1828,10 +1828,10 @@ class BackupPolicyFileShareTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#create BackupPolicyFileShare#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#delete BackupPolicyFileShare#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#read BackupPolicyFileShare#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#update BackupPolicyFileShare#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#create BackupPolicyFileShare#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#delete BackupPolicyFileShare#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#read BackupPolicyFileShare#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#update BackupPolicyFileShare#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83893bce256371919e9472f0f12fa5523f13b518b70d86dd4f4a377dbbe70df7)
@@ -1851,25 +1851,25 @@ class BackupPolicyFileShareTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#create BackupPolicyFileShare#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#create BackupPolicyFileShare#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#delete BackupPolicyFileShare#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#delete BackupPolicyFileShare#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#read BackupPolicyFileShare#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#read BackupPolicyFileShare#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/backup_policy_file_share#update BackupPolicyFileShare#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/backup_policy_file_share#update BackupPolicyFileShare#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

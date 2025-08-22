@@ -733,6 +733,7 @@ class WindowAggregation(_message.Message):
         "continuous_buffer_duration",
         "backfill_schedule",
         "bucket_start",
+        "approx_top_k_arg_k",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
@@ -748,6 +749,7 @@ class WindowAggregation(_message.Message):
     CONTINUOUS_BUFFER_DURATION_FIELD_NUMBER: _ClassVar[int]
     BACKFILL_SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     BUCKET_START_FIELD_NUMBER: _ClassVar[int]
+    APPROX_TOP_K_ARG_K_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     group_by: _containers.RepeatedCompositeFieldContainer[FeatureReference]
     bucket_duration: _duration_pb2.Duration
@@ -762,6 +764,7 @@ class WindowAggregation(_message.Message):
     continuous_buffer_duration: _duration_pb2.Duration
     backfill_schedule: str
     bucket_start: _timestamp_pb2.Timestamp
+    approx_top_k_arg_k: int
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -778,6 +781,7 @@ class WindowAggregation(_message.Message):
         continuous_buffer_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         backfill_schedule: _Optional[str] = ...,
         bucket_start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        approx_top_k_arg_k: _Optional[int] = ...,
     ) -> None: ...
 
 class WindowInfo(_message.Message):

@@ -45,8 +45,14 @@ class EnvironmentPermissions(_message.Message):
         customer_claims: _Optional[_Iterable[_Union[CustomClaim, _Mapping]]] = ...,
     ) -> None: ...
 
+class TeamPermissions(_message.Message):
+    __slots__ = ("permissions",)
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    def __init__(self, permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...) -> None: ...
+
 class UserAgent(_message.Message):
-    __slots__ = ("client_id", "user_id", "team_id", "permissions_by_environment", "impersonated")
+    __slots__ = ("client_id", "user_id", "team_id", "permissions_by_environment", "impersonated", "team_permissions")
     class PermissionsByEnvironmentEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -62,11 +68,13 @@ class UserAgent(_message.Message):
     TEAM_ID_FIELD_NUMBER: _ClassVar[int]
     PERMISSIONS_BY_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     IMPERSONATED_FIELD_NUMBER: _ClassVar[int]
+    TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     user_id: str
     team_id: str
     permissions_by_environment: _containers.MessageMap[str, EnvironmentPermissions]
     impersonated: bool
+    team_permissions: TeamPermissions
     def __init__(
         self,
         client_id: _Optional[str] = ...,
@@ -74,6 +82,7 @@ class UserAgent(_message.Message):
         team_id: _Optional[str] = ...,
         permissions_by_environment: _Optional[_Mapping[str, EnvironmentPermissions]] = ...,
         impersonated: bool = ...,
+        team_permissions: _Optional[_Union[TeamPermissions, _Mapping]] = ...,
     ) -> None: ...
 
 class CustomClaim(_message.Message):
@@ -94,6 +103,7 @@ class ServiceTokenAgent(_message.Message):
         "custom_claims",
         "customer_claims",
         "feature_permissions",
+        "team_permissions",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -103,6 +113,7 @@ class ServiceTokenAgent(_message.Message):
     CUSTOM_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     id: str
     client_id: str
     team_id: str
@@ -111,6 +122,7 @@ class ServiceTokenAgent(_message.Message):
     custom_claims: _containers.RepeatedScalarFieldContainer[str]
     customer_claims: _containers.RepeatedCompositeFieldContainer[CustomClaim]
     feature_permissions: _featurepermission_pb2.FeaturePermissions
+    team_permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -121,6 +133,7 @@ class ServiceTokenAgent(_message.Message):
         custom_claims: _Optional[_Iterable[str]] = ...,
         customer_claims: _Optional[_Iterable[_Union[CustomClaim, _Mapping]]] = ...,
         feature_permissions: _Optional[_Union[_featurepermission_pb2.FeaturePermissions, _Mapping]] = ...,
+        team_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
     ) -> None: ...
 
 class EngineAgent(_message.Message):

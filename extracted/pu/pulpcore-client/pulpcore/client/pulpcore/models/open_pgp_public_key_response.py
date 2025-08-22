@@ -28,6 +28,14 @@ from pulpcore.client.pulpcore.models.nested_open_pgp_user_id_response import Nes
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class OpenPGPPublicKeyResponse(BaseModel):
     """
     A serializer for content types with no Artifact.

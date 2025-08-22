@@ -14,12 +14,14 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.server.v1 import batch_pb2 as chalk_dot_server_dot_v1_dot_batch__pb2
 from chalk._gen.chalk.server.v1 import scheduled_query_run_pb2 as chalk_dot_server_dot_v1_dot_scheduled__query__run__pb2
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1f\x63halk/server/v1/scheduler.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a)chalk/server/v1/scheduled_query_run.proto\x1a\x1cgoogle/protobuf/struct.proto"\xad\x04\n"ManualTriggerScheduledQueryRequest\x12"\n\rcron_query_id\x18\x01 \x01(\x03R\x0b\x63ronQueryId\x12p\n\x0fplanner_options\x18\x02 \x03(\x0b\x32G.chalk.server.v1.ManualTriggerScheduledQueryRequest.PlannerOptionsEntryR\x0eplannerOptions\x12\x33\n\x15incremental_resolvers\x18\x03 \x03(\tR\x14incrementalResolvers\x12$\n\x0bmax_samples\x18\x04 \x01(\x03H\x00R\nmaxSamples\x88\x01\x01\x12j\n\renv_overrides\x18\x05 \x03(\x0b\x32\x45.chalk.server.v1.ManualTriggerScheduledQueryRequest.EnvOverridesEntryR\x0c\x65nvOverrides\x1aY\n\x13PlannerOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x1a?\n\x11\x45nvOverridesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_max_samples"y\n#ManualTriggerScheduledQueryResponse\x12R\n\x13scheduled_query_run\x18\x01 \x01(\x0b\x32".chalk.server.v1.ScheduledQueryRunR\x11scheduledQueryRun2\xa2\x01\n\x10SchedulerService\x12\x8d\x01\n\x1bManualTriggerScheduledQuery\x12\x33.chalk.server.v1.ManualTriggerScheduledQueryRequest\x1a\x34.chalk.server.v1.ManualTriggerScheduledQueryResponse"\x03\x80}\x11\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0eSchedulerProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1f\x63halk/server/v1/scheduler.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1b\x63halk/server/v1/batch.proto\x1a)chalk/server/v1/scheduled_query_run.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xfe\x05\n\x0f\x43ronResolverRun\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12!\n\x0cresolver_fqn\x18\x03 \x01(\tR\x0bresolverFqn\x12\x12\n\x04kind\x18\x04 \x01(\tR\x04kind\x12+\n\x11schedule_readable\x18\x05 \x01(\tR\x10scheduleReadable\x12\x36\n\x17schedule_resolver_value\x18\x06 \x01(\tR\x15scheduleResolverValue\x12\x39\n\ncreated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12(\n\rdeployment_id\x18\x08 \x01(\tH\x00R\x0c\x64\x65ploymentId\x88\x01\x01\x12\x31\n\x03\x65nd\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x03\x65nd\x88\x01\x01\x12:\n\x05\x62\x61tch\x18\n \x01(\x0b\x32\x1f.chalk.server.v1.BatchOperationH\x02R\x05\x62\x61tch\x88\x01\x01\x12\x46\n\x0ctrigger_kind\x18\x0b \x01(\x0e\x32#.chalk.server.v1.CronRunTriggerKindR\x0btriggerKind\x12@\n\x0blower_bound\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x03R\nlowerBound\x88\x01\x01\x12@\n\x0bupper_bound\x18\r \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x04R\nupperBound\x88\x01\x01\x12$\n\x0bmax_samples\x18\x0e \x01(\x03H\x05R\nmaxSamples\x88\x01\x01\x42\x10\n\x0e_deployment_idB\x06\n\x04_endB\x08\n\x06_batchB\x0e\n\x0c_lower_boundB\x0e\n\x0c_upper_boundB\x0e\n\x0c_max_samples"\x9d\x03\n ManualTriggerCronResolverRequest\x12!\n\x0cresolver_fqn\x18\x01 \x01(\tR\x0bresolverFqn\x12$\n\x0bmax_samples\x18\x02 \x01(\x03H\x00R\nmaxSamples\x88\x01\x01\x12@\n\x0blower_bound\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\nlowerBound\x88\x01\x01\x12@\n\x0bupper_bound\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\nupperBound\x88\x01\x01\x12\x30\n\x11timestamping_mode\x18\x06 \x01(\tH\x03R\x10timestampingMode\x88\x01\x01\x12$\n\x0bjob_options\x18\x07 \x01(\tH\x04R\njobOptions\x88\x01\x01\x42\x0e\n\x0c_max_samplesB\x0e\n\x0c_lower_boundB\x0e\n\x0c_upper_boundB\x14\n\x12_timestamping_modeB\x0e\n\x0c_job_options"q\n!ManualTriggerCronResolverResponse\x12L\n\x11\x63ron_resolver_run\x18\x01 \x01(\x0b\x32 .chalk.server.v1.CronResolverRunR\x0f\x63ronResolverRun"\xad\x04\n"ManualTriggerScheduledQueryRequest\x12"\n\rcron_query_id\x18\x01 \x01(\x03R\x0b\x63ronQueryId\x12p\n\x0fplanner_options\x18\x02 \x03(\x0b\x32G.chalk.server.v1.ManualTriggerScheduledQueryRequest.PlannerOptionsEntryR\x0eplannerOptions\x12\x33\n\x15incremental_resolvers\x18\x03 \x03(\tR\x14incrementalResolvers\x12$\n\x0bmax_samples\x18\x04 \x01(\x03H\x00R\nmaxSamples\x88\x01\x01\x12j\n\renv_overrides\x18\x05 \x03(\x0b\x32\x45.chalk.server.v1.ManualTriggerScheduledQueryRequest.EnvOverridesEntryR\x0c\x65nvOverrides\x1aY\n\x13PlannerOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x1a?\n\x11\x45nvOverridesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_max_samples"y\n#ManualTriggerScheduledQueryResponse\x12R\n\x13scheduled_query_run\x18\x01 \x01(\x0b\x32".chalk.server.v1.ScheduledQueryRunR\x11scheduledQueryRun*\x9c\x01\n\x12\x43ronRunTriggerKind\x12%\n!CRON_RUN_TRIGGER_KIND_UNSPECIFIED\x10\x00\x12 \n\x1c\x43RON_RUN_TRIGGER_KIND_MANUAL\x10\x01\x12\x1d\n\x19\x43RON_RUN_TRIGGER_KIND_API\x10\x02\x12\x1e\n\x1a\x43RON_RUN_TRIGGER_KIND_CRON\x10\x03\x32\xac\x02\n\x10SchedulerService\x12\x87\x01\n\x19ManualTriggerCronResolver\x12\x31.chalk.server.v1.ManualTriggerCronResolverRequest\x1a\x32.chalk.server.v1.ManualTriggerCronResolverResponse"\x03\x80}\x11\x12\x8d\x01\n\x1bManualTriggerScheduledQuery\x12\x33.chalk.server.v1.ManualTriggerScheduledQueryRequest\x1a\x34.chalk.server.v1.ManualTriggerScheduledQueryResponse"\x03\x80}\x11\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0eSchedulerProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -34,16 +36,26 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_PLANNEROPTIONSENTRY"]._serialized_options = b"8\001"
     _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_ENVOVERRIDESENTRY"]._options = None
     _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_ENVOVERRIDESENTRY"]._serialized_options = b"8\001"
+    _globals["_SCHEDULERSERVICE"].methods_by_name["ManualTriggerCronResolver"]._options = None
+    _globals["_SCHEDULERSERVICE"].methods_by_name["ManualTriggerCronResolver"]._serialized_options = b"\200}\021"
     _globals["_SCHEDULERSERVICE"].methods_by_name["ManualTriggerScheduledQuery"]._options = None
     _globals["_SCHEDULERSERVICE"].methods_by_name["ManualTriggerScheduledQuery"]._serialized_options = b"\200}\021"
-    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST"]._serialized_start = 159
-    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST"]._serialized_end = 716
-    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_PLANNEROPTIONSENTRY"]._serialized_start = 546
-    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_PLANNEROPTIONSENTRY"]._serialized_end = 635
-    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_ENVOVERRIDESENTRY"]._serialized_start = 637
-    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_ENVOVERRIDESENTRY"]._serialized_end = 700
-    _globals["_MANUALTRIGGERSCHEDULEDQUERYRESPONSE"]._serialized_start = 718
-    _globals["_MANUALTRIGGERSCHEDULEDQUERYRESPONSE"]._serialized_end = 839
-    _globals["_SCHEDULERSERVICE"]._serialized_start = 842
-    _globals["_SCHEDULERSERVICE"]._serialized_end = 1004
+    _globals["_CRONRUNTRIGGERKIND"]._serialized_start = 2204
+    _globals["_CRONRUNTRIGGERKIND"]._serialized_end = 2360
+    _globals["_CRONRESOLVERRUN"]._serialized_start = 221
+    _globals["_CRONRESOLVERRUN"]._serialized_end = 987
+    _globals["_MANUALTRIGGERCRONRESOLVERREQUEST"]._serialized_start = 990
+    _globals["_MANUALTRIGGERCRONRESOLVERREQUEST"]._serialized_end = 1403
+    _globals["_MANUALTRIGGERCRONRESOLVERRESPONSE"]._serialized_start = 1405
+    _globals["_MANUALTRIGGERCRONRESOLVERRESPONSE"]._serialized_end = 1518
+    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST"]._serialized_start = 1521
+    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST"]._serialized_end = 2078
+    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_PLANNEROPTIONSENTRY"]._serialized_start = 1908
+    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_PLANNEROPTIONSENTRY"]._serialized_end = 1997
+    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_ENVOVERRIDESENTRY"]._serialized_start = 1999
+    _globals["_MANUALTRIGGERSCHEDULEDQUERYREQUEST_ENVOVERRIDESENTRY"]._serialized_end = 2062
+    _globals["_MANUALTRIGGERSCHEDULEDQUERYRESPONSE"]._serialized_start = 2080
+    _globals["_MANUALTRIGGERSCHEDULEDQUERYRESPONSE"]._serialized_end = 2201
+    _globals["_SCHEDULERSERVICE"]._serialized_start = 2363
+    _globals["_SCHEDULERSERVICE"]._serialized_end = 2663
 # @@protoc_insertion_point(module_scope)

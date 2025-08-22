@@ -93,6 +93,9 @@ class DatasetRevision(Protocol):
 
     errors: list[ChalkError] | None = None
 
+    query_has_errors: bool = False
+    """Whether the offline query corresponding to this revision had errors."""
+
     partitions: list[DatasetPartition]
 
     metadata: Mapping[str, Any] | None = None

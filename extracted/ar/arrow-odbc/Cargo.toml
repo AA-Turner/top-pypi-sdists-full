@@ -5,6 +5,7 @@ edition = "2024"
 
 # This is only published as part of a python wheel, not as a stand alone crate.
 publish = false
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,12 +15,13 @@ name = "arrow_odbc"
 crate-type = ["cdylib"]
 
 [dependencies]
-arrow-odbc = "18.0.0"
+arrow-odbc = "19.1.0"
 # arrow would be included indirectly using arrow-odbc, but we need to explicitly specify the ffi
 # feature.
-arrow = { version = "55.1.0", default-features = false, features = ["ffi"] }
+arrow = { version = "56.0.0", default-features = false, features = ["ffi"] }
 stderrlog = "0.6.0"
 log = "0.4.27"
+widestring = "1.2.0"
 
 [profile.release]
 # Panics should only be caused by logic errors and are considered bugs

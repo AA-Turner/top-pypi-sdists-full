@@ -1,7 +1,7 @@
 r'''
 # `azurerm_mssql_database`
 
-Refer to the Terraform Registry for docs: [`azurerm_mssql_database`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database).
+Refer to the Terraform Registry for docs: [`azurerm_mssql_database`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MssqlDatabase(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.mssqlDatabase.MssqlDatabase",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database azurerm_mssql_database}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database azurerm_mssql_database}.'''
 
     def __init__(
         self,
@@ -96,47 +96,47 @@ class MssqlDatabase(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database azurerm_mssql_database} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database azurerm_mssql_database} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#name MssqlDatabase#name}.
-        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#server_id MssqlDatabase#server_id}.
-        :param auto_pause_delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#auto_pause_delay_in_minutes MssqlDatabase#auto_pause_delay_in_minutes}.
-        :param collation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#collation MssqlDatabase#collation}.
-        :param create_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#create_mode MssqlDatabase#create_mode}.
-        :param creation_source_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#creation_source_database_id MssqlDatabase#creation_source_database_id}.
-        :param elastic_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#elastic_pool_id MssqlDatabase#elastic_pool_id}.
-        :param enclave_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#enclave_type MssqlDatabase#enclave_type}.
-        :param geo_backup_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#geo_backup_enabled MssqlDatabase#geo_backup_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#id MssqlDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#identity MssqlDatabase#identity}
-        :param import_: import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#import MssqlDatabase#import}
-        :param ledger_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#ledger_enabled MssqlDatabase#ledger_enabled}.
-        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#license_type MssqlDatabase#license_type}.
-        :param long_term_retention_policy: long_term_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#long_term_retention_policy MssqlDatabase#long_term_retention_policy}
-        :param maintenance_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#maintenance_configuration_name MssqlDatabase#maintenance_configuration_name}.
-        :param max_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#max_size_gb MssqlDatabase#max_size_gb}.
-        :param min_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#min_capacity MssqlDatabase#min_capacity}.
-        :param read_replica_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#read_replica_count MssqlDatabase#read_replica_count}.
-        :param read_scale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#read_scale MssqlDatabase#read_scale}.
-        :param recover_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#recover_database_id MssqlDatabase#recover_database_id}.
-        :param recovery_point_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#recovery_point_id MssqlDatabase#recovery_point_id}.
-        :param restore_dropped_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#restore_dropped_database_id MssqlDatabase#restore_dropped_database_id}.
-        :param restore_long_term_retention_backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#restore_long_term_retention_backup_id MssqlDatabase#restore_long_term_retention_backup_id}.
-        :param restore_point_in_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#restore_point_in_time MssqlDatabase#restore_point_in_time}.
-        :param sample_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#sample_name MssqlDatabase#sample_name}.
-        :param secondary_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#secondary_type MssqlDatabase#secondary_type}.
-        :param short_term_retention_policy: short_term_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#short_term_retention_policy MssqlDatabase#short_term_retention_policy}
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#sku_name MssqlDatabase#sku_name}.
-        :param storage_account_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_account_type MssqlDatabase#storage_account_type}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#tags MssqlDatabase#tags}.
-        :param threat_detection_policy: threat_detection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#threat_detection_policy MssqlDatabase#threat_detection_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#timeouts MssqlDatabase#timeouts}
-        :param transparent_data_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#transparent_data_encryption_enabled MssqlDatabase#transparent_data_encryption_enabled}.
-        :param transparent_data_encryption_key_automatic_rotation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#transparent_data_encryption_key_automatic_rotation_enabled MssqlDatabase#transparent_data_encryption_key_automatic_rotation_enabled}.
-        :param transparent_data_encryption_key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#transparent_data_encryption_key_vault_key_id MssqlDatabase#transparent_data_encryption_key_vault_key_id}.
-        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#zone_redundant MssqlDatabase#zone_redundant}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#name MssqlDatabase#name}.
+        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#server_id MssqlDatabase#server_id}.
+        :param auto_pause_delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#auto_pause_delay_in_minutes MssqlDatabase#auto_pause_delay_in_minutes}.
+        :param collation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#collation MssqlDatabase#collation}.
+        :param create_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#create_mode MssqlDatabase#create_mode}.
+        :param creation_source_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#creation_source_database_id MssqlDatabase#creation_source_database_id}.
+        :param elastic_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#elastic_pool_id MssqlDatabase#elastic_pool_id}.
+        :param enclave_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#enclave_type MssqlDatabase#enclave_type}.
+        :param geo_backup_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#geo_backup_enabled MssqlDatabase#geo_backup_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#id MssqlDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#identity MssqlDatabase#identity}
+        :param import_: import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#import MssqlDatabase#import}
+        :param ledger_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#ledger_enabled MssqlDatabase#ledger_enabled}.
+        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#license_type MssqlDatabase#license_type}.
+        :param long_term_retention_policy: long_term_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#long_term_retention_policy MssqlDatabase#long_term_retention_policy}
+        :param maintenance_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#maintenance_configuration_name MssqlDatabase#maintenance_configuration_name}.
+        :param max_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#max_size_gb MssqlDatabase#max_size_gb}.
+        :param min_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#min_capacity MssqlDatabase#min_capacity}.
+        :param read_replica_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#read_replica_count MssqlDatabase#read_replica_count}.
+        :param read_scale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#read_scale MssqlDatabase#read_scale}.
+        :param recover_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#recover_database_id MssqlDatabase#recover_database_id}.
+        :param recovery_point_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#recovery_point_id MssqlDatabase#recovery_point_id}.
+        :param restore_dropped_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#restore_dropped_database_id MssqlDatabase#restore_dropped_database_id}.
+        :param restore_long_term_retention_backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#restore_long_term_retention_backup_id MssqlDatabase#restore_long_term_retention_backup_id}.
+        :param restore_point_in_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#restore_point_in_time MssqlDatabase#restore_point_in_time}.
+        :param sample_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#sample_name MssqlDatabase#sample_name}.
+        :param secondary_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#secondary_type MssqlDatabase#secondary_type}.
+        :param short_term_retention_policy: short_term_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#short_term_retention_policy MssqlDatabase#short_term_retention_policy}
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#sku_name MssqlDatabase#sku_name}.
+        :param storage_account_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_account_type MssqlDatabase#storage_account_type}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#tags MssqlDatabase#tags}.
+        :param threat_detection_policy: threat_detection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#threat_detection_policy MssqlDatabase#threat_detection_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#timeouts MssqlDatabase#timeouts}
+        :param transparent_data_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#transparent_data_encryption_enabled MssqlDatabase#transparent_data_encryption_enabled}.
+        :param transparent_data_encryption_key_automatic_rotation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#transparent_data_encryption_key_automatic_rotation_enabled MssqlDatabase#transparent_data_encryption_key_automatic_rotation_enabled}.
+        :param transparent_data_encryption_key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#transparent_data_encryption_key_vault_key_id MssqlDatabase#transparent_data_encryption_key_vault_key_id}.
+        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#zone_redundant MssqlDatabase#zone_redundant}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -211,7 +211,7 @@ class MssqlDatabase(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MssqlDatabase to import.
-        :param import_from_id: The id of the existing MssqlDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MssqlDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MssqlDatabase to import is found.
         '''
         if __debug__:
@@ -230,8 +230,8 @@ class MssqlDatabase(
         type: builtins.str,
     ) -> None:
         '''
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#identity_ids MssqlDatabase#identity_ids}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#type MssqlDatabase#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#identity_ids MssqlDatabase#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#type MssqlDatabase#type}.
         '''
         value = MssqlDatabaseIdentity(identity_ids=identity_ids, type=type)
 
@@ -250,13 +250,13 @@ class MssqlDatabase(
         storage_account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param administrator_login: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#administrator_login MssqlDatabase#administrator_login}.
-        :param administrator_login_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#administrator_login_password MssqlDatabase#administrator_login_password}.
-        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#authentication_type MssqlDatabase#authentication_type}.
-        :param storage_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_key MssqlDatabase#storage_key}.
-        :param storage_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_key_type MssqlDatabase#storage_key_type}.
-        :param storage_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_uri MssqlDatabase#storage_uri}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_account_id MssqlDatabase#storage_account_id}.
+        :param administrator_login: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#administrator_login MssqlDatabase#administrator_login}.
+        :param administrator_login_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#administrator_login_password MssqlDatabase#administrator_login_password}.
+        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#authentication_type MssqlDatabase#authentication_type}.
+        :param storage_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_key MssqlDatabase#storage_key}.
+        :param storage_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_key_type MssqlDatabase#storage_key_type}.
+        :param storage_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_uri MssqlDatabase#storage_uri}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_account_id MssqlDatabase#storage_account_id}.
         '''
         value = MssqlDatabaseImport(
             administrator_login=administrator_login,
@@ -281,11 +281,11 @@ class MssqlDatabase(
         yearly_retention: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param immutable_backups_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#immutable_backups_enabled MssqlDatabase#immutable_backups_enabled}.
-        :param monthly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#monthly_retention MssqlDatabase#monthly_retention}.
-        :param weekly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#weekly_retention MssqlDatabase#weekly_retention}.
-        :param week_of_year: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#week_of_year MssqlDatabase#week_of_year}.
-        :param yearly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#yearly_retention MssqlDatabase#yearly_retention}.
+        :param immutable_backups_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#immutable_backups_enabled MssqlDatabase#immutable_backups_enabled}.
+        :param monthly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#monthly_retention MssqlDatabase#monthly_retention}.
+        :param weekly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#weekly_retention MssqlDatabase#weekly_retention}.
+        :param week_of_year: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#week_of_year MssqlDatabase#week_of_year}.
+        :param yearly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#yearly_retention MssqlDatabase#yearly_retention}.
         '''
         value = MssqlDatabaseLongTermRetentionPolicy(
             immutable_backups_enabled=immutable_backups_enabled,
@@ -305,8 +305,8 @@ class MssqlDatabase(
         backup_interval_in_hours: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.
-        :param backup_interval_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#backup_interval_in_hours MssqlDatabase#backup_interval_in_hours}.
+        :param retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.
+        :param backup_interval_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#backup_interval_in_hours MssqlDatabase#backup_interval_in_hours}.
         '''
         value = MssqlDatabaseShortTermRetentionPolicy(
             retention_days=retention_days,
@@ -328,13 +328,13 @@ class MssqlDatabase(
         storage_endpoint: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disabled_alerts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#disabled_alerts MssqlDatabase#disabled_alerts}.
-        :param email_account_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#email_account_admins MssqlDatabase#email_account_admins}.
-        :param email_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#email_addresses MssqlDatabase#email_addresses}.
-        :param retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#state MssqlDatabase#state}.
-        :param storage_account_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_account_access_key MssqlDatabase#storage_account_access_key}.
-        :param storage_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_endpoint MssqlDatabase#storage_endpoint}.
+        :param disabled_alerts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#disabled_alerts MssqlDatabase#disabled_alerts}.
+        :param email_account_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#email_account_admins MssqlDatabase#email_account_admins}.
+        :param email_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#email_addresses MssqlDatabase#email_addresses}.
+        :param retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#state MssqlDatabase#state}.
+        :param storage_account_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_account_access_key MssqlDatabase#storage_account_access_key}.
+        :param storage_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_endpoint MssqlDatabase#storage_endpoint}.
         '''
         value = MssqlDatabaseThreatDetectionPolicy(
             disabled_alerts=disabled_alerts,
@@ -358,10 +358,10 @@ class MssqlDatabase(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#create MssqlDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#delete MssqlDatabase#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#read MssqlDatabase#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#update MssqlDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#create MssqlDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#delete MssqlDatabase#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#read MssqlDatabase#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#update MssqlDatabase#update}.
         '''
         value = MssqlDatabaseTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -1275,43 +1275,43 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#name MssqlDatabase#name}.
-        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#server_id MssqlDatabase#server_id}.
-        :param auto_pause_delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#auto_pause_delay_in_minutes MssqlDatabase#auto_pause_delay_in_minutes}.
-        :param collation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#collation MssqlDatabase#collation}.
-        :param create_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#create_mode MssqlDatabase#create_mode}.
-        :param creation_source_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#creation_source_database_id MssqlDatabase#creation_source_database_id}.
-        :param elastic_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#elastic_pool_id MssqlDatabase#elastic_pool_id}.
-        :param enclave_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#enclave_type MssqlDatabase#enclave_type}.
-        :param geo_backup_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#geo_backup_enabled MssqlDatabase#geo_backup_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#id MssqlDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#identity MssqlDatabase#identity}
-        :param import_: import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#import MssqlDatabase#import}
-        :param ledger_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#ledger_enabled MssqlDatabase#ledger_enabled}.
-        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#license_type MssqlDatabase#license_type}.
-        :param long_term_retention_policy: long_term_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#long_term_retention_policy MssqlDatabase#long_term_retention_policy}
-        :param maintenance_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#maintenance_configuration_name MssqlDatabase#maintenance_configuration_name}.
-        :param max_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#max_size_gb MssqlDatabase#max_size_gb}.
-        :param min_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#min_capacity MssqlDatabase#min_capacity}.
-        :param read_replica_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#read_replica_count MssqlDatabase#read_replica_count}.
-        :param read_scale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#read_scale MssqlDatabase#read_scale}.
-        :param recover_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#recover_database_id MssqlDatabase#recover_database_id}.
-        :param recovery_point_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#recovery_point_id MssqlDatabase#recovery_point_id}.
-        :param restore_dropped_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#restore_dropped_database_id MssqlDatabase#restore_dropped_database_id}.
-        :param restore_long_term_retention_backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#restore_long_term_retention_backup_id MssqlDatabase#restore_long_term_retention_backup_id}.
-        :param restore_point_in_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#restore_point_in_time MssqlDatabase#restore_point_in_time}.
-        :param sample_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#sample_name MssqlDatabase#sample_name}.
-        :param secondary_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#secondary_type MssqlDatabase#secondary_type}.
-        :param short_term_retention_policy: short_term_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#short_term_retention_policy MssqlDatabase#short_term_retention_policy}
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#sku_name MssqlDatabase#sku_name}.
-        :param storage_account_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_account_type MssqlDatabase#storage_account_type}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#tags MssqlDatabase#tags}.
-        :param threat_detection_policy: threat_detection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#threat_detection_policy MssqlDatabase#threat_detection_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#timeouts MssqlDatabase#timeouts}
-        :param transparent_data_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#transparent_data_encryption_enabled MssqlDatabase#transparent_data_encryption_enabled}.
-        :param transparent_data_encryption_key_automatic_rotation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#transparent_data_encryption_key_automatic_rotation_enabled MssqlDatabase#transparent_data_encryption_key_automatic_rotation_enabled}.
-        :param transparent_data_encryption_key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#transparent_data_encryption_key_vault_key_id MssqlDatabase#transparent_data_encryption_key_vault_key_id}.
-        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#zone_redundant MssqlDatabase#zone_redundant}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#name MssqlDatabase#name}.
+        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#server_id MssqlDatabase#server_id}.
+        :param auto_pause_delay_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#auto_pause_delay_in_minutes MssqlDatabase#auto_pause_delay_in_minutes}.
+        :param collation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#collation MssqlDatabase#collation}.
+        :param create_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#create_mode MssqlDatabase#create_mode}.
+        :param creation_source_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#creation_source_database_id MssqlDatabase#creation_source_database_id}.
+        :param elastic_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#elastic_pool_id MssqlDatabase#elastic_pool_id}.
+        :param enclave_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#enclave_type MssqlDatabase#enclave_type}.
+        :param geo_backup_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#geo_backup_enabled MssqlDatabase#geo_backup_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#id MssqlDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#identity MssqlDatabase#identity}
+        :param import_: import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#import MssqlDatabase#import}
+        :param ledger_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#ledger_enabled MssqlDatabase#ledger_enabled}.
+        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#license_type MssqlDatabase#license_type}.
+        :param long_term_retention_policy: long_term_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#long_term_retention_policy MssqlDatabase#long_term_retention_policy}
+        :param maintenance_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#maintenance_configuration_name MssqlDatabase#maintenance_configuration_name}.
+        :param max_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#max_size_gb MssqlDatabase#max_size_gb}.
+        :param min_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#min_capacity MssqlDatabase#min_capacity}.
+        :param read_replica_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#read_replica_count MssqlDatabase#read_replica_count}.
+        :param read_scale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#read_scale MssqlDatabase#read_scale}.
+        :param recover_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#recover_database_id MssqlDatabase#recover_database_id}.
+        :param recovery_point_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#recovery_point_id MssqlDatabase#recovery_point_id}.
+        :param restore_dropped_database_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#restore_dropped_database_id MssqlDatabase#restore_dropped_database_id}.
+        :param restore_long_term_retention_backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#restore_long_term_retention_backup_id MssqlDatabase#restore_long_term_retention_backup_id}.
+        :param restore_point_in_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#restore_point_in_time MssqlDatabase#restore_point_in_time}.
+        :param sample_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#sample_name MssqlDatabase#sample_name}.
+        :param secondary_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#secondary_type MssqlDatabase#secondary_type}.
+        :param short_term_retention_policy: short_term_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#short_term_retention_policy MssqlDatabase#short_term_retention_policy}
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#sku_name MssqlDatabase#sku_name}.
+        :param storage_account_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_account_type MssqlDatabase#storage_account_type}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#tags MssqlDatabase#tags}.
+        :param threat_detection_policy: threat_detection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#threat_detection_policy MssqlDatabase#threat_detection_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#timeouts MssqlDatabase#timeouts}
+        :param transparent_data_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#transparent_data_encryption_enabled MssqlDatabase#transparent_data_encryption_enabled}.
+        :param transparent_data_encryption_key_automatic_rotation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#transparent_data_encryption_key_automatic_rotation_enabled MssqlDatabase#transparent_data_encryption_key_automatic_rotation_enabled}.
+        :param transparent_data_encryption_key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#transparent_data_encryption_key_vault_key_id MssqlDatabase#transparent_data_encryption_key_vault_key_id}.
+        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#zone_redundant MssqlDatabase#zone_redundant}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1528,51 +1528,51 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#name MssqlDatabase#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#name MssqlDatabase#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def server_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#server_id MssqlDatabase#server_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#server_id MssqlDatabase#server_id}.'''
         result = self._values.get("server_id")
         assert result is not None, "Required property 'server_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def auto_pause_delay_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#auto_pause_delay_in_minutes MssqlDatabase#auto_pause_delay_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#auto_pause_delay_in_minutes MssqlDatabase#auto_pause_delay_in_minutes}.'''
         result = self._values.get("auto_pause_delay_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def collation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#collation MssqlDatabase#collation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#collation MssqlDatabase#collation}.'''
         result = self._values.get("collation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def create_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#create_mode MssqlDatabase#create_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#create_mode MssqlDatabase#create_mode}.'''
         result = self._values.get("create_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def creation_source_database_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#creation_source_database_id MssqlDatabase#creation_source_database_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#creation_source_database_id MssqlDatabase#creation_source_database_id}.'''
         result = self._values.get("creation_source_database_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def elastic_pool_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#elastic_pool_id MssqlDatabase#elastic_pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#elastic_pool_id MssqlDatabase#elastic_pool_id}.'''
         result = self._values.get("elastic_pool_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def enclave_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#enclave_type MssqlDatabase#enclave_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#enclave_type MssqlDatabase#enclave_type}.'''
         result = self._values.get("enclave_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1580,13 +1580,13 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def geo_backup_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#geo_backup_enabled MssqlDatabase#geo_backup_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#geo_backup_enabled MssqlDatabase#geo_backup_enabled}.'''
         result = self._values.get("geo_backup_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#id MssqlDatabase#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#id MssqlDatabase#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1598,7 +1598,7 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["MssqlDatabaseIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#identity MssqlDatabase#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#identity MssqlDatabase#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["MssqlDatabaseIdentity"], result)
@@ -1607,7 +1607,7 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def import_(self) -> typing.Optional["MssqlDatabaseImport"]:
         '''import block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#import MssqlDatabase#import}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#import MssqlDatabase#import}
         '''
         result = self._values.get("import_")
         return typing.cast(typing.Optional["MssqlDatabaseImport"], result)
@@ -1616,13 +1616,13 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ledger_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#ledger_enabled MssqlDatabase#ledger_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#ledger_enabled MssqlDatabase#ledger_enabled}.'''
         result = self._values.get("ledger_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def license_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#license_type MssqlDatabase#license_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#license_type MssqlDatabase#license_type}.'''
         result = self._values.get("license_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1632,32 +1632,32 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MssqlDatabaseLongTermRetentionPolicy"]:
         '''long_term_retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#long_term_retention_policy MssqlDatabase#long_term_retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#long_term_retention_policy MssqlDatabase#long_term_retention_policy}
         '''
         result = self._values.get("long_term_retention_policy")
         return typing.cast(typing.Optional["MssqlDatabaseLongTermRetentionPolicy"], result)
 
     @builtins.property
     def maintenance_configuration_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#maintenance_configuration_name MssqlDatabase#maintenance_configuration_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#maintenance_configuration_name MssqlDatabase#maintenance_configuration_name}.'''
         result = self._values.get("maintenance_configuration_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_size_gb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#max_size_gb MssqlDatabase#max_size_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#max_size_gb MssqlDatabase#max_size_gb}.'''
         result = self._values.get("max_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#min_capacity MssqlDatabase#min_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#min_capacity MssqlDatabase#min_capacity}.'''
         result = self._values.get("min_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def read_replica_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#read_replica_count MssqlDatabase#read_replica_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#read_replica_count MssqlDatabase#read_replica_count}.'''
         result = self._values.get("read_replica_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1665,49 +1665,49 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def read_scale(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#read_scale MssqlDatabase#read_scale}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#read_scale MssqlDatabase#read_scale}.'''
         result = self._values.get("read_scale")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def recover_database_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#recover_database_id MssqlDatabase#recover_database_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#recover_database_id MssqlDatabase#recover_database_id}.'''
         result = self._values.get("recover_database_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def recovery_point_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#recovery_point_id MssqlDatabase#recovery_point_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#recovery_point_id MssqlDatabase#recovery_point_id}.'''
         result = self._values.get("recovery_point_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def restore_dropped_database_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#restore_dropped_database_id MssqlDatabase#restore_dropped_database_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#restore_dropped_database_id MssqlDatabase#restore_dropped_database_id}.'''
         result = self._values.get("restore_dropped_database_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def restore_long_term_retention_backup_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#restore_long_term_retention_backup_id MssqlDatabase#restore_long_term_retention_backup_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#restore_long_term_retention_backup_id MssqlDatabase#restore_long_term_retention_backup_id}.'''
         result = self._values.get("restore_long_term_retention_backup_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def restore_point_in_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#restore_point_in_time MssqlDatabase#restore_point_in_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#restore_point_in_time MssqlDatabase#restore_point_in_time}.'''
         result = self._values.get("restore_point_in_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sample_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#sample_name MssqlDatabase#sample_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#sample_name MssqlDatabase#sample_name}.'''
         result = self._values.get("sample_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secondary_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#secondary_type MssqlDatabase#secondary_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#secondary_type MssqlDatabase#secondary_type}.'''
         result = self._values.get("secondary_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1717,26 +1717,26 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MssqlDatabaseShortTermRetentionPolicy"]:
         '''short_term_retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#short_term_retention_policy MssqlDatabase#short_term_retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#short_term_retention_policy MssqlDatabase#short_term_retention_policy}
         '''
         result = self._values.get("short_term_retention_policy")
         return typing.cast(typing.Optional["MssqlDatabaseShortTermRetentionPolicy"], result)
 
     @builtins.property
     def sku_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#sku_name MssqlDatabase#sku_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#sku_name MssqlDatabase#sku_name}.'''
         result = self._values.get("sku_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_account_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_account_type MssqlDatabase#storage_account_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_account_type MssqlDatabase#storage_account_type}.'''
         result = self._values.get("storage_account_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#tags MssqlDatabase#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#tags MssqlDatabase#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1746,7 +1746,7 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MssqlDatabaseThreatDetectionPolicy"]:
         '''threat_detection_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#threat_detection_policy MssqlDatabase#threat_detection_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#threat_detection_policy MssqlDatabase#threat_detection_policy}
         '''
         result = self._values.get("threat_detection_policy")
         return typing.cast(typing.Optional["MssqlDatabaseThreatDetectionPolicy"], result)
@@ -1755,7 +1755,7 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MssqlDatabaseTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#timeouts MssqlDatabase#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#timeouts MssqlDatabase#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MssqlDatabaseTimeouts"], result)
@@ -1764,7 +1764,7 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def transparent_data_encryption_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#transparent_data_encryption_enabled MssqlDatabase#transparent_data_encryption_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#transparent_data_encryption_enabled MssqlDatabase#transparent_data_encryption_enabled}.'''
         result = self._values.get("transparent_data_encryption_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1772,7 +1772,7 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def transparent_data_encryption_key_automatic_rotation_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#transparent_data_encryption_key_automatic_rotation_enabled MssqlDatabase#transparent_data_encryption_key_automatic_rotation_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#transparent_data_encryption_key_automatic_rotation_enabled MssqlDatabase#transparent_data_encryption_key_automatic_rotation_enabled}.'''
         result = self._values.get("transparent_data_encryption_key_automatic_rotation_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1780,7 +1780,7 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def transparent_data_encryption_key_vault_key_id(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#transparent_data_encryption_key_vault_key_id MssqlDatabase#transparent_data_encryption_key_vault_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#transparent_data_encryption_key_vault_key_id MssqlDatabase#transparent_data_encryption_key_vault_key_id}.'''
         result = self._values.get("transparent_data_encryption_key_vault_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1788,7 +1788,7 @@ class MssqlDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone_redundant(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#zone_redundant MssqlDatabase#zone_redundant}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#zone_redundant MssqlDatabase#zone_redundant}.'''
         result = self._values.get("zone_redundant")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1817,8 +1817,8 @@ class MssqlDatabaseIdentity:
         type: builtins.str,
     ) -> None:
         '''
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#identity_ids MssqlDatabase#identity_ids}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#type MssqlDatabase#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#identity_ids MssqlDatabase#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#type MssqlDatabase#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ecd1cfba0624c5a520ab5d1338e690a0d0a13713721315adb5d510d6d777b0ce)
@@ -1831,14 +1831,14 @@ class MssqlDatabaseIdentity:
 
     @builtins.property
     def identity_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#identity_ids MssqlDatabase#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#identity_ids MssqlDatabase#identity_ids}.'''
         result = self._values.get("identity_ids")
         assert result is not None, "Required property 'identity_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#type MssqlDatabase#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#type MssqlDatabase#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1948,13 +1948,13 @@ class MssqlDatabaseImport:
         storage_account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param administrator_login: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#administrator_login MssqlDatabase#administrator_login}.
-        :param administrator_login_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#administrator_login_password MssqlDatabase#administrator_login_password}.
-        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#authentication_type MssqlDatabase#authentication_type}.
-        :param storage_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_key MssqlDatabase#storage_key}.
-        :param storage_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_key_type MssqlDatabase#storage_key_type}.
-        :param storage_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_uri MssqlDatabase#storage_uri}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_account_id MssqlDatabase#storage_account_id}.
+        :param administrator_login: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#administrator_login MssqlDatabase#administrator_login}.
+        :param administrator_login_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#administrator_login_password MssqlDatabase#administrator_login_password}.
+        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#authentication_type MssqlDatabase#authentication_type}.
+        :param storage_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_key MssqlDatabase#storage_key}.
+        :param storage_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_key_type MssqlDatabase#storage_key_type}.
+        :param storage_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_uri MssqlDatabase#storage_uri}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_account_id MssqlDatabase#storage_account_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fca34f4f7db950e341d6bcd78037f59d4ad3c50d9ec21ff7a39316f45f748780)
@@ -1978,49 +1978,49 @@ class MssqlDatabaseImport:
 
     @builtins.property
     def administrator_login(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#administrator_login MssqlDatabase#administrator_login}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#administrator_login MssqlDatabase#administrator_login}.'''
         result = self._values.get("administrator_login")
         assert result is not None, "Required property 'administrator_login' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def administrator_login_password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#administrator_login_password MssqlDatabase#administrator_login_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#administrator_login_password MssqlDatabase#administrator_login_password}.'''
         result = self._values.get("administrator_login_password")
         assert result is not None, "Required property 'administrator_login_password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def authentication_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#authentication_type MssqlDatabase#authentication_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#authentication_type MssqlDatabase#authentication_type}.'''
         result = self._values.get("authentication_type")
         assert result is not None, "Required property 'authentication_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_key MssqlDatabase#storage_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_key MssqlDatabase#storage_key}.'''
         result = self._values.get("storage_key")
         assert result is not None, "Required property 'storage_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_key_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_key_type MssqlDatabase#storage_key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_key_type MssqlDatabase#storage_key_type}.'''
         result = self._values.get("storage_key_type")
         assert result is not None, "Required property 'storage_key_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_uri MssqlDatabase#storage_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_uri MssqlDatabase#storage_uri}.'''
         result = self._values.get("storage_uri")
         assert result is not None, "Required property 'storage_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_account_id MssqlDatabase#storage_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_account_id MssqlDatabase#storage_account_id}.'''
         result = self._values.get("storage_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2214,11 +2214,11 @@ class MssqlDatabaseLongTermRetentionPolicy:
         yearly_retention: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param immutable_backups_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#immutable_backups_enabled MssqlDatabase#immutable_backups_enabled}.
-        :param monthly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#monthly_retention MssqlDatabase#monthly_retention}.
-        :param weekly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#weekly_retention MssqlDatabase#weekly_retention}.
-        :param week_of_year: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#week_of_year MssqlDatabase#week_of_year}.
-        :param yearly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#yearly_retention MssqlDatabase#yearly_retention}.
+        :param immutable_backups_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#immutable_backups_enabled MssqlDatabase#immutable_backups_enabled}.
+        :param monthly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#monthly_retention MssqlDatabase#monthly_retention}.
+        :param weekly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#weekly_retention MssqlDatabase#weekly_retention}.
+        :param week_of_year: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#week_of_year MssqlDatabase#week_of_year}.
+        :param yearly_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#yearly_retention MssqlDatabase#yearly_retention}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76ebff0d76cb180e40a33a243f66a64e55f9cfcb5d4f340d2b255f9076b5ea20)
@@ -2243,31 +2243,31 @@ class MssqlDatabaseLongTermRetentionPolicy:
     def immutable_backups_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#immutable_backups_enabled MssqlDatabase#immutable_backups_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#immutable_backups_enabled MssqlDatabase#immutable_backups_enabled}.'''
         result = self._values.get("immutable_backups_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def monthly_retention(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#monthly_retention MssqlDatabase#monthly_retention}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#monthly_retention MssqlDatabase#monthly_retention}.'''
         result = self._values.get("monthly_retention")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def weekly_retention(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#weekly_retention MssqlDatabase#weekly_retention}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#weekly_retention MssqlDatabase#weekly_retention}.'''
         result = self._values.get("weekly_retention")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def week_of_year(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#week_of_year MssqlDatabase#week_of_year}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#week_of_year MssqlDatabase#week_of_year}.'''
         result = self._values.get("week_of_year")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def yearly_retention(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#yearly_retention MssqlDatabase#yearly_retention}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#yearly_retention MssqlDatabase#yearly_retention}.'''
         result = self._values.get("yearly_retention")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2447,8 +2447,8 @@ class MssqlDatabaseShortTermRetentionPolicy:
         backup_interval_in_hours: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.
-        :param backup_interval_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#backup_interval_in_hours MssqlDatabase#backup_interval_in_hours}.
+        :param retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.
+        :param backup_interval_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#backup_interval_in_hours MssqlDatabase#backup_interval_in_hours}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8f0836294cdcc71c934f357a6e58ce3bca31b3fc4a34bc62ef7664dd4283120)
@@ -2462,14 +2462,14 @@ class MssqlDatabaseShortTermRetentionPolicy:
 
     @builtins.property
     def retention_days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.'''
         result = self._values.get("retention_days")
         assert result is not None, "Required property 'retention_days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def backup_interval_in_hours(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#backup_interval_in_hours MssqlDatabase#backup_interval_in_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#backup_interval_in_hours MssqlDatabase#backup_interval_in_hours}.'''
         result = self._values.get("backup_interval_in_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2585,13 +2585,13 @@ class MssqlDatabaseThreatDetectionPolicy:
         storage_endpoint: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disabled_alerts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#disabled_alerts MssqlDatabase#disabled_alerts}.
-        :param email_account_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#email_account_admins MssqlDatabase#email_account_admins}.
-        :param email_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#email_addresses MssqlDatabase#email_addresses}.
-        :param retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#state MssqlDatabase#state}.
-        :param storage_account_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_account_access_key MssqlDatabase#storage_account_access_key}.
-        :param storage_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_endpoint MssqlDatabase#storage_endpoint}.
+        :param disabled_alerts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#disabled_alerts MssqlDatabase#disabled_alerts}.
+        :param email_account_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#email_account_admins MssqlDatabase#email_account_admins}.
+        :param email_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#email_addresses MssqlDatabase#email_addresses}.
+        :param retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#state MssqlDatabase#state}.
+        :param storage_account_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_account_access_key MssqlDatabase#storage_account_access_key}.
+        :param storage_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_endpoint MssqlDatabase#storage_endpoint}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2e98c025a6db063682ea13b3651b37663fa3a38c82a10b1d8003229d39c91c9)
@@ -2620,43 +2620,43 @@ class MssqlDatabaseThreatDetectionPolicy:
 
     @builtins.property
     def disabled_alerts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#disabled_alerts MssqlDatabase#disabled_alerts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#disabled_alerts MssqlDatabase#disabled_alerts}.'''
         result = self._values.get("disabled_alerts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def email_account_admins(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#email_account_admins MssqlDatabase#email_account_admins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#email_account_admins MssqlDatabase#email_account_admins}.'''
         result = self._values.get("email_account_admins")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#email_addresses MssqlDatabase#email_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#email_addresses MssqlDatabase#email_addresses}.'''
         result = self._values.get("email_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def retention_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#retention_days MssqlDatabase#retention_days}.'''
         result = self._values.get("retention_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#state MssqlDatabase#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#state MssqlDatabase#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_account_access_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_account_access_key MssqlDatabase#storage_account_access_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_account_access_key MssqlDatabase#storage_account_access_key}.'''
         result = self._values.get("storage_account_access_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#storage_endpoint MssqlDatabase#storage_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#storage_endpoint MssqlDatabase#storage_endpoint}.'''
         result = self._values.get("storage_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2875,10 +2875,10 @@ class MssqlDatabaseTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#create MssqlDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#delete MssqlDatabase#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#read MssqlDatabase#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#update MssqlDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#create MssqlDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#delete MssqlDatabase#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#read MssqlDatabase#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#update MssqlDatabase#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67a38ae82fb23825b1f6cdd5c16c65f0e9a95c529ee4f6d2b234031cbf56ec3e)
@@ -2898,25 +2898,25 @@ class MssqlDatabaseTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#create MssqlDatabase#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#create MssqlDatabase#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#delete MssqlDatabase#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#delete MssqlDatabase#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#read MssqlDatabase#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#read MssqlDatabase#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mssql_database#update MssqlDatabase#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/mssql_database#update MssqlDatabase#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

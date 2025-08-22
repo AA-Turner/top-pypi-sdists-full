@@ -6,6 +6,7 @@ from chalk._gen.chalk.pubsub.v1 import pod_status_pb2 as _pod_status_pb2
 from chalk._gen.chalk.server.v1 import chart_pb2 as _chart_pb2
 from chalk._gen.chalk.server.v1 import pod_request_pb2 as _pod_request_pb2
 from chalk._gen.chalk.usage.v1 import rate_pb2 as _rate_pb2
+from google.type import date_pb2 as _date_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -134,3 +135,37 @@ class SyncUtilizationRequest(_message.Message):
 class SyncUtilizationResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class GetCreditBundlesRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetCreditBundlesResponse(_message.Message):
+    __slots__ = ("bundles",)
+    BUNDLES_FIELD_NUMBER: _ClassVar[int]
+    bundles: _containers.RepeatedCompositeFieldContainer[CreditBundle]
+    def __init__(self, bundles: _Optional[_Iterable[_Union[CreditBundle, _Mapping]]] = ...) -> None: ...
+
+class CreditBundle(_message.Message):
+    __slots__ = ("bundle_id", "purchase_date", "credit_quantity", "purchase_price", "expires_on", "remaining_credits")
+    BUNDLE_ID_FIELD_NUMBER: _ClassVar[int]
+    PURCHASE_DATE_FIELD_NUMBER: _ClassVar[int]
+    CREDIT_QUANTITY_FIELD_NUMBER: _ClassVar[int]
+    PURCHASE_PRICE_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_ON_FIELD_NUMBER: _ClassVar[int]
+    REMAINING_CREDITS_FIELD_NUMBER: _ClassVar[int]
+    bundle_id: str
+    purchase_date: _date_pb2.Date
+    credit_quantity: int
+    purchase_price: int
+    expires_on: _date_pb2.Date
+    remaining_credits: int
+    def __init__(
+        self,
+        bundle_id: _Optional[str] = ...,
+        purchase_date: _Optional[_Union[_date_pb2.Date, _Mapping]] = ...,
+        credit_quantity: _Optional[int] = ...,
+        purchase_price: _Optional[int] = ...,
+        expires_on: _Optional[_Union[_date_pb2.Date, _Mapping]] = ...,
+        remaining_credits: _Optional[int] = ...,
+    ) -> None: ...

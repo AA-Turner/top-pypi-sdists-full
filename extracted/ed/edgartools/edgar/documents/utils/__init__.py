@@ -15,14 +15,6 @@ from edgar.documents.utils.streaming import (
     StreamingParser,
     ChunkedStreamingParser
 )
-from edgar.documents.utils.table_matrix import (
-    TableMatrix,
-    ColumnAnalyzer,
-    MatrixCell
-)
-from edgar.documents.utils.currency_merger import (
-    CurrencyColumnMerger
-)
 
 __all__ = [
     'LRUCache',
@@ -33,9 +25,5 @@ __all__ = [
     'cached',
     'CacheStats',
     'StreamingParser',
-    'ChunkedStreamingParser',
-    'TableMatrix',
-    'ColumnAnalyzer',
-    'MatrixCell',
-    'CurrencyColumnMerger'
+    'ChunkedStreamingParser'
 ]

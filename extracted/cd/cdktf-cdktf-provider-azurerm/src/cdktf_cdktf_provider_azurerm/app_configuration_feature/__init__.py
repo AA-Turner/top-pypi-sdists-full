@@ -1,7 +1,7 @@
 r'''
 # `azurerm_app_configuration_feature`
 
-Refer to the Terraform Registry for docs: [`azurerm_app_configuration_feature`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature).
+Refer to the Terraform Registry for docs: [`azurerm_app_configuration_feature`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppConfigurationFeature(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.appConfigurationFeature.AppConfigurationFeature",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature azurerm_app_configuration_feature}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature azurerm_app_configuration_feature}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class AppConfigurationFeature(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature azurerm_app_configuration_feature} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature azurerm_app_configuration_feature} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param configuration_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#configuration_store_id AppConfigurationFeature#configuration_store_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#description AppConfigurationFeature#description}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#enabled AppConfigurationFeature#enabled}.
-        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#etag AppConfigurationFeature#etag}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#id AppConfigurationFeature#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#key AppConfigurationFeature#key}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#label AppConfigurationFeature#label}.
-        :param locked: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#locked AppConfigurationFeature#locked}.
-        :param percentage_filter_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#percentage_filter_value AppConfigurationFeature#percentage_filter_value}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#tags AppConfigurationFeature#tags}.
-        :param targeting_filter: targeting_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#targeting_filter AppConfigurationFeature#targeting_filter}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#timeouts AppConfigurationFeature#timeouts}
-        :param timewindow_filter: timewindow_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#timewindow_filter AppConfigurationFeature#timewindow_filter}
+        :param configuration_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#configuration_store_id AppConfigurationFeature#configuration_store_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#description AppConfigurationFeature#description}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#enabled AppConfigurationFeature#enabled}.
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#etag AppConfigurationFeature#etag}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#id AppConfigurationFeature#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#key AppConfigurationFeature#key}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#label AppConfigurationFeature#label}.
+        :param locked: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#locked AppConfigurationFeature#locked}.
+        :param percentage_filter_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#percentage_filter_value AppConfigurationFeature#percentage_filter_value}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#tags AppConfigurationFeature#tags}.
+        :param targeting_filter: targeting_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#targeting_filter AppConfigurationFeature#targeting_filter}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#timeouts AppConfigurationFeature#timeouts}
+        :param timewindow_filter: timewindow_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#timewindow_filter AppConfigurationFeature#timewindow_filter}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class AppConfigurationFeature(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppConfigurationFeature to import.
-        :param import_from_id: The id of the existing AppConfigurationFeature that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppConfigurationFeature that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppConfigurationFeature to import is found.
         '''
         if __debug__:
@@ -176,10 +176,10 @@ class AppConfigurationFeature(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#create AppConfigurationFeature#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#delete AppConfigurationFeature#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#read AppConfigurationFeature#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#update AppConfigurationFeature#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#create AppConfigurationFeature#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#delete AppConfigurationFeature#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#read AppConfigurationFeature#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#update AppConfigurationFeature#update}.
         '''
         value = AppConfigurationFeatureTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -556,20 +556,20 @@ class AppConfigurationFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param configuration_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#configuration_store_id AppConfigurationFeature#configuration_store_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#description AppConfigurationFeature#description}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#enabled AppConfigurationFeature#enabled}.
-        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#etag AppConfigurationFeature#etag}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#id AppConfigurationFeature#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#key AppConfigurationFeature#key}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#label AppConfigurationFeature#label}.
-        :param locked: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#locked AppConfigurationFeature#locked}.
-        :param percentage_filter_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#percentage_filter_value AppConfigurationFeature#percentage_filter_value}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#tags AppConfigurationFeature#tags}.
-        :param targeting_filter: targeting_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#targeting_filter AppConfigurationFeature#targeting_filter}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#timeouts AppConfigurationFeature#timeouts}
-        :param timewindow_filter: timewindow_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#timewindow_filter AppConfigurationFeature#timewindow_filter}
+        :param configuration_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#configuration_store_id AppConfigurationFeature#configuration_store_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#description AppConfigurationFeature#description}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#enabled AppConfigurationFeature#enabled}.
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#etag AppConfigurationFeature#etag}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#id AppConfigurationFeature#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#key AppConfigurationFeature#key}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#label AppConfigurationFeature#label}.
+        :param locked: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#locked AppConfigurationFeature#locked}.
+        :param percentage_filter_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#percentage_filter_value AppConfigurationFeature#percentage_filter_value}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#tags AppConfigurationFeature#tags}.
+        :param targeting_filter: targeting_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#targeting_filter AppConfigurationFeature#targeting_filter}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#timeouts AppConfigurationFeature#timeouts}
+        :param timewindow_filter: timewindow_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#timewindow_filter AppConfigurationFeature#timewindow_filter}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -707,21 +707,21 @@ class AppConfigurationFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def configuration_store_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#configuration_store_id AppConfigurationFeature#configuration_store_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#configuration_store_id AppConfigurationFeature#configuration_store_id}.'''
         result = self._values.get("configuration_store_id")
         assert result is not None, "Required property 'configuration_store_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#description AppConfigurationFeature#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#description AppConfigurationFeature#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -729,19 +729,19 @@ class AppConfigurationFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#enabled AppConfigurationFeature#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#enabled AppConfigurationFeature#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def etag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#etag AppConfigurationFeature#etag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#etag AppConfigurationFeature#etag}.'''
         result = self._values.get("etag")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#id AppConfigurationFeature#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#id AppConfigurationFeature#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -751,13 +751,13 @@ class AppConfigurationFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#key AppConfigurationFeature#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#key AppConfigurationFeature#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#label AppConfigurationFeature#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#label AppConfigurationFeature#label}.'''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -765,19 +765,19 @@ class AppConfigurationFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def locked(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#locked AppConfigurationFeature#locked}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#locked AppConfigurationFeature#locked}.'''
         result = self._values.get("locked")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def percentage_filter_value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#percentage_filter_value AppConfigurationFeature#percentage_filter_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#percentage_filter_value AppConfigurationFeature#percentage_filter_value}.'''
         result = self._values.get("percentage_filter_value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#tags AppConfigurationFeature#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#tags AppConfigurationFeature#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -787,7 +787,7 @@ class AppConfigurationFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppConfigurationFeatureTargetingFilter"]]]:
         '''targeting_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#targeting_filter AppConfigurationFeature#targeting_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#targeting_filter AppConfigurationFeature#targeting_filter}
         '''
         result = self._values.get("targeting_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppConfigurationFeatureTargetingFilter"]]], result)
@@ -796,7 +796,7 @@ class AppConfigurationFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AppConfigurationFeatureTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#timeouts AppConfigurationFeature#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#timeouts AppConfigurationFeature#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AppConfigurationFeatureTimeouts"], result)
@@ -807,7 +807,7 @@ class AppConfigurationFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppConfigurationFeatureTimewindowFilter"]]]:
         '''timewindow_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#timewindow_filter AppConfigurationFeature#timewindow_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#timewindow_filter AppConfigurationFeature#timewindow_filter}
         '''
         result = self._values.get("timewindow_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppConfigurationFeatureTimewindowFilter"]]], result)
@@ -842,9 +842,9 @@ class AppConfigurationFeatureTargetingFilter:
         users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_rollout_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#default_rollout_percentage AppConfigurationFeature#default_rollout_percentage}.
-        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#groups AppConfigurationFeature#groups}
-        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#users AppConfigurationFeature#users}.
+        :param default_rollout_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#default_rollout_percentage AppConfigurationFeature#default_rollout_percentage}.
+        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#groups AppConfigurationFeature#groups}
+        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#users AppConfigurationFeature#users}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7094d93b7c574d46104d92a812d7fcb86334a08769885f10d6da790f19d820b)
@@ -861,7 +861,7 @@ class AppConfigurationFeatureTargetingFilter:
 
     @builtins.property
     def default_rollout_percentage(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#default_rollout_percentage AppConfigurationFeature#default_rollout_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#default_rollout_percentage AppConfigurationFeature#default_rollout_percentage}.'''
         result = self._values.get("default_rollout_percentage")
         assert result is not None, "Required property 'default_rollout_percentage' is missing"
         return typing.cast(jsii.Number, result)
@@ -872,14 +872,14 @@ class AppConfigurationFeatureTargetingFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppConfigurationFeatureTargetingFilterGroups"]]]:
         '''groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#groups AppConfigurationFeature#groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#groups AppConfigurationFeature#groups}
         '''
         result = self._values.get("groups")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppConfigurationFeatureTargetingFilterGroups"]]], result)
 
     @builtins.property
     def users(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#users AppConfigurationFeature#users}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#users AppConfigurationFeature#users}.'''
         result = self._values.get("users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -903,8 +903,8 @@ class AppConfigurationFeatureTargetingFilter:
 class AppConfigurationFeatureTargetingFilterGroups:
     def __init__(self, *, name: builtins.str, rollout_percentage: jsii.Number) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.
-        :param rollout_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#rollout_percentage AppConfigurationFeature#rollout_percentage}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.
+        :param rollout_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#rollout_percentage AppConfigurationFeature#rollout_percentage}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16856e63f85d46148f6d93e2f6cb7b4b6bab95a94da8b3124be60f6744d1229b)
@@ -917,14 +917,14 @@ class AppConfigurationFeatureTargetingFilterGroups:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#name AppConfigurationFeature#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rollout_percentage(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#rollout_percentage AppConfigurationFeature#rollout_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#rollout_percentage AppConfigurationFeature#rollout_percentage}.'''
         result = self._values.get("rollout_percentage")
         assert result is not None, "Required property 'rollout_percentage' is missing"
         return typing.cast(jsii.Number, result)
@@ -1336,10 +1336,10 @@ class AppConfigurationFeatureTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#create AppConfigurationFeature#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#delete AppConfigurationFeature#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#read AppConfigurationFeature#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#update AppConfigurationFeature#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#create AppConfigurationFeature#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#delete AppConfigurationFeature#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#read AppConfigurationFeature#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#update AppConfigurationFeature#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83ad2c91cb148b2837d75fa63e882cfcea66b10aecdc128e4cf8bd47d219a2bd)
@@ -1359,25 +1359,25 @@ class AppConfigurationFeatureTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#create AppConfigurationFeature#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#create AppConfigurationFeature#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#delete AppConfigurationFeature#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#delete AppConfigurationFeature#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#read AppConfigurationFeature#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#read AppConfigurationFeature#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#update AppConfigurationFeature#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#update AppConfigurationFeature#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1528,8 +1528,8 @@ class AppConfigurationFeatureTimewindowFilter:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#end AppConfigurationFeature#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#start AppConfigurationFeature#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#end AppConfigurationFeature#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#start AppConfigurationFeature#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d673e1ed1f4974bce809e5882b278ac7c13c3ce58f80f05e99329f5e3b18f990)
@@ -1543,13 +1543,13 @@ class AppConfigurationFeatureTimewindowFilter:
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#end AppConfigurationFeature#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#end AppConfigurationFeature#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_configuration_feature#start AppConfigurationFeature#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_configuration_feature#start AppConfigurationFeature#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 

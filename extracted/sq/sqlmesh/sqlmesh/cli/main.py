@@ -451,6 +451,12 @@ def diff(ctx: click.Context, environment: t.Optional[str] = None) -> None:
     help="Allow destructive forward-only changes to models whose names match the expression.",
 )
 @click.option(
+    "--allow-additive-model",
+    type=str,
+    multiple=True,
+    help="Allow additive forward-only changes to models whose names match the expression.",
+)
+@click.option(
     "--effective-from",
     type=str,
     required=False,
@@ -523,6 +529,12 @@ def diff(ctx: click.Context, environment: t.Optional[str] = None) -> None:
     default=None,
 )
 @click.option(
+    "--ignore-cron",
+    is_flag=True,
+    help="Run all missing intervals, ignoring individual cron schedules. Only applies if --run is set.",
+    default=None,
+)
+@click.option(
     "--min-intervals",
     default=0,
     help="For every model, ensure at least this many intervals are covered by a missing intervals check regardless of the plan start date",
@@ -542,7 +554,9 @@ def plan(
     restate_models = kwargs.pop("restate_model") or None
     select_models = kwargs.pop("select_model") or None
     allow_destructive_models = kwargs.pop("allow_destructive_model") or None
+    allow_additive_models = kwargs.pop("allow_additive_model") or None
     backfill_models = kwargs.pop("backfill_model") or None
+    ignore_cron = kwargs.pop("ignore_cron") or None
     setattr(get_console(), "verbosity", Verbosity(verbose))
 
     context.plan(
@@ -550,7 +564,9 @@ def plan(
         restate_models=restate_models,
         select_models=select_models,
         allow_destructive_models=allow_destructive_models,
+        allow_additive_models=allow_additive_models,
         backfill_models=backfill_models,
+        ignore_cron=ignore_cron,
         **kwargs,
     )
 

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_app_service_managed_certificate`
 
-Refer to the Terraform Registry for docs: [`azurerm_app_service_managed_certificate`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate).
+Refer to the Terraform Registry for docs: [`azurerm_app_service_managed_certificate`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppServiceManagedCertificate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.appServiceManagedCertificate.AppServiceManagedCertificate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate azurerm_app_service_managed_certificate}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate azurerm_app_service_managed_certificate}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class AppServiceManagedCertificate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate azurerm_app_service_managed_certificate} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate azurerm_app_service_managed_certificate} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param custom_hostname_binding_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#custom_hostname_binding_id AppServiceManagedCertificate#custom_hostname_binding_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#id AppServiceManagedCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#tags AppServiceManagedCertificate#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#timeouts AppServiceManagedCertificate#timeouts}
+        :param custom_hostname_binding_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#custom_hostname_binding_id AppServiceManagedCertificate#custom_hostname_binding_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#id AppServiceManagedCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#tags AppServiceManagedCertificate#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#timeouts AppServiceManagedCertificate#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class AppServiceManagedCertificate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppServiceManagedCertificate to import.
-        :param import_from_id: The id of the existing AppServiceManagedCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppServiceManagedCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppServiceManagedCertificate to import is found.
         '''
         if __debug__:
@@ -133,10 +133,10 @@ class AppServiceManagedCertificate(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#create AppServiceManagedCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#delete AppServiceManagedCertificate#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#read AppServiceManagedCertificate#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#update AppServiceManagedCertificate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#create AppServiceManagedCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#delete AppServiceManagedCertificate#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#read AppServiceManagedCertificate#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#update AppServiceManagedCertificate#update}.
         '''
         value = AppServiceManagedCertificateTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -314,10 +314,10 @@ class AppServiceManagedCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param custom_hostname_binding_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#custom_hostname_binding_id AppServiceManagedCertificate#custom_hostname_binding_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#id AppServiceManagedCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#tags AppServiceManagedCertificate#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#timeouts AppServiceManagedCertificate#timeouts}
+        :param custom_hostname_binding_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#custom_hostname_binding_id AppServiceManagedCertificate#custom_hostname_binding_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#id AppServiceManagedCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#tags AppServiceManagedCertificate#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#timeouts AppServiceManagedCertificate#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -426,14 +426,14 @@ class AppServiceManagedCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def custom_hostname_binding_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#custom_hostname_binding_id AppServiceManagedCertificate#custom_hostname_binding_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#custom_hostname_binding_id AppServiceManagedCertificate#custom_hostname_binding_id}.'''
         result = self._values.get("custom_hostname_binding_id")
         assert result is not None, "Required property 'custom_hostname_binding_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#id AppServiceManagedCertificate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#id AppServiceManagedCertificate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -443,7 +443,7 @@ class AppServiceManagedCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#tags AppServiceManagedCertificate#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#tags AppServiceManagedCertificate#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -451,7 +451,7 @@ class AppServiceManagedCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["AppServiceManagedCertificateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#timeouts AppServiceManagedCertificate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#timeouts AppServiceManagedCertificate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AppServiceManagedCertificateTimeouts"], result)
@@ -488,10 +488,10 @@ class AppServiceManagedCertificateTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#create AppServiceManagedCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#delete AppServiceManagedCertificate#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#read AppServiceManagedCertificate#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#update AppServiceManagedCertificate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#create AppServiceManagedCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#delete AppServiceManagedCertificate#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#read AppServiceManagedCertificate#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#update AppServiceManagedCertificate#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__516571591eafe722a64dd5d519d112e1f986fc2bbc55f958ff222cc140c9d362)
@@ -511,25 +511,25 @@ class AppServiceManagedCertificateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#create AppServiceManagedCertificate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#create AppServiceManagedCertificate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#delete AppServiceManagedCertificate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#delete AppServiceManagedCertificate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#read AppServiceManagedCertificate#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#read AppServiceManagedCertificate#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_managed_certificate#update AppServiceManagedCertificate#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_managed_certificate#update AppServiceManagedCertificate#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

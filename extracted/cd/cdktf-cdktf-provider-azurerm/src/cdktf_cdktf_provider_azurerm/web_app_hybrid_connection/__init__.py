@@ -1,7 +1,7 @@
 r'''
 # `azurerm_web_app_hybrid_connection`
 
-Refer to the Terraform Registry for docs: [`azurerm_web_app_hybrid_connection`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection).
+Refer to the Terraform Registry for docs: [`azurerm_web_app_hybrid_connection`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WebAppHybridConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.webAppHybridConnection.WebAppHybridConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection azurerm_web_app_hybrid_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection azurerm_web_app_hybrid_connection}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class WebAppHybridConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection azurerm_web_app_hybrid_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection azurerm_web_app_hybrid_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param hostname: The hostname of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#hostname WebAppHybridConnection#hostname}
-        :param port: The port to use for the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#port WebAppHybridConnection#port}
-        :param relay_id: The ID of the Relay Hybrid Connection to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#relay_id WebAppHybridConnection#relay_id}
-        :param web_app_id: The ID of the Web App for this Hybrid Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#web_app_id WebAppHybridConnection#web_app_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#id WebAppHybridConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param send_key_name: The name of the Relay key with ``Send`` permission to use. Defaults to ``RootManageSharedAccessKey``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#send_key_name WebAppHybridConnection#send_key_name}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#timeouts WebAppHybridConnection#timeouts}
+        :param hostname: The hostname of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#hostname WebAppHybridConnection#hostname}
+        :param port: The port to use for the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#port WebAppHybridConnection#port}
+        :param relay_id: The ID of the Relay Hybrid Connection to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#relay_id WebAppHybridConnection#relay_id}
+        :param web_app_id: The ID of the Web App for this Hybrid Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#web_app_id WebAppHybridConnection#web_app_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#id WebAppHybridConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param send_key_name: The name of the Relay key with ``Send`` permission to use. Defaults to ``RootManageSharedAccessKey``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#send_key_name WebAppHybridConnection#send_key_name}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#timeouts WebAppHybridConnection#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class WebAppHybridConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WebAppHybridConnection to import.
-        :param import_from_id: The id of the existing WebAppHybridConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WebAppHybridConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WebAppHybridConnection to import is found.
         '''
         if __debug__:
@@ -142,10 +142,10 @@ class WebAppHybridConnection(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#create WebAppHybridConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#delete WebAppHybridConnection#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#read WebAppHybridConnection#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#update WebAppHybridConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#create WebAppHybridConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#delete WebAppHybridConnection#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#read WebAppHybridConnection#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#update WebAppHybridConnection#update}.
         '''
         value = WebAppHybridConnectionTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -365,13 +365,13 @@ class WebAppHybridConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param hostname: The hostname of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#hostname WebAppHybridConnection#hostname}
-        :param port: The port to use for the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#port WebAppHybridConnection#port}
-        :param relay_id: The ID of the Relay Hybrid Connection to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#relay_id WebAppHybridConnection#relay_id}
-        :param web_app_id: The ID of the Web App for this Hybrid Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#web_app_id WebAppHybridConnection#web_app_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#id WebAppHybridConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param send_key_name: The name of the Relay key with ``Send`` permission to use. Defaults to ``RootManageSharedAccessKey``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#send_key_name WebAppHybridConnection#send_key_name}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#timeouts WebAppHybridConnection#timeouts}
+        :param hostname: The hostname of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#hostname WebAppHybridConnection#hostname}
+        :param port: The port to use for the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#port WebAppHybridConnection#port}
+        :param relay_id: The ID of the Relay Hybrid Connection to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#relay_id WebAppHybridConnection#relay_id}
+        :param web_app_id: The ID of the Web App for this Hybrid Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#web_app_id WebAppHybridConnection#web_app_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#id WebAppHybridConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param send_key_name: The name of the Relay key with ``Send`` permission to use. Defaults to ``RootManageSharedAccessKey``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#send_key_name WebAppHybridConnection#send_key_name}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#timeouts WebAppHybridConnection#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -488,7 +488,7 @@ class WebAppHybridConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def hostname(self) -> builtins.str:
         '''The hostname of the endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#hostname WebAppHybridConnection#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#hostname WebAppHybridConnection#hostname}
         '''
         result = self._values.get("hostname")
         assert result is not None, "Required property 'hostname' is missing"
@@ -498,7 +498,7 @@ class WebAppHybridConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def port(self) -> jsii.Number:
         '''The port to use for the endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#port WebAppHybridConnection#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#port WebAppHybridConnection#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -508,7 +508,7 @@ class WebAppHybridConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def relay_id(self) -> builtins.str:
         '''The ID of the Relay Hybrid Connection to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#relay_id WebAppHybridConnection#relay_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#relay_id WebAppHybridConnection#relay_id}
         '''
         result = self._values.get("relay_id")
         assert result is not None, "Required property 'relay_id' is missing"
@@ -518,7 +518,7 @@ class WebAppHybridConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def web_app_id(self) -> builtins.str:
         '''The ID of the Web App for this Hybrid Connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#web_app_id WebAppHybridConnection#web_app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#web_app_id WebAppHybridConnection#web_app_id}
         '''
         result = self._values.get("web_app_id")
         assert result is not None, "Required property 'web_app_id' is missing"
@@ -526,7 +526,7 @@ class WebAppHybridConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#id WebAppHybridConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#id WebAppHybridConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -538,7 +538,7 @@ class WebAppHybridConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def send_key_name(self) -> typing.Optional[builtins.str]:
         '''The name of the Relay key with ``Send`` permission to use. Defaults to ``RootManageSharedAccessKey``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#send_key_name WebAppHybridConnection#send_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#send_key_name WebAppHybridConnection#send_key_name}
         '''
         result = self._values.get("send_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -547,7 +547,7 @@ class WebAppHybridConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["WebAppHybridConnectionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#timeouts WebAppHybridConnection#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#timeouts WebAppHybridConnection#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["WebAppHybridConnectionTimeouts"], result)
@@ -584,10 +584,10 @@ class WebAppHybridConnectionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#create WebAppHybridConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#delete WebAppHybridConnection#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#read WebAppHybridConnection#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#update WebAppHybridConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#create WebAppHybridConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#delete WebAppHybridConnection#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#read WebAppHybridConnection#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#update WebAppHybridConnection#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43a99bcaa12ddbae2a84dc730f60142d4652a07549c1437c51ef3db057bfed32)
@@ -607,25 +607,25 @@ class WebAppHybridConnectionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#create WebAppHybridConnection#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#create WebAppHybridConnection#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#delete WebAppHybridConnection#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#delete WebAppHybridConnection#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#read WebAppHybridConnection#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#read WebAppHybridConnection#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/web_app_hybrid_connection#update WebAppHybridConnection#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/web_app_hybrid_connection#update WebAppHybridConnection#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

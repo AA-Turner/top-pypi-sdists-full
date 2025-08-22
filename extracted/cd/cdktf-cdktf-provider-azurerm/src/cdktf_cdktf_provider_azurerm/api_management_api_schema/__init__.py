@@ -1,7 +1,7 @@
 r'''
 # `azurerm_api_management_api_schema`
 
-Refer to the Terraform Registry for docs: [`azurerm_api_management_api_schema`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema).
+Refer to the Terraform Registry for docs: [`azurerm_api_management_api_schema`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApiManagementApiSchema(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.apiManagementApiSchema.ApiManagementApiSchema",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema azurerm_api_management_api_schema}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema azurerm_api_management_api_schema}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ApiManagementApiSchema(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema azurerm_api_management_api_schema} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema azurerm_api_management_api_schema} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#api_management_name ApiManagementApiSchema#api_management_name}.
-        :param api_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#api_name ApiManagementApiSchema#api_name}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#content_type ApiManagementApiSchema#content_type}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#resource_group_name ApiManagementApiSchema#resource_group_name}.
-        :param schema_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#schema_id ApiManagementApiSchema#schema_id}.
-        :param components: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#components ApiManagementApiSchema#components}.
-        :param definitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#definitions ApiManagementApiSchema#definitions}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#id ApiManagementApiSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#timeouts ApiManagementApiSchema#timeouts}
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#value ApiManagementApiSchema#value}.
+        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#api_management_name ApiManagementApiSchema#api_management_name}.
+        :param api_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#api_name ApiManagementApiSchema#api_name}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#content_type ApiManagementApiSchema#content_type}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#resource_group_name ApiManagementApiSchema#resource_group_name}.
+        :param schema_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#schema_id ApiManagementApiSchema#schema_id}.
+        :param components: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#components ApiManagementApiSchema#components}.
+        :param definitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#definitions ApiManagementApiSchema#definitions}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#id ApiManagementApiSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#timeouts ApiManagementApiSchema#timeouts}
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#value ApiManagementApiSchema#value}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ApiManagementApiSchema(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApiManagementApiSchema to import.
-        :param import_from_id: The id of the existing ApiManagementApiSchema that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApiManagementApiSchema that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApiManagementApiSchema to import is found.
         '''
         if __debug__:
@@ -151,10 +151,10 @@ class ApiManagementApiSchema(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#create ApiManagementApiSchema#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#delete ApiManagementApiSchema#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#read ApiManagementApiSchema#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#update ApiManagementApiSchema#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#create ApiManagementApiSchema#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#delete ApiManagementApiSchema#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#read ApiManagementApiSchema#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#update ApiManagementApiSchema#update}.
         '''
         value = ApiManagementApiSchemaTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -414,16 +414,16 @@ class ApiManagementApiSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#api_management_name ApiManagementApiSchema#api_management_name}.
-        :param api_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#api_name ApiManagementApiSchema#api_name}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#content_type ApiManagementApiSchema#content_type}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#resource_group_name ApiManagementApiSchema#resource_group_name}.
-        :param schema_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#schema_id ApiManagementApiSchema#schema_id}.
-        :param components: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#components ApiManagementApiSchema#components}.
-        :param definitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#definitions ApiManagementApiSchema#definitions}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#id ApiManagementApiSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#timeouts ApiManagementApiSchema#timeouts}
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#value ApiManagementApiSchema#value}.
+        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#api_management_name ApiManagementApiSchema#api_management_name}.
+        :param api_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#api_name ApiManagementApiSchema#api_name}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#content_type ApiManagementApiSchema#content_type}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#resource_group_name ApiManagementApiSchema#resource_group_name}.
+        :param schema_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#schema_id ApiManagementApiSchema#schema_id}.
+        :param components: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#components ApiManagementApiSchema#components}.
+        :param definitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#definitions ApiManagementApiSchema#definitions}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#id ApiManagementApiSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#timeouts ApiManagementApiSchema#timeouts}
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#value ApiManagementApiSchema#value}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -546,54 +546,54 @@ class ApiManagementApiSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def api_management_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#api_management_name ApiManagementApiSchema#api_management_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#api_management_name ApiManagementApiSchema#api_management_name}.'''
         result = self._values.get("api_management_name")
         assert result is not None, "Required property 'api_management_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def api_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#api_name ApiManagementApiSchema#api_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#api_name ApiManagementApiSchema#api_name}.'''
         result = self._values.get("api_name")
         assert result is not None, "Required property 'api_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#content_type ApiManagementApiSchema#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#content_type ApiManagementApiSchema#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#resource_group_name ApiManagementApiSchema#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#resource_group_name ApiManagementApiSchema#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def schema_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#schema_id ApiManagementApiSchema#schema_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#schema_id ApiManagementApiSchema#schema_id}.'''
         result = self._values.get("schema_id")
         assert result is not None, "Required property 'schema_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def components(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#components ApiManagementApiSchema#components}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#components ApiManagementApiSchema#components}.'''
         result = self._values.get("components")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def definitions(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#definitions ApiManagementApiSchema#definitions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#definitions ApiManagementApiSchema#definitions}.'''
         result = self._values.get("definitions")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#id ApiManagementApiSchema#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#id ApiManagementApiSchema#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -605,14 +605,14 @@ class ApiManagementApiSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApiManagementApiSchemaTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#timeouts ApiManagementApiSchema#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#timeouts ApiManagementApiSchema#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApiManagementApiSchemaTimeouts"], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#value ApiManagementApiSchema#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#value ApiManagementApiSchema#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -648,10 +648,10 @@ class ApiManagementApiSchemaTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#create ApiManagementApiSchema#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#delete ApiManagementApiSchema#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#read ApiManagementApiSchema#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#update ApiManagementApiSchema#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#create ApiManagementApiSchema#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#delete ApiManagementApiSchema#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#read ApiManagementApiSchema#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#update ApiManagementApiSchema#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d80d8727787cc1119079116b0c096c7efadc2045a6138f32a060e3a2595f148d)
@@ -671,25 +671,25 @@ class ApiManagementApiSchemaTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#create ApiManagementApiSchema#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#create ApiManagementApiSchema#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#delete ApiManagementApiSchema#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#delete ApiManagementApiSchema#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#read ApiManagementApiSchema#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#read ApiManagementApiSchema#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/api_management_api_schema#update ApiManagementApiSchema#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/api_management_api_schema#update ApiManagementApiSchema#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

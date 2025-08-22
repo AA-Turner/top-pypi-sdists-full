@@ -16,6 +16,7 @@ from sqlmesh.core.config import (
 )
 from sqlmesh.core.context_diff import ContextDiff
 from sqlmesh.core.environment import EnvironmentNamingInfo
+from sqlmesh.core.plan.common import should_force_rebuild, is_breaking_kind_change
 from sqlmesh.core.plan.definition import (
     Plan,
     SnapshotMapping,
@@ -25,7 +26,8 @@ from sqlmesh.core.plan.definition import (
 from sqlmesh.core.schema_diff import (
     get_schema_differ,
     has_drop_alteration,
-    get_dropped_column_names,
+    has_additive_alteration,
+    TableAlterOperation,
 )
 from sqlmesh.core.snapshot import (
     DeployabilityIndex,
@@ -72,6 +74,7 @@ class PlanBuilder:
         is_dev: Whether this plan is for development purposes.
         forward_only: Whether the purpose of the plan is to make forward only changes.
         allow_destructive_models: A list of fully qualified model names whose forward-only changes are allowed to be destructive.
+        allow_additive_models: A list of fully qualified model names whose forward-only changes are allowed to be additive.
         environment_ttl: The period of time that a development environment should exist before being deleted.
         categorizer_config: Auto categorization settings.
         auto_categorization_enabled: Whether to apply auto categorization.
@@ -88,6 +91,7 @@ class PlanBuilder:
             the environment is not finalized.
         start_override_per_model: A mapping of model FQNs to target start dates.
         end_override_per_model: A mapping of model FQNs to target end dates.
+        ignore_cron: Whether to ignore the node's cron schedule when computing missing intervals.
         explain: Whether to explain the plan instead of applying it.
     """
 
@@ -106,6 +110,7 @@ class PlanBuilder:
         is_dev: bool = False,
         forward_only: bool = False,
         allow_destructive_models: t.Optional[t.Iterable[str]] = None,
+        allow_additive_models: t.Optional[t.Iterable[str]] = None,
         environment_ttl: t.Optional[str] = None,
         environment_suffix_target: EnvironmentSuffixTarget = EnvironmentSuffixTarget.default,
         environment_catalog_mapping: t.Optional[t.Dict[re.Pattern, str]] = None,
@@ -119,6 +124,7 @@ class PlanBuilder:
         end_bounded: bool = False,
         ensure_finalized_snapshots: bool = False,
         explain: bool = False,
+        ignore_cron: bool = False,
         start_override_per_model: t.Optional[t.Dict[str, datetime]] = None,
         end_override_per_model: t.Optional[t.Dict[str, datetime]] = None,
         console: t.Optional[PlanBuilderConsole] = None,
@@ -133,9 +139,13 @@ class PlanBuilder:
         self._allow_destructive_models = set(
             allow_destructive_models if allow_destructive_models is not None else []
         )
+        self._allow_additive_models = set(
+            allow_additive_models if allow_additive_models is not None else []
+        )
         self._enable_preview = enable_preview
         self._end_bounded = end_bounded
         self._ensure_finalized_snapshots = ensure_finalized_snapshots
+        self._ignore_cron = ignore_cron
         self._start_override_per_model = start_override_per_model
         self._end_override_per_model = end_override_per_model
         self._environment_ttl = environment_ttl
@@ -154,6 +164,7 @@ class PlanBuilder:
 
         self._backfill_models = backfill_models
         self._end = end or default_end
+        self._default_start = default_start
         self._apply = apply
         self._console = console or get_console()
         self._choices: t.Dict[SnapshotId, SnapshotChangeCategory] = {}
@@ -162,7 +173,7 @@ class PlanBuilder:
 
         self._start = start
         if not self._start and (
-            self._forward_only_preview_needed or self._auto_restatement_preview_needed
+            self._forward_only_preview_needed or self._non_forward_only_preview_needed
         ):
             self._start = default_start or yesterday_ds()
 
@@ -267,7 +278,6 @@ class PlanBuilder:
         self._ensure_no_new_snapshots_with_restatements()
         self._ensure_new_env_with_changes()
         self._ensure_valid_date_range()
-        self._ensure_no_forward_only_revert()
         self._ensure_no_broken_references()
 
         self._apply_effective_from()
@@ -275,9 +285,9 @@ class PlanBuilder:
         dag = self._build_dag()
         directly_modified, indirectly_modified = self._build_directly_and_indirectly_modified(dag)
 
-        self._check_destructive_changes(directly_modified)
+        self._check_destructive_additive_changes(directly_modified)
         self._categorize_snapshots(dag, indirectly_modified)
-        self._adjust_new_snapshot_intervals()
+        self._adjust_snapshot_intervals()
 
         deployability_index = (
             DeployabilityIndex.create(
@@ -319,6 +329,7 @@ class PlanBuilder:
             forward_only=self._forward_only,
             explain=self._explain,
             allow_destructive_models=t.cast(t.Set, self._allow_destructive_models),
+            allow_additive_models=t.cast(t.Set, self._allow_additive_models),
             include_unmodified=self._include_unmodified,
             environment_ttl=self._environment_ttl,
             environment_naming_info=self.environment_naming_info,
@@ -334,6 +345,7 @@ class PlanBuilder:
             execution_time=plan_execution_time,
             end_bounded=self._end_bounded,
             ensure_finalized_snapshots=self._ensure_finalized_snapshots,
+            ignore_cron=self._ignore_cron,
             user_provided_flags=self._user_provided_flags,
         )
         self._latest_plan = plan
@@ -509,32 +521,37 @@ class PlanBuilder:
             ).sorted
         }
 
-    def _adjust_new_snapshot_intervals(self) -> None:
-        old_snapshots = {
-            (old.name, old.version_get_or_generate()): old
-            for _, old in self._context_diff.modified_snapshots.values()
-        }
-
-        for new in self._context_diff.new_snapshots.values():
-            new.intervals = []
-            new.dev_intervals = []
-            old = old_snapshots.get((new.name, new.version_get_or_generate()))
-            if not old:
+    def _adjust_snapshot_intervals(self) -> None:
+        for new, old in self._context_diff.modified_snapshots.values():
+            if not new.is_model or not old.is_model:
                 continue
-            new.merge_intervals(old)
-            if new.is_forward_only:
-                new.dev_intervals = new.intervals.copy()
+            is_same_version = old.version_get_or_generate() == new.version_get_or_generate()
+            if is_same_version and should_force_rebuild(old, new):
+                # If the difference between 2 snapshots requires a full rebuild,
+                # then clear the intervals for the new snapshot.
+                self._context_diff.snapshots[new.snapshot_id].intervals = []
+            elif new.snapshot_id in self._context_diff.new_snapshots:
+                new.intervals = []
+                new.dev_intervals = []
+                if is_same_version:
+                    new.merge_intervals(old)
+                    if new.is_forward_only:
+                        new.dev_intervals = new.intervals.copy()
 
-    def _check_destructive_changes(self, directly_modified: t.Set[SnapshotId]) -> None:
+    def _check_destructive_additive_changes(self, directly_modified: t.Set[SnapshotId]) -> None:
         for s_id in sorted(directly_modified):
             if s_id.name not in self._context_diff.modified_snapshots:
                 continue
 
             snapshot = self._context_diff.snapshots[s_id]
+            needs_destructive_check = snapshot.needs_destructive_check(
+                self._allow_destructive_models
+            )
+            needs_additive_check = snapshot.needs_additive_check(self._allow_additive_models)
             # should we raise/warn if this snapshot has/inherits a destructive change?
-            should_raise_or_warn = (
-                self._is_forward_only_change(s_id) or self._forward_only
-            ) and snapshot.needs_destructive_check(self._allow_destructive_models)
+            should_raise_or_warn = (self._is_forward_only_change(s_id) or self._forward_only) and (
+                needs_destructive_check or needs_additive_check
+            )
 
             if not should_raise_or_warn or not snapshot.is_model:
                 continue
@@ -548,21 +565,24 @@ class PlanBuilder:
             if columns_to_types_all_known(old_columns_to_types) and columns_to_types_all_known(
                 new_columns_to_types
             ):
-                schema_diff = get_schema_differ(snapshot.model.dialect).compare_columns(
-                    new.name,
-                    old_columns_to_types,
-                    new_columns_to_types,
+                alter_operations = t.cast(
+                    t.List[TableAlterOperation],
+                    get_schema_differ(snapshot.model.dialect).compare_columns(
+                        new.name,
+                        old_columns_to_types,
+                        new_columns_to_types,
+                        ignore_destructive=new.model.on_destructive_change.is_ignore,
+                        ignore_additive=new.model.on_additive_change.is_ignore,
+                    ),
                 )
 
-                if has_drop_alteration(schema_diff):
-                    snapshot_name = snapshot.name
-                    dropped_column_names = get_dropped_column_names(schema_diff)
-                    model_dialect = snapshot.model.dialect
+                snapshot_name = snapshot.name
+                model_dialect = snapshot.model.dialect
 
+                if needs_destructive_check and has_drop_alteration(alter_operations):
                     self._console.log_destructive_change(
                         snapshot_name,
-                        dropped_column_names,
-                        schema_diff,
+                        alter_operations,
                         model_dialect,
                         error=not snapshot.model.on_destructive_change.is_warn,
                     )
@@ -570,6 +590,16 @@ class PlanBuilder:
                         raise PlanError(
                             "Plan requires a destructive change to a forward-only model."
                         )
+
+                if needs_additive_check and has_additive_alteration(alter_operations):
+                    self._console.log_additive_change(
+                        snapshot_name,
+                        alter_operations,
+                        model_dialect,
+                        error=not snapshot.model.on_additive_change.is_warn,
+                    )
+                    if snapshot.model.on_additive_change.is_error:
+                        raise PlanError("Plan requires an additive change to a forward-only model.")
 
     def _categorize_snapshots(
         self, dag: DAG[SnapshotId], indirectly_modified: SnapshotMapping
@@ -587,7 +617,12 @@ class PlanBuilder:
             if not snapshot or not self._is_new_snapshot(snapshot):
                 continue
 
-            forward_only = self._is_forward_only_change(s_id) or self._forward_only
+            forward_only = self._forward_only or self._is_forward_only_change(s_id)
+            if forward_only and s_id.name in self._context_diff.modified_snapshots:
+                new, old = self._context_diff.modified_snapshots[s_id.name]
+                if is_breaking_kind_change(old, new) or snapshot.is_seed:
+                    # Breaking kind changes and seed changes can't be forward-only.
+                    forward_only = False
 
             if s_id in self._choices:
                 snapshot.categorize_as(self._choices[s_id], forward_only)
@@ -608,15 +643,10 @@ class PlanBuilder:
         s_id = snapshot.snapshot_id
 
         if self._context_diff.directly_modified(s_id.name):
-            new, old = self._context_diff.modified_snapshots[s_id.name]
-            is_breaking_kind_change = _is_breaking_kind_change(old, new)
-            if is_breaking_kind_change or snapshot.is_seed:
-                # Breaking kind changes and seed changes can't be forward-only.
-                forward_only = False
-
             if self._auto_categorization_enabled:
-                if is_breaking_kind_change:
-                    snapshot.categorize_as(SnapshotChangeCategory.BREAKING, forward_only)
+                new, old = self._context_diff.modified_snapshots[s_id.name]
+                if is_breaking_kind_change(old, new):
+                    snapshot.categorize_as(SnapshotChangeCategory.BREAKING, False)
                     return
 
                 s_id_with_missing_columns: t.Optional[SnapshotId] = None
@@ -767,7 +797,7 @@ class PlanBuilder:
         if snapshot.name in self._context_diff.modified_snapshots:
             _, old = self._context_diff.modified_snapshots[snapshot.name]
             # If the model kind has changed in a breaking way, then we can't consider this to be a forward-only change.
-            if snapshot.is_model and _is_breaking_kind_change(old, snapshot):
+            if snapshot.is_model and is_breaking_kind_change(old, snapshot):
                 return False
         return (
             snapshot.is_model and snapshot.model.forward_only and bool(snapshot.previous_versions)
@@ -795,26 +825,24 @@ class PlanBuilder:
                     f"Plan end date: '{time_like_to_str(end)}' cannot be in the future (execution time: '{time_like_to_str(self.execution_time)}')"
                 )
 
-    def _ensure_no_forward_only_revert(self) -> None:
-        """Ensures that a previously superseded breaking / non-breaking snapshot is not being
-        used again to replace an existing forward-only snapshot with the same version.
-
-        In other words there is no going back to the original non-forward-only snapshot with
-        the same version once a forward-only change for that version has been introduced.
-        """
-        for name, (candidate, promoted) in self._context_diff.modified_snapshots.items():
-            if (
-                candidate.snapshot_id not in self._context_diff.new_snapshots
-                and candidate.is_model
-                and not candidate.model.forward_only
-                and promoted.is_forward_only
-                and not promoted.is_paused
-                and not candidate.is_no_rebuild
-                and promoted.version == candidate.version
-            ):
-                raise PlanError(
-                    f"Attempted to revert to an unrevertable version of model '{name}'. Run `sqlmesh plan` again to mitigate the issue."
+        # Validate model-specific start/end dates
+        if (start := self.start or self._default_start) and (end := self.end):
+            start_ts = to_datetime(start)
+            end_ts = to_datetime(end)
+            if start_ts > end_ts:
+                models_to_check: t.Set[str] = (
+                    set(self._backfill_models or [])
+                    | set(self._context_diff.modified_snapshots.keys())
+                    | {s.name for s in self._context_diff.added}
+                    | set((self._end_override_per_model or {}).keys())
                 )
+                for model_name in models_to_check:
+                    if snapshot := self._model_fqn_to_snapshot.get(model_name):
+                        if snapshot.node.start is None or to_datetime(snapshot.node.start) > end_ts:
+                            raise PlanError(
+                                f"Model '{model_name}': Start date / time '({time_like_to_str(start_ts)})' can't be greater than end date / time '({time_like_to_str(end_ts)})'.\n"
+                                f"Set the `start` attribute in your project config model defaults to avoid this issue."
+                            )
 
     def _ensure_no_broken_references(self) -> None:
         for snapshot in self._context_diff.snapshots.values():
@@ -865,12 +893,18 @@ class PlanBuilder:
         )
 
     @cached_property
-    def _auto_restatement_preview_needed(self) -> bool:
-        return self._is_dev and any(
-            snapshot.model.auto_restatement_cron is not None
-            for snapshot in self._modified_and_added_snapshots
-            if snapshot.is_model
-        )
+    def _non_forward_only_preview_needed(self) -> bool:
+        if not self._is_dev:
+            return False
+        for snapshot in self._modified_and_added_snapshots:
+            if not snapshot.is_model:
+                continue
+            if (
+                not snapshot.virtual_environment_mode.is_full
+                or snapshot.model.auto_restatement_cron is not None
+            ):
+                return True
+        return False
 
     @cached_property
     def _modified_and_added_snapshots(self) -> t.List[Snapshot]:
@@ -880,16 +914,3 @@ class PlanBuilder:
             if snapshot.name in self._context_diff.modified_snapshots
             or snapshot.snapshot_id in self._context_diff.added
         ]
-
-
-def _is_breaking_kind_change(old: Snapshot, new: Snapshot) -> bool:
-    if old.model.kind.name == new.model.kind.name:
-        # If the kind hasn't changed, then it's not a breaking change
-        return False
-    if not old.is_incremental or not new.is_incremental:
-        # If either is not incremental, then it's a breaking change
-        return True
-    if old.model.partitioned_by == new.model.partitioned_by:
-        # If the partitioning hasn't changed, then it's not a breaking change
-        return False
-    return True

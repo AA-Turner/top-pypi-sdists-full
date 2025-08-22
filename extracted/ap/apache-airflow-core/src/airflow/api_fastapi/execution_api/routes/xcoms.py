@@ -230,7 +230,6 @@ class GetXComSliceFilterParams(BaseModel):
     start: int | None = None
     stop: int | None = None
     step: int | None = None
-    include_prior_dates: bool = False
 
 
 @router.get(
@@ -250,7 +249,6 @@ def get_mapped_xcom_by_slice(
         key=key,
         task_ids=task_id,
         dag_ids=dag_id,
-        include_prior_dates=params.include_prior_dates,
         session=session,
     )
     query = query.order_by(None)

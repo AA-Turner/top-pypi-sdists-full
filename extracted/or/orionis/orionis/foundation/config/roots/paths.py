@@ -6,23 +6,23 @@ from orionis.support.entities.base import BaseEntity
 @dataclass(frozen=True, kw_only=True)
 class Paths(BaseEntity):
 
-    console_scheduler: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'console' / 'scheduler.py').resolve()),
+    root: str = field(
+        default_factory = lambda: str(Path.cwd().resolve()),
         metadata = {
-            'description': 'Path to the console scheduler (Kernel) file.',
-            'default': lambda: str((Path.cwd() / 'app' / 'console' / 'scheduler.py').resolve())
+            'description': 'The root directory of the application.',
+            'default': lambda: str(Path.cwd().resolve())
         }
     )
 
-    console_commands: str = field(
+    commands: str = field(
         default_factory = lambda: str((Path.cwd() / 'app' / 'console' / 'commands').resolve()),
         metadata = {
-            'description': 'Directory containing custom ArtisanStyle console commands.',
+            'description': 'Directory containing subfolders for console commands and scheduler.py.',
             'default': lambda: str((Path.cwd() / 'app' / 'console' / 'commands').resolve())
         }
     )
 
-    http_controllers: str = field(
+    controllers: str = field(
         default_factory = lambda: str((Path.cwd() / 'app' / 'http' / 'controllers').resolve()),
         metadata = {
             'description': 'Directory containing HTTP controller classes.',
@@ -30,7 +30,7 @@ class Paths(BaseEntity):
         }
     )
 
-    http_middleware: str = field(
+    middleware: str = field(
         default_factory = lambda: str((Path.cwd() / 'app' / 'http' / 'middleware').resolve()),
         metadata = {
             'description': 'Directory containing HTTP middleware classes.',
@@ -38,7 +38,7 @@ class Paths(BaseEntity):
         }
     )
 
-    http_requests: str = field(
+    requests: str = field(
         default_factory = lambda: str((Path.cwd() / 'app' / 'http' / 'requests').resolve()),
         metadata = {
             'description': 'Directory containing HTTP form request validation classes.',
@@ -142,35 +142,11 @@ class Paths(BaseEntity):
         }
     )
 
-    routes_web: str = field(
-        default_factory = lambda: str((Path.cwd() / 'routes' / 'web.py').resolve()),
+    routes: str = field(
+        default_factory = lambda: str((Path.cwd() / 'routes').resolve()),
         metadata = {
             'description': 'Path to the web routes definition file.',
-            'default': lambda: str((Path.cwd() / 'routes' / 'web.py').resolve())
-        }
-    )
-
-    routes_api: str = field(
-        default_factory = lambda: str((Path.cwd() / 'routes' / 'api.py').resolve()),
-        metadata = {
-            'description': 'Path to the API routes definition file.',
-            'default': lambda: str((Path.cwd() / 'routes' / 'api.py').resolve())
-        }
-    )
-
-    routes_console: str = field(
-        default_factory = lambda: str((Path.cwd() / 'routes' / 'console.py').resolve()),
-        metadata = {
-            'description': 'Path to the console routes definition file.',
-            'default': lambda: str((Path.cwd() / 'routes' / 'console.py').resolve())
-        }
-    )
-
-    routes_channels: str = field(
-        default_factory = lambda: str((Path.cwd() / 'routes' / 'channels.py').resolve()),
-        metadata = {
-            'description': 'Path to the broadcast channels routes file.',
-            'default': lambda: str((Path.cwd() / 'routes' / 'channels.py').resolve())
+            'default': lambda: str((Path.cwd() / 'routes').resolve())
         }
     )
 
@@ -206,7 +182,7 @@ class Paths(BaseEntity):
         }
     )
 
-    storage_logs: str = field(
+    logs: str = field(
         default_factory = lambda: str((Path.cwd() / 'storage' / 'logs').resolve()),
         metadata = {
             'description': 'Directory containing application log files.',
@@ -214,7 +190,7 @@ class Paths(BaseEntity):
         }
     )
 
-    storage_framework: str = field(
+    framework: str = field(
         default_factory = lambda: str((Path.cwd() / 'storage' / 'framework').resolve()),
         metadata = {
             'description': 'Directory for framework-generated files (cache, sessions, views).',
@@ -222,7 +198,7 @@ class Paths(BaseEntity):
         }
     )
 
-    storage_sessions: str = field(
+    sessions: str = field(
         default_factory = lambda: str((Path.cwd() / 'storage' / 'framework' / 'sessions').resolve()),
         metadata = {
             'description': 'Directory containing session files.',
@@ -230,7 +206,7 @@ class Paths(BaseEntity):
         }
     )
 
-    storage_cache: str = field(
+    cache: str = field(
         default_factory = lambda: str((Path.cwd() / 'storage' / 'framework' / 'cache').resolve()),
         metadata = {
             'description': 'Directory containing framework cache files.',
@@ -238,7 +214,7 @@ class Paths(BaseEntity):
         }
     )
 
-    storage_views: str = field(
+    views: str = field(
         default_factory = lambda: str((Path.cwd() / 'storage' / 'framework' / 'views').resolve()),
         metadata = {
             'description': 'Directory containing compiled view files.',
@@ -246,7 +222,7 @@ class Paths(BaseEntity):
         }
     )
 
-    storage_testing: str = field(
+    testing: str = field(
         default_factory = lambda: str((Path.cwd() / 'storage' / 'framework' / 'testing').resolve()),
         metadata = {
             'description': 'Directory containing compiled view files.',
@@ -254,19 +230,46 @@ class Paths(BaseEntity):
         }
     )
 
+    storage: str = field(
+        default_factory = lambda: str((Path.cwd() / 'storage').resolve()),
+        metadata = {
+            'description': 'Directory for application storage files.',
+            'default': lambda: str((Path.cwd() / 'storage').resolve())
+        }
+    )
+
     def __post_init__(self) -> None:
-        super().__post_init__()
         """
-        Ensures all path attributes are of type str.
+        Post-initialization hook to validate path attributes.
+
+        This method is called automatically after the dataclass is initialized.
+        It ensures that all attributes representing paths are of type `str`.
+        If any attribute is not a string, an `OrionisIntegrityException` is raised
+        to prevent invalid configuration.
+
+        Parameters
+        ----------
+        self : Paths
+            The instance of the Paths dataclass.
+
+        Returns
+        -------
+        None
+            This method does not return any value.
 
         Raises
         ------
         OrionisIntegrityException
-            If any attribute is not a string.
+            If any attribute is not of type `str`.
         """
+        super().__post_init__()  # Call the parent class's post-init if defined
+
+        # Iterate over all dataclass fields to validate their types
         for field_ in fields(self):
             value = getattr(self, field_.name)
+            # Check if the field value is not a string
             if not isinstance(value, str):
+                # Raise an exception if the type is invalid
                 raise OrionisIntegrityException(
                     f"Invalid type for '{field_.name}': expected str, got {type(value).__name__}"
                 )

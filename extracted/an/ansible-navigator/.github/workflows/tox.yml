@@ -51,7 +51,7 @@ jobs:
       matrix: ${{ fromJson(needs.pre.outputs.matrix) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # needed by setuptools-scm
 
@@ -100,12 +100,11 @@ jobs:
 
       - name: Archive logs and coverage data
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: coactions/upload-artifact@v4
         with:
           name: logs-${{ matrix.name }}.zip
           include-hidden-files: true
           path: |
-            .tox/**/log/
             .tox/**/coverage.xml
 
       - name: Upload test results to Codecov
@@ -143,7 +142,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       # checkout needed for codecov action which needs codecov.yml file
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -161,7 +160,7 @@ jobs:
           separate-directories: true
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: logs.zip
           path: .

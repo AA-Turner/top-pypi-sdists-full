@@ -42,7 +42,7 @@ The public attributes for this class are
 # This is a rather literal translation of the GeographicLib::GeodesicLine class
 # to python.  See the documentation for the C++ class for more information at
 #
-#    https://geographiclib.sourceforge.io/html/annotated.html
+#    https://geographiclib.sourceforge.io/C++/doc/annotated.html
 #
 # The algorithms are derived in
 #
@@ -51,7 +51,7 @@ The public attributes for this class are
 #    https://doi.org/10.1007/s00190-012-0578-z
 #    Addenda: https://geographiclib.sourceforge.io/geod-addenda.html
 #
-# Copyright (c) Charles Karney (2011-2022) <charles@karney.com> and licensed
+# Copyright (c) Charles Karney (2011-2022) <karney@alum.mit.edu> and licensed
 # under the MIT/X11 License.  For more information, see
 # https://geographiclib.sourceforge.io/
 ######################################################################

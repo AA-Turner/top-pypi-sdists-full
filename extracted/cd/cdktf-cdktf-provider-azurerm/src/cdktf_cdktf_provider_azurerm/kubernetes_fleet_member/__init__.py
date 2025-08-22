@@ -1,7 +1,7 @@
 r'''
 # `azurerm_kubernetes_fleet_member`
 
-Refer to the Terraform Registry for docs: [`azurerm_kubernetes_fleet_member`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member).
+Refer to the Terraform Registry for docs: [`azurerm_kubernetes_fleet_member`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KubernetesFleetMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.kubernetesFleetMember.KubernetesFleetMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member azurerm_kubernetes_fleet_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member azurerm_kubernetes_fleet_member}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class KubernetesFleetMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member azurerm_kubernetes_fleet_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member azurerm_kubernetes_fleet_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param kubernetes_cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#kubernetes_cluster_id KubernetesFleetMember#kubernetes_cluster_id}.
-        :param kubernetes_fleet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#kubernetes_fleet_id KubernetesFleetMember#kubernetes_fleet_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#name KubernetesFleetMember#name}.
-        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#group KubernetesFleetMember#group}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#id KubernetesFleetMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#timeouts KubernetesFleetMember#timeouts}
+        :param kubernetes_cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#kubernetes_cluster_id KubernetesFleetMember#kubernetes_cluster_id}.
+        :param kubernetes_fleet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#kubernetes_fleet_id KubernetesFleetMember#kubernetes_fleet_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#name KubernetesFleetMember#name}.
+        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#group KubernetesFleetMember#group}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#id KubernetesFleetMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#timeouts KubernetesFleetMember#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class KubernetesFleetMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KubernetesFleetMember to import.
-        :param import_from_id: The id of the existing KubernetesFleetMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KubernetesFleetMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KubernetesFleetMember to import is found.
         '''
         if __debug__:
@@ -139,10 +139,10 @@ class KubernetesFleetMember(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#create KubernetesFleetMember#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#delete KubernetesFleetMember#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#read KubernetesFleetMember#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#update KubernetesFleetMember#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#create KubernetesFleetMember#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#delete KubernetesFleetMember#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#read KubernetesFleetMember#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#update KubernetesFleetMember#update}.
         '''
         value = KubernetesFleetMemberTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -318,12 +318,12 @@ class KubernetesFleetMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param kubernetes_cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#kubernetes_cluster_id KubernetesFleetMember#kubernetes_cluster_id}.
-        :param kubernetes_fleet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#kubernetes_fleet_id KubernetesFleetMember#kubernetes_fleet_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#name KubernetesFleetMember#name}.
-        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#group KubernetesFleetMember#group}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#id KubernetesFleetMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#timeouts KubernetesFleetMember#timeouts}
+        :param kubernetes_cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#kubernetes_cluster_id KubernetesFleetMember#kubernetes_cluster_id}.
+        :param kubernetes_fleet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#kubernetes_fleet_id KubernetesFleetMember#kubernetes_fleet_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#name KubernetesFleetMember#name}.
+        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#group KubernetesFleetMember#group}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#id KubernetesFleetMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#timeouts KubernetesFleetMember#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -436,34 +436,34 @@ class KubernetesFleetMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kubernetes_cluster_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#kubernetes_cluster_id KubernetesFleetMember#kubernetes_cluster_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#kubernetes_cluster_id KubernetesFleetMember#kubernetes_cluster_id}.'''
         result = self._values.get("kubernetes_cluster_id")
         assert result is not None, "Required property 'kubernetes_cluster_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kubernetes_fleet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#kubernetes_fleet_id KubernetesFleetMember#kubernetes_fleet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#kubernetes_fleet_id KubernetesFleetMember#kubernetes_fleet_id}.'''
         result = self._values.get("kubernetes_fleet_id")
         assert result is not None, "Required property 'kubernetes_fleet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#name KubernetesFleetMember#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#name KubernetesFleetMember#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#group KubernetesFleetMember#group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#group KubernetesFleetMember#group}.'''
         result = self._values.get("group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#id KubernetesFleetMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#id KubernetesFleetMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -475,7 +475,7 @@ class KubernetesFleetMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KubernetesFleetMemberTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#timeouts KubernetesFleetMember#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#timeouts KubernetesFleetMember#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KubernetesFleetMemberTimeouts"], result)
@@ -512,10 +512,10 @@ class KubernetesFleetMemberTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#create KubernetesFleetMember#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#delete KubernetesFleetMember#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#read KubernetesFleetMember#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#update KubernetesFleetMember#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#create KubernetesFleetMember#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#delete KubernetesFleetMember#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#read KubernetesFleetMember#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#update KubernetesFleetMember#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98033e20ffe0b707711d23d5aeaae7686efafd3d7c56b771810aa6e6ba782dc0)
@@ -535,25 +535,25 @@ class KubernetesFleetMemberTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#create KubernetesFleetMember#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#create KubernetesFleetMember#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#delete KubernetesFleetMember#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#delete KubernetesFleetMember#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#read KubernetesFleetMember#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#read KubernetesFleetMember#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/kubernetes_fleet_member#update KubernetesFleetMember#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/kubernetes_fleet_member#update KubernetesFleetMember#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

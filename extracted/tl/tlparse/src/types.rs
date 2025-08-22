@@ -1,5 +1,5 @@
 use core::hash::BuildHasherDefault;
-use fxhash::{FxHashMap, FxHasher};
+use fxhash::{FxHashMap, FxHashSet, FxHasher};
 use html_escape::encode_text;
 use indexmap::IndexMap;
 use regex::Regex;
@@ -22,6 +22,74 @@ pub type GuardAddedFastIndex = FxHashMap<Option<CompileId>, Vec<GuardAddedFastMe
 pub type SymExprInfoIndex = FxHashMap<u64, SymExprInfoMetadata>;
 
 pub type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
+
+/// Per-rank metadata collected during multi-rank aggregation.
+#[derive(Debug)]
+pub struct RankMetaData {
+    pub rank: u32,
+    pub compile_ids: FxHashSet<String>,
+    pub cache_sequence: String,
+}
+
+/// Grouping of ranks that share the same sequence pattern (cache, collective ops, etc.).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DivergenceGroup {
+    pub sequence: String,
+    pub ranks: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CollectiveSchedule {
+    pub rank: u32,
+    pub graph: String,
+    pub ops: Vec<String>,
+}
+
+/// Canonical fingerprint for tensor meta JSON for a given graph on a rank
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TensorMetaFingerprint {
+    pub rank: u32,
+    pub graph: String,
+    pub fingerprint: String,
+}
+
+/// Estimated runtime entry for a single op within a graph.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OpRuntime {
+    pub name: String,
+    pub estimated_runtime_ns: f64,
+}
+
+/// Aggregated runtime estimations for 1 graph on a given rank
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GraphRuntime {
+    pub rank: u32,
+    pub graph: String,
+    pub ops: Vec<OpRuntime>,
+}
+
+/// Details for a specific rank at a graph index
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RuntimeRankDetail {
+    pub rank: u32,
+    pub runtime_ms: f64,
+}
+
+/// Analysis results for a single graph index across all ranks
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GraphAnalysis {
+    pub graph_index: usize,
+    pub graph_id: String,
+    pub delta_ms: f64,
+    pub rank_details: Vec<RuntimeRankDetail>,
+}
+
+/// Runtime analysis results across ranks for all graphs
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RuntimeAnalysis {
+    pub graphs: Vec<GraphAnalysis>,
+    pub has_mismatched_graph_counts: bool,
+}
 
 pub fn extract_eval_with_key_id(filename: &str) -> Option<u64> {
     let re = Regex::new(r"<eval_with_key>\.([0-9]+)").unwrap();
@@ -188,7 +256,58 @@ pub struct Stats {
     pub fail_payload_md5: u64,
     pub fail_dynamo_guards_json: u64,
     pub fail_parser: u64,
+    pub fail_key_conflict: u64,
+    pub fail_json_serialization: u64,
     pub unknown: u64,
+}
+
+impl std::fmt::Display for Stats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut fields = Vec::new();
+
+        if self.ok > 0 {
+            fields.push(format!("ok: {}", self.ok));
+        }
+        if self.other_rank > 0 {
+            fields.push(format!("other_rank: {}", self.other_rank));
+        }
+        if self.fail_glog > 0 {
+            fields.push(format!("fail_glog: {}", self.fail_glog));
+        }
+        if self.fail_json > 0 {
+            fields.push(format!("fail_json: {}", self.fail_json));
+        }
+        if self.fail_payload_md5 > 0 {
+            fields.push(format!("fail_payload_md5: {}", self.fail_payload_md5));
+        }
+        if self.fail_dynamo_guards_json > 0 {
+            fields.push(format!(
+                "fail_dynamo_guards_json: {}",
+                self.fail_dynamo_guards_json
+            ));
+        }
+        if self.fail_parser > 0 {
+            fields.push(format!("fail_parser: {}", self.fail_parser));
+        }
+        if self.fail_key_conflict > 0 {
+            fields.push(format!("fail_key_conflict: {}", self.fail_key_conflict));
+        }
+        if self.fail_json_serialization > 0 {
+            fields.push(format!(
+                "fail_json_serialization: {}",
+                self.fail_json_serialization
+            ));
+        }
+        if self.unknown > 0 {
+            fields.push(format!("unknown: {}", self.unknown));
+        }
+
+        if fields.is_empty() {
+            write!(f, "Stats {{ }}")
+        } else {
+            write!(f, "Stats {{ {} }}", fields.join(", "))
+        }
+    }
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Deserialize, Serialize, Clone)]
@@ -459,6 +578,8 @@ pub struct OutputFile {
     pub name: String,
     pub number: i32,
     pub suffix: String,
+    /// URL to a human-readable HTML version of inductor_provenance_tracking_kernel_stack_traces.json
+    pub readable_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -779,5 +900,40 @@ pub struct ProvenanceContext<'a> {
     pub post_grad_graph_content: String,
     pub output_code_content: String,
     pub aot_code_content: String,
-    pub node_mappings_content: String,
+    pub line_mappings_content: String,
+}
+
+#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
+pub struct DivergenceFlags {
+    pub cache: bool,
+    pub collective: bool,
+    pub tensor_meta: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
+pub struct ArtifactFlags {
+    pub runtime_trace: bool,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct Diagnostics {
+    pub divergence: DivergenceFlags,
+    pub artifacts: ArtifactFlags,
+    pub analysis: Option<RuntimeAnalysis>,
+    pub cache_groups: Vec<DivergenceGroup>,
+    pub collective_groups: Vec<DivergenceGroup>,
+    pub tensor_meta_groups: Vec<DivergenceGroup>,
+}
+
+#[derive(Serialize)]
+pub struct MultiRankContext<'a> {
+    pub css: &'a str,
+    pub custom_header_html: &'a str,
+    pub num_ranks: usize,
+    pub ranks: Vec<String>,
+    pub qps: &'a str,
+    pub has_chromium_events: bool,
+    pub show_desync_warning: bool,
+    pub compile_id_divergence: bool,
+    pub diagnostics: Diagnostics,
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openai-agents
-Version: 0.2.8
+Version: 0.2.9
 Summary: OpenAI Agents SDK
 Project-URL: Homepage, https://openai.github.io/openai-agents-python/
 Project-URL: Repository, https://github.com/openai/openai-agents-python
@@ -30,6 +30,9 @@ Provides-Extra: litellm
 Requires-Dist: litellm<2,>=1.67.4.post1; extra == 'litellm'
 Provides-Extra: realtime
 Requires-Dist: websockets<16,>=15.0; extra == 'realtime'
+Provides-Extra: sqlalchemy
+Requires-Dist: asyncpg>=0.29.0; extra == 'sqlalchemy'
+Requires-Dist: sqlalchemy>=2.0; extra == 'sqlalchemy'
 Provides-Extra: viz
 Requires-Dist: graphviz>=0.17; extra == 'viz'
 Provides-Extra: voice
@@ -58,29 +61,28 @@ Explore the [examples](examples) directory to see the SDK in action, and read ou
 
 ## Get started
 
-1. Set up your Python environment
+To get started, set up your Python environment (Python 3.9 or newer required), and then install OpenAI Agents SDK package.
 
--   Option A: Using venv (traditional method)
-
-```bash
-python -m venv env
-source env/bin/activate  # On Windows: env\Scripts\activate
-```
-
--   Option B: Using uv (recommended)
+### venv
 
 ```bash
-uv venv
+python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-
-2. Install Agents SDK
-
-```bash
 pip install openai-agents
 ```
 
 For voice support, install with the optional `voice` group: `pip install 'openai-agents[voice]'`.
+
+### uv
+
+If you're familiar with [uv](https://docs.astral.sh/uv/), using the tool would be even similar:
+
+```bash
+uv init
+uv add openai-agents
+```
+
+For voice support, install with the optional `voice` group: `uv add 'openai-agents[voice]'`.
 
 ## Hello world example
 

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_monitor_autoscale_setting`
 
-Refer to the Terraform Registry for docs: [`azurerm_monitor_autoscale_setting`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting).
+Refer to the Terraform Registry for docs: [`azurerm_monitor_autoscale_setting`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MonitorAutoscaleSetting(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.monitorAutoscaleSetting.MonitorAutoscaleSetting",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting azurerm_monitor_autoscale_setting}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting azurerm_monitor_autoscale_setting}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class MonitorAutoscaleSetting(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting azurerm_monitor_autoscale_setting} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting azurerm_monitor_autoscale_setting} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#location MonitorAutoscaleSetting#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.
-        :param profile: profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#profile MonitorAutoscaleSetting#profile}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#resource_group_name MonitorAutoscaleSetting#resource_group_name}.
-        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#target_resource_id MonitorAutoscaleSetting#target_resource_id}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#enabled MonitorAutoscaleSetting#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#id MonitorAutoscaleSetting#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#notification MonitorAutoscaleSetting#notification}
-        :param predictive: predictive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#predictive MonitorAutoscaleSetting#predictive}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#tags MonitorAutoscaleSetting#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#timeouts MonitorAutoscaleSetting#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#location MonitorAutoscaleSetting#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.
+        :param profile: profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#profile MonitorAutoscaleSetting#profile}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#resource_group_name MonitorAutoscaleSetting#resource_group_name}.
+        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#target_resource_id MonitorAutoscaleSetting#target_resource_id}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#enabled MonitorAutoscaleSetting#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#id MonitorAutoscaleSetting#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#notification MonitorAutoscaleSetting#notification}
+        :param predictive: predictive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#predictive MonitorAutoscaleSetting#predictive}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#tags MonitorAutoscaleSetting#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#timeouts MonitorAutoscaleSetting#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class MonitorAutoscaleSetting(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MonitorAutoscaleSetting to import.
-        :param import_from_id: The id of the existing MonitorAutoscaleSetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MonitorAutoscaleSetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MonitorAutoscaleSetting to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class MonitorAutoscaleSetting(
         webhook: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MonitorAutoscaleSettingNotificationWebhook", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param email: email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#email MonitorAutoscaleSetting#email}
-        :param webhook: webhook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#webhook MonitorAutoscaleSetting#webhook}
+        :param email: email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#email MonitorAutoscaleSetting#email}
+        :param webhook: webhook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#webhook MonitorAutoscaleSetting#webhook}
         '''
         value = MonitorAutoscaleSettingNotification(email=email, webhook=webhook)
 
@@ -167,8 +167,8 @@ class MonitorAutoscaleSetting(
         look_ahead_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param scale_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#scale_mode MonitorAutoscaleSetting#scale_mode}.
-        :param look_ahead_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#look_ahead_time MonitorAutoscaleSetting#look_ahead_time}.
+        :param scale_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#scale_mode MonitorAutoscaleSetting#scale_mode}.
+        :param look_ahead_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#look_ahead_time MonitorAutoscaleSetting#look_ahead_time}.
         '''
         value = MonitorAutoscaleSettingPredictive(
             scale_mode=scale_mode, look_ahead_time=look_ahead_time
@@ -199,10 +199,10 @@ class MonitorAutoscaleSetting(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#create MonitorAutoscaleSetting#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#delete MonitorAutoscaleSetting#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#read MonitorAutoscaleSetting#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#update MonitorAutoscaleSetting#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#create MonitorAutoscaleSetting#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#delete MonitorAutoscaleSetting#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#read MonitorAutoscaleSetting#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#update MonitorAutoscaleSetting#update}.
         '''
         value = MonitorAutoscaleSettingTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -473,17 +473,17 @@ class MonitorAutoscaleSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#location MonitorAutoscaleSetting#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.
-        :param profile: profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#profile MonitorAutoscaleSetting#profile}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#resource_group_name MonitorAutoscaleSetting#resource_group_name}.
-        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#target_resource_id MonitorAutoscaleSetting#target_resource_id}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#enabled MonitorAutoscaleSetting#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#id MonitorAutoscaleSetting#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#notification MonitorAutoscaleSetting#notification}
-        :param predictive: predictive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#predictive MonitorAutoscaleSetting#predictive}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#tags MonitorAutoscaleSetting#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#timeouts MonitorAutoscaleSetting#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#location MonitorAutoscaleSetting#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.
+        :param profile: profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#profile MonitorAutoscaleSetting#profile}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#resource_group_name MonitorAutoscaleSetting#resource_group_name}.
+        :param target_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#target_resource_id MonitorAutoscaleSetting#target_resource_id}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#enabled MonitorAutoscaleSetting#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#id MonitorAutoscaleSetting#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#notification MonitorAutoscaleSetting#notification}
+        :param predictive: predictive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#predictive MonitorAutoscaleSetting#predictive}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#tags MonitorAutoscaleSetting#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#timeouts MonitorAutoscaleSetting#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -613,14 +613,14 @@ class MonitorAutoscaleSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#location MonitorAutoscaleSetting#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#location MonitorAutoscaleSetting#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -631,7 +631,7 @@ class MonitorAutoscaleSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorAutoscaleSettingProfile"]]:
         '''profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#profile MonitorAutoscaleSetting#profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#profile MonitorAutoscaleSetting#profile}
         '''
         result = self._values.get("profile")
         assert result is not None, "Required property 'profile' is missing"
@@ -639,14 +639,14 @@ class MonitorAutoscaleSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#resource_group_name MonitorAutoscaleSetting#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#resource_group_name MonitorAutoscaleSetting#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_resource_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#target_resource_id MonitorAutoscaleSetting#target_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#target_resource_id MonitorAutoscaleSetting#target_resource_id}.'''
         result = self._values.get("target_resource_id")
         assert result is not None, "Required property 'target_resource_id' is missing"
         return typing.cast(builtins.str, result)
@@ -655,13 +655,13 @@ class MonitorAutoscaleSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#enabled MonitorAutoscaleSetting#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#enabled MonitorAutoscaleSetting#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#id MonitorAutoscaleSetting#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#id MonitorAutoscaleSetting#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -673,7 +673,7 @@ class MonitorAutoscaleSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notification(self) -> typing.Optional["MonitorAutoscaleSettingNotification"]:
         '''notification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#notification MonitorAutoscaleSetting#notification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#notification MonitorAutoscaleSetting#notification}
         '''
         result = self._values.get("notification")
         return typing.cast(typing.Optional["MonitorAutoscaleSettingNotification"], result)
@@ -682,14 +682,14 @@ class MonitorAutoscaleSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def predictive(self) -> typing.Optional["MonitorAutoscaleSettingPredictive"]:
         '''predictive block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#predictive MonitorAutoscaleSetting#predictive}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#predictive MonitorAutoscaleSetting#predictive}
         '''
         result = self._values.get("predictive")
         return typing.cast(typing.Optional["MonitorAutoscaleSettingPredictive"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#tags MonitorAutoscaleSetting#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#tags MonitorAutoscaleSetting#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -697,7 +697,7 @@ class MonitorAutoscaleSettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MonitorAutoscaleSettingTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#timeouts MonitorAutoscaleSetting#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#timeouts MonitorAutoscaleSetting#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MonitorAutoscaleSettingTimeouts"], result)
@@ -727,8 +727,8 @@ class MonitorAutoscaleSettingNotification:
         webhook: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MonitorAutoscaleSettingNotificationWebhook", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param email: email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#email MonitorAutoscaleSetting#email}
-        :param webhook: webhook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#webhook MonitorAutoscaleSetting#webhook}
+        :param email: email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#email MonitorAutoscaleSetting#email}
+        :param webhook: webhook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#webhook MonitorAutoscaleSetting#webhook}
         '''
         if isinstance(email, dict):
             email = MonitorAutoscaleSettingNotificationEmail(**email)
@@ -746,7 +746,7 @@ class MonitorAutoscaleSettingNotification:
     def email(self) -> typing.Optional["MonitorAutoscaleSettingNotificationEmail"]:
         '''email block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#email MonitorAutoscaleSetting#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#email MonitorAutoscaleSetting#email}
         '''
         result = self._values.get("email")
         return typing.cast(typing.Optional["MonitorAutoscaleSettingNotificationEmail"], result)
@@ -757,7 +757,7 @@ class MonitorAutoscaleSettingNotification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorAutoscaleSettingNotificationWebhook"]]]:
         '''webhook block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#webhook MonitorAutoscaleSetting#webhook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#webhook MonitorAutoscaleSetting#webhook}
         '''
         result = self._values.get("webhook")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorAutoscaleSettingNotificationWebhook"]]], result)
@@ -792,9 +792,9 @@ class MonitorAutoscaleSettingNotificationEmail:
         send_to_subscription_co_administrator: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param custom_emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#custom_emails MonitorAutoscaleSetting#custom_emails}.
-        :param send_to_subscription_administrator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#send_to_subscription_administrator MonitorAutoscaleSetting#send_to_subscription_administrator}.
-        :param send_to_subscription_co_administrator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#send_to_subscription_co_administrator MonitorAutoscaleSetting#send_to_subscription_co_administrator}.
+        :param custom_emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#custom_emails MonitorAutoscaleSetting#custom_emails}.
+        :param send_to_subscription_administrator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#send_to_subscription_administrator MonitorAutoscaleSetting#send_to_subscription_administrator}.
+        :param send_to_subscription_co_administrator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#send_to_subscription_co_administrator MonitorAutoscaleSetting#send_to_subscription_co_administrator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d530e04ba0ea7dce527b0011bb44a3f818fd6138f351a569da3a593f7311ad71)
@@ -811,7 +811,7 @@ class MonitorAutoscaleSettingNotificationEmail:
 
     @builtins.property
     def custom_emails(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#custom_emails MonitorAutoscaleSetting#custom_emails}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#custom_emails MonitorAutoscaleSetting#custom_emails}.'''
         result = self._values.get("custom_emails")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -819,7 +819,7 @@ class MonitorAutoscaleSettingNotificationEmail:
     def send_to_subscription_administrator(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#send_to_subscription_administrator MonitorAutoscaleSetting#send_to_subscription_administrator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#send_to_subscription_administrator MonitorAutoscaleSetting#send_to_subscription_administrator}.'''
         result = self._values.get("send_to_subscription_administrator")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -827,7 +827,7 @@ class MonitorAutoscaleSettingNotificationEmail:
     def send_to_subscription_co_administrator(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#send_to_subscription_co_administrator MonitorAutoscaleSetting#send_to_subscription_co_administrator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#send_to_subscription_co_administrator MonitorAutoscaleSetting#send_to_subscription_co_administrator}.'''
         result = self._values.get("send_to_subscription_co_administrator")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -987,9 +987,9 @@ class MonitorAutoscaleSettingNotificationOutputReference(
         send_to_subscription_co_administrator: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param custom_emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#custom_emails MonitorAutoscaleSetting#custom_emails}.
-        :param send_to_subscription_administrator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#send_to_subscription_administrator MonitorAutoscaleSetting#send_to_subscription_administrator}.
-        :param send_to_subscription_co_administrator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#send_to_subscription_co_administrator MonitorAutoscaleSetting#send_to_subscription_co_administrator}.
+        :param custom_emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#custom_emails MonitorAutoscaleSetting#custom_emails}.
+        :param send_to_subscription_administrator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#send_to_subscription_administrator MonitorAutoscaleSetting#send_to_subscription_administrator}.
+        :param send_to_subscription_co_administrator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#send_to_subscription_co_administrator MonitorAutoscaleSetting#send_to_subscription_co_administrator}.
         '''
         value = MonitorAutoscaleSettingNotificationEmail(
             custom_emails=custom_emails,
@@ -1071,8 +1071,8 @@ class MonitorAutoscaleSettingNotificationWebhook:
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param service_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#service_uri MonitorAutoscaleSetting#service_uri}.
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#properties MonitorAutoscaleSetting#properties}.
+        :param service_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#service_uri MonitorAutoscaleSetting#service_uri}.
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#properties MonitorAutoscaleSetting#properties}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3cd285622b27a1a14a64808fda0ad6f288f996003e332189d56514c8e912256a)
@@ -1086,14 +1086,14 @@ class MonitorAutoscaleSettingNotificationWebhook:
 
     @builtins.property
     def service_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#service_uri MonitorAutoscaleSetting#service_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#service_uri MonitorAutoscaleSetting#service_uri}.'''
         result = self._values.get("service_uri")
         assert result is not None, "Required property 'service_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#properties MonitorAutoscaleSetting#properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#properties MonitorAutoscaleSetting#properties}.'''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1299,8 +1299,8 @@ class MonitorAutoscaleSettingPredictive:
         look_ahead_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param scale_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#scale_mode MonitorAutoscaleSetting#scale_mode}.
-        :param look_ahead_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#look_ahead_time MonitorAutoscaleSetting#look_ahead_time}.
+        :param scale_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#scale_mode MonitorAutoscaleSetting#scale_mode}.
+        :param look_ahead_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#look_ahead_time MonitorAutoscaleSetting#look_ahead_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7068cc9f58a218b0d4885d7e18c0d7c21c86cd1235356d878e729e7661136c32)
@@ -1314,14 +1314,14 @@ class MonitorAutoscaleSettingPredictive:
 
     @builtins.property
     def scale_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#scale_mode MonitorAutoscaleSetting#scale_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#scale_mode MonitorAutoscaleSetting#scale_mode}.'''
         result = self._values.get("scale_mode")
         assert result is not None, "Required property 'scale_mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def look_ahead_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#look_ahead_time MonitorAutoscaleSetting#look_ahead_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#look_ahead_time MonitorAutoscaleSetting#look_ahead_time}.'''
         result = self._values.get("look_ahead_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1433,11 +1433,11 @@ class MonitorAutoscaleSettingProfile:
         rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MonitorAutoscaleSettingProfileRule", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#capacity MonitorAutoscaleSetting#capacity}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.
-        :param fixed_date: fixed_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#fixed_date MonitorAutoscaleSetting#fixed_date}
-        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#recurrence MonitorAutoscaleSetting#recurrence}
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#rule MonitorAutoscaleSetting#rule}
+        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#capacity MonitorAutoscaleSetting#capacity}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.
+        :param fixed_date: fixed_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#fixed_date MonitorAutoscaleSetting#fixed_date}
+        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#recurrence MonitorAutoscaleSetting#recurrence}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#rule MonitorAutoscaleSetting#rule}
         '''
         if isinstance(capacity, dict):
             capacity = MonitorAutoscaleSettingProfileCapacity(**capacity)
@@ -1467,7 +1467,7 @@ class MonitorAutoscaleSettingProfile:
     def capacity(self) -> "MonitorAutoscaleSettingProfileCapacity":
         '''capacity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#capacity MonitorAutoscaleSetting#capacity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#capacity MonitorAutoscaleSetting#capacity}
         '''
         result = self._values.get("capacity")
         assert result is not None, "Required property 'capacity' is missing"
@@ -1475,7 +1475,7 @@ class MonitorAutoscaleSettingProfile:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1484,7 +1484,7 @@ class MonitorAutoscaleSettingProfile:
     def fixed_date(self) -> typing.Optional["MonitorAutoscaleSettingProfileFixedDate"]:
         '''fixed_date block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#fixed_date MonitorAutoscaleSetting#fixed_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#fixed_date MonitorAutoscaleSetting#fixed_date}
         '''
         result = self._values.get("fixed_date")
         return typing.cast(typing.Optional["MonitorAutoscaleSettingProfileFixedDate"], result)
@@ -1493,7 +1493,7 @@ class MonitorAutoscaleSettingProfile:
     def recurrence(self) -> typing.Optional["MonitorAutoscaleSettingProfileRecurrence"]:
         '''recurrence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#recurrence MonitorAutoscaleSetting#recurrence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#recurrence MonitorAutoscaleSetting#recurrence}
         '''
         result = self._values.get("recurrence")
         return typing.cast(typing.Optional["MonitorAutoscaleSettingProfileRecurrence"], result)
@@ -1504,7 +1504,7 @@ class MonitorAutoscaleSettingProfile:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorAutoscaleSettingProfileRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#rule MonitorAutoscaleSetting#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#rule MonitorAutoscaleSetting#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorAutoscaleSettingProfileRule"]]], result)
@@ -1535,9 +1535,9 @@ class MonitorAutoscaleSettingProfileCapacity:
         minimum: jsii.Number,
     ) -> None:
         '''
-        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#default MonitorAutoscaleSetting#default}.
-        :param maximum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#maximum MonitorAutoscaleSetting#maximum}.
-        :param minimum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#minimum MonitorAutoscaleSetting#minimum}.
+        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#default MonitorAutoscaleSetting#default}.
+        :param maximum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#maximum MonitorAutoscaleSetting#maximum}.
+        :param minimum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#minimum MonitorAutoscaleSetting#minimum}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89a99e21a7e2fb7ca810ac0d4edfbfc2152a46e12e8fea753b610110e95a1858)
@@ -1552,21 +1552,21 @@ class MonitorAutoscaleSettingProfileCapacity:
 
     @builtins.property
     def default(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#default MonitorAutoscaleSetting#default}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#default MonitorAutoscaleSetting#default}.'''
         result = self._values.get("default")
         assert result is not None, "Required property 'default' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def maximum(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#maximum MonitorAutoscaleSetting#maximum}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#maximum MonitorAutoscaleSetting#maximum}.'''
         result = self._values.get("maximum")
         assert result is not None, "Required property 'maximum' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minimum(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#minimum MonitorAutoscaleSetting#minimum}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#minimum MonitorAutoscaleSetting#minimum}.'''
         result = self._values.get("minimum")
         assert result is not None, "Required property 'minimum' is missing"
         return typing.cast(jsii.Number, result)
@@ -1684,9 +1684,9 @@ class MonitorAutoscaleSettingProfileFixedDate:
         timezone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#end MonitorAutoscaleSetting#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#start MonitorAutoscaleSetting#start}.
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#end MonitorAutoscaleSetting#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#start MonitorAutoscaleSetting#start}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46ca0496f35d4e01fd3f277958400d2648af69fbe89623f3eac04d949f5b08f3)
@@ -1702,21 +1702,21 @@ class MonitorAutoscaleSettingProfileFixedDate:
 
     @builtins.property
     def end(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#end MonitorAutoscaleSetting#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#end MonitorAutoscaleSetting#end}.'''
         result = self._values.get("end")
         assert result is not None, "Required property 'end' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#start MonitorAutoscaleSetting#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#start MonitorAutoscaleSetting#start}.'''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timezone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.'''
         result = self._values.get("timezone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1953,9 +1953,9 @@ class MonitorAutoscaleSettingProfileOutputReference(
         minimum: jsii.Number,
     ) -> None:
         '''
-        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#default MonitorAutoscaleSetting#default}.
-        :param maximum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#maximum MonitorAutoscaleSetting#maximum}.
-        :param minimum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#minimum MonitorAutoscaleSetting#minimum}.
+        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#default MonitorAutoscaleSetting#default}.
+        :param maximum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#maximum MonitorAutoscaleSetting#maximum}.
+        :param minimum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#minimum MonitorAutoscaleSetting#minimum}.
         '''
         value = MonitorAutoscaleSettingProfileCapacity(
             default=default, maximum=maximum, minimum=minimum
@@ -1972,9 +1972,9 @@ class MonitorAutoscaleSettingProfileOutputReference(
         timezone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#end MonitorAutoscaleSetting#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#start MonitorAutoscaleSetting#start}.
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#end MonitorAutoscaleSetting#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#start MonitorAutoscaleSetting#start}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.
         '''
         value = MonitorAutoscaleSettingProfileFixedDate(
             end=end, start=start, timezone=timezone
@@ -1992,10 +1992,10 @@ class MonitorAutoscaleSettingProfileOutputReference(
         timezone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#days MonitorAutoscaleSetting#days}.
-        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#hours MonitorAutoscaleSetting#hours}.
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#minutes MonitorAutoscaleSetting#minutes}.
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#days MonitorAutoscaleSetting#days}.
+        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#hours MonitorAutoscaleSetting#hours}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#minutes MonitorAutoscaleSetting#minutes}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.
         '''
         value = MonitorAutoscaleSettingProfileRecurrence(
             days=days, hours=hours, minutes=minutes, timezone=timezone
@@ -2129,10 +2129,10 @@ class MonitorAutoscaleSettingProfileRecurrence:
         timezone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#days MonitorAutoscaleSetting#days}.
-        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#hours MonitorAutoscaleSetting#hours}.
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#minutes MonitorAutoscaleSetting#minutes}.
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#days MonitorAutoscaleSetting#days}.
+        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#hours MonitorAutoscaleSetting#hours}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#minutes MonitorAutoscaleSetting#minutes}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a964007bdfbc0da528db358744eb522a80df346ee3edb51da6482e7e4f41f4f8)
@@ -2150,28 +2150,28 @@ class MonitorAutoscaleSettingProfileRecurrence:
 
     @builtins.property
     def days(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#days MonitorAutoscaleSetting#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#days MonitorAutoscaleSetting#days}.'''
         result = self._values.get("days")
         assert result is not None, "Required property 'days' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def hours(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#hours MonitorAutoscaleSetting#hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#hours MonitorAutoscaleSetting#hours}.'''
         result = self._values.get("hours")
         assert result is not None, "Required property 'hours' is missing"
         return typing.cast(typing.List[jsii.Number], result)
 
     @builtins.property
     def minutes(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#minutes MonitorAutoscaleSetting#minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#minutes MonitorAutoscaleSetting#minutes}.'''
         result = self._values.get("minutes")
         assert result is not None, "Required property 'minutes' is missing"
         return typing.cast(typing.List[jsii.Number], result)
 
     @builtins.property
     def timezone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#timezone MonitorAutoscaleSetting#timezone}.'''
         result = self._values.get("timezone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2310,8 +2310,8 @@ class MonitorAutoscaleSettingProfileRule:
         scale_action: typing.Union["MonitorAutoscaleSettingProfileRuleScaleAction", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param metric_trigger: metric_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_trigger MonitorAutoscaleSetting#metric_trigger}
-        :param scale_action: scale_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#scale_action MonitorAutoscaleSetting#scale_action}
+        :param metric_trigger: metric_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_trigger MonitorAutoscaleSetting#metric_trigger}
+        :param scale_action: scale_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#scale_action MonitorAutoscaleSetting#scale_action}
         '''
         if isinstance(metric_trigger, dict):
             metric_trigger = MonitorAutoscaleSettingProfileRuleMetricTrigger(**metric_trigger)
@@ -2330,7 +2330,7 @@ class MonitorAutoscaleSettingProfileRule:
     def metric_trigger(self) -> "MonitorAutoscaleSettingProfileRuleMetricTrigger":
         '''metric_trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_trigger MonitorAutoscaleSetting#metric_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_trigger MonitorAutoscaleSetting#metric_trigger}
         '''
         result = self._values.get("metric_trigger")
         assert result is not None, "Required property 'metric_trigger' is missing"
@@ -2340,7 +2340,7 @@ class MonitorAutoscaleSettingProfileRule:
     def scale_action(self) -> "MonitorAutoscaleSettingProfileRuleScaleAction":
         '''scale_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#scale_action MonitorAutoscaleSetting#scale_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#scale_action MonitorAutoscaleSetting#scale_action}
         '''
         result = self._values.get("scale_action")
         assert result is not None, "Required property 'scale_action' is missing"
@@ -2485,17 +2485,17 @@ class MonitorAutoscaleSettingProfileRuleMetricTrigger:
         metric_namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_name MonitorAutoscaleSetting#metric_name}.
-        :param metric_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_resource_id MonitorAutoscaleSetting#metric_resource_id}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.
-        :param statistic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#statistic MonitorAutoscaleSetting#statistic}.
-        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#threshold MonitorAutoscaleSetting#threshold}.
-        :param time_aggregation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#time_aggregation MonitorAutoscaleSetting#time_aggregation}.
-        :param time_grain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#time_grain MonitorAutoscaleSetting#time_grain}.
-        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#time_window MonitorAutoscaleSetting#time_window}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#dimensions MonitorAutoscaleSetting#dimensions}
-        :param divide_by_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#divide_by_instance_count MonitorAutoscaleSetting#divide_by_instance_count}.
-        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_namespace MonitorAutoscaleSetting#metric_namespace}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_name MonitorAutoscaleSetting#metric_name}.
+        :param metric_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_resource_id MonitorAutoscaleSetting#metric_resource_id}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.
+        :param statistic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#statistic MonitorAutoscaleSetting#statistic}.
+        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#threshold MonitorAutoscaleSetting#threshold}.
+        :param time_aggregation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#time_aggregation MonitorAutoscaleSetting#time_aggregation}.
+        :param time_grain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#time_grain MonitorAutoscaleSetting#time_grain}.
+        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#time_window MonitorAutoscaleSetting#time_window}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#dimensions MonitorAutoscaleSetting#dimensions}
+        :param divide_by_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#divide_by_instance_count MonitorAutoscaleSetting#divide_by_instance_count}.
+        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_namespace MonitorAutoscaleSetting#metric_namespace}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b4a759ad7e6303a7f4bbb03db20592033bacf8f294b5997c245af26b5658ded)
@@ -2529,56 +2529,56 @@ class MonitorAutoscaleSettingProfileRuleMetricTrigger:
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_name MonitorAutoscaleSetting#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_name MonitorAutoscaleSetting#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metric_resource_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_resource_id MonitorAutoscaleSetting#metric_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_resource_id MonitorAutoscaleSetting#metric_resource_id}.'''
         result = self._values.get("metric_resource_id")
         assert result is not None, "Required property 'metric_resource_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def statistic(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#statistic MonitorAutoscaleSetting#statistic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#statistic MonitorAutoscaleSetting#statistic}.'''
         result = self._values.get("statistic")
         assert result is not None, "Required property 'statistic' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def threshold(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#threshold MonitorAutoscaleSetting#threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#threshold MonitorAutoscaleSetting#threshold}.'''
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def time_aggregation(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#time_aggregation MonitorAutoscaleSetting#time_aggregation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#time_aggregation MonitorAutoscaleSetting#time_aggregation}.'''
         result = self._values.get("time_aggregation")
         assert result is not None, "Required property 'time_aggregation' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_grain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#time_grain MonitorAutoscaleSetting#time_grain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#time_grain MonitorAutoscaleSetting#time_grain}.'''
         result = self._values.get("time_grain")
         assert result is not None, "Required property 'time_grain' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_window(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#time_window MonitorAutoscaleSetting#time_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#time_window MonitorAutoscaleSetting#time_window}.'''
         result = self._values.get("time_window")
         assert result is not None, "Required property 'time_window' is missing"
         return typing.cast(builtins.str, result)
@@ -2589,7 +2589,7 @@ class MonitorAutoscaleSettingProfileRuleMetricTrigger:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorAutoscaleSettingProfileRuleMetricTriggerDimensions"]]]:
         '''dimensions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#dimensions MonitorAutoscaleSetting#dimensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#dimensions MonitorAutoscaleSetting#dimensions}
         '''
         result = self._values.get("dimensions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorAutoscaleSettingProfileRuleMetricTriggerDimensions"]]], result)
@@ -2598,13 +2598,13 @@ class MonitorAutoscaleSettingProfileRuleMetricTrigger:
     def divide_by_instance_count(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#divide_by_instance_count MonitorAutoscaleSetting#divide_by_instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#divide_by_instance_count MonitorAutoscaleSetting#divide_by_instance_count}.'''
         result = self._values.get("divide_by_instance_count")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def metric_namespace(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_namespace MonitorAutoscaleSetting#metric_namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_namespace MonitorAutoscaleSetting#metric_namespace}.'''
         result = self._values.get("metric_namespace")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2634,9 +2634,9 @@ class MonitorAutoscaleSettingProfileRuleMetricTriggerDimensions:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#values MonitorAutoscaleSetting#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#values MonitorAutoscaleSetting#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77b58b4ee3c06b161be75d3f8d0f753a0f6343440b268b561c4dd055f4ce425f)
@@ -2651,21 +2651,21 @@ class MonitorAutoscaleSettingProfileRuleMetricTriggerDimensions:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#name MonitorAutoscaleSetting#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#values MonitorAutoscaleSetting#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#values MonitorAutoscaleSetting#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3167,17 +3167,17 @@ class MonitorAutoscaleSettingProfileRuleOutputReference(
         metric_namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_name MonitorAutoscaleSetting#metric_name}.
-        :param metric_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_resource_id MonitorAutoscaleSetting#metric_resource_id}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.
-        :param statistic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#statistic MonitorAutoscaleSetting#statistic}.
-        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#threshold MonitorAutoscaleSetting#threshold}.
-        :param time_aggregation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#time_aggregation MonitorAutoscaleSetting#time_aggregation}.
-        :param time_grain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#time_grain MonitorAutoscaleSetting#time_grain}.
-        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#time_window MonitorAutoscaleSetting#time_window}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#dimensions MonitorAutoscaleSetting#dimensions}
-        :param divide_by_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#divide_by_instance_count MonitorAutoscaleSetting#divide_by_instance_count}.
-        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#metric_namespace MonitorAutoscaleSetting#metric_namespace}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_name MonitorAutoscaleSetting#metric_name}.
+        :param metric_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_resource_id MonitorAutoscaleSetting#metric_resource_id}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#operator MonitorAutoscaleSetting#operator}.
+        :param statistic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#statistic MonitorAutoscaleSetting#statistic}.
+        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#threshold MonitorAutoscaleSetting#threshold}.
+        :param time_aggregation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#time_aggregation MonitorAutoscaleSetting#time_aggregation}.
+        :param time_grain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#time_grain MonitorAutoscaleSetting#time_grain}.
+        :param time_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#time_window MonitorAutoscaleSetting#time_window}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#dimensions MonitorAutoscaleSetting#dimensions}
+        :param divide_by_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#divide_by_instance_count MonitorAutoscaleSetting#divide_by_instance_count}.
+        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#metric_namespace MonitorAutoscaleSetting#metric_namespace}.
         '''
         value = MonitorAutoscaleSettingProfileRuleMetricTrigger(
             metric_name=metric_name,
@@ -3205,10 +3205,10 @@ class MonitorAutoscaleSettingProfileRuleOutputReference(
         value: jsii.Number,
     ) -> None:
         '''
-        :param cooldown: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#cooldown MonitorAutoscaleSetting#cooldown}.
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#direction MonitorAutoscaleSetting#direction}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#type MonitorAutoscaleSetting#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#value MonitorAutoscaleSetting#value}.
+        :param cooldown: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#cooldown MonitorAutoscaleSetting#cooldown}.
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#direction MonitorAutoscaleSetting#direction}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#type MonitorAutoscaleSetting#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#value MonitorAutoscaleSetting#value}.
         '''
         value_ = MonitorAutoscaleSettingProfileRuleScaleAction(
             cooldown=cooldown, direction=direction, type=type, value=value
@@ -3282,10 +3282,10 @@ class MonitorAutoscaleSettingProfileRuleScaleAction:
         value: jsii.Number,
     ) -> None:
         '''
-        :param cooldown: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#cooldown MonitorAutoscaleSetting#cooldown}.
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#direction MonitorAutoscaleSetting#direction}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#type MonitorAutoscaleSetting#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#value MonitorAutoscaleSetting#value}.
+        :param cooldown: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#cooldown MonitorAutoscaleSetting#cooldown}.
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#direction MonitorAutoscaleSetting#direction}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#type MonitorAutoscaleSetting#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#value MonitorAutoscaleSetting#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cac19478f9e74dacfdd15a92afac691e83fa8d341de04cda74fc8d8942d908f2)
@@ -3302,28 +3302,28 @@ class MonitorAutoscaleSettingProfileRuleScaleAction:
 
     @builtins.property
     def cooldown(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#cooldown MonitorAutoscaleSetting#cooldown}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#cooldown MonitorAutoscaleSetting#cooldown}.'''
         result = self._values.get("cooldown")
         assert result is not None, "Required property 'cooldown' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def direction(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#direction MonitorAutoscaleSetting#direction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#direction MonitorAutoscaleSetting#direction}.'''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#type MonitorAutoscaleSetting#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#type MonitorAutoscaleSetting#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#value MonitorAutoscaleSetting#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#value MonitorAutoscaleSetting#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -3466,10 +3466,10 @@ class MonitorAutoscaleSettingTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#create MonitorAutoscaleSetting#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#delete MonitorAutoscaleSetting#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#read MonitorAutoscaleSetting#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#update MonitorAutoscaleSetting#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#create MonitorAutoscaleSetting#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#delete MonitorAutoscaleSetting#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#read MonitorAutoscaleSetting#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#update MonitorAutoscaleSetting#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__633092864132ac9cfe176ced6e2f54ebc472883251086e8e278f7297603f7773)
@@ -3489,25 +3489,25 @@ class MonitorAutoscaleSettingTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#create MonitorAutoscaleSetting#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#create MonitorAutoscaleSetting#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#delete MonitorAutoscaleSetting#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#delete MonitorAutoscaleSetting#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#read MonitorAutoscaleSetting#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#read MonitorAutoscaleSetting#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/monitor_autoscale_setting#update MonitorAutoscaleSetting#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/monitor_autoscale_setting#update MonitorAutoscaleSetting#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

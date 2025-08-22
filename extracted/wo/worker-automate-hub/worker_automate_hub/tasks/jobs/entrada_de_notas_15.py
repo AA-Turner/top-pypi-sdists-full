@@ -8,6 +8,7 @@ import uuid
 import time
 import win32clipboard
 import difflib
+
 # import sys
 # sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..","..","..")))
 import pyautogui
@@ -141,7 +142,7 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             class_name="TDBIComboBox", found_index=1
         )
 
-       # Conectar à aplicação
+        # Conectar à aplicação
         app = Application(backend="win32").connect(title_re=".*Nota Fiscal.*")
 
         # Acessar a janela
@@ -154,7 +155,6 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         combo.select("NOTA FISCAL DE ENTRADA ELETRONICA - DANFE")
 
         print("Item selecionado com sucesso.")
-
 
         await worker_sleep(4)
 
@@ -533,30 +533,30 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         panel_TTabSheet.wait("visible")
         panel_TTabSheet.click()
         send_keys("{DOWN " + ("7") + "}")
-        
+
         await worker_sleep(5)
-        
+
         panel_TPage = main_window.child_window(class_name="TPage", title="Formulario")
         panel_TTabSheet = panel_TPage.child_window(class_name="TPageControl")
 
         panel_TabPagamento = panel_TTabSheet.child_window(class_name="TTabSheet")
-        #check if have restante
+        # check if have restante
         app = Application().connect(class_name="TFrmNotaFiscalEntrada")
-        panel_nf = app['TFrmNotaFiscalEntrada']
+        panel_nf = app["TFrmNotaFiscalEntrada"]
         remove_btn = panel_nf.child_window(class_name="TDBIBitBtn", found_index=0)
-        if remove_btn.exists() and remove_btn.is_enabled():   
+        if remove_btn.exists() and remove_btn.is_enabled():
             remove_btn.click()
         else:
             print("Botão de exclusão não encontrado ou desabilitado.")
         try:
-            #Confirm screen to remove actual value and expiration date
+            # Confirm screen to remove actual value and expiration date
             app = Application().connect(class_name="TMessageForm")
-            panel_confirm = app['TMessageForm']
+            panel_confirm = app["TMessageForm"]
             await worker_sleep(1)
             panel_confirm.child_window(class_name="TButton", found_index=1).click()
         except:
             console.print("Sem tela de confirmação")
-            
+
         # panel_TabPagamentoCaixa = panel_TTabSheet.child_window(
         #     title="Pagamento Pelo Caixa"
         # )
@@ -567,17 +567,21 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         # console.print(f"Selecionando a Especie de Caixa... \n")
         # tipo_cobranca.click()
         app = Application().connect(class_name="TFrmNotaFiscalEntrada")
-        panel_tab_pagamento = app['TFrmNotaFiscalEntrada']
+        panel_tab_pagamento = app["TFrmNotaFiscalEntrada"]
         try:
             # set_combobox("||List", "BANCO DO BRASIL BOLETO")
-            panel_tab_pagamento.child_window(class_name="TDBIComboBox", found_index=0).select("BANCO DO BRASIL BOLETO")
+            panel_tab_pagamento.child_window(
+                class_name="TDBIComboBox", found_index=0
+            ).select("BANCO DO BRASIL BOLETO")
         except:
             # set_combobox("||List", "BOLETO")
-            panel_tab_pagamento.child_window(class_name="TDBIComboBox", found_index=0).select("BOLETO")
+            panel_tab_pagamento.child_window(
+                class_name="TDBIComboBox", found_index=0
+            ).select("BOLETO")
 
         valor_str = nota.get("valorNota")
         if valor_str:
-            valor_str = valor_str.replace(',', '.')
+            valor_str = valor_str.replace(",", ".")
         else:
             valor_str = None
 
@@ -592,8 +596,8 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         await emsys.incluir_registro()
         await worker_sleep(5)
 
-        await emsys.verify_warning_and_error("Warning", "No")
-        await emsys.verify_warning_and_error("Warning", "&No")
+        # await emsys.verify_warning_and_error("Warning", "No")
+        # await emsys.verify_warning_and_error("Warning", "&No")
 
         try:
             erro_pop_up = await is_window_open("Information")
@@ -651,6 +655,20 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 console.print(f"Aguardando confirmação de nota incluida...\n")
                 await worker_sleep(5)
                 i += 1
+                try:
+                    status_nf_emsys = await get_status_nf_emsys(nota.get("nfe"))
+                    if status_nf_emsys.get("status") == "Lançada":
+                        console.print(
+                            "\nNota lançada com sucesso, processo finalizado...",
+                            style="bold green",
+                        )
+                        return RpaRetornoProcessoDTO(
+                            sucesso=True,
+                            retorno="Nota Lançada com sucesso!",
+                            status=RpaHistoricoStatusEnum.Sucesso,
+                        )
+                except:
+                    pass
 
         await worker_sleep(20)
         console.print("\nVerifica se a nota ja foi lançada...")

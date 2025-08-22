@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-20T21:57:30.343831                                                            #
+# Generated on 2025-08-21T23:31:59.765157                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.metaflow_environment
     import metaflow.exception
+    import metaflow.metaflow_environment
 
 from ...exception import MetaflowException as MetaflowException
 from ...packaging_sys import ContentType as ContentType

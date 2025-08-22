@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.40.0
+# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.41.0
 
-This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform azurerm provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0)
+* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -1198,9 +1198,11 @@ __all__ = [
     "network_manager_connectivity_configuration",
     "network_manager_deployment",
     "network_manager_ipam_pool",
+    "network_manager_ipam_pool_static_cidr",
     "network_manager_management_group_connection",
     "network_manager_network_group",
     "network_manager_routing_configuration",
+    "network_manager_routing_rule_collection",
     "network_manager_scope_connection",
     "network_manager_security_admin_configuration",
     "network_manager_static_member",
@@ -2702,9 +2704,11 @@ from . import network_manager_admin_rule_collection
 from . import network_manager_connectivity_configuration
 from . import network_manager_deployment
 from . import network_manager_ipam_pool
+from . import network_manager_ipam_pool_static_cidr
 from . import network_manager_management_group_connection
 from . import network_manager_network_group
 from . import network_manager_routing_configuration
+from . import network_manager_routing_rule_collection
 from . import network_manager_scope_connection
 from . import network_manager_security_admin_configuration
 from . import network_manager_static_member

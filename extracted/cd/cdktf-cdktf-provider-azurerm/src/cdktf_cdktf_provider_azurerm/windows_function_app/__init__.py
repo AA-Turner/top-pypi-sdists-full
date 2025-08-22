@@ -1,7 +1,7 @@
 r'''
 # `azurerm_windows_function_app`
 
-Refer to the Terraform Registry for docs: [`azurerm_windows_function_app`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app).
+Refer to the Terraform Registry for docs: [`azurerm_windows_function_app`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WindowsFunctionApp(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.windowsFunctionApp.WindowsFunctionApp",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app azurerm_windows_function_app}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app azurerm_windows_function_app}.'''
 
     def __init__(
         self,
@@ -96,47 +96,47 @@ class WindowsFunctionApp(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app azurerm_windows_function_app} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app azurerm_windows_function_app} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#location WindowsFunctionApp#location}.
-        :param name: Specifies the name of the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#resource_group_name WindowsFunctionApp#resource_group_name}.
-        :param service_plan_id: The ID of the App Service Plan within which to create this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#service_plan_id WindowsFunctionApp#service_plan_id}
-        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#site_config WindowsFunctionApp#site_config}
-        :param app_settings: A map of key-value pairs for `App Settings <https://docs.microsoft.com/en-us/azure/azure-functions/functions-app-settings>`_ and custom values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_settings WindowsFunctionApp#app_settings}
-        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#auth_settings WindowsFunctionApp#auth_settings}
-        :param auth_settings_v2: auth_settings_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#auth_settings_v2 WindowsFunctionApp#auth_settings_v2}
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#backup WindowsFunctionApp#backup}
-        :param builtin_logging_enabled: Should built in logging be enabled. Configures ``AzureWebJobsDashboard`` app setting based on the configured storage setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#builtin_logging_enabled WindowsFunctionApp#builtin_logging_enabled}
-        :param client_certificate_enabled: Should the function app use Client Certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_certificate_enabled WindowsFunctionApp#client_certificate_enabled}
-        :param client_certificate_exclusion_paths: Paths to exclude when using client certificates, separated by ; Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_certificate_exclusion_paths WindowsFunctionApp#client_certificate_exclusion_paths}
-        :param client_certificate_mode: The mode of the Function App's client certificates requirement for incoming requests. Possible values are ``Required``, ``Optional``, and ``OptionalInteractiveUser`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_certificate_mode WindowsFunctionApp#client_certificate_mode}
-        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#connection_string WindowsFunctionApp#connection_string}
-        :param content_share_force_disabled: Force disable the content share settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#content_share_force_disabled WindowsFunctionApp#content_share_force_disabled}
-        :param daily_memory_time_quota: The amount of memory in gigabyte-seconds that your application is allowed to consume per day. Setting this value only affects function apps in Consumption Plans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#daily_memory_time_quota WindowsFunctionApp#daily_memory_time_quota}
-        :param enabled: Is the Windows Function App enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
-        :param ftp_publish_basic_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ftp_publish_basic_authentication_enabled WindowsFunctionApp#ftp_publish_basic_authentication_enabled}.
-        :param functions_extension_version: The runtime version associated with the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#functions_extension_version WindowsFunctionApp#functions_extension_version}
-        :param https_only: Can the Function App only be accessed via HTTPS? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#https_only WindowsFunctionApp#https_only}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#id WindowsFunctionApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#identity WindowsFunctionApp#identity}
-        :param key_vault_reference_identity_id: The User Assigned Identity to use for Key Vault access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#key_vault_reference_identity_id WindowsFunctionApp#key_vault_reference_identity_id}
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#public_network_access_enabled WindowsFunctionApp#public_network_access_enabled}.
-        :param sticky_settings: sticky_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#sticky_settings WindowsFunctionApp#sticky_settings}
-        :param storage_account: storage_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account WindowsFunctionApp#storage_account}
-        :param storage_account_access_key: The access key which will be used to access the storage account for the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account_access_key WindowsFunctionApp#storage_account_access_key}
-        :param storage_account_name: The backend storage account name which will be used by this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account_name WindowsFunctionApp#storage_account_name}
-        :param storage_key_vault_secret_id: The Key Vault Secret ID, including version, that contains the Connection String to connect to the storage account for this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_key_vault_secret_id WindowsFunctionApp#storage_key_vault_secret_id}
-        :param storage_uses_managed_identity: Should the Function App use its Managed Identity to access storage? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_uses_managed_identity WindowsFunctionApp#storage_uses_managed_identity}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#tags WindowsFunctionApp#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#timeouts WindowsFunctionApp#timeouts}
-        :param virtual_network_backup_restore_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_backup_restore_enabled WindowsFunctionApp#virtual_network_backup_restore_enabled}.
-        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}.
-        :param vnet_image_pull_enabled: Is container image pull over virtual network enabled? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#vnet_image_pull_enabled WindowsFunctionApp#vnet_image_pull_enabled}
-        :param webdeploy_publish_basic_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#webdeploy_publish_basic_authentication_enabled WindowsFunctionApp#webdeploy_publish_basic_authentication_enabled}.
-        :param zip_deploy_file: The local path and filename of the Zip packaged application to deploy to this Windows Function App. **Note:** Using this value requires ``WEBSITE_RUN_FROM_PACKAGE=1`` to be set on the App in ``app_settings``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#zip_deploy_file WindowsFunctionApp#zip_deploy_file}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#location WindowsFunctionApp#location}.
+        :param name: Specifies the name of the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#resource_group_name WindowsFunctionApp#resource_group_name}.
+        :param service_plan_id: The ID of the App Service Plan within which to create this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#service_plan_id WindowsFunctionApp#service_plan_id}
+        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#site_config WindowsFunctionApp#site_config}
+        :param app_settings: A map of key-value pairs for `App Settings <https://docs.microsoft.com/en-us/azure/azure-functions/functions-app-settings>`_ and custom values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_settings WindowsFunctionApp#app_settings}
+        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#auth_settings WindowsFunctionApp#auth_settings}
+        :param auth_settings_v2: auth_settings_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#auth_settings_v2 WindowsFunctionApp#auth_settings_v2}
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#backup WindowsFunctionApp#backup}
+        :param builtin_logging_enabled: Should built in logging be enabled. Configures ``AzureWebJobsDashboard`` app setting based on the configured storage setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#builtin_logging_enabled WindowsFunctionApp#builtin_logging_enabled}
+        :param client_certificate_enabled: Should the function app use Client Certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_certificate_enabled WindowsFunctionApp#client_certificate_enabled}
+        :param client_certificate_exclusion_paths: Paths to exclude when using client certificates, separated by ; Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_certificate_exclusion_paths WindowsFunctionApp#client_certificate_exclusion_paths}
+        :param client_certificate_mode: The mode of the Function App's client certificates requirement for incoming requests. Possible values are ``Required``, ``Optional``, and ``OptionalInteractiveUser`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_certificate_mode WindowsFunctionApp#client_certificate_mode}
+        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#connection_string WindowsFunctionApp#connection_string}
+        :param content_share_force_disabled: Force disable the content share settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#content_share_force_disabled WindowsFunctionApp#content_share_force_disabled}
+        :param daily_memory_time_quota: The amount of memory in gigabyte-seconds that your application is allowed to consume per day. Setting this value only affects function apps in Consumption Plans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#daily_memory_time_quota WindowsFunctionApp#daily_memory_time_quota}
+        :param enabled: Is the Windows Function App enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
+        :param ftp_publish_basic_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ftp_publish_basic_authentication_enabled WindowsFunctionApp#ftp_publish_basic_authentication_enabled}.
+        :param functions_extension_version: The runtime version associated with the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#functions_extension_version WindowsFunctionApp#functions_extension_version}
+        :param https_only: Can the Function App only be accessed via HTTPS? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#https_only WindowsFunctionApp#https_only}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#id WindowsFunctionApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#identity WindowsFunctionApp#identity}
+        :param key_vault_reference_identity_id: The User Assigned Identity to use for Key Vault access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#key_vault_reference_identity_id WindowsFunctionApp#key_vault_reference_identity_id}
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#public_network_access_enabled WindowsFunctionApp#public_network_access_enabled}.
+        :param sticky_settings: sticky_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#sticky_settings WindowsFunctionApp#sticky_settings}
+        :param storage_account: storage_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account WindowsFunctionApp#storage_account}
+        :param storage_account_access_key: The access key which will be used to access the storage account for the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account_access_key WindowsFunctionApp#storage_account_access_key}
+        :param storage_account_name: The backend storage account name which will be used by this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account_name WindowsFunctionApp#storage_account_name}
+        :param storage_key_vault_secret_id: The Key Vault Secret ID, including version, that contains the Connection String to connect to the storage account for this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_key_vault_secret_id WindowsFunctionApp#storage_key_vault_secret_id}
+        :param storage_uses_managed_identity: Should the Function App use its Managed Identity to access storage? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_uses_managed_identity WindowsFunctionApp#storage_uses_managed_identity}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#tags WindowsFunctionApp#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#timeouts WindowsFunctionApp#timeouts}
+        :param virtual_network_backup_restore_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_backup_restore_enabled WindowsFunctionApp#virtual_network_backup_restore_enabled}.
+        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}.
+        :param vnet_image_pull_enabled: Is container image pull over virtual network enabled? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#vnet_image_pull_enabled WindowsFunctionApp#vnet_image_pull_enabled}
+        :param webdeploy_publish_basic_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#webdeploy_publish_basic_authentication_enabled WindowsFunctionApp#webdeploy_publish_basic_authentication_enabled}.
+        :param zip_deploy_file: The local path and filename of the Zip packaged application to deploy to this Windows Function App. **Note:** Using this value requires ``WEBSITE_RUN_FROM_PACKAGE=1`` to be set on the App in ``app_settings``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#zip_deploy_file WindowsFunctionApp#zip_deploy_file}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -211,7 +211,7 @@ class WindowsFunctionApp(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WindowsFunctionApp to import.
-        :param import_from_id: The id of the existing WindowsFunctionApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WindowsFunctionApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WindowsFunctionApp to import is found.
         '''
         if __debug__:
@@ -243,21 +243,21 @@ class WindowsFunctionApp(
         unauthenticated_client_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Should the Authentication / Authorization feature be enabled? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
-        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#active_directory WindowsFunctionApp#active_directory}
-        :param additional_login_parameters: Specifies a map of Login Parameters to send to the OpenID Connect authorization endpoint when a user logs in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#additional_login_parameters WindowsFunctionApp#additional_login_parameters}
-        :param allowed_external_redirect_urls: Specifies a list of External URLs that can be redirected to as part of logging in or logging out of the Windows Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
-        :param default_provider: The default authentication provider to use when multiple providers are configured. Possible values include: ``AzureActiveDirectory``, ``Facebook``, ``Google``, ``MicrosoftAccount``, ``Twitter``, ``Github``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
-        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#facebook WindowsFunctionApp#facebook}
-        :param github: github block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#github WindowsFunctionApp#github}
-        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#google WindowsFunctionApp#google}
-        :param issuer: The OpenID Connect Issuer URI that represents the entity which issues access tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#issuer WindowsFunctionApp#issuer}
-        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#microsoft WindowsFunctionApp#microsoft}
-        :param runtime_version: The RuntimeVersion of the Authentication / Authorization feature in use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
-        :param token_refresh_extension_hours: The number of hours after session token expiration that a session token can be used to call the token refresh API. Defaults to ``72`` hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_refresh_extension_hours WindowsFunctionApp#token_refresh_extension_hours}
-        :param token_store_enabled: Should the Windows Web App durably store platform-specific security tokens that are obtained during login flows? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
-        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#twitter WindowsFunctionApp#twitter}
-        :param unauthenticated_client_action: The action to take when an unauthenticated client attempts to access the app. Possible values include: ``RedirectToLoginPage``, ``AllowAnonymous``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#unauthenticated_client_action WindowsFunctionApp#unauthenticated_client_action}
+        :param enabled: Should the Authentication / Authorization feature be enabled? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
+        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#active_directory WindowsFunctionApp#active_directory}
+        :param additional_login_parameters: Specifies a map of Login Parameters to send to the OpenID Connect authorization endpoint when a user logs in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#additional_login_parameters WindowsFunctionApp#additional_login_parameters}
+        :param allowed_external_redirect_urls: Specifies a list of External URLs that can be redirected to as part of logging in or logging out of the Windows Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
+        :param default_provider: The default authentication provider to use when multiple providers are configured. Possible values include: ``AzureActiveDirectory``, ``Facebook``, ``Google``, ``MicrosoftAccount``, ``Twitter``, ``Github``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
+        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#facebook WindowsFunctionApp#facebook}
+        :param github: github block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#github WindowsFunctionApp#github}
+        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#google WindowsFunctionApp#google}
+        :param issuer: The OpenID Connect Issuer URI that represents the entity which issues access tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#issuer WindowsFunctionApp#issuer}
+        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#microsoft WindowsFunctionApp#microsoft}
+        :param runtime_version: The RuntimeVersion of the Authentication / Authorization feature in use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
+        :param token_refresh_extension_hours: The number of hours after session token expiration that a session token can be used to call the token refresh API. Defaults to ``72`` hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_refresh_extension_hours WindowsFunctionApp#token_refresh_extension_hours}
+        :param token_store_enabled: Should the Windows Web App durably store platform-specific security tokens that are obtained during login flows? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
+        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#twitter WindowsFunctionApp#twitter}
+        :param unauthenticated_client_action: The action to take when an unauthenticated client attempts to access the app. Possible values include: ``RedirectToLoginPage``, ``AllowAnonymous``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#unauthenticated_client_action WindowsFunctionApp#unauthenticated_client_action}
         '''
         value = WindowsFunctionAppAuthSettings(
             enabled=enabled,
@@ -307,28 +307,28 @@ class WindowsFunctionApp(
         unauthenticated_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param login: login block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login WindowsFunctionApp#login}
-        :param active_directory_v2: active_directory_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#active_directory_v2 WindowsFunctionApp#active_directory_v2}
-        :param apple_v2: apple_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#apple_v2 WindowsFunctionApp#apple_v2}
-        :param auth_enabled: Should the AuthV2 Settings be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#auth_enabled WindowsFunctionApp#auth_enabled}
-        :param azure_static_web_app_v2: azure_static_web_app_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#azure_static_web_app_v2 WindowsFunctionApp#azure_static_web_app_v2}
-        :param config_file_path: The path to the App Auth settings. **Note:** Relative Paths are evaluated from the Site Root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#config_file_path WindowsFunctionApp#config_file_path}
-        :param custom_oidc_v2: custom_oidc_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#custom_oidc_v2 WindowsFunctionApp#custom_oidc_v2}
-        :param default_provider: The Default Authentication Provider to use when the ``unauthenticated_action`` is set to ``RedirectToLoginPage``. Possible values include: ``apple``, ``azureactivedirectory``, ``facebook``, ``github``, ``google``, ``twitter`` and the ``name`` of your ``custom_oidc_v2`` provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
-        :param excluded_paths: The paths which should be excluded from the ``unauthenticated_action`` when it is set to ``RedirectToLoginPage``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#excluded_paths WindowsFunctionApp#excluded_paths}
-        :param facebook_v2: facebook_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#facebook_v2 WindowsFunctionApp#facebook_v2}
-        :param forward_proxy_convention: The convention used to determine the url of the request made. Possible values include ``ForwardProxyConventionNoProxy``, ``ForwardProxyConventionStandard``, ``ForwardProxyConventionCustom``. Defaults to ``ForwardProxyConventionNoProxy`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#forward_proxy_convention WindowsFunctionApp#forward_proxy_convention}
-        :param forward_proxy_custom_host_header_name: The name of the header containing the host of the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#forward_proxy_custom_host_header_name WindowsFunctionApp#forward_proxy_custom_host_header_name}
-        :param forward_proxy_custom_scheme_header_name: The name of the header containing the scheme of the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#forward_proxy_custom_scheme_header_name WindowsFunctionApp#forward_proxy_custom_scheme_header_name}
-        :param github_v2: github_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#github_v2 WindowsFunctionApp#github_v2}
-        :param google_v2: google_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#google_v2 WindowsFunctionApp#google_v2}
-        :param http_route_api_prefix: The prefix that should precede all the authentication and authorisation paths. Defaults to ``/.auth``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#http_route_api_prefix WindowsFunctionApp#http_route_api_prefix}
-        :param microsoft_v2: microsoft_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#microsoft_v2 WindowsFunctionApp#microsoft_v2}
-        :param require_authentication: Should the authentication flow be used for all requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#require_authentication WindowsFunctionApp#require_authentication}
-        :param require_https: Should HTTPS be required on connections? Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#require_https WindowsFunctionApp#require_https}
-        :param runtime_version: The Runtime Version of the Authentication and Authorisation feature of this App. Defaults to ``~1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
-        :param twitter_v2: twitter_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#twitter_v2 WindowsFunctionApp#twitter_v2}
-        :param unauthenticated_action: The action to take for requests made without authentication. Possible values include ``RedirectToLoginPage``, ``AllowAnonymous``, ``Return401``, and ``Return403``. Defaults to ``RedirectToLoginPage``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#unauthenticated_action WindowsFunctionApp#unauthenticated_action}
+        :param login: login block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login WindowsFunctionApp#login}
+        :param active_directory_v2: active_directory_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#active_directory_v2 WindowsFunctionApp#active_directory_v2}
+        :param apple_v2: apple_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#apple_v2 WindowsFunctionApp#apple_v2}
+        :param auth_enabled: Should the AuthV2 Settings be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#auth_enabled WindowsFunctionApp#auth_enabled}
+        :param azure_static_web_app_v2: azure_static_web_app_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#azure_static_web_app_v2 WindowsFunctionApp#azure_static_web_app_v2}
+        :param config_file_path: The path to the App Auth settings. **Note:** Relative Paths are evaluated from the Site Root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#config_file_path WindowsFunctionApp#config_file_path}
+        :param custom_oidc_v2: custom_oidc_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#custom_oidc_v2 WindowsFunctionApp#custom_oidc_v2}
+        :param default_provider: The Default Authentication Provider to use when the ``unauthenticated_action`` is set to ``RedirectToLoginPage``. Possible values include: ``apple``, ``azureactivedirectory``, ``facebook``, ``github``, ``google``, ``twitter`` and the ``name`` of your ``custom_oidc_v2`` provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
+        :param excluded_paths: The paths which should be excluded from the ``unauthenticated_action`` when it is set to ``RedirectToLoginPage``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#excluded_paths WindowsFunctionApp#excluded_paths}
+        :param facebook_v2: facebook_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#facebook_v2 WindowsFunctionApp#facebook_v2}
+        :param forward_proxy_convention: The convention used to determine the url of the request made. Possible values include ``ForwardProxyConventionNoProxy``, ``ForwardProxyConventionStandard``, ``ForwardProxyConventionCustom``. Defaults to ``ForwardProxyConventionNoProxy`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#forward_proxy_convention WindowsFunctionApp#forward_proxy_convention}
+        :param forward_proxy_custom_host_header_name: The name of the header containing the host of the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#forward_proxy_custom_host_header_name WindowsFunctionApp#forward_proxy_custom_host_header_name}
+        :param forward_proxy_custom_scheme_header_name: The name of the header containing the scheme of the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#forward_proxy_custom_scheme_header_name WindowsFunctionApp#forward_proxy_custom_scheme_header_name}
+        :param github_v2: github_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#github_v2 WindowsFunctionApp#github_v2}
+        :param google_v2: google_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#google_v2 WindowsFunctionApp#google_v2}
+        :param http_route_api_prefix: The prefix that should precede all the authentication and authorisation paths. Defaults to ``/.auth``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#http_route_api_prefix WindowsFunctionApp#http_route_api_prefix}
+        :param microsoft_v2: microsoft_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#microsoft_v2 WindowsFunctionApp#microsoft_v2}
+        :param require_authentication: Should the authentication flow be used for all requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#require_authentication WindowsFunctionApp#require_authentication}
+        :param require_https: Should HTTPS be required on connections? Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#require_https WindowsFunctionApp#require_https}
+        :param runtime_version: The Runtime Version of the Authentication and Authorisation feature of this App. Defaults to ``~1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
+        :param twitter_v2: twitter_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#twitter_v2 WindowsFunctionApp#twitter_v2}
+        :param unauthenticated_action: The action to take for requests made without authentication. Possible values include ``RedirectToLoginPage``, ``AllowAnonymous``, ``Return401``, and ``Return403``. Defaults to ``RedirectToLoginPage``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#unauthenticated_action WindowsFunctionApp#unauthenticated_action}
         '''
         value = WindowsFunctionAppAuthSettingsV2(
             login=login,
@@ -367,10 +367,10 @@ class WindowsFunctionApp(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: The name which should be used for this Backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#schedule WindowsFunctionApp#schedule}
-        :param storage_account_url: The SAS URL to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account_url WindowsFunctionApp#storage_account_url}
-        :param enabled: Should this backup job be enabled? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
+        :param name: The name which should be used for this Backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#schedule WindowsFunctionApp#schedule}
+        :param storage_account_url: The SAS URL to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account_url WindowsFunctionApp#storage_account_url}
+        :param enabled: Should this backup job be enabled? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
         '''
         value = WindowsFunctionAppBackup(
             name=name,
@@ -402,8 +402,8 @@ class WindowsFunctionApp(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#identity_ids WindowsFunctionApp#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#identity_ids WindowsFunctionApp#identity_ids}.
         '''
         value = WindowsFunctionAppIdentity(type=type, identity_ids=identity_ids)
 
@@ -448,39 +448,39 @@ class WindowsFunctionApp(
         worker_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param always_on: If this Windows Web App is Always On enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#always_on WindowsFunctionApp#always_on}
-        :param api_definition_url: The URL of the API definition that describes this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#api_definition_url WindowsFunctionApp#api_definition_url}
-        :param api_management_api_id: The ID of the API Management API for this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#api_management_api_id WindowsFunctionApp#api_management_api_id}
-        :param app_command_line: The program and any arguments used to launch this app via the command line. (Example ``node myapp.js``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_command_line WindowsFunctionApp#app_command_line}
-        :param application_insights_connection_string: The Connection String for linking the Windows Function App to Application Insights. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#application_insights_connection_string WindowsFunctionApp#application_insights_connection_string}
-        :param application_insights_key: The Instrumentation Key for connecting the Windows Function App to Application Insights. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#application_insights_key WindowsFunctionApp#application_insights_key}
-        :param application_stack: application_stack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#application_stack WindowsFunctionApp#application_stack}
-        :param app_scale_limit: The number of workers this function app can scale out to. Only applicable to apps on the Consumption and Premium plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_scale_limit WindowsFunctionApp#app_scale_limit}
-        :param app_service_logs: app_service_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_service_logs WindowsFunctionApp#app_service_logs}
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#cors WindowsFunctionApp#cors}
-        :param default_documents: Specifies a list of Default Documents for the Windows Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#default_documents WindowsFunctionApp#default_documents}
-        :param elastic_instance_minimum: The number of minimum instances for this Windows Function App. Only affects apps on Elastic Premium plans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#elastic_instance_minimum WindowsFunctionApp#elastic_instance_minimum}
-        :param ftps_state: State of FTP / FTPS service for this function app. Possible values include: ``AllAllowed``, ``FtpsOnly`` and ``Disabled``. Defaults to ``Disabled``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ftps_state WindowsFunctionApp#ftps_state}
-        :param health_check_eviction_time_in_min: The amount of time in minutes that a node is unhealthy before being removed from the load balancer. Possible values are between ``2`` and ``10``. Only valid in conjunction with ``health_check_path`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#health_check_eviction_time_in_min WindowsFunctionApp#health_check_eviction_time_in_min}
-        :param health_check_path: The path to be checked for this function app health. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#health_check_path WindowsFunctionApp#health_check_path}
-        :param http2_enabled: Specifies if the http2 protocol should be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#http2_enabled WindowsFunctionApp#http2_enabled}
-        :param ip_restriction: ip_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_restriction WindowsFunctionApp#ip_restriction}
-        :param ip_restriction_default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_restriction_default_action WindowsFunctionApp#ip_restriction_default_action}.
-        :param load_balancing_mode: The Site load balancing mode. Possible values include: ``WeightedRoundRobin``, ``LeastRequests``, ``LeastResponseTime``, ``WeightedTotalTraffic``, ``RequestHash``, ``PerSiteRoundRobin``. Defaults to ``LeastRequests`` if omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#load_balancing_mode WindowsFunctionApp#load_balancing_mode}
-        :param managed_pipeline_mode: The Managed Pipeline mode. Possible values include: ``Integrated``, ``Classic``. Defaults to ``Integrated``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#managed_pipeline_mode WindowsFunctionApp#managed_pipeline_mode}
-        :param minimum_tls_version: The configures the minimum version of TLS required for SSL requests. Possible values include: ``1.0``, ``1.1``, and ``1.2``. Defaults to ``1.2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#minimum_tls_version WindowsFunctionApp#minimum_tls_version}
-        :param pre_warmed_instance_count: The number of pre-warmed instances for this function app. Only affects apps on an Elastic Premium plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#pre_warmed_instance_count WindowsFunctionApp#pre_warmed_instance_count}
-        :param remote_debugging_enabled: Should Remote Debugging be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#remote_debugging_enabled WindowsFunctionApp#remote_debugging_enabled}
-        :param remote_debugging_version: The Remote Debugging Version. Currently only ``VS2022`` is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#remote_debugging_version WindowsFunctionApp#remote_debugging_version}
-        :param runtime_scale_monitoring_enabled: Should Functions Runtime Scale Monitoring be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#runtime_scale_monitoring_enabled WindowsFunctionApp#runtime_scale_monitoring_enabled}
-        :param scm_ip_restriction: scm_ip_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_ip_restriction WindowsFunctionApp#scm_ip_restriction}
-        :param scm_ip_restriction_default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_ip_restriction_default_action WindowsFunctionApp#scm_ip_restriction_default_action}.
-        :param scm_minimum_tls_version: Configures the minimum version of TLS required for SSL requests to the SCM site Possible values include: ``1.0``, ``1.1``, ``1.2`` and ``1.3``. Defaults to ``1.2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_minimum_tls_version WindowsFunctionApp#scm_minimum_tls_version}
-        :param scm_use_main_ip_restriction: Should the Windows Function App ``ip_restriction`` configuration be used for the SCM also. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_use_main_ip_restriction WindowsFunctionApp#scm_use_main_ip_restriction}
-        :param use32_bit_worker: Should the Windows Web App use a 32-bit worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#use_32_bit_worker WindowsFunctionApp#use_32_bit_worker}
-        :param vnet_route_all_enabled: Should all outbound traffic to have Virtual Network Security Groups and User Defined Routes applied? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#vnet_route_all_enabled WindowsFunctionApp#vnet_route_all_enabled}
-        :param websockets_enabled: Should Web Sockets be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#websockets_enabled WindowsFunctionApp#websockets_enabled}
-        :param worker_count: The number of Workers for this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#worker_count WindowsFunctionApp#worker_count}
+        :param always_on: If this Windows Web App is Always On enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#always_on WindowsFunctionApp#always_on}
+        :param api_definition_url: The URL of the API definition that describes this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#api_definition_url WindowsFunctionApp#api_definition_url}
+        :param api_management_api_id: The ID of the API Management API for this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#api_management_api_id WindowsFunctionApp#api_management_api_id}
+        :param app_command_line: The program and any arguments used to launch this app via the command line. (Example ``node myapp.js``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_command_line WindowsFunctionApp#app_command_line}
+        :param application_insights_connection_string: The Connection String for linking the Windows Function App to Application Insights. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#application_insights_connection_string WindowsFunctionApp#application_insights_connection_string}
+        :param application_insights_key: The Instrumentation Key for connecting the Windows Function App to Application Insights. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#application_insights_key WindowsFunctionApp#application_insights_key}
+        :param application_stack: application_stack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#application_stack WindowsFunctionApp#application_stack}
+        :param app_scale_limit: The number of workers this function app can scale out to. Only applicable to apps on the Consumption and Premium plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_scale_limit WindowsFunctionApp#app_scale_limit}
+        :param app_service_logs: app_service_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_service_logs WindowsFunctionApp#app_service_logs}
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#cors WindowsFunctionApp#cors}
+        :param default_documents: Specifies a list of Default Documents for the Windows Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#default_documents WindowsFunctionApp#default_documents}
+        :param elastic_instance_minimum: The number of minimum instances for this Windows Function App. Only affects apps on Elastic Premium plans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#elastic_instance_minimum WindowsFunctionApp#elastic_instance_minimum}
+        :param ftps_state: State of FTP / FTPS service for this function app. Possible values include: ``AllAllowed``, ``FtpsOnly`` and ``Disabled``. Defaults to ``Disabled``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ftps_state WindowsFunctionApp#ftps_state}
+        :param health_check_eviction_time_in_min: The amount of time in minutes that a node is unhealthy before being removed from the load balancer. Possible values are between ``2`` and ``10``. Only valid in conjunction with ``health_check_path`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#health_check_eviction_time_in_min WindowsFunctionApp#health_check_eviction_time_in_min}
+        :param health_check_path: The path to be checked for this function app health. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#health_check_path WindowsFunctionApp#health_check_path}
+        :param http2_enabled: Specifies if the http2 protocol should be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#http2_enabled WindowsFunctionApp#http2_enabled}
+        :param ip_restriction: ip_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_restriction WindowsFunctionApp#ip_restriction}
+        :param ip_restriction_default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_restriction_default_action WindowsFunctionApp#ip_restriction_default_action}.
+        :param load_balancing_mode: The Site load balancing mode. Possible values include: ``WeightedRoundRobin``, ``LeastRequests``, ``LeastResponseTime``, ``WeightedTotalTraffic``, ``RequestHash``, ``PerSiteRoundRobin``. Defaults to ``LeastRequests`` if omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#load_balancing_mode WindowsFunctionApp#load_balancing_mode}
+        :param managed_pipeline_mode: The Managed Pipeline mode. Possible values include: ``Integrated``, ``Classic``. Defaults to ``Integrated``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#managed_pipeline_mode WindowsFunctionApp#managed_pipeline_mode}
+        :param minimum_tls_version: The configures the minimum version of TLS required for SSL requests. Possible values include: ``1.0``, ``1.1``, and ``1.2``. Defaults to ``1.2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#minimum_tls_version WindowsFunctionApp#minimum_tls_version}
+        :param pre_warmed_instance_count: The number of pre-warmed instances for this function app. Only affects apps on an Elastic Premium plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#pre_warmed_instance_count WindowsFunctionApp#pre_warmed_instance_count}
+        :param remote_debugging_enabled: Should Remote Debugging be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#remote_debugging_enabled WindowsFunctionApp#remote_debugging_enabled}
+        :param remote_debugging_version: The Remote Debugging Version. Currently only ``VS2022`` is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#remote_debugging_version WindowsFunctionApp#remote_debugging_version}
+        :param runtime_scale_monitoring_enabled: Should Functions Runtime Scale Monitoring be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#runtime_scale_monitoring_enabled WindowsFunctionApp#runtime_scale_monitoring_enabled}
+        :param scm_ip_restriction: scm_ip_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_ip_restriction WindowsFunctionApp#scm_ip_restriction}
+        :param scm_ip_restriction_default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_ip_restriction_default_action WindowsFunctionApp#scm_ip_restriction_default_action}.
+        :param scm_minimum_tls_version: Configures the minimum version of TLS required for SSL requests to the SCM site Possible values include: ``1.0``, ``1.1``, ``1.2`` and ``1.3``. Defaults to ``1.2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_minimum_tls_version WindowsFunctionApp#scm_minimum_tls_version}
+        :param scm_use_main_ip_restriction: Should the Windows Function App ``ip_restriction`` configuration be used for the SCM also. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_use_main_ip_restriction WindowsFunctionApp#scm_use_main_ip_restriction}
+        :param use32_bit_worker: Should the Windows Web App use a 32-bit worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#use_32_bit_worker WindowsFunctionApp#use_32_bit_worker}
+        :param vnet_route_all_enabled: Should all outbound traffic to have Virtual Network Security Groups and User Defined Routes applied? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#vnet_route_all_enabled WindowsFunctionApp#vnet_route_all_enabled}
+        :param websockets_enabled: Should Web Sockets be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#websockets_enabled WindowsFunctionApp#websockets_enabled}
+        :param worker_count: The number of Workers for this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#worker_count WindowsFunctionApp#worker_count}
         '''
         value = WindowsFunctionAppSiteConfig(
             always_on=always_on,
@@ -528,8 +528,8 @@ class WindowsFunctionApp(
         connection_string_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_setting_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_setting_names WindowsFunctionApp#app_setting_names}.
-        :param connection_string_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#connection_string_names WindowsFunctionApp#connection_string_names}.
+        :param app_setting_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_setting_names WindowsFunctionApp#app_setting_names}.
+        :param connection_string_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#connection_string_names WindowsFunctionApp#connection_string_names}.
         '''
         value = WindowsFunctionAppStickySettings(
             app_setting_names=app_setting_names,
@@ -561,10 +561,10 @@ class WindowsFunctionApp(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#create WindowsFunctionApp#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#delete WindowsFunctionApp#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#read WindowsFunctionApp#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#update WindowsFunctionApp#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#create WindowsFunctionApp#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#delete WindowsFunctionApp#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#read WindowsFunctionApp#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#update WindowsFunctionApp#update}.
         '''
         value = WindowsFunctionAppTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -1452,21 +1452,21 @@ class WindowsFunctionAppAuthSettings:
         unauthenticated_client_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Should the Authentication / Authorization feature be enabled? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
-        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#active_directory WindowsFunctionApp#active_directory}
-        :param additional_login_parameters: Specifies a map of Login Parameters to send to the OpenID Connect authorization endpoint when a user logs in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#additional_login_parameters WindowsFunctionApp#additional_login_parameters}
-        :param allowed_external_redirect_urls: Specifies a list of External URLs that can be redirected to as part of logging in or logging out of the Windows Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
-        :param default_provider: The default authentication provider to use when multiple providers are configured. Possible values include: ``AzureActiveDirectory``, ``Facebook``, ``Google``, ``MicrosoftAccount``, ``Twitter``, ``Github``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
-        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#facebook WindowsFunctionApp#facebook}
-        :param github: github block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#github WindowsFunctionApp#github}
-        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#google WindowsFunctionApp#google}
-        :param issuer: The OpenID Connect Issuer URI that represents the entity which issues access tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#issuer WindowsFunctionApp#issuer}
-        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#microsoft WindowsFunctionApp#microsoft}
-        :param runtime_version: The RuntimeVersion of the Authentication / Authorization feature in use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
-        :param token_refresh_extension_hours: The number of hours after session token expiration that a session token can be used to call the token refresh API. Defaults to ``72`` hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_refresh_extension_hours WindowsFunctionApp#token_refresh_extension_hours}
-        :param token_store_enabled: Should the Windows Web App durably store platform-specific security tokens that are obtained during login flows? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
-        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#twitter WindowsFunctionApp#twitter}
-        :param unauthenticated_client_action: The action to take when an unauthenticated client attempts to access the app. Possible values include: ``RedirectToLoginPage``, ``AllowAnonymous``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#unauthenticated_client_action WindowsFunctionApp#unauthenticated_client_action}
+        :param enabled: Should the Authentication / Authorization feature be enabled? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
+        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#active_directory WindowsFunctionApp#active_directory}
+        :param additional_login_parameters: Specifies a map of Login Parameters to send to the OpenID Connect authorization endpoint when a user logs in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#additional_login_parameters WindowsFunctionApp#additional_login_parameters}
+        :param allowed_external_redirect_urls: Specifies a list of External URLs that can be redirected to as part of logging in or logging out of the Windows Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
+        :param default_provider: The default authentication provider to use when multiple providers are configured. Possible values include: ``AzureActiveDirectory``, ``Facebook``, ``Google``, ``MicrosoftAccount``, ``Twitter``, ``Github``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
+        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#facebook WindowsFunctionApp#facebook}
+        :param github: github block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#github WindowsFunctionApp#github}
+        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#google WindowsFunctionApp#google}
+        :param issuer: The OpenID Connect Issuer URI that represents the entity which issues access tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#issuer WindowsFunctionApp#issuer}
+        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#microsoft WindowsFunctionApp#microsoft}
+        :param runtime_version: The RuntimeVersion of the Authentication / Authorization feature in use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
+        :param token_refresh_extension_hours: The number of hours after session token expiration that a session token can be used to call the token refresh API. Defaults to ``72`` hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_refresh_extension_hours WindowsFunctionApp#token_refresh_extension_hours}
+        :param token_store_enabled: Should the Windows Web App durably store platform-specific security tokens that are obtained during login flows? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
+        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#twitter WindowsFunctionApp#twitter}
+        :param unauthenticated_client_action: The action to take when an unauthenticated client attempts to access the app. Possible values include: ``RedirectToLoginPage``, ``AllowAnonymous``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#unauthenticated_client_action WindowsFunctionApp#unauthenticated_client_action}
         '''
         if isinstance(active_directory, dict):
             active_directory = WindowsFunctionAppAuthSettingsActiveDirectory(**active_directory)
@@ -1533,7 +1533,7 @@ class WindowsFunctionAppAuthSettings:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Should the Authentication / Authorization feature be enabled?
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -1545,7 +1545,7 @@ class WindowsFunctionAppAuthSettings:
     ) -> typing.Optional["WindowsFunctionAppAuthSettingsActiveDirectory"]:
         '''active_directory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#active_directory WindowsFunctionApp#active_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#active_directory WindowsFunctionApp#active_directory}
         '''
         result = self._values.get("active_directory")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsActiveDirectory"], result)
@@ -1556,7 +1556,7 @@ class WindowsFunctionAppAuthSettings:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Specifies a map of Login Parameters to send to the OpenID Connect authorization endpoint when a user logs in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#additional_login_parameters WindowsFunctionApp#additional_login_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#additional_login_parameters WindowsFunctionApp#additional_login_parameters}
         '''
         result = self._values.get("additional_login_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1567,7 +1567,7 @@ class WindowsFunctionAppAuthSettings:
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of External URLs that can be redirected to as part of logging in or logging out of the Windows Web App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
         '''
         result = self._values.get("allowed_external_redirect_urls")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1578,7 +1578,7 @@ class WindowsFunctionAppAuthSettings:
 
         Possible values include: ``AzureActiveDirectory``, ``Facebook``, ``Google``, ``MicrosoftAccount``, ``Twitter``, ``Github``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
         '''
         result = self._values.get("default_provider")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1587,7 +1587,7 @@ class WindowsFunctionAppAuthSettings:
     def facebook(self) -> typing.Optional["WindowsFunctionAppAuthSettingsFacebook"]:
         '''facebook block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#facebook WindowsFunctionApp#facebook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#facebook WindowsFunctionApp#facebook}
         '''
         result = self._values.get("facebook")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsFacebook"], result)
@@ -1596,7 +1596,7 @@ class WindowsFunctionAppAuthSettings:
     def github(self) -> typing.Optional["WindowsFunctionAppAuthSettingsGithub"]:
         '''github block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#github WindowsFunctionApp#github}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#github WindowsFunctionApp#github}
         '''
         result = self._values.get("github")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsGithub"], result)
@@ -1605,7 +1605,7 @@ class WindowsFunctionAppAuthSettings:
     def google(self) -> typing.Optional["WindowsFunctionAppAuthSettingsGoogle"]:
         '''google block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#google WindowsFunctionApp#google}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#google WindowsFunctionApp#google}
         '''
         result = self._values.get("google")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsGoogle"], result)
@@ -1614,7 +1614,7 @@ class WindowsFunctionAppAuthSettings:
     def issuer(self) -> typing.Optional[builtins.str]:
         '''The OpenID Connect Issuer URI that represents the entity which issues access tokens.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#issuer WindowsFunctionApp#issuer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#issuer WindowsFunctionApp#issuer}
         '''
         result = self._values.get("issuer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1623,7 +1623,7 @@ class WindowsFunctionAppAuthSettings:
     def microsoft(self) -> typing.Optional["WindowsFunctionAppAuthSettingsMicrosoft"]:
         '''microsoft block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#microsoft WindowsFunctionApp#microsoft}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#microsoft WindowsFunctionApp#microsoft}
         '''
         result = self._values.get("microsoft")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsMicrosoft"], result)
@@ -1632,7 +1632,7 @@ class WindowsFunctionAppAuthSettings:
     def runtime_version(self) -> typing.Optional[builtins.str]:
         '''The RuntimeVersion of the Authentication / Authorization feature in use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
         '''
         result = self._values.get("runtime_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1643,7 +1643,7 @@ class WindowsFunctionAppAuthSettings:
 
         Defaults to ``72`` hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_refresh_extension_hours WindowsFunctionApp#token_refresh_extension_hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_refresh_extension_hours WindowsFunctionApp#token_refresh_extension_hours}
         '''
         result = self._values.get("token_refresh_extension_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1654,7 +1654,7 @@ class WindowsFunctionAppAuthSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the Windows Web App durably store platform-specific security tokens that are obtained during login flows? Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
         '''
         result = self._values.get("token_store_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1663,7 +1663,7 @@ class WindowsFunctionAppAuthSettings:
     def twitter(self) -> typing.Optional["WindowsFunctionAppAuthSettingsTwitter"]:
         '''twitter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#twitter WindowsFunctionApp#twitter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#twitter WindowsFunctionApp#twitter}
         '''
         result = self._values.get("twitter")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsTwitter"], result)
@@ -1672,7 +1672,7 @@ class WindowsFunctionAppAuthSettings:
     def unauthenticated_client_action(self) -> typing.Optional[builtins.str]:
         '''The action to take when an unauthenticated client attempts to access the app. Possible values include: ``RedirectToLoginPage``, ``AllowAnonymous``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#unauthenticated_client_action WindowsFunctionApp#unauthenticated_client_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#unauthenticated_client_action WindowsFunctionApp#unauthenticated_client_action}
         '''
         result = self._values.get("unauthenticated_client_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1709,10 +1709,10 @@ class WindowsFunctionAppAuthSettingsActiveDirectory:
         client_secret_setting_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The ID of the Client to use to authenticate with Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param allowed_audiences: Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
-        :param client_secret: The Client Secret for the Client ID. Cannot be used with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
-        :param client_secret_setting_name: The App Setting name that contains the client secret of the Client. Cannot be used with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param client_id: The ID of the Client to use to authenticate with Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param allowed_audiences: Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        :param client_secret: The Client Secret for the Client ID. Cannot be used with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        :param client_secret_setting_name: The App Setting name that contains the client secret of the Client. Cannot be used with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4d2ccd68e32d56f1025ec3ae12732d86abb37f65a1d1e4c77c912a2678f60c2)
@@ -1734,7 +1734,7 @@ class WindowsFunctionAppAuthSettingsActiveDirectory:
     def client_id(self) -> builtins.str:
         '''The ID of the Client to use to authenticate with Azure Active Directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -1744,7 +1744,7 @@ class WindowsFunctionAppAuthSettingsActiveDirectory:
     def allowed_audiences(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
         '''
         result = self._values.get("allowed_audiences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1753,7 +1753,7 @@ class WindowsFunctionAppAuthSettingsActiveDirectory:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''The Client Secret for the Client ID. Cannot be used with ``client_secret_setting_name``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1762,7 +1762,7 @@ class WindowsFunctionAppAuthSettingsActiveDirectory:
     def client_secret_setting_name(self) -> typing.Optional[builtins.str]:
         '''The App Setting name that contains the client secret of the Client. Cannot be used with ``client_secret``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         result = self._values.get("client_secret_setting_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1917,10 +1917,10 @@ class WindowsFunctionAppAuthSettingsFacebook:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_id: The App ID of the Facebook app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
-        :param app_secret: The App Secret of the Facebook app used for Facebook Login. Cannot be specified with ``app_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_secret WindowsFunctionApp#app_secret}
-        :param app_secret_setting_name: The app setting name that contains the ``app_secret`` value used for Facebook Login. Cannot be specified with ``app_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
-        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes to be requested as part of Facebook Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        :param app_id: The App ID of the Facebook app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
+        :param app_secret: The App Secret of the Facebook app used for Facebook Login. Cannot be specified with ``app_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_secret WindowsFunctionApp#app_secret}
+        :param app_secret_setting_name: The app setting name that contains the ``app_secret`` value used for Facebook Login. Cannot be specified with ``app_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
+        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes to be requested as part of Facebook Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f381651ae99f8e34c53f46c04868196e33d50bc947aa943fd3cc36a421bfd37b)
@@ -1942,7 +1942,7 @@ class WindowsFunctionAppAuthSettingsFacebook:
     def app_id(self) -> builtins.str:
         '''The App ID of the Facebook app used for login.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
         '''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
@@ -1952,7 +1952,7 @@ class WindowsFunctionAppAuthSettingsFacebook:
     def app_secret(self) -> typing.Optional[builtins.str]:
         '''The App Secret of the Facebook app used for Facebook Login. Cannot be specified with ``app_secret_setting_name``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_secret WindowsFunctionApp#app_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_secret WindowsFunctionApp#app_secret}
         '''
         result = self._values.get("app_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1961,7 +1961,7 @@ class WindowsFunctionAppAuthSettingsFacebook:
     def app_secret_setting_name(self) -> typing.Optional[builtins.str]:
         '''The app setting name that contains the ``app_secret`` value used for Facebook Login. Cannot be specified with ``app_secret``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
         '''
         result = self._values.get("app_secret_setting_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1970,7 +1970,7 @@ class WindowsFunctionAppAuthSettingsFacebook:
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of OAuth 2.0 scopes to be requested as part of Facebook Login authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2123,10 +2123,10 @@ class WindowsFunctionAppAuthSettingsGithub:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The ID of the GitHub app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret: The Client Secret of the GitHub app used for GitHub Login. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for GitHub Login. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        :param client_id: The ID of the GitHub app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret: The Client Secret of the GitHub app used for GitHub Login. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for GitHub Login. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94686940a0564d6da98b0d75cb25107255038551faae4fcaccba34a07996e432)
@@ -2148,7 +2148,7 @@ class WindowsFunctionAppAuthSettingsGithub:
     def client_id(self) -> builtins.str:
         '''The ID of the GitHub app used for login.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -2158,7 +2158,7 @@ class WindowsFunctionAppAuthSettingsGithub:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''The Client Secret of the GitHub app used for GitHub Login. Cannot be specified with ``client_secret_setting_name``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2167,7 +2167,7 @@ class WindowsFunctionAppAuthSettingsGithub:
     def client_secret_setting_name(self) -> typing.Optional[builtins.str]:
         '''The app setting name that contains the ``client_secret`` value used for GitHub Login. Cannot be specified with ``client_secret``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         result = self._values.get("client_secret_setting_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2176,7 +2176,7 @@ class WindowsFunctionAppAuthSettingsGithub:
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2329,10 +2329,10 @@ class WindowsFunctionAppAuthSettingsGoogle:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The OpenID Connect Client ID for the Google web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret: The client secret associated with the Google web application. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Google Login. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of Google Sign-In authentication. If not specified, "openid", "profile", and "email" are used as default scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        :param client_id: The OpenID Connect Client ID for the Google web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret: The client secret associated with the Google web application. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Google Login. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of Google Sign-In authentication. If not specified, "openid", "profile", and "email" are used as default scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e6437f12afb9b21eec8b1f46ff91849fde024f9f90c8d7c24ee6e88a74ec0a7c)
@@ -2354,7 +2354,7 @@ class WindowsFunctionAppAuthSettingsGoogle:
     def client_id(self) -> builtins.str:
         '''The OpenID Connect Client ID for the Google web application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -2364,7 +2364,7 @@ class WindowsFunctionAppAuthSettingsGoogle:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''The client secret associated with the Google web application.  Cannot be specified with ``client_secret_setting_name``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2373,7 +2373,7 @@ class WindowsFunctionAppAuthSettingsGoogle:
     def client_secret_setting_name(self) -> typing.Optional[builtins.str]:
         '''The app setting name that contains the ``client_secret`` value used for Google Login. Cannot be specified with ``client_secret``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         result = self._values.get("client_secret_setting_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2382,7 +2382,7 @@ class WindowsFunctionAppAuthSettingsGoogle:
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of OAuth 2.0 scopes that will be requested as part of Google Sign-In authentication. If not specified, "openid", "profile", and "email" are used as default scopes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2535,10 +2535,10 @@ class WindowsFunctionAppAuthSettingsMicrosoft:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The OAuth 2.0 client ID that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret: The OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
-        :param client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param oauth_scopes: The list of OAuth 2.0 scopes that will be requested as part of Microsoft Account authentication. If not specified, ``wl.basic`` is used as the default scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        :param client_id: The OAuth 2.0 client ID that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret: The OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        :param client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param oauth_scopes: The list of OAuth 2.0 scopes that will be requested as part of Microsoft Account authentication. If not specified, ``wl.basic`` is used as the default scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98ac343c653986e4e97c5d7208f697092fc568d4ff921cf5228bcd3a82661277)
@@ -2560,7 +2560,7 @@ class WindowsFunctionAppAuthSettingsMicrosoft:
     def client_id(self) -> builtins.str:
         '''The OAuth 2.0 client ID that was created for the app used for authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -2570,7 +2570,7 @@ class WindowsFunctionAppAuthSettingsMicrosoft:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''The OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret_setting_name``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2579,7 +2579,7 @@ class WindowsFunctionAppAuthSettingsMicrosoft:
     def client_secret_setting_name(self) -> typing.Optional[builtins.str]:
         '''The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         result = self._values.get("client_secret_setting_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2588,7 +2588,7 @@ class WindowsFunctionAppAuthSettingsMicrosoft:
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of OAuth 2.0 scopes that will be requested as part of Microsoft Account authentication. If not specified, ``wl.basic`` is used as the default scope.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2753,10 +2753,10 @@ class WindowsFunctionAppAuthSettingsOutputReference(
         client_secret_setting_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The ID of the Client to use to authenticate with Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param allowed_audiences: Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
-        :param client_secret: The Client Secret for the Client ID. Cannot be used with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
-        :param client_secret_setting_name: The App Setting name that contains the client secret of the Client. Cannot be used with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param client_id: The ID of the Client to use to authenticate with Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param allowed_audiences: Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        :param client_secret: The Client Secret for the Client ID. Cannot be used with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        :param client_secret_setting_name: The App Setting name that contains the client secret of the Client. Cannot be used with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         value = WindowsFunctionAppAuthSettingsActiveDirectory(
             client_id=client_id,
@@ -2777,10 +2777,10 @@ class WindowsFunctionAppAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_id: The App ID of the Facebook app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
-        :param app_secret: The App Secret of the Facebook app used for Facebook Login. Cannot be specified with ``app_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_secret WindowsFunctionApp#app_secret}
-        :param app_secret_setting_name: The app setting name that contains the ``app_secret`` value used for Facebook Login. Cannot be specified with ``app_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
-        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes to be requested as part of Facebook Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        :param app_id: The App ID of the Facebook app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
+        :param app_secret: The App Secret of the Facebook app used for Facebook Login. Cannot be specified with ``app_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_secret WindowsFunctionApp#app_secret}
+        :param app_secret_setting_name: The app setting name that contains the ``app_secret`` value used for Facebook Login. Cannot be specified with ``app_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
+        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes to be requested as part of Facebook Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         value = WindowsFunctionAppAuthSettingsFacebook(
             app_id=app_id,
@@ -2801,10 +2801,10 @@ class WindowsFunctionAppAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The ID of the GitHub app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret: The Client Secret of the GitHub app used for GitHub Login. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for GitHub Login. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        :param client_id: The ID of the GitHub app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret: The Client Secret of the GitHub app used for GitHub Login. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for GitHub Login. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         value = WindowsFunctionAppAuthSettingsGithub(
             client_id=client_id,
@@ -2825,10 +2825,10 @@ class WindowsFunctionAppAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The OpenID Connect Client ID for the Google web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret: The client secret associated with the Google web application. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Google Login. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of Google Sign-In authentication. If not specified, "openid", "profile", and "email" are used as default scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        :param client_id: The OpenID Connect Client ID for the Google web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret: The client secret associated with the Google web application. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Google Login. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param oauth_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of Google Sign-In authentication. If not specified, "openid", "profile", and "email" are used as default scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         value = WindowsFunctionAppAuthSettingsGoogle(
             client_id=client_id,
@@ -2849,10 +2849,10 @@ class WindowsFunctionAppAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The OAuth 2.0 client ID that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret: The OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
-        :param client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param oauth_scopes: The list of OAuth 2.0 scopes that will be requested as part of Microsoft Account authentication. If not specified, ``wl.basic`` is used as the default scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
+        :param client_id: The OAuth 2.0 client ID that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret: The OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret WindowsFunctionApp#client_secret}
+        :param client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication. Cannot be specified with ``client_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param oauth_scopes: The list of OAuth 2.0 scopes that will be requested as part of Microsoft Account authentication. If not specified, ``wl.basic`` is used as the default scope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#oauth_scopes WindowsFunctionApp#oauth_scopes}
         '''
         value = WindowsFunctionAppAuthSettingsMicrosoft(
             client_id=client_id,
@@ -2872,9 +2872,9 @@ class WindowsFunctionAppAuthSettingsOutputReference(
         consumer_secret_setting_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
-        :param consumer_secret: The OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_secret WindowsFunctionApp#consumer_secret}
-        :param consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
+        :param consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
+        :param consumer_secret: The OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_secret WindowsFunctionApp#consumer_secret}
+        :param consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
         '''
         value = WindowsFunctionAppAuthSettingsTwitter(
             consumer_key=consumer_key,
@@ -3212,9 +3212,9 @@ class WindowsFunctionAppAuthSettingsTwitter:
         consumer_secret_setting_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
-        :param consumer_secret: The OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_secret WindowsFunctionApp#consumer_secret}
-        :param consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
+        :param consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
+        :param consumer_secret: The OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret_setting_name``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_secret WindowsFunctionApp#consumer_secret}
+        :param consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eaa81ec1fb483e46f67b048424c19206055f29bb2c73e211ddc2a5f974602123)
@@ -3233,7 +3233,7 @@ class WindowsFunctionAppAuthSettingsTwitter:
     def consumer_key(self) -> builtins.str:
         '''The OAuth 1.0a consumer key of the Twitter application used for sign-in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
         '''
         result = self._values.get("consumer_key")
         assert result is not None, "Required property 'consumer_key' is missing"
@@ -3243,7 +3243,7 @@ class WindowsFunctionAppAuthSettingsTwitter:
     def consumer_secret(self) -> typing.Optional[builtins.str]:
         '''The OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret_setting_name``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_secret WindowsFunctionApp#consumer_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_secret WindowsFunctionApp#consumer_secret}
         '''
         result = self._values.get("consumer_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3252,7 +3252,7 @@ class WindowsFunctionAppAuthSettingsTwitter:
     def consumer_secret_setting_name(self) -> typing.Optional[builtins.str]:
         '''The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in. Cannot be specified with ``consumer_secret``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
         '''
         result = self._values.get("consumer_secret_setting_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3420,28 +3420,28 @@ class WindowsFunctionAppAuthSettingsV2:
         unauthenticated_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param login: login block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login WindowsFunctionApp#login}
-        :param active_directory_v2: active_directory_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#active_directory_v2 WindowsFunctionApp#active_directory_v2}
-        :param apple_v2: apple_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#apple_v2 WindowsFunctionApp#apple_v2}
-        :param auth_enabled: Should the AuthV2 Settings be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#auth_enabled WindowsFunctionApp#auth_enabled}
-        :param azure_static_web_app_v2: azure_static_web_app_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#azure_static_web_app_v2 WindowsFunctionApp#azure_static_web_app_v2}
-        :param config_file_path: The path to the App Auth settings. **Note:** Relative Paths are evaluated from the Site Root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#config_file_path WindowsFunctionApp#config_file_path}
-        :param custom_oidc_v2: custom_oidc_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#custom_oidc_v2 WindowsFunctionApp#custom_oidc_v2}
-        :param default_provider: The Default Authentication Provider to use when the ``unauthenticated_action`` is set to ``RedirectToLoginPage``. Possible values include: ``apple``, ``azureactivedirectory``, ``facebook``, ``github``, ``google``, ``twitter`` and the ``name`` of your ``custom_oidc_v2`` provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
-        :param excluded_paths: The paths which should be excluded from the ``unauthenticated_action`` when it is set to ``RedirectToLoginPage``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#excluded_paths WindowsFunctionApp#excluded_paths}
-        :param facebook_v2: facebook_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#facebook_v2 WindowsFunctionApp#facebook_v2}
-        :param forward_proxy_convention: The convention used to determine the url of the request made. Possible values include ``ForwardProxyConventionNoProxy``, ``ForwardProxyConventionStandard``, ``ForwardProxyConventionCustom``. Defaults to ``ForwardProxyConventionNoProxy`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#forward_proxy_convention WindowsFunctionApp#forward_proxy_convention}
-        :param forward_proxy_custom_host_header_name: The name of the header containing the host of the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#forward_proxy_custom_host_header_name WindowsFunctionApp#forward_proxy_custom_host_header_name}
-        :param forward_proxy_custom_scheme_header_name: The name of the header containing the scheme of the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#forward_proxy_custom_scheme_header_name WindowsFunctionApp#forward_proxy_custom_scheme_header_name}
-        :param github_v2: github_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#github_v2 WindowsFunctionApp#github_v2}
-        :param google_v2: google_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#google_v2 WindowsFunctionApp#google_v2}
-        :param http_route_api_prefix: The prefix that should precede all the authentication and authorisation paths. Defaults to ``/.auth``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#http_route_api_prefix WindowsFunctionApp#http_route_api_prefix}
-        :param microsoft_v2: microsoft_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#microsoft_v2 WindowsFunctionApp#microsoft_v2}
-        :param require_authentication: Should the authentication flow be used for all requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#require_authentication WindowsFunctionApp#require_authentication}
-        :param require_https: Should HTTPS be required on connections? Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#require_https WindowsFunctionApp#require_https}
-        :param runtime_version: The Runtime Version of the Authentication and Authorisation feature of this App. Defaults to ``~1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
-        :param twitter_v2: twitter_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#twitter_v2 WindowsFunctionApp#twitter_v2}
-        :param unauthenticated_action: The action to take for requests made without authentication. Possible values include ``RedirectToLoginPage``, ``AllowAnonymous``, ``Return401``, and ``Return403``. Defaults to ``RedirectToLoginPage``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#unauthenticated_action WindowsFunctionApp#unauthenticated_action}
+        :param login: login block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login WindowsFunctionApp#login}
+        :param active_directory_v2: active_directory_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#active_directory_v2 WindowsFunctionApp#active_directory_v2}
+        :param apple_v2: apple_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#apple_v2 WindowsFunctionApp#apple_v2}
+        :param auth_enabled: Should the AuthV2 Settings be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#auth_enabled WindowsFunctionApp#auth_enabled}
+        :param azure_static_web_app_v2: azure_static_web_app_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#azure_static_web_app_v2 WindowsFunctionApp#azure_static_web_app_v2}
+        :param config_file_path: The path to the App Auth settings. **Note:** Relative Paths are evaluated from the Site Root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#config_file_path WindowsFunctionApp#config_file_path}
+        :param custom_oidc_v2: custom_oidc_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#custom_oidc_v2 WindowsFunctionApp#custom_oidc_v2}
+        :param default_provider: The Default Authentication Provider to use when the ``unauthenticated_action`` is set to ``RedirectToLoginPage``. Possible values include: ``apple``, ``azureactivedirectory``, ``facebook``, ``github``, ``google``, ``twitter`` and the ``name`` of your ``custom_oidc_v2`` provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
+        :param excluded_paths: The paths which should be excluded from the ``unauthenticated_action`` when it is set to ``RedirectToLoginPage``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#excluded_paths WindowsFunctionApp#excluded_paths}
+        :param facebook_v2: facebook_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#facebook_v2 WindowsFunctionApp#facebook_v2}
+        :param forward_proxy_convention: The convention used to determine the url of the request made. Possible values include ``ForwardProxyConventionNoProxy``, ``ForwardProxyConventionStandard``, ``ForwardProxyConventionCustom``. Defaults to ``ForwardProxyConventionNoProxy`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#forward_proxy_convention WindowsFunctionApp#forward_proxy_convention}
+        :param forward_proxy_custom_host_header_name: The name of the header containing the host of the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#forward_proxy_custom_host_header_name WindowsFunctionApp#forward_proxy_custom_host_header_name}
+        :param forward_proxy_custom_scheme_header_name: The name of the header containing the scheme of the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#forward_proxy_custom_scheme_header_name WindowsFunctionApp#forward_proxy_custom_scheme_header_name}
+        :param github_v2: github_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#github_v2 WindowsFunctionApp#github_v2}
+        :param google_v2: google_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#google_v2 WindowsFunctionApp#google_v2}
+        :param http_route_api_prefix: The prefix that should precede all the authentication and authorisation paths. Defaults to ``/.auth``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#http_route_api_prefix WindowsFunctionApp#http_route_api_prefix}
+        :param microsoft_v2: microsoft_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#microsoft_v2 WindowsFunctionApp#microsoft_v2}
+        :param require_authentication: Should the authentication flow be used for all requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#require_authentication WindowsFunctionApp#require_authentication}
+        :param require_https: Should HTTPS be required on connections? Defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#require_https WindowsFunctionApp#require_https}
+        :param runtime_version: The Runtime Version of the Authentication and Authorisation feature of this App. Defaults to ``~1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
+        :param twitter_v2: twitter_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#twitter_v2 WindowsFunctionApp#twitter_v2}
+        :param unauthenticated_action: The action to take for requests made without authentication. Possible values include ``RedirectToLoginPage``, ``AllowAnonymous``, ``Return401``, and ``Return403``. Defaults to ``RedirectToLoginPage``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#unauthenticated_action WindowsFunctionApp#unauthenticated_action}
         '''
         if isinstance(login, dict):
             login = WindowsFunctionAppAuthSettingsV2Login(**login)
@@ -3535,7 +3535,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def login(self) -> "WindowsFunctionAppAuthSettingsV2Login":
         '''login block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login WindowsFunctionApp#login}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login WindowsFunctionApp#login}
         '''
         result = self._values.get("login")
         assert result is not None, "Required property 'login' is missing"
@@ -3547,7 +3547,7 @@ class WindowsFunctionAppAuthSettingsV2:
     ) -> typing.Optional["WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2"]:
         '''active_directory_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#active_directory_v2 WindowsFunctionApp#active_directory_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#active_directory_v2 WindowsFunctionApp#active_directory_v2}
         '''
         result = self._values.get("active_directory_v2")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2"], result)
@@ -3556,7 +3556,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def apple_v2(self) -> typing.Optional["WindowsFunctionAppAuthSettingsV2AppleV2"]:
         '''apple_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#apple_v2 WindowsFunctionApp#apple_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#apple_v2 WindowsFunctionApp#apple_v2}
         '''
         result = self._values.get("apple_v2")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsV2AppleV2"], result)
@@ -3567,7 +3567,7 @@ class WindowsFunctionAppAuthSettingsV2:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the AuthV2 Settings be enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#auth_enabled WindowsFunctionApp#auth_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#auth_enabled WindowsFunctionApp#auth_enabled}
         '''
         result = self._values.get("auth_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3578,7 +3578,7 @@ class WindowsFunctionAppAuthSettingsV2:
     ) -> typing.Optional["WindowsFunctionAppAuthSettingsV2AzureStaticWebAppV2"]:
         '''azure_static_web_app_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#azure_static_web_app_v2 WindowsFunctionApp#azure_static_web_app_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#azure_static_web_app_v2 WindowsFunctionApp#azure_static_web_app_v2}
         '''
         result = self._values.get("azure_static_web_app_v2")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsV2AzureStaticWebAppV2"], result)
@@ -3587,7 +3587,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def config_file_path(self) -> typing.Optional[builtins.str]:
         '''The path to the App Auth settings. **Note:** Relative Paths are evaluated from the Site Root directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#config_file_path WindowsFunctionApp#config_file_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#config_file_path WindowsFunctionApp#config_file_path}
         '''
         result = self._values.get("config_file_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3598,7 +3598,7 @@ class WindowsFunctionAppAuthSettingsV2:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppAuthSettingsV2CustomOidcV2"]]]:
         '''custom_oidc_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#custom_oidc_v2 WindowsFunctionApp#custom_oidc_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#custom_oidc_v2 WindowsFunctionApp#custom_oidc_v2}
         '''
         result = self._values.get("custom_oidc_v2")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppAuthSettingsV2CustomOidcV2"]]], result)
@@ -3609,7 +3609,7 @@ class WindowsFunctionAppAuthSettingsV2:
 
         Possible values include: ``apple``, ``azureactivedirectory``, ``facebook``, ``github``, ``google``, ``twitter`` and the ``name`` of your ``custom_oidc_v2`` provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#default_provider WindowsFunctionApp#default_provider}
         '''
         result = self._values.get("default_provider")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3618,7 +3618,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def excluded_paths(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The paths which should be excluded from the ``unauthenticated_action`` when it is set to ``RedirectToLoginPage``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#excluded_paths WindowsFunctionApp#excluded_paths}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#excluded_paths WindowsFunctionApp#excluded_paths}
         '''
         result = self._values.get("excluded_paths")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3629,7 +3629,7 @@ class WindowsFunctionAppAuthSettingsV2:
     ) -> typing.Optional["WindowsFunctionAppAuthSettingsV2FacebookV2"]:
         '''facebook_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#facebook_v2 WindowsFunctionApp#facebook_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#facebook_v2 WindowsFunctionApp#facebook_v2}
         '''
         result = self._values.get("facebook_v2")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsV2FacebookV2"], result)
@@ -3640,7 +3640,7 @@ class WindowsFunctionAppAuthSettingsV2:
 
         Possible values include ``ForwardProxyConventionNoProxy``, ``ForwardProxyConventionStandard``, ``ForwardProxyConventionCustom``. Defaults to ``ForwardProxyConventionNoProxy``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#forward_proxy_convention WindowsFunctionApp#forward_proxy_convention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#forward_proxy_convention WindowsFunctionApp#forward_proxy_convention}
         '''
         result = self._values.get("forward_proxy_convention")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3649,7 +3649,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def forward_proxy_custom_host_header_name(self) -> typing.Optional[builtins.str]:
         '''The name of the header containing the host of the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#forward_proxy_custom_host_header_name WindowsFunctionApp#forward_proxy_custom_host_header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#forward_proxy_custom_host_header_name WindowsFunctionApp#forward_proxy_custom_host_header_name}
         '''
         result = self._values.get("forward_proxy_custom_host_header_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3658,7 +3658,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def forward_proxy_custom_scheme_header_name(self) -> typing.Optional[builtins.str]:
         '''The name of the header containing the scheme of the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#forward_proxy_custom_scheme_header_name WindowsFunctionApp#forward_proxy_custom_scheme_header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#forward_proxy_custom_scheme_header_name WindowsFunctionApp#forward_proxy_custom_scheme_header_name}
         '''
         result = self._values.get("forward_proxy_custom_scheme_header_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3667,7 +3667,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def github_v2(self) -> typing.Optional["WindowsFunctionAppAuthSettingsV2GithubV2"]:
         '''github_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#github_v2 WindowsFunctionApp#github_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#github_v2 WindowsFunctionApp#github_v2}
         '''
         result = self._values.get("github_v2")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsV2GithubV2"], result)
@@ -3676,7 +3676,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def google_v2(self) -> typing.Optional["WindowsFunctionAppAuthSettingsV2GoogleV2"]:
         '''google_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#google_v2 WindowsFunctionApp#google_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#google_v2 WindowsFunctionApp#google_v2}
         '''
         result = self._values.get("google_v2")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsV2GoogleV2"], result)
@@ -3685,7 +3685,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def http_route_api_prefix(self) -> typing.Optional[builtins.str]:
         '''The prefix that should precede all the authentication and authorisation paths. Defaults to ``/.auth``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#http_route_api_prefix WindowsFunctionApp#http_route_api_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#http_route_api_prefix WindowsFunctionApp#http_route_api_prefix}
         '''
         result = self._values.get("http_route_api_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3696,7 +3696,7 @@ class WindowsFunctionAppAuthSettingsV2:
     ) -> typing.Optional["WindowsFunctionAppAuthSettingsV2MicrosoftV2"]:
         '''microsoft_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#microsoft_v2 WindowsFunctionApp#microsoft_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#microsoft_v2 WindowsFunctionApp#microsoft_v2}
         '''
         result = self._values.get("microsoft_v2")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsV2MicrosoftV2"], result)
@@ -3707,7 +3707,7 @@ class WindowsFunctionAppAuthSettingsV2:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the authentication flow be used for all requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#require_authentication WindowsFunctionApp#require_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#require_authentication WindowsFunctionApp#require_authentication}
         '''
         result = self._values.get("require_authentication")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3718,7 +3718,7 @@ class WindowsFunctionAppAuthSettingsV2:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should HTTPS be required on connections? Defaults to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#require_https WindowsFunctionApp#require_https}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#require_https WindowsFunctionApp#require_https}
         '''
         result = self._values.get("require_https")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3727,7 +3727,7 @@ class WindowsFunctionAppAuthSettingsV2:
     def runtime_version(self) -> typing.Optional[builtins.str]:
         '''The Runtime Version of the Authentication and Authorisation feature of this App. Defaults to ``~1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#runtime_version WindowsFunctionApp#runtime_version}
         '''
         result = self._values.get("runtime_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3738,7 +3738,7 @@ class WindowsFunctionAppAuthSettingsV2:
     ) -> typing.Optional["WindowsFunctionAppAuthSettingsV2TwitterV2"]:
         '''twitter_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#twitter_v2 WindowsFunctionApp#twitter_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#twitter_v2 WindowsFunctionApp#twitter_v2}
         '''
         result = self._values.get("twitter_v2")
         return typing.cast(typing.Optional["WindowsFunctionAppAuthSettingsV2TwitterV2"], result)
@@ -3749,7 +3749,7 @@ class WindowsFunctionAppAuthSettingsV2:
 
         Possible values include ``RedirectToLoginPage``, ``AllowAnonymous``, ``Return401``, and ``Return403``. Defaults to ``RedirectToLoginPage``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#unauthenticated_action WindowsFunctionApp#unauthenticated_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#unauthenticated_action WindowsFunctionApp#unauthenticated_action}
         '''
         result = self._values.get("unauthenticated_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3802,18 +3802,18 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
         www_authentication_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param client_id: The ID of the Client to use to authenticate with Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param tenant_auth_endpoint: The Azure Tenant Endpoint for the Authenticating Tenant. e.g. ``https://login.microsoftonline.com/v2.0/{tenant-guid}/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#tenant_auth_endpoint WindowsFunctionApp#tenant_auth_endpoint}
-        :param allowed_applications: The list of allowed Applications for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_applications WindowsFunctionApp#allowed_applications}
-        :param allowed_audiences: Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
-        :param allowed_groups: The list of allowed Group Names for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_groups WindowsFunctionApp#allowed_groups}
-        :param allowed_identities: The list of allowed Identities for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_identities WindowsFunctionApp#allowed_identities}
-        :param client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_certificate_thumbprint WindowsFunctionApp#client_secret_certificate_thumbprint}
-        :param client_secret_setting_name: The App Setting name that contains the client secret of the Client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#jwt_allowed_client_applications WindowsFunctionApp#jwt_allowed_client_applications}
-        :param jwt_allowed_groups: A list of Allowed Groups in the JWT Claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#jwt_allowed_groups WindowsFunctionApp#jwt_allowed_groups}
-        :param login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_parameters WindowsFunctionApp#login_parameters}
-        :param www_authentication_disabled: Should the www-authenticate provider should be omitted from the request? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#www_authentication_disabled WindowsFunctionApp#www_authentication_disabled}
+        :param client_id: The ID of the Client to use to authenticate with Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param tenant_auth_endpoint: The Azure Tenant Endpoint for the Authenticating Tenant. e.g. ``https://login.microsoftonline.com/v2.0/{tenant-guid}/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#tenant_auth_endpoint WindowsFunctionApp#tenant_auth_endpoint}
+        :param allowed_applications: The list of allowed Applications for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_applications WindowsFunctionApp#allowed_applications}
+        :param allowed_audiences: Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        :param allowed_groups: The list of allowed Group Names for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_groups WindowsFunctionApp#allowed_groups}
+        :param allowed_identities: The list of allowed Identities for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_identities WindowsFunctionApp#allowed_identities}
+        :param client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_certificate_thumbprint WindowsFunctionApp#client_secret_certificate_thumbprint}
+        :param client_secret_setting_name: The App Setting name that contains the client secret of the Client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#jwt_allowed_client_applications WindowsFunctionApp#jwt_allowed_client_applications}
+        :param jwt_allowed_groups: A list of Allowed Groups in the JWT Claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#jwt_allowed_groups WindowsFunctionApp#jwt_allowed_groups}
+        :param login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_parameters WindowsFunctionApp#login_parameters}
+        :param www_authentication_disabled: Should the www-authenticate provider should be omitted from the request? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#www_authentication_disabled WindowsFunctionApp#www_authentication_disabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ee88c045fb7d33530b216b5bda836b900f352dfc739d08b60de03a5b4486b00)
@@ -3858,7 +3858,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     def client_id(self) -> builtins.str:
         '''The ID of the Client to use to authenticate with Azure Active Directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -3868,7 +3868,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     def tenant_auth_endpoint(self) -> builtins.str:
         '''The Azure Tenant Endpoint for the Authenticating Tenant. e.g. ``https://login.microsoftonline.com/v2.0/{tenant-guid}/``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#tenant_auth_endpoint WindowsFunctionApp#tenant_auth_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#tenant_auth_endpoint WindowsFunctionApp#tenant_auth_endpoint}
         '''
         result = self._values.get("tenant_auth_endpoint")
         assert result is not None, "Required property 'tenant_auth_endpoint' is missing"
@@ -3878,7 +3878,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     def allowed_applications(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of allowed Applications for the Default Authorisation Policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_applications WindowsFunctionApp#allowed_applications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_applications WindowsFunctionApp#allowed_applications}
         '''
         result = self._values.get("allowed_applications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3887,7 +3887,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     def allowed_audiences(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
         '''
         result = self._values.get("allowed_audiences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3896,7 +3896,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     def allowed_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of allowed Group Names for the Default Authorisation Policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_groups WindowsFunctionApp#allowed_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_groups WindowsFunctionApp#allowed_groups}
         '''
         result = self._values.get("allowed_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3905,7 +3905,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     def allowed_identities(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of allowed Identities for the Default Authorisation Policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_identities WindowsFunctionApp#allowed_identities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_identities WindowsFunctionApp#allowed_identities}
         '''
         result = self._values.get("allowed_identities")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3914,7 +3914,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     def client_secret_certificate_thumbprint(self) -> typing.Optional[builtins.str]:
         '''The thumbprint of the certificate used for signing purposes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_certificate_thumbprint WindowsFunctionApp#client_secret_certificate_thumbprint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_certificate_thumbprint WindowsFunctionApp#client_secret_certificate_thumbprint}
         '''
         result = self._values.get("client_secret_certificate_thumbprint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3923,7 +3923,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     def client_secret_setting_name(self) -> typing.Optional[builtins.str]:
         '''The App Setting name that contains the client secret of the Client.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         result = self._values.get("client_secret_setting_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3934,7 +3934,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of Allowed Client Applications in the JWT Claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#jwt_allowed_client_applications WindowsFunctionApp#jwt_allowed_client_applications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#jwt_allowed_client_applications WindowsFunctionApp#jwt_allowed_client_applications}
         '''
         result = self._values.get("jwt_allowed_client_applications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3943,7 +3943,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     def jwt_allowed_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of Allowed Groups in the JWT Claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#jwt_allowed_groups WindowsFunctionApp#jwt_allowed_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#jwt_allowed_groups WindowsFunctionApp#jwt_allowed_groups}
         '''
         result = self._values.get("jwt_allowed_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3954,7 +3954,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A map of key-value pairs to send to the Authorisation Endpoint when a user logs in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_parameters WindowsFunctionApp#login_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_parameters WindowsFunctionApp#login_parameters}
         '''
         result = self._values.get("login_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3965,7 +3965,7 @@ class WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the www-authenticate provider should be omitted from the request? Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#www_authentication_disabled WindowsFunctionApp#www_authentication_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#www_authentication_disabled WindowsFunctionApp#www_authentication_disabled}
         '''
         result = self._values.get("www_authentication_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4296,8 +4296,8 @@ class WindowsFunctionAppAuthSettingsV2AppleV2:
         client_secret_setting_name: builtins.str,
     ) -> None:
         '''
-        :param client_id: The OpenID Connect Client ID for the Apple web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Apple Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param client_id: The OpenID Connect Client ID for the Apple web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Apple Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2dd6d460de22b9580b397ca5abe03229c5cb880558ccf884c1d295119577306b)
@@ -4312,7 +4312,7 @@ class WindowsFunctionAppAuthSettingsV2AppleV2:
     def client_id(self) -> builtins.str:
         '''The OpenID Connect Client ID for the Apple web application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -4322,7 +4322,7 @@ class WindowsFunctionAppAuthSettingsV2AppleV2:
     def client_secret_setting_name(self) -> builtins.str:
         '''The app setting name that contains the ``client_secret`` value used for Apple Login.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         result = self._values.get("client_secret_setting_name")
         assert result is not None, "Required property 'client_secret_setting_name' is missing"
@@ -4425,7 +4425,7 @@ class WindowsFunctionAppAuthSettingsV2AppleV2OutputReference(
 class WindowsFunctionAppAuthSettingsV2AzureStaticWebAppV2:
     def __init__(self, *, client_id: builtins.str) -> None:
         '''
-        :param client_id: The ID of the Client to use to authenticate with Azure Static Web App Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_id: The ID of the Client to use to authenticate with Azure Static Web App Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e95f617321bc36e86f2f4622abe7e752a973bba020144bbff2fb331fad467e18)
@@ -4438,7 +4438,7 @@ class WindowsFunctionAppAuthSettingsV2AzureStaticWebAppV2:
     def client_id(self) -> builtins.str:
         '''The ID of the Client to use to authenticate with Azure Static Web App Authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -4533,11 +4533,11 @@ class WindowsFunctionAppAuthSettingsV2CustomOidcV2:
         scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The ID of the Client to use to authenticate with this Custom OIDC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param name: The name of the Custom OIDC Authentication Provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
-        :param openid_configuration_endpoint: The endpoint that contains all the configuration endpoints for this Custom OIDC provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#openid_configuration_endpoint WindowsFunctionApp#openid_configuration_endpoint}
-        :param name_claim_type: The name of the claim that contains the users name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name_claim_type WindowsFunctionApp#name_claim_type}
-        :param scopes: The list of the scopes that should be requested while authenticating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scopes WindowsFunctionApp#scopes}
+        :param client_id: The ID of the Client to use to authenticate with this Custom OIDC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param name: The name of the Custom OIDC Authentication Provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        :param openid_configuration_endpoint: The endpoint that contains all the configuration endpoints for this Custom OIDC provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#openid_configuration_endpoint WindowsFunctionApp#openid_configuration_endpoint}
+        :param name_claim_type: The name of the claim that contains the users name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name_claim_type WindowsFunctionApp#name_claim_type}
+        :param scopes: The list of the scopes that should be requested while authenticating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scopes WindowsFunctionApp#scopes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bca1857d10581baf6b0718275f856d1cda3691f64a43eac3831dc79d699d4fb0)
@@ -4560,7 +4560,7 @@ class WindowsFunctionAppAuthSettingsV2CustomOidcV2:
     def client_id(self) -> builtins.str:
         '''The ID of the Client to use to authenticate with this Custom OIDC.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -4570,7 +4570,7 @@ class WindowsFunctionAppAuthSettingsV2CustomOidcV2:
     def name(self) -> builtins.str:
         '''The name of the Custom OIDC Authentication Provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4580,7 +4580,7 @@ class WindowsFunctionAppAuthSettingsV2CustomOidcV2:
     def openid_configuration_endpoint(self) -> builtins.str:
         '''The endpoint that contains all the configuration endpoints for this Custom OIDC provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#openid_configuration_endpoint WindowsFunctionApp#openid_configuration_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#openid_configuration_endpoint WindowsFunctionApp#openid_configuration_endpoint}
         '''
         result = self._values.get("openid_configuration_endpoint")
         assert result is not None, "Required property 'openid_configuration_endpoint' is missing"
@@ -4590,7 +4590,7 @@ class WindowsFunctionAppAuthSettingsV2CustomOidcV2:
     def name_claim_type(self) -> typing.Optional[builtins.str]:
         '''The name of the claim that contains the users name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name_claim_type WindowsFunctionApp#name_claim_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name_claim_type WindowsFunctionApp#name_claim_type}
         '''
         result = self._values.get("name_claim_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4599,7 +4599,7 @@ class WindowsFunctionAppAuthSettingsV2CustomOidcV2:
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of the scopes that should be requested while authenticating.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scopes WindowsFunctionApp#scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scopes WindowsFunctionApp#scopes}
         '''
         result = self._values.get("scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4896,10 +4896,10 @@ class WindowsFunctionAppAuthSettingsV2FacebookV2:
         login_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_id: The App ID of the Facebook app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
-        :param app_secret_setting_name: The app setting name that contains the ``app_secret`` value used for Facebook Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
-        :param graph_api_version: The version of the Facebook API to be used while logging in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#graph_api_version WindowsFunctionApp#graph_api_version}
-        :param login_scopes: Specifies a list of scopes to be requested as part of Facebook Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        :param app_id: The App ID of the Facebook app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
+        :param app_secret_setting_name: The app setting name that contains the ``app_secret`` value used for Facebook Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
+        :param graph_api_version: The version of the Facebook API to be used while logging in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#graph_api_version WindowsFunctionApp#graph_api_version}
+        :param login_scopes: Specifies a list of scopes to be requested as part of Facebook Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f15c9da6d185c62079da5bf6daa27eca55c8c12c07132b690c22d7ea0d49ecb0)
@@ -4920,7 +4920,7 @@ class WindowsFunctionAppAuthSettingsV2FacebookV2:
     def app_id(self) -> builtins.str:
         '''The App ID of the Facebook app used for login.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
         '''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
@@ -4930,7 +4930,7 @@ class WindowsFunctionAppAuthSettingsV2FacebookV2:
     def app_secret_setting_name(self) -> builtins.str:
         '''The app setting name that contains the ``app_secret`` value used for Facebook Login.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
         '''
         result = self._values.get("app_secret_setting_name")
         assert result is not None, "Required property 'app_secret_setting_name' is missing"
@@ -4940,7 +4940,7 @@ class WindowsFunctionAppAuthSettingsV2FacebookV2:
     def graph_api_version(self) -> typing.Optional[builtins.str]:
         '''The version of the Facebook API to be used while logging in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#graph_api_version WindowsFunctionApp#graph_api_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#graph_api_version WindowsFunctionApp#graph_api_version}
         '''
         result = self._values.get("graph_api_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4949,7 +4949,7 @@ class WindowsFunctionAppAuthSettingsV2FacebookV2:
     def login_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of scopes to be requested as part of Facebook Login authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         result = self._values.get("login_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5098,9 +5098,9 @@ class WindowsFunctionAppAuthSettingsV2GithubV2:
         login_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The ID of the GitHub app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for GitHub Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param login_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        :param client_id: The ID of the GitHub app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for GitHub Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param login_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9630f0a11e1ffd5d9a065531041e4df29a05e16d498fe396cfad7e51102bd45)
@@ -5118,7 +5118,7 @@ class WindowsFunctionAppAuthSettingsV2GithubV2:
     def client_id(self) -> builtins.str:
         '''The ID of the GitHub app used for login.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -5128,7 +5128,7 @@ class WindowsFunctionAppAuthSettingsV2GithubV2:
     def client_secret_setting_name(self) -> builtins.str:
         '''The app setting name that contains the ``client_secret`` value used for GitHub Login.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         result = self._values.get("client_secret_setting_name")
         assert result is not None, "Required property 'client_secret_setting_name' is missing"
@@ -5138,7 +5138,7 @@ class WindowsFunctionAppAuthSettingsV2GithubV2:
     def login_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         result = self._values.get("login_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5268,10 +5268,10 @@ class WindowsFunctionAppAuthSettingsV2GoogleV2:
         login_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The OpenID Connect Client ID for the Google web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Google Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Google Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
-        :param login_scopes: Specifies a list of Login scopes that will be requested as part of Google Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        :param client_id: The OpenID Connect Client ID for the Google web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Google Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Google Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        :param login_scopes: Specifies a list of Login scopes that will be requested as part of Google Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23e28f9515655353656244b0a092b9cd23c360792d20790b856cfc4a241f7a77)
@@ -5292,7 +5292,7 @@ class WindowsFunctionAppAuthSettingsV2GoogleV2:
     def client_id(self) -> builtins.str:
         '''The OpenID Connect Client ID for the Google web application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -5302,7 +5302,7 @@ class WindowsFunctionAppAuthSettingsV2GoogleV2:
     def client_secret_setting_name(self) -> builtins.str:
         '''The app setting name that contains the ``client_secret`` value used for Google Login.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         result = self._values.get("client_secret_setting_name")
         assert result is not None, "Required property 'client_secret_setting_name' is missing"
@@ -5312,7 +5312,7 @@ class WindowsFunctionAppAuthSettingsV2GoogleV2:
     def allowed_audiences(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of Allowed Audiences that will be requested as part of Google Sign-In authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
         '''
         result = self._values.get("allowed_audiences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5321,7 +5321,7 @@ class WindowsFunctionAppAuthSettingsV2GoogleV2:
     def login_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of Login scopes that will be requested as part of Google Sign-In authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         result = self._values.get("login_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5486,17 +5486,17 @@ class WindowsFunctionAppAuthSettingsV2Login:
         validate_nonce: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_external_redirect_urls: External URLs that can be redirected to as part of logging in or logging out of the app. This is an advanced setting typically only needed by Windows Store application backends. **Note:** URLs within the current domain are always implicitly allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
-        :param cookie_expiration_convention: The method by which cookies expire. Possible values include: ``FixedTime``, and ``IdentityProviderDerived``. Defaults to ``FixedTime``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#cookie_expiration_convention WindowsFunctionApp#cookie_expiration_convention}
-        :param cookie_expiration_time: The time after the request is made when the session cookie should expire. Defaults to ``08:00:00``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#cookie_expiration_time WindowsFunctionApp#cookie_expiration_time}
-        :param logout_endpoint: The endpoint to which logout requests should be made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#logout_endpoint WindowsFunctionApp#logout_endpoint}
-        :param nonce_expiration_time: The time after the request is made when the nonce should expire. Defaults to ``00:05:00``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#nonce_expiration_time WindowsFunctionApp#nonce_expiration_time}
-        :param preserve_url_fragments_for_logins: Should the fragments from the request be preserved after the login request is made. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#preserve_url_fragments_for_logins WindowsFunctionApp#preserve_url_fragments_for_logins}
-        :param token_refresh_extension_time: The number of hours after session token expiration that a session token can be used to call the token refresh API. Defaults to ``72`` hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_refresh_extension_time WindowsFunctionApp#token_refresh_extension_time}
-        :param token_store_enabled: Should the Token Store configuration Enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
-        :param token_store_path: The directory path in the App Filesystem in which the tokens will be stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_path WindowsFunctionApp#token_store_path}
-        :param token_store_sas_setting_name: The name of the app setting which contains the SAS URL of the blob storage containing the tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_sas_setting_name WindowsFunctionApp#token_store_sas_setting_name}
-        :param validate_nonce: Should the nonce be validated while completing the login flow. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#validate_nonce WindowsFunctionApp#validate_nonce}
+        :param allowed_external_redirect_urls: External URLs that can be redirected to as part of logging in or logging out of the app. This is an advanced setting typically only needed by Windows Store application backends. **Note:** URLs within the current domain are always implicitly allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
+        :param cookie_expiration_convention: The method by which cookies expire. Possible values include: ``FixedTime``, and ``IdentityProviderDerived``. Defaults to ``FixedTime``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#cookie_expiration_convention WindowsFunctionApp#cookie_expiration_convention}
+        :param cookie_expiration_time: The time after the request is made when the session cookie should expire. Defaults to ``08:00:00``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#cookie_expiration_time WindowsFunctionApp#cookie_expiration_time}
+        :param logout_endpoint: The endpoint to which logout requests should be made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#logout_endpoint WindowsFunctionApp#logout_endpoint}
+        :param nonce_expiration_time: The time after the request is made when the nonce should expire. Defaults to ``00:05:00``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#nonce_expiration_time WindowsFunctionApp#nonce_expiration_time}
+        :param preserve_url_fragments_for_logins: Should the fragments from the request be preserved after the login request is made. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#preserve_url_fragments_for_logins WindowsFunctionApp#preserve_url_fragments_for_logins}
+        :param token_refresh_extension_time: The number of hours after session token expiration that a session token can be used to call the token refresh API. Defaults to ``72`` hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_refresh_extension_time WindowsFunctionApp#token_refresh_extension_time}
+        :param token_store_enabled: Should the Token Store configuration Enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
+        :param token_store_path: The directory path in the App Filesystem in which the tokens will be stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_path WindowsFunctionApp#token_store_path}
+        :param token_store_sas_setting_name: The name of the app setting which contains the SAS URL of the blob storage containing the tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_sas_setting_name WindowsFunctionApp#token_store_sas_setting_name}
+        :param validate_nonce: Should the nonce be validated while completing the login flow. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#validate_nonce WindowsFunctionApp#validate_nonce}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b4e5f48547b6217f97f3cc624df4257b11638997b9f5df780e529a4c1f676b57)
@@ -5543,7 +5543,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
 
         This is an advanced setting typically only needed by Windows Store application backends. **Note:** URLs within the current domain are always implicitly allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
         '''
         result = self._values.get("allowed_external_redirect_urls")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5552,7 +5552,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
     def cookie_expiration_convention(self) -> typing.Optional[builtins.str]:
         '''The method by which cookies expire. Possible values include: ``FixedTime``, and ``IdentityProviderDerived``. Defaults to ``FixedTime``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#cookie_expiration_convention WindowsFunctionApp#cookie_expiration_convention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#cookie_expiration_convention WindowsFunctionApp#cookie_expiration_convention}
         '''
         result = self._values.get("cookie_expiration_convention")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5561,7 +5561,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
     def cookie_expiration_time(self) -> typing.Optional[builtins.str]:
         '''The time after the request is made when the session cookie should expire. Defaults to ``08:00:00``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#cookie_expiration_time WindowsFunctionApp#cookie_expiration_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#cookie_expiration_time WindowsFunctionApp#cookie_expiration_time}
         '''
         result = self._values.get("cookie_expiration_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5570,7 +5570,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
     def logout_endpoint(self) -> typing.Optional[builtins.str]:
         '''The endpoint to which logout requests should be made.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#logout_endpoint WindowsFunctionApp#logout_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#logout_endpoint WindowsFunctionApp#logout_endpoint}
         '''
         result = self._values.get("logout_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5579,7 +5579,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
     def nonce_expiration_time(self) -> typing.Optional[builtins.str]:
         '''The time after the request is made when the nonce should expire. Defaults to ``00:05:00``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#nonce_expiration_time WindowsFunctionApp#nonce_expiration_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#nonce_expiration_time WindowsFunctionApp#nonce_expiration_time}
         '''
         result = self._values.get("nonce_expiration_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5590,7 +5590,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the fragments from the request be preserved after the login request is made. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#preserve_url_fragments_for_logins WindowsFunctionApp#preserve_url_fragments_for_logins}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#preserve_url_fragments_for_logins WindowsFunctionApp#preserve_url_fragments_for_logins}
         '''
         result = self._values.get("preserve_url_fragments_for_logins")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5601,7 +5601,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
 
         Defaults to ``72`` hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_refresh_extension_time WindowsFunctionApp#token_refresh_extension_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_refresh_extension_time WindowsFunctionApp#token_refresh_extension_time}
         '''
         result = self._values.get("token_refresh_extension_time")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5612,7 +5612,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the Token Store configuration Enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
         '''
         result = self._values.get("token_store_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5621,7 +5621,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
     def token_store_path(self) -> typing.Optional[builtins.str]:
         '''The directory path in the App Filesystem in which the tokens will be stored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_path WindowsFunctionApp#token_store_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_path WindowsFunctionApp#token_store_path}
         '''
         result = self._values.get("token_store_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5630,7 +5630,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
     def token_store_sas_setting_name(self) -> typing.Optional[builtins.str]:
         '''The name of the app setting which contains the SAS URL of the blob storage containing the tokens.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_sas_setting_name WindowsFunctionApp#token_store_sas_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_sas_setting_name WindowsFunctionApp#token_store_sas_setting_name}
         '''
         result = self._values.get("token_store_sas_setting_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5641,7 +5641,7 @@ class WindowsFunctionAppAuthSettingsV2Login:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the nonce be validated while completing the login flow. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#validate_nonce WindowsFunctionApp#validate_nonce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#validate_nonce WindowsFunctionApp#validate_nonce}
         '''
         result = self._values.get("validate_nonce")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5968,10 +5968,10 @@ class WindowsFunctionAppAuthSettingsV2MicrosoftV2:
         login_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The OAuth 2.0 client ID that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
-        :param login_scopes: The list of Login scopes that will be requested as part of Microsoft Account authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        :param client_id: The OAuth 2.0 client ID that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        :param login_scopes: The list of Login scopes that will be requested as part of Microsoft Account authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66566a7f303e2896a51dc9a2dde999fc20a189e12d9a1212d92e6006c06d5dbb)
@@ -5992,7 +5992,7 @@ class WindowsFunctionAppAuthSettingsV2MicrosoftV2:
     def client_id(self) -> builtins.str:
         '''The OAuth 2.0 client ID that was created for the app used for authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -6002,7 +6002,7 @@ class WindowsFunctionAppAuthSettingsV2MicrosoftV2:
     def client_secret_setting_name(self) -> builtins.str:
         '''The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         result = self._values.get("client_secret_setting_name")
         assert result is not None, "Required property 'client_secret_setting_name' is missing"
@@ -6012,7 +6012,7 @@ class WindowsFunctionAppAuthSettingsV2MicrosoftV2:
     def allowed_audiences(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
         '''
         result = self._values.get("allowed_audiences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6021,7 +6021,7 @@ class WindowsFunctionAppAuthSettingsV2MicrosoftV2:
     def login_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of Login scopes that will be requested as part of Microsoft Account authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         result = self._values.get("login_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6190,18 +6190,18 @@ class WindowsFunctionAppAuthSettingsV2OutputReference(
         www_authentication_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param client_id: The ID of the Client to use to authenticate with Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param tenant_auth_endpoint: The Azure Tenant Endpoint for the Authenticating Tenant. e.g. ``https://login.microsoftonline.com/v2.0/{tenant-guid}/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#tenant_auth_endpoint WindowsFunctionApp#tenant_auth_endpoint}
-        :param allowed_applications: The list of allowed Applications for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_applications WindowsFunctionApp#allowed_applications}
-        :param allowed_audiences: Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
-        :param allowed_groups: The list of allowed Group Names for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_groups WindowsFunctionApp#allowed_groups}
-        :param allowed_identities: The list of allowed Identities for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_identities WindowsFunctionApp#allowed_identities}
-        :param client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_certificate_thumbprint WindowsFunctionApp#client_secret_certificate_thumbprint}
-        :param client_secret_setting_name: The App Setting name that contains the client secret of the Client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#jwt_allowed_client_applications WindowsFunctionApp#jwt_allowed_client_applications}
-        :param jwt_allowed_groups: A list of Allowed Groups in the JWT Claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#jwt_allowed_groups WindowsFunctionApp#jwt_allowed_groups}
-        :param login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_parameters WindowsFunctionApp#login_parameters}
-        :param www_authentication_disabled: Should the www-authenticate provider should be omitted from the request? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#www_authentication_disabled WindowsFunctionApp#www_authentication_disabled}
+        :param client_id: The ID of the Client to use to authenticate with Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param tenant_auth_endpoint: The Azure Tenant Endpoint for the Authenticating Tenant. e.g. ``https://login.microsoftonline.com/v2.0/{tenant-guid}/``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#tenant_auth_endpoint WindowsFunctionApp#tenant_auth_endpoint}
+        :param allowed_applications: The list of allowed Applications for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_applications WindowsFunctionApp#allowed_applications}
+        :param allowed_audiences: Specifies a list of Allowed audience values to consider when validating JWTs issued by Azure Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        :param allowed_groups: The list of allowed Group Names for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_groups WindowsFunctionApp#allowed_groups}
+        :param allowed_identities: The list of allowed Identities for the Default Authorisation Policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_identities WindowsFunctionApp#allowed_identities}
+        :param client_secret_certificate_thumbprint: The thumbprint of the certificate used for signing purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_certificate_thumbprint WindowsFunctionApp#client_secret_certificate_thumbprint}
+        :param client_secret_setting_name: The App Setting name that contains the client secret of the Client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param jwt_allowed_client_applications: A list of Allowed Client Applications in the JWT Claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#jwt_allowed_client_applications WindowsFunctionApp#jwt_allowed_client_applications}
+        :param jwt_allowed_groups: A list of Allowed Groups in the JWT Claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#jwt_allowed_groups WindowsFunctionApp#jwt_allowed_groups}
+        :param login_parameters: A map of key-value pairs to send to the Authorisation Endpoint when a user logs in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_parameters WindowsFunctionApp#login_parameters}
+        :param www_authentication_disabled: Should the www-authenticate provider should be omitted from the request? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#www_authentication_disabled WindowsFunctionApp#www_authentication_disabled}
         '''
         value = WindowsFunctionAppAuthSettingsV2ActiveDirectoryV2(
             client_id=client_id,
@@ -6228,8 +6228,8 @@ class WindowsFunctionAppAuthSettingsV2OutputReference(
         client_secret_setting_name: builtins.str,
     ) -> None:
         '''
-        :param client_id: The OpenID Connect Client ID for the Apple web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Apple Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param client_id: The OpenID Connect Client ID for the Apple web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Apple Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
         '''
         value = WindowsFunctionAppAuthSettingsV2AppleV2(
             client_id=client_id, client_secret_setting_name=client_secret_setting_name
@@ -6240,7 +6240,7 @@ class WindowsFunctionAppAuthSettingsV2OutputReference(
     @jsii.member(jsii_name="putAzureStaticWebAppV2")
     def put_azure_static_web_app_v2(self, *, client_id: builtins.str) -> None:
         '''
-        :param client_id: The ID of the Client to use to authenticate with Azure Static Web App Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_id: The ID of the Client to use to authenticate with Azure Static Web App Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
         '''
         value = WindowsFunctionAppAuthSettingsV2AzureStaticWebAppV2(
             client_id=client_id
@@ -6271,10 +6271,10 @@ class WindowsFunctionAppAuthSettingsV2OutputReference(
         login_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_id: The App ID of the Facebook app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
-        :param app_secret_setting_name: The app setting name that contains the ``app_secret`` value used for Facebook Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
-        :param graph_api_version: The version of the Facebook API to be used while logging in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#graph_api_version WindowsFunctionApp#graph_api_version}
-        :param login_scopes: Specifies a list of scopes to be requested as part of Facebook Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        :param app_id: The App ID of the Facebook app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_id WindowsFunctionApp#app_id}
+        :param app_secret_setting_name: The app setting name that contains the ``app_secret`` value used for Facebook Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_secret_setting_name WindowsFunctionApp#app_secret_setting_name}
+        :param graph_api_version: The version of the Facebook API to be used while logging in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#graph_api_version WindowsFunctionApp#graph_api_version}
+        :param login_scopes: Specifies a list of scopes to be requested as part of Facebook Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         value = WindowsFunctionAppAuthSettingsV2FacebookV2(
             app_id=app_id,
@@ -6294,9 +6294,9 @@ class WindowsFunctionAppAuthSettingsV2OutputReference(
         login_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The ID of the GitHub app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for GitHub Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param login_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        :param client_id: The ID of the GitHub app used for login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for GitHub Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param login_scopes: Specifies a list of OAuth 2.0 scopes that will be requested as part of GitHub Login authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         value = WindowsFunctionAppAuthSettingsV2GithubV2(
             client_id=client_id,
@@ -6316,10 +6316,10 @@ class WindowsFunctionAppAuthSettingsV2OutputReference(
         login_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The OpenID Connect Client ID for the Google web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Google Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Google Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
-        :param login_scopes: Specifies a list of Login scopes that will be requested as part of Google Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        :param client_id: The OpenID Connect Client ID for the Google web application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret_setting_name: The app setting name that contains the ``client_secret`` value used for Google Login. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Google Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        :param login_scopes: Specifies a list of Login scopes that will be requested as part of Google Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         value = WindowsFunctionAppAuthSettingsV2GoogleV2(
             client_id=client_id,
@@ -6347,17 +6347,17 @@ class WindowsFunctionAppAuthSettingsV2OutputReference(
         validate_nonce: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_external_redirect_urls: External URLs that can be redirected to as part of logging in or logging out of the app. This is an advanced setting typically only needed by Windows Store application backends. **Note:** URLs within the current domain are always implicitly allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
-        :param cookie_expiration_convention: The method by which cookies expire. Possible values include: ``FixedTime``, and ``IdentityProviderDerived``. Defaults to ``FixedTime``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#cookie_expiration_convention WindowsFunctionApp#cookie_expiration_convention}
-        :param cookie_expiration_time: The time after the request is made when the session cookie should expire. Defaults to ``08:00:00``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#cookie_expiration_time WindowsFunctionApp#cookie_expiration_time}
-        :param logout_endpoint: The endpoint to which logout requests should be made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#logout_endpoint WindowsFunctionApp#logout_endpoint}
-        :param nonce_expiration_time: The time after the request is made when the nonce should expire. Defaults to ``00:05:00``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#nonce_expiration_time WindowsFunctionApp#nonce_expiration_time}
-        :param preserve_url_fragments_for_logins: Should the fragments from the request be preserved after the login request is made. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#preserve_url_fragments_for_logins WindowsFunctionApp#preserve_url_fragments_for_logins}
-        :param token_refresh_extension_time: The number of hours after session token expiration that a session token can be used to call the token refresh API. Defaults to ``72`` hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_refresh_extension_time WindowsFunctionApp#token_refresh_extension_time}
-        :param token_store_enabled: Should the Token Store configuration Enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
-        :param token_store_path: The directory path in the App Filesystem in which the tokens will be stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_path WindowsFunctionApp#token_store_path}
-        :param token_store_sas_setting_name: The name of the app setting which contains the SAS URL of the blob storage containing the tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#token_store_sas_setting_name WindowsFunctionApp#token_store_sas_setting_name}
-        :param validate_nonce: Should the nonce be validated while completing the login flow. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#validate_nonce WindowsFunctionApp#validate_nonce}
+        :param allowed_external_redirect_urls: External URLs that can be redirected to as part of logging in or logging out of the app. This is an advanced setting typically only needed by Windows Store application backends. **Note:** URLs within the current domain are always implicitly allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_external_redirect_urls WindowsFunctionApp#allowed_external_redirect_urls}
+        :param cookie_expiration_convention: The method by which cookies expire. Possible values include: ``FixedTime``, and ``IdentityProviderDerived``. Defaults to ``FixedTime``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#cookie_expiration_convention WindowsFunctionApp#cookie_expiration_convention}
+        :param cookie_expiration_time: The time after the request is made when the session cookie should expire. Defaults to ``08:00:00``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#cookie_expiration_time WindowsFunctionApp#cookie_expiration_time}
+        :param logout_endpoint: The endpoint to which logout requests should be made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#logout_endpoint WindowsFunctionApp#logout_endpoint}
+        :param nonce_expiration_time: The time after the request is made when the nonce should expire. Defaults to ``00:05:00``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#nonce_expiration_time WindowsFunctionApp#nonce_expiration_time}
+        :param preserve_url_fragments_for_logins: Should the fragments from the request be preserved after the login request is made. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#preserve_url_fragments_for_logins WindowsFunctionApp#preserve_url_fragments_for_logins}
+        :param token_refresh_extension_time: The number of hours after session token expiration that a session token can be used to call the token refresh API. Defaults to ``72`` hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_refresh_extension_time WindowsFunctionApp#token_refresh_extension_time}
+        :param token_store_enabled: Should the Token Store configuration Enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_enabled WindowsFunctionApp#token_store_enabled}
+        :param token_store_path: The directory path in the App Filesystem in which the tokens will be stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_path WindowsFunctionApp#token_store_path}
+        :param token_store_sas_setting_name: The name of the app setting which contains the SAS URL of the blob storage containing the tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#token_store_sas_setting_name WindowsFunctionApp#token_store_sas_setting_name}
+        :param validate_nonce: Should the nonce be validated while completing the login flow. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#validate_nonce WindowsFunctionApp#validate_nonce}
         '''
         value = WindowsFunctionAppAuthSettingsV2Login(
             allowed_external_redirect_urls=allowed_external_redirect_urls,
@@ -6385,10 +6385,10 @@ class WindowsFunctionAppAuthSettingsV2OutputReference(
         login_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: The OAuth 2.0 client ID that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
-        :param client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
-        :param allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
-        :param login_scopes: The list of Login scopes that will be requested as part of Microsoft Account authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
+        :param client_id: The OAuth 2.0 client ID that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_id WindowsFunctionApp#client_id}
+        :param client_secret_setting_name: The app setting name containing the OAuth 2.0 client secret that was created for the app used for authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_secret_setting_name WindowsFunctionApp#client_secret_setting_name}
+        :param allowed_audiences: Specifies a list of Allowed Audiences that will be requested as part of Microsoft Sign-In authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_audiences WindowsFunctionApp#allowed_audiences}
+        :param login_scopes: The list of Login scopes that will be requested as part of Microsoft Account authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#login_scopes WindowsFunctionApp#login_scopes}
         '''
         value = WindowsFunctionAppAuthSettingsV2MicrosoftV2(
             client_id=client_id,
@@ -6407,8 +6407,8 @@ class WindowsFunctionAppAuthSettingsV2OutputReference(
         consumer_secret_setting_name: builtins.str,
     ) -> None:
         '''
-        :param consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
-        :param consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
+        :param consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
+        :param consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
         '''
         value = WindowsFunctionAppAuthSettingsV2TwitterV2(
             consumer_key=consumer_key,
@@ -6882,8 +6882,8 @@ class WindowsFunctionAppAuthSettingsV2TwitterV2:
         consumer_secret_setting_name: builtins.str,
     ) -> None:
         '''
-        :param consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
-        :param consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
+        :param consumer_key: The OAuth 1.0a consumer key of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
+        :param consumer_secret_setting_name: The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9132c380a1d8a484645a3c1904de1af07df2ceb63b86d64f67405fc8b01cfec9)
@@ -6898,7 +6898,7 @@ class WindowsFunctionAppAuthSettingsV2TwitterV2:
     def consumer_key(self) -> builtins.str:
         '''The OAuth 1.0a consumer key of the Twitter application used for sign-in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_key WindowsFunctionApp#consumer_key}
         '''
         result = self._values.get("consumer_key")
         assert result is not None, "Required property 'consumer_key' is missing"
@@ -6908,7 +6908,7 @@ class WindowsFunctionAppAuthSettingsV2TwitterV2:
     def consumer_secret_setting_name(self) -> builtins.str:
         '''The app setting name that contains the OAuth 1.0a consumer secret of the Twitter application used for sign-in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#consumer_secret_setting_name WindowsFunctionApp#consumer_secret_setting_name}
         '''
         result = self._values.get("consumer_secret_setting_name")
         assert result is not None, "Required property 'consumer_secret_setting_name' is missing"
@@ -7018,10 +7018,10 @@ class WindowsFunctionAppBackup:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: The name which should be used for this Backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#schedule WindowsFunctionApp#schedule}
-        :param storage_account_url: The SAS URL to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account_url WindowsFunctionApp#storage_account_url}
-        :param enabled: Should this backup job be enabled? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
+        :param name: The name which should be used for this Backup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#schedule WindowsFunctionApp#schedule}
+        :param storage_account_url: The SAS URL to the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account_url WindowsFunctionApp#storage_account_url}
+        :param enabled: Should this backup job be enabled? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
         '''
         if isinstance(schedule, dict):
             schedule = WindowsFunctionAppBackupSchedule(**schedule)
@@ -7043,7 +7043,7 @@ class WindowsFunctionAppBackup:
     def name(self) -> builtins.str:
         '''The name which should be used for this Backup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -7053,7 +7053,7 @@ class WindowsFunctionAppBackup:
     def schedule(self) -> "WindowsFunctionAppBackupSchedule":
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#schedule WindowsFunctionApp#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#schedule WindowsFunctionApp#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -7063,7 +7063,7 @@ class WindowsFunctionAppBackup:
     def storage_account_url(self) -> builtins.str:
         '''The SAS URL to the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account_url WindowsFunctionApp#storage_account_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account_url WindowsFunctionApp#storage_account_url}
         '''
         result = self._values.get("storage_account_url")
         assert result is not None, "Required property 'storage_account_url' is missing"
@@ -7075,7 +7075,7 @@ class WindowsFunctionAppBackup:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should this backup job be enabled?
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7123,11 +7123,11 @@ class WindowsFunctionAppBackupOutputReference(
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param frequency_interval: How often the backup should be executed (e.g. for weekly backup, this should be set to ``7`` and ``frequency_unit`` should be set to ``Day``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#frequency_interval WindowsFunctionApp#frequency_interval}
-        :param frequency_unit: The unit of time for how often the backup should take place. Possible values include: ``Day`` and ``Hour``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#frequency_unit WindowsFunctionApp#frequency_unit}
-        :param keep_at_least_one_backup: Should the service keep at least one backup, regardless of age of backup. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#keep_at_least_one_backup WindowsFunctionApp#keep_at_least_one_backup}
-        :param retention_period_days: After how many days backups should be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
-        :param start_time: When the schedule should start working in RFC-3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#start_time WindowsFunctionApp#start_time}
+        :param frequency_interval: How often the backup should be executed (e.g. for weekly backup, this should be set to ``7`` and ``frequency_unit`` should be set to ``Day``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#frequency_interval WindowsFunctionApp#frequency_interval}
+        :param frequency_unit: The unit of time for how often the backup should take place. Possible values include: ``Day`` and ``Hour``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#frequency_unit WindowsFunctionApp#frequency_unit}
+        :param keep_at_least_one_backup: Should the service keep at least one backup, regardless of age of backup. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#keep_at_least_one_backup WindowsFunctionApp#keep_at_least_one_backup}
+        :param retention_period_days: After how many days backups should be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
+        :param start_time: When the schedule should start working in RFC-3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#start_time WindowsFunctionApp#start_time}
         '''
         value = WindowsFunctionAppBackupSchedule(
             frequency_interval=frequency_interval,
@@ -7244,11 +7244,11 @@ class WindowsFunctionAppBackupSchedule:
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param frequency_interval: How often the backup should be executed (e.g. for weekly backup, this should be set to ``7`` and ``frequency_unit`` should be set to ``Day``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#frequency_interval WindowsFunctionApp#frequency_interval}
-        :param frequency_unit: The unit of time for how often the backup should take place. Possible values include: ``Day`` and ``Hour``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#frequency_unit WindowsFunctionApp#frequency_unit}
-        :param keep_at_least_one_backup: Should the service keep at least one backup, regardless of age of backup. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#keep_at_least_one_backup WindowsFunctionApp#keep_at_least_one_backup}
-        :param retention_period_days: After how many days backups should be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
-        :param start_time: When the schedule should start working in RFC-3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#start_time WindowsFunctionApp#start_time}
+        :param frequency_interval: How often the backup should be executed (e.g. for weekly backup, this should be set to ``7`` and ``frequency_unit`` should be set to ``Day``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#frequency_interval WindowsFunctionApp#frequency_interval}
+        :param frequency_unit: The unit of time for how often the backup should take place. Possible values include: ``Day`` and ``Hour``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#frequency_unit WindowsFunctionApp#frequency_unit}
+        :param keep_at_least_one_backup: Should the service keep at least one backup, regardless of age of backup. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#keep_at_least_one_backup WindowsFunctionApp#keep_at_least_one_backup}
+        :param retention_period_days: After how many days backups should be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
+        :param start_time: When the schedule should start working in RFC-3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#start_time WindowsFunctionApp#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f2ef374b5bd5321f832d520f86b6dd105738d48fda25edfe7c34fc263248dfc)
@@ -7272,7 +7272,7 @@ class WindowsFunctionAppBackupSchedule:
     def frequency_interval(self) -> jsii.Number:
         '''How often the backup should be executed (e.g. for weekly backup, this should be set to ``7`` and ``frequency_unit`` should be set to ``Day``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#frequency_interval WindowsFunctionApp#frequency_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#frequency_interval WindowsFunctionApp#frequency_interval}
         '''
         result = self._values.get("frequency_interval")
         assert result is not None, "Required property 'frequency_interval' is missing"
@@ -7282,7 +7282,7 @@ class WindowsFunctionAppBackupSchedule:
     def frequency_unit(self) -> builtins.str:
         '''The unit of time for how often the backup should take place. Possible values include: ``Day`` and ``Hour``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#frequency_unit WindowsFunctionApp#frequency_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#frequency_unit WindowsFunctionApp#frequency_unit}
         '''
         result = self._values.get("frequency_unit")
         assert result is not None, "Required property 'frequency_unit' is missing"
@@ -7294,7 +7294,7 @@ class WindowsFunctionAppBackupSchedule:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the service keep at least one backup, regardless of age of backup. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#keep_at_least_one_backup WindowsFunctionApp#keep_at_least_one_backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#keep_at_least_one_backup WindowsFunctionApp#keep_at_least_one_backup}
         '''
         result = self._values.get("keep_at_least_one_backup")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7303,7 +7303,7 @@ class WindowsFunctionAppBackupSchedule:
     def retention_period_days(self) -> typing.Optional[jsii.Number]:
         '''After how many days backups should be deleted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
         '''
         result = self._values.get("retention_period_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7312,7 +7312,7 @@ class WindowsFunctionAppBackupSchedule:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''When the schedule should start working in RFC-3339 format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#start_time WindowsFunctionApp#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#start_time WindowsFunctionApp#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7581,43 +7581,43 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#location WindowsFunctionApp#location}.
-        :param name: Specifies the name of the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#resource_group_name WindowsFunctionApp#resource_group_name}.
-        :param service_plan_id: The ID of the App Service Plan within which to create this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#service_plan_id WindowsFunctionApp#service_plan_id}
-        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#site_config WindowsFunctionApp#site_config}
-        :param app_settings: A map of key-value pairs for `App Settings <https://docs.microsoft.com/en-us/azure/azure-functions/functions-app-settings>`_ and custom values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_settings WindowsFunctionApp#app_settings}
-        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#auth_settings WindowsFunctionApp#auth_settings}
-        :param auth_settings_v2: auth_settings_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#auth_settings_v2 WindowsFunctionApp#auth_settings_v2}
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#backup WindowsFunctionApp#backup}
-        :param builtin_logging_enabled: Should built in logging be enabled. Configures ``AzureWebJobsDashboard`` app setting based on the configured storage setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#builtin_logging_enabled WindowsFunctionApp#builtin_logging_enabled}
-        :param client_certificate_enabled: Should the function app use Client Certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_certificate_enabled WindowsFunctionApp#client_certificate_enabled}
-        :param client_certificate_exclusion_paths: Paths to exclude when using client certificates, separated by ; Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_certificate_exclusion_paths WindowsFunctionApp#client_certificate_exclusion_paths}
-        :param client_certificate_mode: The mode of the Function App's client certificates requirement for incoming requests. Possible values are ``Required``, ``Optional``, and ``OptionalInteractiveUser`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_certificate_mode WindowsFunctionApp#client_certificate_mode}
-        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#connection_string WindowsFunctionApp#connection_string}
-        :param content_share_force_disabled: Force disable the content share settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#content_share_force_disabled WindowsFunctionApp#content_share_force_disabled}
-        :param daily_memory_time_quota: The amount of memory in gigabyte-seconds that your application is allowed to consume per day. Setting this value only affects function apps in Consumption Plans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#daily_memory_time_quota WindowsFunctionApp#daily_memory_time_quota}
-        :param enabled: Is the Windows Function App enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
-        :param ftp_publish_basic_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ftp_publish_basic_authentication_enabled WindowsFunctionApp#ftp_publish_basic_authentication_enabled}.
-        :param functions_extension_version: The runtime version associated with the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#functions_extension_version WindowsFunctionApp#functions_extension_version}
-        :param https_only: Can the Function App only be accessed via HTTPS? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#https_only WindowsFunctionApp#https_only}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#id WindowsFunctionApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#identity WindowsFunctionApp#identity}
-        :param key_vault_reference_identity_id: The User Assigned Identity to use for Key Vault access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#key_vault_reference_identity_id WindowsFunctionApp#key_vault_reference_identity_id}
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#public_network_access_enabled WindowsFunctionApp#public_network_access_enabled}.
-        :param sticky_settings: sticky_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#sticky_settings WindowsFunctionApp#sticky_settings}
-        :param storage_account: storage_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account WindowsFunctionApp#storage_account}
-        :param storage_account_access_key: The access key which will be used to access the storage account for the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account_access_key WindowsFunctionApp#storage_account_access_key}
-        :param storage_account_name: The backend storage account name which will be used by this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account_name WindowsFunctionApp#storage_account_name}
-        :param storage_key_vault_secret_id: The Key Vault Secret ID, including version, that contains the Connection String to connect to the storage account for this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_key_vault_secret_id WindowsFunctionApp#storage_key_vault_secret_id}
-        :param storage_uses_managed_identity: Should the Function App use its Managed Identity to access storage? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_uses_managed_identity WindowsFunctionApp#storage_uses_managed_identity}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#tags WindowsFunctionApp#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#timeouts WindowsFunctionApp#timeouts}
-        :param virtual_network_backup_restore_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_backup_restore_enabled WindowsFunctionApp#virtual_network_backup_restore_enabled}.
-        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}.
-        :param vnet_image_pull_enabled: Is container image pull over virtual network enabled? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#vnet_image_pull_enabled WindowsFunctionApp#vnet_image_pull_enabled}
-        :param webdeploy_publish_basic_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#webdeploy_publish_basic_authentication_enabled WindowsFunctionApp#webdeploy_publish_basic_authentication_enabled}.
-        :param zip_deploy_file: The local path and filename of the Zip packaged application to deploy to this Windows Function App. **Note:** Using this value requires ``WEBSITE_RUN_FROM_PACKAGE=1`` to be set on the App in ``app_settings``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#zip_deploy_file WindowsFunctionApp#zip_deploy_file}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#location WindowsFunctionApp#location}.
+        :param name: Specifies the name of the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#resource_group_name WindowsFunctionApp#resource_group_name}.
+        :param service_plan_id: The ID of the App Service Plan within which to create this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#service_plan_id WindowsFunctionApp#service_plan_id}
+        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#site_config WindowsFunctionApp#site_config}
+        :param app_settings: A map of key-value pairs for `App Settings <https://docs.microsoft.com/en-us/azure/azure-functions/functions-app-settings>`_ and custom values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_settings WindowsFunctionApp#app_settings}
+        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#auth_settings WindowsFunctionApp#auth_settings}
+        :param auth_settings_v2: auth_settings_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#auth_settings_v2 WindowsFunctionApp#auth_settings_v2}
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#backup WindowsFunctionApp#backup}
+        :param builtin_logging_enabled: Should built in logging be enabled. Configures ``AzureWebJobsDashboard`` app setting based on the configured storage setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#builtin_logging_enabled WindowsFunctionApp#builtin_logging_enabled}
+        :param client_certificate_enabled: Should the function app use Client Certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_certificate_enabled WindowsFunctionApp#client_certificate_enabled}
+        :param client_certificate_exclusion_paths: Paths to exclude when using client certificates, separated by ; Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_certificate_exclusion_paths WindowsFunctionApp#client_certificate_exclusion_paths}
+        :param client_certificate_mode: The mode of the Function App's client certificates requirement for incoming requests. Possible values are ``Required``, ``Optional``, and ``OptionalInteractiveUser`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_certificate_mode WindowsFunctionApp#client_certificate_mode}
+        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#connection_string WindowsFunctionApp#connection_string}
+        :param content_share_force_disabled: Force disable the content share settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#content_share_force_disabled WindowsFunctionApp#content_share_force_disabled}
+        :param daily_memory_time_quota: The amount of memory in gigabyte-seconds that your application is allowed to consume per day. Setting this value only affects function apps in Consumption Plans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#daily_memory_time_quota WindowsFunctionApp#daily_memory_time_quota}
+        :param enabled: Is the Windows Function App enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
+        :param ftp_publish_basic_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ftp_publish_basic_authentication_enabled WindowsFunctionApp#ftp_publish_basic_authentication_enabled}.
+        :param functions_extension_version: The runtime version associated with the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#functions_extension_version WindowsFunctionApp#functions_extension_version}
+        :param https_only: Can the Function App only be accessed via HTTPS? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#https_only WindowsFunctionApp#https_only}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#id WindowsFunctionApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#identity WindowsFunctionApp#identity}
+        :param key_vault_reference_identity_id: The User Assigned Identity to use for Key Vault access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#key_vault_reference_identity_id WindowsFunctionApp#key_vault_reference_identity_id}
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#public_network_access_enabled WindowsFunctionApp#public_network_access_enabled}.
+        :param sticky_settings: sticky_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#sticky_settings WindowsFunctionApp#sticky_settings}
+        :param storage_account: storage_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account WindowsFunctionApp#storage_account}
+        :param storage_account_access_key: The access key which will be used to access the storage account for the Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account_access_key WindowsFunctionApp#storage_account_access_key}
+        :param storage_account_name: The backend storage account name which will be used by this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account_name WindowsFunctionApp#storage_account_name}
+        :param storage_key_vault_secret_id: The Key Vault Secret ID, including version, that contains the Connection String to connect to the storage account for this Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_key_vault_secret_id WindowsFunctionApp#storage_key_vault_secret_id}
+        :param storage_uses_managed_identity: Should the Function App use its Managed Identity to access storage? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_uses_managed_identity WindowsFunctionApp#storage_uses_managed_identity}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#tags WindowsFunctionApp#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#timeouts WindowsFunctionApp#timeouts}
+        :param virtual_network_backup_restore_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_backup_restore_enabled WindowsFunctionApp#virtual_network_backup_restore_enabled}.
+        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}.
+        :param vnet_image_pull_enabled: Is container image pull over virtual network enabled? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#vnet_image_pull_enabled WindowsFunctionApp#vnet_image_pull_enabled}
+        :param webdeploy_publish_basic_authentication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#webdeploy_publish_basic_authentication_enabled WindowsFunctionApp#webdeploy_publish_basic_authentication_enabled}.
+        :param zip_deploy_file: The local path and filename of the Zip packaged application to deploy to this Windows Function App. **Note:** Using this value requires ``WEBSITE_RUN_FROM_PACKAGE=1`` to be set on the App in ``app_settings``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#zip_deploy_file WindowsFunctionApp#zip_deploy_file}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -7833,7 +7833,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#location WindowsFunctionApp#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#location WindowsFunctionApp#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
@@ -7842,7 +7842,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Specifies the name of the Function App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -7850,7 +7850,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#resource_group_name WindowsFunctionApp#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#resource_group_name WindowsFunctionApp#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -7859,7 +7859,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_plan_id(self) -> builtins.str:
         '''The ID of the App Service Plan within which to create this Function App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#service_plan_id WindowsFunctionApp#service_plan_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#service_plan_id WindowsFunctionApp#service_plan_id}
         '''
         result = self._values.get("service_plan_id")
         assert result is not None, "Required property 'service_plan_id' is missing"
@@ -7869,7 +7869,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def site_config(self) -> "WindowsFunctionAppSiteConfig":
         '''site_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#site_config WindowsFunctionApp#site_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#site_config WindowsFunctionApp#site_config}
         '''
         result = self._values.get("site_config")
         assert result is not None, "Required property 'site_config' is missing"
@@ -7881,7 +7881,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A map of key-value pairs for `App Settings <https://docs.microsoft.com/en-us/azure/azure-functions/functions-app-settings>`_ and custom values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_settings WindowsFunctionApp#app_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_settings WindowsFunctionApp#app_settings}
         '''
         result = self._values.get("app_settings")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -7890,7 +7890,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_settings(self) -> typing.Optional[WindowsFunctionAppAuthSettings]:
         '''auth_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#auth_settings WindowsFunctionApp#auth_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#auth_settings WindowsFunctionApp#auth_settings}
         '''
         result = self._values.get("auth_settings")
         return typing.cast(typing.Optional[WindowsFunctionAppAuthSettings], result)
@@ -7899,7 +7899,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_settings_v2(self) -> typing.Optional[WindowsFunctionAppAuthSettingsV2]:
         '''auth_settings_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#auth_settings_v2 WindowsFunctionApp#auth_settings_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#auth_settings_v2 WindowsFunctionApp#auth_settings_v2}
         '''
         result = self._values.get("auth_settings_v2")
         return typing.cast(typing.Optional[WindowsFunctionAppAuthSettingsV2], result)
@@ -7908,7 +7908,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup(self) -> typing.Optional[WindowsFunctionAppBackup]:
         '''backup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#backup WindowsFunctionApp#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#backup WindowsFunctionApp#backup}
         '''
         result = self._values.get("backup")
         return typing.cast(typing.Optional[WindowsFunctionAppBackup], result)
@@ -7919,7 +7919,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should built in logging be enabled. Configures ``AzureWebJobsDashboard`` app setting based on the configured storage setting.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#builtin_logging_enabled WindowsFunctionApp#builtin_logging_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#builtin_logging_enabled WindowsFunctionApp#builtin_logging_enabled}
         '''
         result = self._values.get("builtin_logging_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7930,7 +7930,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the function app use Client Certificates.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_certificate_enabled WindowsFunctionApp#client_certificate_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_certificate_enabled WindowsFunctionApp#client_certificate_enabled}
         '''
         result = self._values.get("client_certificate_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7939,7 +7939,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_certificate_exclusion_paths(self) -> typing.Optional[builtins.str]:
         '''Paths to exclude when using client certificates, separated by ;
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_certificate_exclusion_paths WindowsFunctionApp#client_certificate_exclusion_paths}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_certificate_exclusion_paths WindowsFunctionApp#client_certificate_exclusion_paths}
         '''
         result = self._values.get("client_certificate_exclusion_paths")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7950,7 +7950,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Possible values are ``Required``, ``Optional``, and ``OptionalInteractiveUser``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#client_certificate_mode WindowsFunctionApp#client_certificate_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#client_certificate_mode WindowsFunctionApp#client_certificate_mode}
         '''
         result = self._values.get("client_certificate_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7961,7 +7961,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppConnectionString"]]]:
         '''connection_string block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#connection_string WindowsFunctionApp#connection_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#connection_string WindowsFunctionApp#connection_string}
         '''
         result = self._values.get("connection_string")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppConnectionString"]]], result)
@@ -7972,7 +7972,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Force disable the content share settings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#content_share_force_disabled WindowsFunctionApp#content_share_force_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#content_share_force_disabled WindowsFunctionApp#content_share_force_disabled}
         '''
         result = self._values.get("content_share_force_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7983,7 +7983,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Setting this value only affects function apps in Consumption Plans.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#daily_memory_time_quota WindowsFunctionApp#daily_memory_time_quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#daily_memory_time_quota WindowsFunctionApp#daily_memory_time_quota}
         '''
         result = self._values.get("daily_memory_time_quota")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7994,7 +7994,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Is the Windows Function App enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#enabled WindowsFunctionApp#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8003,7 +8003,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ftp_publish_basic_authentication_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ftp_publish_basic_authentication_enabled WindowsFunctionApp#ftp_publish_basic_authentication_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ftp_publish_basic_authentication_enabled WindowsFunctionApp#ftp_publish_basic_authentication_enabled}.'''
         result = self._values.get("ftp_publish_basic_authentication_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -8011,7 +8011,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def functions_extension_version(self) -> typing.Optional[builtins.str]:
         '''The runtime version associated with the Function App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#functions_extension_version WindowsFunctionApp#functions_extension_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#functions_extension_version WindowsFunctionApp#functions_extension_version}
         '''
         result = self._values.get("functions_extension_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8022,14 +8022,14 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Can the Function App only be accessed via HTTPS?
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#https_only WindowsFunctionApp#https_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#https_only WindowsFunctionApp#https_only}
         '''
         result = self._values.get("https_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#id WindowsFunctionApp#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#id WindowsFunctionApp#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -8041,7 +8041,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["WindowsFunctionAppIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#identity WindowsFunctionApp#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#identity WindowsFunctionApp#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["WindowsFunctionAppIdentity"], result)
@@ -8050,7 +8050,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key_vault_reference_identity_id(self) -> typing.Optional[builtins.str]:
         '''The User Assigned Identity to use for Key Vault access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#key_vault_reference_identity_id WindowsFunctionApp#key_vault_reference_identity_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#key_vault_reference_identity_id WindowsFunctionApp#key_vault_reference_identity_id}
         '''
         result = self._values.get("key_vault_reference_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8059,7 +8059,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_network_access_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#public_network_access_enabled WindowsFunctionApp#public_network_access_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#public_network_access_enabled WindowsFunctionApp#public_network_access_enabled}.'''
         result = self._values.get("public_network_access_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -8067,7 +8067,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sticky_settings(self) -> typing.Optional["WindowsFunctionAppStickySettings"]:
         '''sticky_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#sticky_settings WindowsFunctionApp#sticky_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#sticky_settings WindowsFunctionApp#sticky_settings}
         '''
         result = self._values.get("sticky_settings")
         return typing.cast(typing.Optional["WindowsFunctionAppStickySettings"], result)
@@ -8078,7 +8078,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppStorageAccount"]]]:
         '''storage_account block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account WindowsFunctionApp#storage_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account WindowsFunctionApp#storage_account}
         '''
         result = self._values.get("storage_account")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppStorageAccount"]]], result)
@@ -8087,7 +8087,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_account_access_key(self) -> typing.Optional[builtins.str]:
         '''The access key which will be used to access the storage account for the Function App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account_access_key WindowsFunctionApp#storage_account_access_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account_access_key WindowsFunctionApp#storage_account_access_key}
         '''
         result = self._values.get("storage_account_access_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8096,7 +8096,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_account_name(self) -> typing.Optional[builtins.str]:
         '''The backend storage account name which will be used by this Function App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_account_name WindowsFunctionApp#storage_account_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_account_name WindowsFunctionApp#storage_account_name}
         '''
         result = self._values.get("storage_account_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8105,7 +8105,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_key_vault_secret_id(self) -> typing.Optional[builtins.str]:
         '''The Key Vault Secret ID, including version, that contains the Connection String to connect to the storage account for this Function App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_key_vault_secret_id WindowsFunctionApp#storage_key_vault_secret_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_key_vault_secret_id WindowsFunctionApp#storage_key_vault_secret_id}
         '''
         result = self._values.get("storage_key_vault_secret_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8116,14 +8116,14 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the Function App use its Managed Identity to access storage?
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#storage_uses_managed_identity WindowsFunctionApp#storage_uses_managed_identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#storage_uses_managed_identity WindowsFunctionApp#storage_uses_managed_identity}
         '''
         result = self._values.get("storage_uses_managed_identity")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#tags WindowsFunctionApp#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#tags WindowsFunctionApp#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -8131,7 +8131,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["WindowsFunctionAppTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#timeouts WindowsFunctionApp#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#timeouts WindowsFunctionApp#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["WindowsFunctionAppTimeouts"], result)
@@ -8140,13 +8140,13 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def virtual_network_backup_restore_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_backup_restore_enabled WindowsFunctionApp#virtual_network_backup_restore_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_backup_restore_enabled WindowsFunctionApp#virtual_network_backup_restore_enabled}.'''
         result = self._values.get("virtual_network_backup_restore_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def virtual_network_subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}.'''
         result = self._values.get("virtual_network_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8156,7 +8156,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Is container image pull over virtual network enabled? Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#vnet_image_pull_enabled WindowsFunctionApp#vnet_image_pull_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#vnet_image_pull_enabled WindowsFunctionApp#vnet_image_pull_enabled}
         '''
         result = self._values.get("vnet_image_pull_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8165,7 +8165,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def webdeploy_publish_basic_authentication_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#webdeploy_publish_basic_authentication_enabled WindowsFunctionApp#webdeploy_publish_basic_authentication_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#webdeploy_publish_basic_authentication_enabled WindowsFunctionApp#webdeploy_publish_basic_authentication_enabled}.'''
         result = self._values.get("webdeploy_publish_basic_authentication_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -8175,7 +8175,7 @@ class WindowsFunctionAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         **Note:** Using this value requires ``WEBSITE_RUN_FROM_PACKAGE=1`` to be set on the App in ``app_settings``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#zip_deploy_file WindowsFunctionApp#zip_deploy_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#zip_deploy_file WindowsFunctionApp#zip_deploy_file}
         '''
         result = self._values.get("zip_deploy_file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8206,9 +8206,9 @@ class WindowsFunctionAppConnectionString:
         value: builtins.str,
     ) -> None:
         '''
-        :param name: The name which should be used for this Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
-        :param type: Type of database. Possible values include: ``MySQL``, ``SQLServer``, ``SQLAzure``, ``Custom``, ``NotificationHub``, ``ServiceBus``, ``EventHub``, ``APIHub``, ``DocDb``, ``RedisCache``, and ``PostgreSQL``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}
-        :param value: The connection string value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#value WindowsFunctionApp#value}
+        :param name: The name which should be used for this Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        :param type: Type of database. Possible values include: ``MySQL``, ``SQLServer``, ``SQLAzure``, ``Custom``, ``NotificationHub``, ``ServiceBus``, ``EventHub``, ``APIHub``, ``DocDb``, ``RedisCache``, and ``PostgreSQL``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}
+        :param value: The connection string value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#value WindowsFunctionApp#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28d9de698ef1bc17368c79449cb3cf0e39bddbcf41a15e11d563f19a3e404743)
@@ -8225,7 +8225,7 @@ class WindowsFunctionAppConnectionString:
     def name(self) -> builtins.str:
         '''The name which should be used for this Connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8235,7 +8235,7 @@ class WindowsFunctionAppConnectionString:
     def type(self) -> builtins.str:
         '''Type of database. Possible values include: ``MySQL``, ``SQLServer``, ``SQLAzure``, ``Custom``, ``NotificationHub``, ``ServiceBus``, ``EventHub``, ``APIHub``, ``DocDb``, ``RedisCache``, and ``PostgreSQL``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -8245,7 +8245,7 @@ class WindowsFunctionAppConnectionString:
     def value(self) -> builtins.str:
         '''The connection string value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#value WindowsFunctionApp#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#value WindowsFunctionApp#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -8464,8 +8464,8 @@ class WindowsFunctionAppIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#identity_ids WindowsFunctionApp#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#identity_ids WindowsFunctionApp#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1aaaa12d3ef192b650840af2176ed5a059e05ee720286f470a8fcc05f05309dd)
@@ -8479,14 +8479,14 @@ class WindowsFunctionAppIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#identity_ids WindowsFunctionApp#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#identity_ids WindowsFunctionApp#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -8664,39 +8664,39 @@ class WindowsFunctionAppSiteConfig:
         worker_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param always_on: If this Windows Web App is Always On enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#always_on WindowsFunctionApp#always_on}
-        :param api_definition_url: The URL of the API definition that describes this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#api_definition_url WindowsFunctionApp#api_definition_url}
-        :param api_management_api_id: The ID of the API Management API for this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#api_management_api_id WindowsFunctionApp#api_management_api_id}
-        :param app_command_line: The program and any arguments used to launch this app via the command line. (Example ``node myapp.js``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_command_line WindowsFunctionApp#app_command_line}
-        :param application_insights_connection_string: The Connection String for linking the Windows Function App to Application Insights. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#application_insights_connection_string WindowsFunctionApp#application_insights_connection_string}
-        :param application_insights_key: The Instrumentation Key for connecting the Windows Function App to Application Insights. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#application_insights_key WindowsFunctionApp#application_insights_key}
-        :param application_stack: application_stack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#application_stack WindowsFunctionApp#application_stack}
-        :param app_scale_limit: The number of workers this function app can scale out to. Only applicable to apps on the Consumption and Premium plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_scale_limit WindowsFunctionApp#app_scale_limit}
-        :param app_service_logs: app_service_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_service_logs WindowsFunctionApp#app_service_logs}
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#cors WindowsFunctionApp#cors}
-        :param default_documents: Specifies a list of Default Documents for the Windows Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#default_documents WindowsFunctionApp#default_documents}
-        :param elastic_instance_minimum: The number of minimum instances for this Windows Function App. Only affects apps on Elastic Premium plans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#elastic_instance_minimum WindowsFunctionApp#elastic_instance_minimum}
-        :param ftps_state: State of FTP / FTPS service for this function app. Possible values include: ``AllAllowed``, ``FtpsOnly`` and ``Disabled``. Defaults to ``Disabled``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ftps_state WindowsFunctionApp#ftps_state}
-        :param health_check_eviction_time_in_min: The amount of time in minutes that a node is unhealthy before being removed from the load balancer. Possible values are between ``2`` and ``10``. Only valid in conjunction with ``health_check_path`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#health_check_eviction_time_in_min WindowsFunctionApp#health_check_eviction_time_in_min}
-        :param health_check_path: The path to be checked for this function app health. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#health_check_path WindowsFunctionApp#health_check_path}
-        :param http2_enabled: Specifies if the http2 protocol should be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#http2_enabled WindowsFunctionApp#http2_enabled}
-        :param ip_restriction: ip_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_restriction WindowsFunctionApp#ip_restriction}
-        :param ip_restriction_default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_restriction_default_action WindowsFunctionApp#ip_restriction_default_action}.
-        :param load_balancing_mode: The Site load balancing mode. Possible values include: ``WeightedRoundRobin``, ``LeastRequests``, ``LeastResponseTime``, ``WeightedTotalTraffic``, ``RequestHash``, ``PerSiteRoundRobin``. Defaults to ``LeastRequests`` if omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#load_balancing_mode WindowsFunctionApp#load_balancing_mode}
-        :param managed_pipeline_mode: The Managed Pipeline mode. Possible values include: ``Integrated``, ``Classic``. Defaults to ``Integrated``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#managed_pipeline_mode WindowsFunctionApp#managed_pipeline_mode}
-        :param minimum_tls_version: The configures the minimum version of TLS required for SSL requests. Possible values include: ``1.0``, ``1.1``, and ``1.2``. Defaults to ``1.2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#minimum_tls_version WindowsFunctionApp#minimum_tls_version}
-        :param pre_warmed_instance_count: The number of pre-warmed instances for this function app. Only affects apps on an Elastic Premium plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#pre_warmed_instance_count WindowsFunctionApp#pre_warmed_instance_count}
-        :param remote_debugging_enabled: Should Remote Debugging be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#remote_debugging_enabled WindowsFunctionApp#remote_debugging_enabled}
-        :param remote_debugging_version: The Remote Debugging Version. Currently only ``VS2022`` is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#remote_debugging_version WindowsFunctionApp#remote_debugging_version}
-        :param runtime_scale_monitoring_enabled: Should Functions Runtime Scale Monitoring be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#runtime_scale_monitoring_enabled WindowsFunctionApp#runtime_scale_monitoring_enabled}
-        :param scm_ip_restriction: scm_ip_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_ip_restriction WindowsFunctionApp#scm_ip_restriction}
-        :param scm_ip_restriction_default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_ip_restriction_default_action WindowsFunctionApp#scm_ip_restriction_default_action}.
-        :param scm_minimum_tls_version: Configures the minimum version of TLS required for SSL requests to the SCM site Possible values include: ``1.0``, ``1.1``, ``1.2`` and ``1.3``. Defaults to ``1.2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_minimum_tls_version WindowsFunctionApp#scm_minimum_tls_version}
-        :param scm_use_main_ip_restriction: Should the Windows Function App ``ip_restriction`` configuration be used for the SCM also. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_use_main_ip_restriction WindowsFunctionApp#scm_use_main_ip_restriction}
-        :param use32_bit_worker: Should the Windows Web App use a 32-bit worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#use_32_bit_worker WindowsFunctionApp#use_32_bit_worker}
-        :param vnet_route_all_enabled: Should all outbound traffic to have Virtual Network Security Groups and User Defined Routes applied? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#vnet_route_all_enabled WindowsFunctionApp#vnet_route_all_enabled}
-        :param websockets_enabled: Should Web Sockets be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#websockets_enabled WindowsFunctionApp#websockets_enabled}
-        :param worker_count: The number of Workers for this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#worker_count WindowsFunctionApp#worker_count}
+        :param always_on: If this Windows Web App is Always On enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#always_on WindowsFunctionApp#always_on}
+        :param api_definition_url: The URL of the API definition that describes this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#api_definition_url WindowsFunctionApp#api_definition_url}
+        :param api_management_api_id: The ID of the API Management API for this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#api_management_api_id WindowsFunctionApp#api_management_api_id}
+        :param app_command_line: The program and any arguments used to launch this app via the command line. (Example ``node myapp.js``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_command_line WindowsFunctionApp#app_command_line}
+        :param application_insights_connection_string: The Connection String for linking the Windows Function App to Application Insights. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#application_insights_connection_string WindowsFunctionApp#application_insights_connection_string}
+        :param application_insights_key: The Instrumentation Key for connecting the Windows Function App to Application Insights. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#application_insights_key WindowsFunctionApp#application_insights_key}
+        :param application_stack: application_stack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#application_stack WindowsFunctionApp#application_stack}
+        :param app_scale_limit: The number of workers this function app can scale out to. Only applicable to apps on the Consumption and Premium plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_scale_limit WindowsFunctionApp#app_scale_limit}
+        :param app_service_logs: app_service_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_service_logs WindowsFunctionApp#app_service_logs}
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#cors WindowsFunctionApp#cors}
+        :param default_documents: Specifies a list of Default Documents for the Windows Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#default_documents WindowsFunctionApp#default_documents}
+        :param elastic_instance_minimum: The number of minimum instances for this Windows Function App. Only affects apps on Elastic Premium plans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#elastic_instance_minimum WindowsFunctionApp#elastic_instance_minimum}
+        :param ftps_state: State of FTP / FTPS service for this function app. Possible values include: ``AllAllowed``, ``FtpsOnly`` and ``Disabled``. Defaults to ``Disabled``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ftps_state WindowsFunctionApp#ftps_state}
+        :param health_check_eviction_time_in_min: The amount of time in minutes that a node is unhealthy before being removed from the load balancer. Possible values are between ``2`` and ``10``. Only valid in conjunction with ``health_check_path`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#health_check_eviction_time_in_min WindowsFunctionApp#health_check_eviction_time_in_min}
+        :param health_check_path: The path to be checked for this function app health. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#health_check_path WindowsFunctionApp#health_check_path}
+        :param http2_enabled: Specifies if the http2 protocol should be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#http2_enabled WindowsFunctionApp#http2_enabled}
+        :param ip_restriction: ip_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_restriction WindowsFunctionApp#ip_restriction}
+        :param ip_restriction_default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_restriction_default_action WindowsFunctionApp#ip_restriction_default_action}.
+        :param load_balancing_mode: The Site load balancing mode. Possible values include: ``WeightedRoundRobin``, ``LeastRequests``, ``LeastResponseTime``, ``WeightedTotalTraffic``, ``RequestHash``, ``PerSiteRoundRobin``. Defaults to ``LeastRequests`` if omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#load_balancing_mode WindowsFunctionApp#load_balancing_mode}
+        :param managed_pipeline_mode: The Managed Pipeline mode. Possible values include: ``Integrated``, ``Classic``. Defaults to ``Integrated``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#managed_pipeline_mode WindowsFunctionApp#managed_pipeline_mode}
+        :param minimum_tls_version: The configures the minimum version of TLS required for SSL requests. Possible values include: ``1.0``, ``1.1``, and ``1.2``. Defaults to ``1.2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#minimum_tls_version WindowsFunctionApp#minimum_tls_version}
+        :param pre_warmed_instance_count: The number of pre-warmed instances for this function app. Only affects apps on an Elastic Premium plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#pre_warmed_instance_count WindowsFunctionApp#pre_warmed_instance_count}
+        :param remote_debugging_enabled: Should Remote Debugging be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#remote_debugging_enabled WindowsFunctionApp#remote_debugging_enabled}
+        :param remote_debugging_version: The Remote Debugging Version. Currently only ``VS2022`` is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#remote_debugging_version WindowsFunctionApp#remote_debugging_version}
+        :param runtime_scale_monitoring_enabled: Should Functions Runtime Scale Monitoring be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#runtime_scale_monitoring_enabled WindowsFunctionApp#runtime_scale_monitoring_enabled}
+        :param scm_ip_restriction: scm_ip_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_ip_restriction WindowsFunctionApp#scm_ip_restriction}
+        :param scm_ip_restriction_default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_ip_restriction_default_action WindowsFunctionApp#scm_ip_restriction_default_action}.
+        :param scm_minimum_tls_version: Configures the minimum version of TLS required for SSL requests to the SCM site Possible values include: ``1.0``, ``1.1``, ``1.2`` and ``1.3``. Defaults to ``1.2``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_minimum_tls_version WindowsFunctionApp#scm_minimum_tls_version}
+        :param scm_use_main_ip_restriction: Should the Windows Function App ``ip_restriction`` configuration be used for the SCM also. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_use_main_ip_restriction WindowsFunctionApp#scm_use_main_ip_restriction}
+        :param use32_bit_worker: Should the Windows Web App use a 32-bit worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#use_32_bit_worker WindowsFunctionApp#use_32_bit_worker}
+        :param vnet_route_all_enabled: Should all outbound traffic to have Virtual Network Security Groups and User Defined Routes applied? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#vnet_route_all_enabled WindowsFunctionApp#vnet_route_all_enabled}
+        :param websockets_enabled: Should Web Sockets be enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#websockets_enabled WindowsFunctionApp#websockets_enabled}
+        :param worker_count: The number of Workers for this Windows Function App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#worker_count WindowsFunctionApp#worker_count}
         '''
         if isinstance(application_stack, dict):
             application_stack = WindowsFunctionAppSiteConfigApplicationStack(**application_stack)
@@ -8813,7 +8813,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If this Windows Web App is Always On enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#always_on WindowsFunctionApp#always_on}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#always_on WindowsFunctionApp#always_on}
         '''
         result = self._values.get("always_on")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8822,7 +8822,7 @@ class WindowsFunctionAppSiteConfig:
     def api_definition_url(self) -> typing.Optional[builtins.str]:
         '''The URL of the API definition that describes this Windows Function App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#api_definition_url WindowsFunctionApp#api_definition_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#api_definition_url WindowsFunctionApp#api_definition_url}
         '''
         result = self._values.get("api_definition_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8831,7 +8831,7 @@ class WindowsFunctionAppSiteConfig:
     def api_management_api_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the API Management API for this Windows Function App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#api_management_api_id WindowsFunctionApp#api_management_api_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#api_management_api_id WindowsFunctionApp#api_management_api_id}
         '''
         result = self._values.get("api_management_api_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8840,7 +8840,7 @@ class WindowsFunctionAppSiteConfig:
     def app_command_line(self) -> typing.Optional[builtins.str]:
         '''The program and any arguments used to launch this app via the command line. (Example ``node myapp.js``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_command_line WindowsFunctionApp#app_command_line}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_command_line WindowsFunctionApp#app_command_line}
         '''
         result = self._values.get("app_command_line")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8849,7 +8849,7 @@ class WindowsFunctionAppSiteConfig:
     def application_insights_connection_string(self) -> typing.Optional[builtins.str]:
         '''The Connection String for linking the Windows Function App to Application Insights.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#application_insights_connection_string WindowsFunctionApp#application_insights_connection_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#application_insights_connection_string WindowsFunctionApp#application_insights_connection_string}
         '''
         result = self._values.get("application_insights_connection_string")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8858,7 +8858,7 @@ class WindowsFunctionAppSiteConfig:
     def application_insights_key(self) -> typing.Optional[builtins.str]:
         '''The Instrumentation Key for connecting the Windows Function App to Application Insights.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#application_insights_key WindowsFunctionApp#application_insights_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#application_insights_key WindowsFunctionApp#application_insights_key}
         '''
         result = self._values.get("application_insights_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8869,7 +8869,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional["WindowsFunctionAppSiteConfigApplicationStack"]:
         '''application_stack block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#application_stack WindowsFunctionApp#application_stack}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#application_stack WindowsFunctionApp#application_stack}
         '''
         result = self._values.get("application_stack")
         return typing.cast(typing.Optional["WindowsFunctionAppSiteConfigApplicationStack"], result)
@@ -8880,7 +8880,7 @@ class WindowsFunctionAppSiteConfig:
 
         Only applicable to apps on the Consumption and Premium plan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_scale_limit WindowsFunctionApp#app_scale_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_scale_limit WindowsFunctionApp#app_scale_limit}
         '''
         result = self._values.get("app_scale_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8891,7 +8891,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional["WindowsFunctionAppSiteConfigAppServiceLogs"]:
         '''app_service_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_service_logs WindowsFunctionApp#app_service_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_service_logs WindowsFunctionApp#app_service_logs}
         '''
         result = self._values.get("app_service_logs")
         return typing.cast(typing.Optional["WindowsFunctionAppSiteConfigAppServiceLogs"], result)
@@ -8900,7 +8900,7 @@ class WindowsFunctionAppSiteConfig:
     def cors(self) -> typing.Optional["WindowsFunctionAppSiteConfigCors"]:
         '''cors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#cors WindowsFunctionApp#cors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#cors WindowsFunctionApp#cors}
         '''
         result = self._values.get("cors")
         return typing.cast(typing.Optional["WindowsFunctionAppSiteConfigCors"], result)
@@ -8909,7 +8909,7 @@ class WindowsFunctionAppSiteConfig:
     def default_documents(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of Default Documents for the Windows Web App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#default_documents WindowsFunctionApp#default_documents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#default_documents WindowsFunctionApp#default_documents}
         '''
         result = self._values.get("default_documents")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8918,7 +8918,7 @@ class WindowsFunctionAppSiteConfig:
     def elastic_instance_minimum(self) -> typing.Optional[jsii.Number]:
         '''The number of minimum instances for this Windows Function App. Only affects apps on Elastic Premium plans.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#elastic_instance_minimum WindowsFunctionApp#elastic_instance_minimum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#elastic_instance_minimum WindowsFunctionApp#elastic_instance_minimum}
         '''
         result = self._values.get("elastic_instance_minimum")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8929,7 +8929,7 @@ class WindowsFunctionAppSiteConfig:
 
         Possible values include: ``AllAllowed``, ``FtpsOnly`` and ``Disabled``. Defaults to ``Disabled``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ftps_state WindowsFunctionApp#ftps_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ftps_state WindowsFunctionApp#ftps_state}
         '''
         result = self._values.get("ftps_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8940,7 +8940,7 @@ class WindowsFunctionAppSiteConfig:
 
         Possible values are between ``2`` and ``10``. Only valid in conjunction with ``health_check_path``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#health_check_eviction_time_in_min WindowsFunctionApp#health_check_eviction_time_in_min}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#health_check_eviction_time_in_min WindowsFunctionApp#health_check_eviction_time_in_min}
         '''
         result = self._values.get("health_check_eviction_time_in_min")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8949,7 +8949,7 @@ class WindowsFunctionAppSiteConfig:
     def health_check_path(self) -> typing.Optional[builtins.str]:
         '''The path to be checked for this function app health.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#health_check_path WindowsFunctionApp#health_check_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#health_check_path WindowsFunctionApp#health_check_path}
         '''
         result = self._values.get("health_check_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8960,7 +8960,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies if the http2 protocol should be enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#http2_enabled WindowsFunctionApp#http2_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#http2_enabled WindowsFunctionApp#http2_enabled}
         '''
         result = self._values.get("http2_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8971,14 +8971,14 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppSiteConfigIpRestriction"]]]:
         '''ip_restriction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_restriction WindowsFunctionApp#ip_restriction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_restriction WindowsFunctionApp#ip_restriction}
         '''
         result = self._values.get("ip_restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppSiteConfigIpRestriction"]]], result)
 
     @builtins.property
     def ip_restriction_default_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_restriction_default_action WindowsFunctionApp#ip_restriction_default_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_restriction_default_action WindowsFunctionApp#ip_restriction_default_action}.'''
         result = self._values.get("ip_restriction_default_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8986,7 +8986,7 @@ class WindowsFunctionAppSiteConfig:
     def load_balancing_mode(self) -> typing.Optional[builtins.str]:
         '''The Site load balancing mode. Possible values include: ``WeightedRoundRobin``, ``LeastRequests``, ``LeastResponseTime``, ``WeightedTotalTraffic``, ``RequestHash``, ``PerSiteRoundRobin``. Defaults to ``LeastRequests`` if omitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#load_balancing_mode WindowsFunctionApp#load_balancing_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#load_balancing_mode WindowsFunctionApp#load_balancing_mode}
         '''
         result = self._values.get("load_balancing_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8995,7 +8995,7 @@ class WindowsFunctionAppSiteConfig:
     def managed_pipeline_mode(self) -> typing.Optional[builtins.str]:
         '''The Managed Pipeline mode. Possible values include: ``Integrated``, ``Classic``. Defaults to ``Integrated``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#managed_pipeline_mode WindowsFunctionApp#managed_pipeline_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#managed_pipeline_mode WindowsFunctionApp#managed_pipeline_mode}
         '''
         result = self._values.get("managed_pipeline_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9006,7 +9006,7 @@ class WindowsFunctionAppSiteConfig:
 
         Possible values include: ``1.0``, ``1.1``, and  ``1.2``. Defaults to ``1.2``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#minimum_tls_version WindowsFunctionApp#minimum_tls_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#minimum_tls_version WindowsFunctionApp#minimum_tls_version}
         '''
         result = self._values.get("minimum_tls_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9015,7 +9015,7 @@ class WindowsFunctionAppSiteConfig:
     def pre_warmed_instance_count(self) -> typing.Optional[jsii.Number]:
         '''The number of pre-warmed instances for this function app. Only affects apps on an Elastic Premium plan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#pre_warmed_instance_count WindowsFunctionApp#pre_warmed_instance_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#pre_warmed_instance_count WindowsFunctionApp#pre_warmed_instance_count}
         '''
         result = self._values.get("pre_warmed_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9026,7 +9026,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should Remote Debugging be enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#remote_debugging_enabled WindowsFunctionApp#remote_debugging_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#remote_debugging_enabled WindowsFunctionApp#remote_debugging_enabled}
         '''
         result = self._values.get("remote_debugging_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9035,7 +9035,7 @@ class WindowsFunctionAppSiteConfig:
     def remote_debugging_version(self) -> typing.Optional[builtins.str]:
         '''The Remote Debugging Version. Currently only ``VS2022`` is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#remote_debugging_version WindowsFunctionApp#remote_debugging_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#remote_debugging_version WindowsFunctionApp#remote_debugging_version}
         '''
         result = self._values.get("remote_debugging_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9046,7 +9046,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should Functions Runtime Scale Monitoring be enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#runtime_scale_monitoring_enabled WindowsFunctionApp#runtime_scale_monitoring_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#runtime_scale_monitoring_enabled WindowsFunctionApp#runtime_scale_monitoring_enabled}
         '''
         result = self._values.get("runtime_scale_monitoring_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9057,14 +9057,14 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppSiteConfigScmIpRestriction"]]]:
         '''scm_ip_restriction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_ip_restriction WindowsFunctionApp#scm_ip_restriction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_ip_restriction WindowsFunctionApp#scm_ip_restriction}
         '''
         result = self._values.get("scm_ip_restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppSiteConfigScmIpRestriction"]]], result)
 
     @builtins.property
     def scm_ip_restriction_default_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_ip_restriction_default_action WindowsFunctionApp#scm_ip_restriction_default_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_ip_restriction_default_action WindowsFunctionApp#scm_ip_restriction_default_action}.'''
         result = self._values.get("scm_ip_restriction_default_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9072,7 +9072,7 @@ class WindowsFunctionAppSiteConfig:
     def scm_minimum_tls_version(self) -> typing.Optional[builtins.str]:
         '''Configures the minimum version of TLS required for SSL requests to the SCM site Possible values include: ``1.0``, ``1.1``, ``1.2`` and  ``1.3``. Defaults to ``1.2``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_minimum_tls_version WindowsFunctionApp#scm_minimum_tls_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_minimum_tls_version WindowsFunctionApp#scm_minimum_tls_version}
         '''
         result = self._values.get("scm_minimum_tls_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9083,7 +9083,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the Windows Function App ``ip_restriction`` configuration be used for the SCM also.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#scm_use_main_ip_restriction WindowsFunctionApp#scm_use_main_ip_restriction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#scm_use_main_ip_restriction WindowsFunctionApp#scm_use_main_ip_restriction}
         '''
         result = self._values.get("scm_use_main_ip_restriction")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9094,7 +9094,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the Windows Web App use a 32-bit worker.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#use_32_bit_worker WindowsFunctionApp#use_32_bit_worker}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#use_32_bit_worker WindowsFunctionApp#use_32_bit_worker}
         '''
         result = self._values.get("use32_bit_worker")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9105,7 +9105,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should all outbound traffic to have Virtual Network Security Groups and User Defined Routes applied? Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#vnet_route_all_enabled WindowsFunctionApp#vnet_route_all_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#vnet_route_all_enabled WindowsFunctionApp#vnet_route_all_enabled}
         '''
         result = self._values.get("vnet_route_all_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9116,7 +9116,7 @@ class WindowsFunctionAppSiteConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should Web Sockets be enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#websockets_enabled WindowsFunctionApp#websockets_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#websockets_enabled WindowsFunctionApp#websockets_enabled}
         '''
         result = self._values.get("websockets_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9125,7 +9125,7 @@ class WindowsFunctionAppSiteConfig:
     def worker_count(self) -> typing.Optional[jsii.Number]:
         '''The number of Workers for this Windows Function App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#worker_count WindowsFunctionApp#worker_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#worker_count WindowsFunctionApp#worker_count}
         '''
         result = self._values.get("worker_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9158,8 +9158,8 @@ class WindowsFunctionAppSiteConfigAppServiceLogs:
         retention_period_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param disk_quota_mb: The amount of disk space to use for logs. Valid values are between ``25`` and ``100``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#disk_quota_mb WindowsFunctionApp#disk_quota_mb}
-        :param retention_period_days: The retention period for logs in days. Valid values are between ``0`` and ``99999``. Defaults to ``0`` (never delete). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
+        :param disk_quota_mb: The amount of disk space to use for logs. Valid values are between ``25`` and ``100``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#disk_quota_mb WindowsFunctionApp#disk_quota_mb}
+        :param retention_period_days: The retention period for logs in days. Valid values are between ``0`` and ``99999``. Defaults to ``0`` (never delete). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db4d4be84387aa1e9c0211e6e63fec6530deac799593063595fee5cbb40de654)
@@ -9175,7 +9175,7 @@ class WindowsFunctionAppSiteConfigAppServiceLogs:
     def disk_quota_mb(self) -> typing.Optional[jsii.Number]:
         '''The amount of disk space to use for logs. Valid values are between ``25`` and ``100``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#disk_quota_mb WindowsFunctionApp#disk_quota_mb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#disk_quota_mb WindowsFunctionApp#disk_quota_mb}
         '''
         result = self._values.get("disk_quota_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9184,7 +9184,7 @@ class WindowsFunctionAppSiteConfigAppServiceLogs:
     def retention_period_days(self) -> typing.Optional[jsii.Number]:
         '''The retention period for logs in days. Valid values are between ``0`` and ``99999``. Defaults to ``0`` (never delete).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
         '''
         result = self._values.get("retention_period_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9305,12 +9305,12 @@ class WindowsFunctionAppSiteConfigApplicationStack:
         use_dotnet_isolated_runtime: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param dotnet_version: The version of .Net. Possible values are ``v3.0``, ``v4.0``, ``v6.0``, ``v7.0``, ``v8.0`` and ``v9.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#dotnet_version WindowsFunctionApp#dotnet_version}
-        :param java_version: The version of Java to use. Possible values are ``1.8``, ``11``, ``17``, and ``21``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#java_version WindowsFunctionApp#java_version}
-        :param node_version: The version of Node to use. Possible values include ``~12``, ``~14``, ``~16``, ``~18``, ``~20`` and ``~22``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#node_version WindowsFunctionApp#node_version}
-        :param powershell_core_version: The PowerShell Core version to use. Possible values are ``7``, ``7.2``, and ``7.4``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#powershell_core_version WindowsFunctionApp#powershell_core_version}
-        :param use_custom_runtime: Does the Function App use a custom Application Stack? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#use_custom_runtime WindowsFunctionApp#use_custom_runtime}
-        :param use_dotnet_isolated_runtime: Should the DotNet process use an isolated runtime. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#use_dotnet_isolated_runtime WindowsFunctionApp#use_dotnet_isolated_runtime}
+        :param dotnet_version: The version of .Net. Possible values are ``v3.0``, ``v4.0``, ``v6.0``, ``v7.0``, ``v8.0`` and ``v9.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#dotnet_version WindowsFunctionApp#dotnet_version}
+        :param java_version: The version of Java to use. Possible values are ``1.8``, ``11``, ``17``, and ``21``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#java_version WindowsFunctionApp#java_version}
+        :param node_version: The version of Node to use. Possible values include ``~12``, ``~14``, ``~16``, ``~18``, ``~20`` and ``~22``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#node_version WindowsFunctionApp#node_version}
+        :param powershell_core_version: The PowerShell Core version to use. Possible values are ``7``, ``7.2``, and ``7.4``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#powershell_core_version WindowsFunctionApp#powershell_core_version}
+        :param use_custom_runtime: Does the Function App use a custom Application Stack? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#use_custom_runtime WindowsFunctionApp#use_custom_runtime}
+        :param use_dotnet_isolated_runtime: Should the DotNet process use an isolated runtime. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#use_dotnet_isolated_runtime WindowsFunctionApp#use_dotnet_isolated_runtime}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__750d6aa500d7290f340916f77c9cf166fb75ca733c6ec9093a53927b6eed7b31)
@@ -9338,7 +9338,7 @@ class WindowsFunctionAppSiteConfigApplicationStack:
     def dotnet_version(self) -> typing.Optional[builtins.str]:
         '''The version of .Net. Possible values are ``v3.0``, ``v4.0``, ``v6.0``, ``v7.0``, ``v8.0`` and ``v9.0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#dotnet_version WindowsFunctionApp#dotnet_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#dotnet_version WindowsFunctionApp#dotnet_version}
         '''
         result = self._values.get("dotnet_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9347,7 +9347,7 @@ class WindowsFunctionAppSiteConfigApplicationStack:
     def java_version(self) -> typing.Optional[builtins.str]:
         '''The version of Java to use. Possible values are ``1.8``, ``11``, ``17``, and ``21``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#java_version WindowsFunctionApp#java_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#java_version WindowsFunctionApp#java_version}
         '''
         result = self._values.get("java_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9356,7 +9356,7 @@ class WindowsFunctionAppSiteConfigApplicationStack:
     def node_version(self) -> typing.Optional[builtins.str]:
         '''The version of Node to use. Possible values include ``~12``, ``~14``, ``~16``, ``~18``, ``~20`` and ``~22``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#node_version WindowsFunctionApp#node_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#node_version WindowsFunctionApp#node_version}
         '''
         result = self._values.get("node_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9365,7 +9365,7 @@ class WindowsFunctionAppSiteConfigApplicationStack:
     def powershell_core_version(self) -> typing.Optional[builtins.str]:
         '''The PowerShell Core version to use. Possible values are ``7``, ``7.2``, and ``7.4``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#powershell_core_version WindowsFunctionApp#powershell_core_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#powershell_core_version WindowsFunctionApp#powershell_core_version}
         '''
         result = self._values.get("powershell_core_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9376,7 +9376,7 @@ class WindowsFunctionAppSiteConfigApplicationStack:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Does the Function App use a custom Application Stack?
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#use_custom_runtime WindowsFunctionApp#use_custom_runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#use_custom_runtime WindowsFunctionApp#use_custom_runtime}
         '''
         result = self._values.get("use_custom_runtime")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9387,7 +9387,7 @@ class WindowsFunctionAppSiteConfigApplicationStack:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the DotNet process use an isolated runtime. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#use_dotnet_isolated_runtime WindowsFunctionApp#use_dotnet_isolated_runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#use_dotnet_isolated_runtime WindowsFunctionApp#use_dotnet_isolated_runtime}
         '''
         result = self._values.get("use_dotnet_isolated_runtime")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9598,8 +9598,8 @@ class WindowsFunctionAppSiteConfigCors:
         support_credentials: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_origins: Specifies a list of origins that should be allowed to make cross-origin calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_origins WindowsFunctionApp#allowed_origins}
-        :param support_credentials: Are credentials allowed in CORS requests? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#support_credentials WindowsFunctionApp#support_credentials}
+        :param allowed_origins: Specifies a list of origins that should be allowed to make cross-origin calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_origins WindowsFunctionApp#allowed_origins}
+        :param support_credentials: Are credentials allowed in CORS requests? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#support_credentials WindowsFunctionApp#support_credentials}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba29ce3dcba77b4d5544f088782f75236e72643bd32eaa3bd32e1bbdc2c9aa9c)
@@ -9615,7 +9615,7 @@ class WindowsFunctionAppSiteConfigCors:
     def allowed_origins(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies a list of origins that should be allowed to make cross-origin calls.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_origins WindowsFunctionApp#allowed_origins}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_origins WindowsFunctionApp#allowed_origins}
         '''
         result = self._values.get("allowed_origins")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -9626,7 +9626,7 @@ class WindowsFunctionAppSiteConfigCors:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Are credentials allowed in CORS requests? Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#support_credentials WindowsFunctionApp#support_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#support_credentials WindowsFunctionApp#support_credentials}
         '''
         result = self._values.get("support_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9756,14 +9756,14 @@ class WindowsFunctionAppSiteConfigIpRestriction:
         virtual_network_subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: The action to take. Possible values are ``Allow`` or ``Deny``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#action WindowsFunctionApp#action}
-        :param description: The description of the IP restriction rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#description WindowsFunctionApp#description}
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#headers WindowsFunctionApp#headers}.
-        :param ip_address: The CIDR notation of the IP or IP Range to match. For example: ``10.0.0.0/24`` or ``192.168.10.1/32`` or ``fe80::/64`` or ``13.107.6.152/31,13.107.128.0/22`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_address WindowsFunctionApp#ip_address}
-        :param name: The name which should be used for this ``ip_restriction``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
-        :param priority: The priority value of this ``ip_restriction``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#priority WindowsFunctionApp#priority}
-        :param service_tag: The Service Tag used for this IP Restriction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#service_tag WindowsFunctionApp#service_tag}
-        :param virtual_network_subnet_id: The Virtual Network Subnet ID used for this IP Restriction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}
+        :param action: The action to take. Possible values are ``Allow`` or ``Deny``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#action WindowsFunctionApp#action}
+        :param description: The description of the IP restriction rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#description WindowsFunctionApp#description}
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#headers WindowsFunctionApp#headers}.
+        :param ip_address: The CIDR notation of the IP or IP Range to match. For example: ``10.0.0.0/24`` or ``192.168.10.1/32`` or ``fe80::/64`` or ``13.107.6.152/31,13.107.128.0/22`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_address WindowsFunctionApp#ip_address}
+        :param name: The name which should be used for this ``ip_restriction``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        :param priority: The priority value of this ``ip_restriction``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#priority WindowsFunctionApp#priority}
+        :param service_tag: The Service Tag used for this IP Restriction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#service_tag WindowsFunctionApp#service_tag}
+        :param virtual_network_subnet_id: The Virtual Network Subnet ID used for this IP Restriction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc483d60b4c8a9780c619c45b4dab4baa1d321847341f8ab6585c59262b24541)
@@ -9797,7 +9797,7 @@ class WindowsFunctionAppSiteConfigIpRestriction:
     def action(self) -> typing.Optional[builtins.str]:
         '''The action to take. Possible values are ``Allow`` or ``Deny``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#action WindowsFunctionApp#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#action WindowsFunctionApp#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9806,7 +9806,7 @@ class WindowsFunctionAppSiteConfigIpRestriction:
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the IP restriction rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#description WindowsFunctionApp#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#description WindowsFunctionApp#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9815,7 +9815,7 @@ class WindowsFunctionAppSiteConfigIpRestriction:
     def headers(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppSiteConfigIpRestrictionHeaders"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#headers WindowsFunctionApp#headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#headers WindowsFunctionApp#headers}.'''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppSiteConfigIpRestrictionHeaders"]]], result)
 
@@ -9825,7 +9825,7 @@ class WindowsFunctionAppSiteConfigIpRestriction:
 
         For example: ``10.0.0.0/24`` or ``192.168.10.1/32`` or ``fe80::/64`` or ``13.107.6.152/31,13.107.128.0/22``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_address WindowsFunctionApp#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_address WindowsFunctionApp#ip_address}
         '''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9834,7 +9834,7 @@ class WindowsFunctionAppSiteConfigIpRestriction:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name which should be used for this ``ip_restriction``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9843,7 +9843,7 @@ class WindowsFunctionAppSiteConfigIpRestriction:
     def priority(self) -> typing.Optional[jsii.Number]:
         '''The priority value of this ``ip_restriction``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#priority WindowsFunctionApp#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#priority WindowsFunctionApp#priority}
         '''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9852,7 +9852,7 @@ class WindowsFunctionAppSiteConfigIpRestriction:
     def service_tag(self) -> typing.Optional[builtins.str]:
         '''The Service Tag used for this IP Restriction.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#service_tag WindowsFunctionApp#service_tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#service_tag WindowsFunctionApp#service_tag}
         '''
         result = self._values.get("service_tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9861,7 +9861,7 @@ class WindowsFunctionAppSiteConfigIpRestriction:
     def virtual_network_subnet_id(self) -> typing.Optional[builtins.str]:
         '''The Virtual Network Subnet ID used for this IP Restriction.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}
         '''
         result = self._values.get("virtual_network_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9898,10 +9898,10 @@ class WindowsFunctionAppSiteConfigIpRestrictionHeaders:
         x_forwarded_host: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_azure_fdid WindowsFunctionApp#x_azure_fdid}.
-        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_fd_health_probe WindowsFunctionApp#x_fd_health_probe}.
-        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_forwarded_for WindowsFunctionApp#x_forwarded_for}.
-        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_forwarded_host WindowsFunctionApp#x_forwarded_host}.
+        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_azure_fdid WindowsFunctionApp#x_azure_fdid}.
+        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_fd_health_probe WindowsFunctionApp#x_fd_health_probe}.
+        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_forwarded_for WindowsFunctionApp#x_forwarded_for}.
+        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_forwarded_host WindowsFunctionApp#x_forwarded_host}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__55a0ec053bcf407e40f3e4260f54442000cd70a9a714dab957bd77ad6476a614)
@@ -9921,25 +9921,25 @@ class WindowsFunctionAppSiteConfigIpRestrictionHeaders:
 
     @builtins.property
     def x_azure_fdid(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_azure_fdid WindowsFunctionApp#x_azure_fdid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_azure_fdid WindowsFunctionApp#x_azure_fdid}.'''
         result = self._values.get("x_azure_fdid")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_fd_health_probe(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_fd_health_probe WindowsFunctionApp#x_fd_health_probe}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_fd_health_probe WindowsFunctionApp#x_fd_health_probe}.'''
         result = self._values.get("x_fd_health_probe")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_for(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_forwarded_for WindowsFunctionApp#x_forwarded_for}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_forwarded_for WindowsFunctionApp#x_forwarded_for}.'''
         result = self._values.get("x_forwarded_for")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_host(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_forwarded_host WindowsFunctionApp#x_forwarded_host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_forwarded_host WindowsFunctionApp#x_forwarded_host}.'''
         result = self._values.get("x_forwarded_host")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -10521,12 +10521,12 @@ class WindowsFunctionAppSiteConfigOutputReference(
         use_dotnet_isolated_runtime: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param dotnet_version: The version of .Net. Possible values are ``v3.0``, ``v4.0``, ``v6.0``, ``v7.0``, ``v8.0`` and ``v9.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#dotnet_version WindowsFunctionApp#dotnet_version}
-        :param java_version: The version of Java to use. Possible values are ``1.8``, ``11``, ``17``, and ``21``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#java_version WindowsFunctionApp#java_version}
-        :param node_version: The version of Node to use. Possible values include ``~12``, ``~14``, ``~16``, ``~18``, ``~20`` and ``~22``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#node_version WindowsFunctionApp#node_version}
-        :param powershell_core_version: The PowerShell Core version to use. Possible values are ``7``, ``7.2``, and ``7.4``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#powershell_core_version WindowsFunctionApp#powershell_core_version}
-        :param use_custom_runtime: Does the Function App use a custom Application Stack? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#use_custom_runtime WindowsFunctionApp#use_custom_runtime}
-        :param use_dotnet_isolated_runtime: Should the DotNet process use an isolated runtime. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#use_dotnet_isolated_runtime WindowsFunctionApp#use_dotnet_isolated_runtime}
+        :param dotnet_version: The version of .Net. Possible values are ``v3.0``, ``v4.0``, ``v6.0``, ``v7.0``, ``v8.0`` and ``v9.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#dotnet_version WindowsFunctionApp#dotnet_version}
+        :param java_version: The version of Java to use. Possible values are ``1.8``, ``11``, ``17``, and ``21``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#java_version WindowsFunctionApp#java_version}
+        :param node_version: The version of Node to use. Possible values include ``~12``, ``~14``, ``~16``, ``~18``, ``~20`` and ``~22``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#node_version WindowsFunctionApp#node_version}
+        :param powershell_core_version: The PowerShell Core version to use. Possible values are ``7``, ``7.2``, and ``7.4``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#powershell_core_version WindowsFunctionApp#powershell_core_version}
+        :param use_custom_runtime: Does the Function App use a custom Application Stack? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#use_custom_runtime WindowsFunctionApp#use_custom_runtime}
+        :param use_dotnet_isolated_runtime: Should the DotNet process use an isolated runtime. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#use_dotnet_isolated_runtime WindowsFunctionApp#use_dotnet_isolated_runtime}
         '''
         value = WindowsFunctionAppSiteConfigApplicationStack(
             dotnet_version=dotnet_version,
@@ -10547,8 +10547,8 @@ class WindowsFunctionAppSiteConfigOutputReference(
         retention_period_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param disk_quota_mb: The amount of disk space to use for logs. Valid values are between ``25`` and ``100``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#disk_quota_mb WindowsFunctionApp#disk_quota_mb}
-        :param retention_period_days: The retention period for logs in days. Valid values are between ``0`` and ``99999``. Defaults to ``0`` (never delete). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
+        :param disk_quota_mb: The amount of disk space to use for logs. Valid values are between ``25`` and ``100``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#disk_quota_mb WindowsFunctionApp#disk_quota_mb}
+        :param retention_period_days: The retention period for logs in days. Valid values are between ``0`` and ``99999``. Defaults to ``0`` (never delete). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#retention_period_days WindowsFunctionApp#retention_period_days}
         '''
         value = WindowsFunctionAppSiteConfigAppServiceLogs(
             disk_quota_mb=disk_quota_mb, retention_period_days=retention_period_days
@@ -10564,8 +10564,8 @@ class WindowsFunctionAppSiteConfigOutputReference(
         support_credentials: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_origins: Specifies a list of origins that should be allowed to make cross-origin calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#allowed_origins WindowsFunctionApp#allowed_origins}
-        :param support_credentials: Are credentials allowed in CORS requests? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#support_credentials WindowsFunctionApp#support_credentials}
+        :param allowed_origins: Specifies a list of origins that should be allowed to make cross-origin calls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#allowed_origins WindowsFunctionApp#allowed_origins}
+        :param support_credentials: Are credentials allowed in CORS requests? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#support_credentials WindowsFunctionApp#support_credentials}
         '''
         value = WindowsFunctionAppSiteConfigCors(
             allowed_origins=allowed_origins, support_credentials=support_credentials
@@ -11382,14 +11382,14 @@ class WindowsFunctionAppSiteConfigScmIpRestriction:
         virtual_network_subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: The action to take. Possible values are ``Allow`` or ``Deny``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#action WindowsFunctionApp#action}
-        :param description: The description of the IP restriction rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#description WindowsFunctionApp#description}
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#headers WindowsFunctionApp#headers}.
-        :param ip_address: The CIDR notation of the IP or IP Range to match. For example: ``10.0.0.0/24`` or ``192.168.10.1/32`` or ``fe80::/64`` or ``13.107.6.152/31,13.107.128.0/22`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_address WindowsFunctionApp#ip_address}
-        :param name: The name which should be used for this ``ip_restriction``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
-        :param priority: The priority value of this ``ip_restriction``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#priority WindowsFunctionApp#priority}
-        :param service_tag: The Service Tag used for this IP Restriction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#service_tag WindowsFunctionApp#service_tag}
-        :param virtual_network_subnet_id: The Virtual Network Subnet ID used for this IP Restriction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}
+        :param action: The action to take. Possible values are ``Allow`` or ``Deny``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#action WindowsFunctionApp#action}
+        :param description: The description of the IP restriction rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#description WindowsFunctionApp#description}
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#headers WindowsFunctionApp#headers}.
+        :param ip_address: The CIDR notation of the IP or IP Range to match. For example: ``10.0.0.0/24`` or ``192.168.10.1/32`` or ``fe80::/64`` or ``13.107.6.152/31,13.107.128.0/22`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_address WindowsFunctionApp#ip_address}
+        :param name: The name which should be used for this ``ip_restriction``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        :param priority: The priority value of this ``ip_restriction``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#priority WindowsFunctionApp#priority}
+        :param service_tag: The Service Tag used for this IP Restriction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#service_tag WindowsFunctionApp#service_tag}
+        :param virtual_network_subnet_id: The Virtual Network Subnet ID used for this IP Restriction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f98f41ee34a4240eca641ac4906baf7e6dee858d96153707bfcef4d017e0a8f)
@@ -11423,7 +11423,7 @@ class WindowsFunctionAppSiteConfigScmIpRestriction:
     def action(self) -> typing.Optional[builtins.str]:
         '''The action to take. Possible values are ``Allow`` or ``Deny``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#action WindowsFunctionApp#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#action WindowsFunctionApp#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11432,7 +11432,7 @@ class WindowsFunctionAppSiteConfigScmIpRestriction:
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the IP restriction rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#description WindowsFunctionApp#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#description WindowsFunctionApp#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11441,7 +11441,7 @@ class WindowsFunctionAppSiteConfigScmIpRestriction:
     def headers(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppSiteConfigScmIpRestrictionHeaders"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#headers WindowsFunctionApp#headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#headers WindowsFunctionApp#headers}.'''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WindowsFunctionAppSiteConfigScmIpRestrictionHeaders"]]], result)
 
@@ -11451,7 +11451,7 @@ class WindowsFunctionAppSiteConfigScmIpRestriction:
 
         For example: ``10.0.0.0/24`` or ``192.168.10.1/32`` or ``fe80::/64`` or ``13.107.6.152/31,13.107.128.0/22``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#ip_address WindowsFunctionApp#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#ip_address WindowsFunctionApp#ip_address}
         '''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11460,7 +11460,7 @@ class WindowsFunctionAppSiteConfigScmIpRestriction:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name which should be used for this ``ip_restriction``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11469,7 +11469,7 @@ class WindowsFunctionAppSiteConfigScmIpRestriction:
     def priority(self) -> typing.Optional[jsii.Number]:
         '''The priority value of this ``ip_restriction``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#priority WindowsFunctionApp#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#priority WindowsFunctionApp#priority}
         '''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -11478,7 +11478,7 @@ class WindowsFunctionAppSiteConfigScmIpRestriction:
     def service_tag(self) -> typing.Optional[builtins.str]:
         '''The Service Tag used for this IP Restriction.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#service_tag WindowsFunctionApp#service_tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#service_tag WindowsFunctionApp#service_tag}
         '''
         result = self._values.get("service_tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11487,7 +11487,7 @@ class WindowsFunctionAppSiteConfigScmIpRestriction:
     def virtual_network_subnet_id(self) -> typing.Optional[builtins.str]:
         '''The Virtual Network Subnet ID used for this IP Restriction.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#virtual_network_subnet_id WindowsFunctionApp#virtual_network_subnet_id}
         '''
         result = self._values.get("virtual_network_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11524,10 +11524,10 @@ class WindowsFunctionAppSiteConfigScmIpRestrictionHeaders:
         x_forwarded_host: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_azure_fdid WindowsFunctionApp#x_azure_fdid}.
-        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_fd_health_probe WindowsFunctionApp#x_fd_health_probe}.
-        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_forwarded_for WindowsFunctionApp#x_forwarded_for}.
-        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_forwarded_host WindowsFunctionApp#x_forwarded_host}.
+        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_azure_fdid WindowsFunctionApp#x_azure_fdid}.
+        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_fd_health_probe WindowsFunctionApp#x_fd_health_probe}.
+        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_forwarded_for WindowsFunctionApp#x_forwarded_for}.
+        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_forwarded_host WindowsFunctionApp#x_forwarded_host}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__526dd4993b9a378ed598cf5273e80b05d1cd964340ca12cb84b3a8a8488cc8fe)
@@ -11547,25 +11547,25 @@ class WindowsFunctionAppSiteConfigScmIpRestrictionHeaders:
 
     @builtins.property
     def x_azure_fdid(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_azure_fdid WindowsFunctionApp#x_azure_fdid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_azure_fdid WindowsFunctionApp#x_azure_fdid}.'''
         result = self._values.get("x_azure_fdid")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_fd_health_probe(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_fd_health_probe WindowsFunctionApp#x_fd_health_probe}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_fd_health_probe WindowsFunctionApp#x_fd_health_probe}.'''
         result = self._values.get("x_fd_health_probe")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_for(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_forwarded_for WindowsFunctionApp#x_forwarded_for}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_forwarded_for WindowsFunctionApp#x_forwarded_for}.'''
         result = self._values.get("x_forwarded_for")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_host(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#x_forwarded_host WindowsFunctionApp#x_forwarded_host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#x_forwarded_host WindowsFunctionApp#x_forwarded_host}.'''
         result = self._values.get("x_forwarded_host")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -12280,8 +12280,8 @@ class WindowsFunctionAppStickySettings:
         connection_string_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_setting_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_setting_names WindowsFunctionApp#app_setting_names}.
-        :param connection_string_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#connection_string_names WindowsFunctionApp#connection_string_names}.
+        :param app_setting_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_setting_names WindowsFunctionApp#app_setting_names}.
+        :param connection_string_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#connection_string_names WindowsFunctionApp#connection_string_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e838ea874f1460b83c56b6880d73225d5dd76d553974a37979efdc127df32bb)
@@ -12295,13 +12295,13 @@ class WindowsFunctionAppStickySettings:
 
     @builtins.property
     def app_setting_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#app_setting_names WindowsFunctionApp#app_setting_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#app_setting_names WindowsFunctionApp#app_setting_names}.'''
         result = self._values.get("app_setting_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def connection_string_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#connection_string_names WindowsFunctionApp#connection_string_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#connection_string_names WindowsFunctionApp#connection_string_names}.'''
         result = self._values.get("connection_string_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -12421,12 +12421,12 @@ class WindowsFunctionAppStorageAccount:
         mount_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#access_key WindowsFunctionApp#access_key}.
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#account_name WindowsFunctionApp#account_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}.
-        :param share_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#share_name WindowsFunctionApp#share_name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.
-        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#mount_path WindowsFunctionApp#mount_path}.
+        :param access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#access_key WindowsFunctionApp#access_key}.
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#account_name WindowsFunctionApp#account_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}.
+        :param share_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#share_name WindowsFunctionApp#share_name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.
+        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#mount_path WindowsFunctionApp#mount_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5759c32879c13dbbf7f1e559475793ab10211d70b04ba9b909f9312e07c97dbf)
@@ -12448,42 +12448,42 @@ class WindowsFunctionAppStorageAccount:
 
     @builtins.property
     def access_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#access_key WindowsFunctionApp#access_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#access_key WindowsFunctionApp#access_key}.'''
         result = self._values.get("access_key")
         assert result is not None, "Required property 'access_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#account_name WindowsFunctionApp#account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#account_name WindowsFunctionApp#account_name}.'''
         result = self._values.get("account_name")
         assert result is not None, "Required property 'account_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#name WindowsFunctionApp#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def share_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#share_name WindowsFunctionApp#share_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#share_name WindowsFunctionApp#share_name}.'''
         result = self._values.get("share_name")
         assert result is not None, "Required property 'share_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#type WindowsFunctionApp#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mount_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#mount_path WindowsFunctionApp#mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#mount_path WindowsFunctionApp#mount_path}.'''
         result = self._values.get("mount_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12762,10 +12762,10 @@ class WindowsFunctionAppTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#create WindowsFunctionApp#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#delete WindowsFunctionApp#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#read WindowsFunctionApp#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#update WindowsFunctionApp#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#create WindowsFunctionApp#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#delete WindowsFunctionApp#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#read WindowsFunctionApp#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#update WindowsFunctionApp#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be0a92285beaa8c57a72dd722c1362c7509ccd6ea1cb7ea2d0ec44ed9b057851)
@@ -12785,25 +12785,25 @@ class WindowsFunctionAppTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#create WindowsFunctionApp#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#create WindowsFunctionApp#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#delete WindowsFunctionApp#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#delete WindowsFunctionApp#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#read WindowsFunctionApp#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#read WindowsFunctionApp#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/windows_function_app#update WindowsFunctionApp#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/windows_function_app#update WindowsFunctionApp#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

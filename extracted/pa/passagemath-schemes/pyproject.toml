@@ -2,12 +2,12 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.6.6.0',
+    'passagemath-setup ~= 10.6.7.0',
     'pkgconfig',
-    'passagemath-conf ~= 10.6.6.0 ; sys_platform != "win32"',
-    'passagemath-environment ~= 10.6.6.0',
-    'passagemath-modules ~= 10.6.6.0',
-    'passagemath-flint ~= 10.6.6.0',
+    'passagemath-conf ~= 10.6.7.0 ; sys_platform != "win32"',
+    'passagemath-environment ~= 10.6.7.0',
+    'passagemath-modules ~= 10.6.7.0',
+    'passagemath-flint ~= 10.6.7.0',
     'scipy >=1.5',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'gmpy2 ~=2.1.b999',
@@ -25,11 +25,11 @@ dependencies = [
     'fpylll >=0.5.9',
     'memory_allocator',
     'scipy >=1.5',
-    'passagemath-modules ~= 10.6.6.0',
-    'passagemath-flint ~= 10.6.6.0',
-    'passagemath-polyhedra ~= 10.6.6.0',
-    'passagemath-singular ~= 10.6.6.0',
-    'passagemath-conf ~= 10.6.6.0 ; sys_platform != "win32"',
+    'passagemath-modules ~= 10.6.7.0',
+    'passagemath-flint ~= 10.6.7.0',
+    'passagemath-polyhedra ~= 10.6.7.0',
+    'passagemath-singular ~= 10.6.7.0',
+    'passagemath-conf ~= 10.6.7.0 ; sys_platform != "win32"',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"

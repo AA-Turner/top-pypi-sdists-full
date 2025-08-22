@@ -1,7 +1,7 @@
 r'''
 # `azurerm_app_service_source_control`
 
-Refer to the Terraform Registry for docs: [`azurerm_app_service_source_control`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control).
+Refer to the Terraform Registry for docs: [`azurerm_app_service_source_control`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppServiceSourceControlA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.appServiceSourceControl.AppServiceSourceControlA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control azurerm_app_service_source_control}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control azurerm_app_service_source_control}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class AppServiceSourceControlA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control azurerm_app_service_source_control} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control azurerm_app_service_source_control} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_id: The ID of the Windows or Linux Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#app_id AppServiceSourceControlA#app_id}
-        :param branch: The branch name to use for deployments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#branch AppServiceSourceControlA#branch}
-        :param github_action_configuration: github_action_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#github_action_configuration AppServiceSourceControlA#github_action_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#id AppServiceSourceControlA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param repo_url: The URL for the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#repo_url AppServiceSourceControlA#repo_url}
-        :param rollback_enabled: Should the Deployment Rollback be enabled? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#rollback_enabled AppServiceSourceControlA#rollback_enabled}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#timeouts AppServiceSourceControlA#timeouts}
-        :param use_local_git: Should the App use local Git configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#use_local_git AppServiceSourceControlA#use_local_git}
-        :param use_manual_integration: Should code be deployed manually. Set to ``false`` to enable continuous integration, such as webhooks into online repos such as GitHub. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#use_manual_integration AppServiceSourceControlA#use_manual_integration}
-        :param use_mercurial: The repository specified is Mercurial. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#use_mercurial AppServiceSourceControlA#use_mercurial}
+        :param app_id: The ID of the Windows or Linux Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#app_id AppServiceSourceControlA#app_id}
+        :param branch: The branch name to use for deployments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#branch AppServiceSourceControlA#branch}
+        :param github_action_configuration: github_action_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#github_action_configuration AppServiceSourceControlA#github_action_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#id AppServiceSourceControlA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param repo_url: The URL for the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#repo_url AppServiceSourceControlA#repo_url}
+        :param rollback_enabled: Should the Deployment Rollback be enabled? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#rollback_enabled AppServiceSourceControlA#rollback_enabled}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#timeouts AppServiceSourceControlA#timeouts}
+        :param use_local_git: Should the App use local Git configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#use_local_git AppServiceSourceControlA#use_local_git}
+        :param use_manual_integration: Should code be deployed manually. Set to ``false`` to enable continuous integration, such as webhooks into online repos such as GitHub. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#use_manual_integration AppServiceSourceControlA#use_manual_integration}
+        :param use_mercurial: The repository specified is Mercurial. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#use_mercurial AppServiceSourceControlA#use_mercurial}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class AppServiceSourceControlA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppServiceSourceControlA to import.
-        :param import_from_id: The id of the existing AppServiceSourceControlA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppServiceSourceControlA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppServiceSourceControlA to import is found.
         '''
         if __debug__:
@@ -150,9 +150,9 @@ class AppServiceSourceControlA(
         generate_workflow_file: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param code_configuration: code_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#code_configuration AppServiceSourceControlA#code_configuration}
-        :param container_configuration: container_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#container_configuration AppServiceSourceControlA#container_configuration}
-        :param generate_workflow_file: Should the service generate the GitHub Action Workflow file. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#generate_workflow_file AppServiceSourceControlA#generate_workflow_file}
+        :param code_configuration: code_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#code_configuration AppServiceSourceControlA#code_configuration}
+        :param container_configuration: container_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#container_configuration AppServiceSourceControlA#container_configuration}
+        :param generate_workflow_file: Should the service generate the GitHub Action Workflow file. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#generate_workflow_file AppServiceSourceControlA#generate_workflow_file}
         '''
         value = AppServiceSourceControlGithubActionConfiguration(
             code_configuration=code_configuration,
@@ -171,9 +171,9 @@ class AppServiceSourceControlA(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#create AppServiceSourceControlA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#delete AppServiceSourceControlA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#read AppServiceSourceControlA#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#create AppServiceSourceControlA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#delete AppServiceSourceControlA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#read AppServiceSourceControlA#read}.
         '''
         value = AppServiceSourceControlTimeouts(
             create=create, delete=delete, read=read
@@ -480,16 +480,16 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_id: The ID of the Windows or Linux Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#app_id AppServiceSourceControlA#app_id}
-        :param branch: The branch name to use for deployments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#branch AppServiceSourceControlA#branch}
-        :param github_action_configuration: github_action_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#github_action_configuration AppServiceSourceControlA#github_action_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#id AppServiceSourceControlA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param repo_url: The URL for the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#repo_url AppServiceSourceControlA#repo_url}
-        :param rollback_enabled: Should the Deployment Rollback be enabled? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#rollback_enabled AppServiceSourceControlA#rollback_enabled}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#timeouts AppServiceSourceControlA#timeouts}
-        :param use_local_git: Should the App use local Git configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#use_local_git AppServiceSourceControlA#use_local_git}
-        :param use_manual_integration: Should code be deployed manually. Set to ``false`` to enable continuous integration, such as webhooks into online repos such as GitHub. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#use_manual_integration AppServiceSourceControlA#use_manual_integration}
-        :param use_mercurial: The repository specified is Mercurial. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#use_mercurial AppServiceSourceControlA#use_mercurial}
+        :param app_id: The ID of the Windows or Linux Web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#app_id AppServiceSourceControlA#app_id}
+        :param branch: The branch name to use for deployments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#branch AppServiceSourceControlA#branch}
+        :param github_action_configuration: github_action_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#github_action_configuration AppServiceSourceControlA#github_action_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#id AppServiceSourceControlA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param repo_url: The URL for the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#repo_url AppServiceSourceControlA#repo_url}
+        :param rollback_enabled: Should the Deployment Rollback be enabled? Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#rollback_enabled AppServiceSourceControlA#rollback_enabled}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#timeouts AppServiceSourceControlA#timeouts}
+        :param use_local_git: Should the App use local Git configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#use_local_git AppServiceSourceControlA#use_local_git}
+        :param use_manual_integration: Should code be deployed manually. Set to ``false`` to enable continuous integration, such as webhooks into online repos such as GitHub. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#use_manual_integration AppServiceSourceControlA#use_manual_integration}
+        :param use_mercurial: The repository specified is Mercurial. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#use_mercurial AppServiceSourceControlA#use_mercurial}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -620,7 +620,7 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_id(self) -> builtins.str:
         '''The ID of the Windows or Linux Web App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#app_id AppServiceSourceControlA#app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#app_id AppServiceSourceControlA#app_id}
         '''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
@@ -630,7 +630,7 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def branch(self) -> typing.Optional[builtins.str]:
         '''The branch name to use for deployments.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#branch AppServiceSourceControlA#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#branch AppServiceSourceControlA#branch}
         '''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -641,14 +641,14 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppServiceSourceControlGithubActionConfiguration"]:
         '''github_action_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#github_action_configuration AppServiceSourceControlA#github_action_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#github_action_configuration AppServiceSourceControlA#github_action_configuration}
         '''
         result = self._values.get("github_action_configuration")
         return typing.cast(typing.Optional["AppServiceSourceControlGithubActionConfiguration"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#id AppServiceSourceControlA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#id AppServiceSourceControlA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -660,7 +660,7 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repo_url(self) -> typing.Optional[builtins.str]:
         '''The URL for the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#repo_url AppServiceSourceControlA#repo_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#repo_url AppServiceSourceControlA#repo_url}
         '''
         result = self._values.get("repo_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -671,7 +671,7 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the Deployment Rollback be enabled? Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#rollback_enabled AppServiceSourceControlA#rollback_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#rollback_enabled AppServiceSourceControlA#rollback_enabled}
         '''
         result = self._values.get("rollback_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -680,7 +680,7 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AppServiceSourceControlTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#timeouts AppServiceSourceControlA#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#timeouts AppServiceSourceControlA#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AppServiceSourceControlTimeouts"], result)
@@ -691,7 +691,7 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the App use local Git configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#use_local_git AppServiceSourceControlA#use_local_git}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#use_local_git AppServiceSourceControlA#use_local_git}
         '''
         result = self._values.get("use_local_git")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -704,7 +704,7 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set to ``false`` to enable continuous integration, such as webhooks into online repos such as GitHub. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#use_manual_integration AppServiceSourceControlA#use_manual_integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#use_manual_integration AppServiceSourceControlA#use_manual_integration}
         '''
         result = self._values.get("use_manual_integration")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -715,7 +715,7 @@ class AppServiceSourceControlAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The repository specified is Mercurial. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#use_mercurial AppServiceSourceControlA#use_mercurial}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#use_mercurial AppServiceSourceControlA#use_mercurial}
         '''
         result = self._values.get("use_mercurial")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -750,9 +750,9 @@ class AppServiceSourceControlGithubActionConfiguration:
         generate_workflow_file: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param code_configuration: code_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#code_configuration AppServiceSourceControlA#code_configuration}
-        :param container_configuration: container_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#container_configuration AppServiceSourceControlA#container_configuration}
-        :param generate_workflow_file: Should the service generate the GitHub Action Workflow file. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#generate_workflow_file AppServiceSourceControlA#generate_workflow_file}
+        :param code_configuration: code_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#code_configuration AppServiceSourceControlA#code_configuration}
+        :param container_configuration: container_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#container_configuration AppServiceSourceControlA#container_configuration}
+        :param generate_workflow_file: Should the service generate the GitHub Action Workflow file. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#generate_workflow_file AppServiceSourceControlA#generate_workflow_file}
         '''
         if isinstance(code_configuration, dict):
             code_configuration = AppServiceSourceControlGithubActionConfigurationCodeConfiguration(**code_configuration)
@@ -777,7 +777,7 @@ class AppServiceSourceControlGithubActionConfiguration:
     ) -> typing.Optional["AppServiceSourceControlGithubActionConfigurationCodeConfiguration"]:
         '''code_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#code_configuration AppServiceSourceControlA#code_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#code_configuration AppServiceSourceControlA#code_configuration}
         '''
         result = self._values.get("code_configuration")
         return typing.cast(typing.Optional["AppServiceSourceControlGithubActionConfigurationCodeConfiguration"], result)
@@ -788,7 +788,7 @@ class AppServiceSourceControlGithubActionConfiguration:
     ) -> typing.Optional["AppServiceSourceControlGithubActionConfigurationContainerConfiguration"]:
         '''container_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#container_configuration AppServiceSourceControlA#container_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#container_configuration AppServiceSourceControlA#container_configuration}
         '''
         result = self._values.get("container_configuration")
         return typing.cast(typing.Optional["AppServiceSourceControlGithubActionConfigurationContainerConfiguration"], result)
@@ -799,7 +799,7 @@ class AppServiceSourceControlGithubActionConfiguration:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should the service generate the GitHub Action Workflow file. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#generate_workflow_file AppServiceSourceControlA#generate_workflow_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#generate_workflow_file AppServiceSourceControlA#generate_workflow_file}
         '''
         result = self._values.get("generate_workflow_file")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -832,8 +832,8 @@ class AppServiceSourceControlGithubActionConfigurationCodeConfiguration:
         runtime_version: builtins.str,
     ) -> None:
         '''
-        :param runtime_stack: The value to use for the Runtime Stack in the workflow file content for code base apps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#runtime_stack AppServiceSourceControlA#runtime_stack}
-        :param runtime_version: The value to use for the Runtime Version in the workflow file content for code base apps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#runtime_version AppServiceSourceControlA#runtime_version}
+        :param runtime_stack: The value to use for the Runtime Stack in the workflow file content for code base apps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#runtime_stack AppServiceSourceControlA#runtime_stack}
+        :param runtime_version: The value to use for the Runtime Version in the workflow file content for code base apps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#runtime_version AppServiceSourceControlA#runtime_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bca63367f0d389ffcee7a748d5bbca888809110581fc165124db7f3d6a4029c2)
@@ -848,7 +848,7 @@ class AppServiceSourceControlGithubActionConfigurationCodeConfiguration:
     def runtime_stack(self) -> builtins.str:
         '''The value to use for the Runtime Stack in the workflow file content for code base apps.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#runtime_stack AppServiceSourceControlA#runtime_stack}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#runtime_stack AppServiceSourceControlA#runtime_stack}
         '''
         result = self._values.get("runtime_stack")
         assert result is not None, "Required property 'runtime_stack' is missing"
@@ -858,7 +858,7 @@ class AppServiceSourceControlGithubActionConfigurationCodeConfiguration:
     def runtime_version(self) -> builtins.str:
         '''The value to use for the Runtime Version in the workflow file content for code base apps.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#runtime_version AppServiceSourceControlA#runtime_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#runtime_version AppServiceSourceControlA#runtime_version}
         '''
         result = self._values.get("runtime_version")
         assert result is not None, "Required property 'runtime_version' is missing"
@@ -968,10 +968,10 @@ class AppServiceSourceControlGithubActionConfigurationContainerConfiguration:
         registry_username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param image_name: The image name for the build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#image_name AppServiceSourceControlA#image_name}
-        :param registry_url: The server URL for the container registry where the build will be hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#registry_url AppServiceSourceControlA#registry_url}
-        :param registry_password: The password used to upload the image to the container registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#registry_password AppServiceSourceControlA#registry_password}
-        :param registry_username: The username used to upload the image to the container registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#registry_username AppServiceSourceControlA#registry_username}
+        :param image_name: The image name for the build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#image_name AppServiceSourceControlA#image_name}
+        :param registry_url: The server URL for the container registry where the build will be hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#registry_url AppServiceSourceControlA#registry_url}
+        :param registry_password: The password used to upload the image to the container registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#registry_password AppServiceSourceControlA#registry_password}
+        :param registry_username: The username used to upload the image to the container registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#registry_username AppServiceSourceControlA#registry_username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38e5bd25a2f95a8e66ad8ceac3f9c668212a25b655790c1cb8bc2abc99cff194)
@@ -992,7 +992,7 @@ class AppServiceSourceControlGithubActionConfigurationContainerConfiguration:
     def image_name(self) -> builtins.str:
         '''The image name for the build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#image_name AppServiceSourceControlA#image_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#image_name AppServiceSourceControlA#image_name}
         '''
         result = self._values.get("image_name")
         assert result is not None, "Required property 'image_name' is missing"
@@ -1002,7 +1002,7 @@ class AppServiceSourceControlGithubActionConfigurationContainerConfiguration:
     def registry_url(self) -> builtins.str:
         '''The server URL for the container registry where the build will be hosted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#registry_url AppServiceSourceControlA#registry_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#registry_url AppServiceSourceControlA#registry_url}
         '''
         result = self._values.get("registry_url")
         assert result is not None, "Required property 'registry_url' is missing"
@@ -1012,7 +1012,7 @@ class AppServiceSourceControlGithubActionConfigurationContainerConfiguration:
     def registry_password(self) -> typing.Optional[builtins.str]:
         '''The password used to upload the image to the container registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#registry_password AppServiceSourceControlA#registry_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#registry_password AppServiceSourceControlA#registry_password}
         '''
         result = self._values.get("registry_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1021,7 +1021,7 @@ class AppServiceSourceControlGithubActionConfigurationContainerConfiguration:
     def registry_username(self) -> typing.Optional[builtins.str]:
         '''The username used to upload the image to the container registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#registry_username AppServiceSourceControlA#registry_username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#registry_username AppServiceSourceControlA#registry_username}
         '''
         result = self._values.get("registry_username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1180,8 +1180,8 @@ class AppServiceSourceControlGithubActionConfigurationOutputReference(
         runtime_version: builtins.str,
     ) -> None:
         '''
-        :param runtime_stack: The value to use for the Runtime Stack in the workflow file content for code base apps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#runtime_stack AppServiceSourceControlA#runtime_stack}
-        :param runtime_version: The value to use for the Runtime Version in the workflow file content for code base apps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#runtime_version AppServiceSourceControlA#runtime_version}
+        :param runtime_stack: The value to use for the Runtime Stack in the workflow file content for code base apps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#runtime_stack AppServiceSourceControlA#runtime_stack}
+        :param runtime_version: The value to use for the Runtime Version in the workflow file content for code base apps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#runtime_version AppServiceSourceControlA#runtime_version}
         '''
         value = AppServiceSourceControlGithubActionConfigurationCodeConfiguration(
             runtime_stack=runtime_stack, runtime_version=runtime_version
@@ -1199,10 +1199,10 @@ class AppServiceSourceControlGithubActionConfigurationOutputReference(
         registry_username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param image_name: The image name for the build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#image_name AppServiceSourceControlA#image_name}
-        :param registry_url: The server URL for the container registry where the build will be hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#registry_url AppServiceSourceControlA#registry_url}
-        :param registry_password: The password used to upload the image to the container registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#registry_password AppServiceSourceControlA#registry_password}
-        :param registry_username: The username used to upload the image to the container registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#registry_username AppServiceSourceControlA#registry_username}
+        :param image_name: The image name for the build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#image_name AppServiceSourceControlA#image_name}
+        :param registry_url: The server URL for the container registry where the build will be hosted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#registry_url AppServiceSourceControlA#registry_url}
+        :param registry_password: The password used to upload the image to the container registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#registry_password AppServiceSourceControlA#registry_password}
+        :param registry_username: The username used to upload the image to the container registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#registry_username AppServiceSourceControlA#registry_username}
         '''
         value = AppServiceSourceControlGithubActionConfigurationContainerConfiguration(
             image_name=image_name,
@@ -1314,9 +1314,9 @@ class AppServiceSourceControlTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#create AppServiceSourceControlA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#delete AppServiceSourceControlA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#read AppServiceSourceControlA#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#create AppServiceSourceControlA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#delete AppServiceSourceControlA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#read AppServiceSourceControlA#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14b7754375cae1e6930905791fa204a3d8f1465b7f25946012dadd4b8d091ccf)
@@ -1333,19 +1333,19 @@ class AppServiceSourceControlTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#create AppServiceSourceControlA#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#create AppServiceSourceControlA#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#delete AppServiceSourceControlA#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#delete AppServiceSourceControlA#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/app_service_source_control#read AppServiceSourceControlA#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/app_service_source_control#read AppServiceSourceControlA#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

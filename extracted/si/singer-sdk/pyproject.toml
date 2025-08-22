@@ -32,7 +32,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.9"
 
 dependencies = [
-    "backoff>=2.0.0",
+    "backoff>=2.0.0,<4",
     'backports-datetime-fromisoformat>=2.0.1; python_version<"3.11"',
     "click>=8.0,<9",
     "fsspec>=2024.9.0",
@@ -143,7 +143,7 @@ testing = [
     "xdoctest[colors]>=1.1.1",
 ]
 typing = [
-    "mypy>=1.16",
+    "mypy>=1.17",
     "pyarrow-stubs>=19.1",
     "types-jsonschema>=4.17.0.6",
     "types-pytz>=2022.7.1.2",
@@ -214,7 +214,7 @@ xfail_strict = false
 
 [tool.commitizen]
 name = "cz_version_bump"
-version = "0.48.0"
+version = "0.48.1"
 changelog_merge_prerelease = true
 prerelease_offset = 1
 tag_format = "v$major.$minor.$patch$prerelease"
@@ -287,7 +287,12 @@ DEP004 = [
 ]
 
 [tool.mypy]
-enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+enable_error_code = [
+    "exhaustive-match",
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+]
 files = "singer_sdk"
 local_partial_types = true
 strict = false
@@ -301,16 +306,17 @@ warn_unused_ignores = true
 ignore_missing_imports = true
 module = [
     "backports.datetime_fromisoformat.*",
-    "fsspec.*",       # TODO: Remove when https://github.com/fsspec/filesystem_spec/issues/625 is addressed
-    "joblib.*",       # TODO: Remove when https://github.com/joblib/joblib/issues/1516 is shipped
-    "jsonpath_ng.*",  # TODO: Remove when https://github.com/h2non/jsonpath-ng/issues/152 is implemented and released
-    "pyarrow.*",      # TODO: Remove when https://github.com/apache/arrow/issues/32609 if implemented and released
+    "joblib.*",       # https://github.com/joblib/joblib/issues/1516
+    "fsspec.*",       # https://github.com/fsspec/filesystem_spec/issues/625
+    "jsonpath_ng.*",  # https://github.com/h2non/jsonpath-ng/issues/152
+    "pyarrow.*",      # https://github.com/apache/arrow/issues/32609
+    "toolz.*",        # https://github.com/pytoolz/toolz/issues/496
 ]
 
 [build-system]
 requires = [
     "hatchling==1.27",
-    "hatch-vcs==0.4",
+    "hatch-vcs==0.5",
 ]
 build-backend = "hatchling.build"
 

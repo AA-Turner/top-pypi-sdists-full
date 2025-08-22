@@ -1,13 +1,12 @@
 Metadata-Version: 2.1
 Name: keystoneauth1
-Version: 5.11.1
+Version: 5.12.0
 Summary: Authentication Library for OpenStack Identity
-Home-page: https://docs.openstack.org/keystoneauth/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
 Project-URL: Documentation, https://docs.openstack.org/keystoneauth/latest/
-Project-URL: Source, https://opendev.org/openstack/keystoneauth
-Project-URL: Bugs, https://bugs.launchpad.net/keystoneauth
+Project-URL: Source, https://opendev.org/openstack/keystoneauth/
+Project-URL: Bugs, https://bugs.launchpad.net/keystoneauth/
 Project-URL: Release Notes, https://docs.openstack.org/releasenotes/keystoneauth/
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
@@ -15,13 +14,14 @@ Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=2.0.0
@@ -40,25 +40,6 @@ Provides-Extra: betamax
 Requires-Dist: betamax>=0.7.0; extra == "betamax"
 Requires-Dist: fixtures>=3.0.0; extra == "betamax"
 Requires-Dist: PyYAML>=3.13; extra == "betamax"
-Provides-Extra: test
-Requires-Dist: hacking~=6.1.0; extra == "test"
-Requires-Dist: flake8-docstrings~=1.7.0; extra == "test"
-Requires-Dist: flake8-import-order~=0.18.2; extra == "test"
-Requires-Dist: bandit~=1.7.6; extra == "test"
-Requires-Dist: coverage>=4.0; extra == "test"
-Requires-Dist: fixtures>=3.0.0; extra == "test"
-Requires-Dist: oslo.config>=5.2.0; extra == "test"
-Requires-Dist: oslo.utils>=3.33.0; extra == "test"
-Requires-Dist: oslotest>=3.2.0; extra == "test"
-Requires-Dist: betamax>=0.7.0; extra == "test"
-Requires-Dist: requests-mock>=1.2.0; extra == "test"
-Requires-Dist: stestr>=1.0.0; extra == "test"
-Requires-Dist: testresources>=2.0.0; extra == "test"
-Requires-Dist: testtools>=2.2.0; extra == "test"
-Requires-Dist: PyYAML>=3.12; extra == "test"
-Requires-Dist: requests-kerberos>=0.8.0; extra == "test"
-Requires-Dist: lxml>=4.2.0; extra == "test"
-Requires-Dist: oauthlib>=0.6.2; extra == "test"
 
 ========================
 Team and repository tags
@@ -96,4 +77,3 @@ Further information:
 * Source: https://opendev.org/openstack/keystoneauth
 * Bugs: https://bugs.launchpad.net/keystoneauth
 * Release notes: https://docs.openstack.org/releasenotes/keystoneauth/
-

@@ -8,6 +8,7 @@ from sqlglot.helper import ensure_list
 
 from sqlmesh.core import dialect as d
 from sqlmesh.core.config.base import UpdateStrategy
+from sqlmesh.core.config.common import VirtualEnvironmentMode
 from sqlmesh.core.console import get_console
 from sqlmesh.core.model import (
     EmbeddedKind,
@@ -22,7 +23,7 @@ from sqlmesh.core.model import (
     ManagedKind,
     create_sql_model,
 )
-from sqlmesh.core.model.kind import SCDType2ByTimeKind, OnDestructiveChange
+from sqlmesh.core.model.kind import SCDType2ByTimeKind, OnDestructiveChange, OnAdditiveChange
 from sqlmesh.dbt.basemodel import BaseModelConfig, Materialization, SnapshotStrategy
 from sqlmesh.dbt.common import SqlStr, extract_jinja_config, sql_str_validator
 from sqlmesh.utils.errors import ConfigError
@@ -90,7 +91,7 @@ class ModelConfig(BaseModelConfig):
     unique_key: t.Optional[t.List[str]] = None
     partition_by: t.Optional[t.Union[t.List[str], t.Dict[str, t.Any]]] = None
     full_refresh: t.Optional[bool] = None
-    on_schema_change: t.Optional[str] = None
+    on_schema_change: str = "ignore"
 
     # Snapshot (SCD Type 2) Fields
     updated_at: t.Optional[str] = None
@@ -226,17 +227,31 @@ class ModelConfig(BaseModelConfig):
 
         # args common to all sqlmesh incremental kinds, regardless of materialization
         incremental_kind_kwargs: t.Dict[str, t.Any] = {}
-        if self.on_schema_change:
-            on_schema_change = self.on_schema_change.lower()
+        on_schema_change = self.on_schema_change.lower()
+        if materialization == Materialization.SNAPSHOT:
+            # dbt snapshots default to `append_new_columns` behavior and can't be changed
+            on_schema_change = "append_new_columns"
 
-            on_destructive_change = OnDestructiveChange.WARN
-            if on_schema_change == "sync_all_columns":
-                on_destructive_change = OnDestructiveChange.ALLOW
-            elif on_schema_change in ("fail", "append_new_columns", "ignore"):
-                on_destructive_change = OnDestructiveChange.ERROR
+        if on_schema_change == "ignore":
+            on_destructive_change = OnDestructiveChange.IGNORE
+            on_additive_change = OnAdditiveChange.IGNORE
+        elif on_schema_change == "fail":
+            on_destructive_change = OnDestructiveChange.ERROR
+            on_additive_change = OnAdditiveChange.ERROR
+        elif on_schema_change == "append_new_columns":
+            on_destructive_change = OnDestructiveChange.IGNORE
+            on_additive_change = OnAdditiveChange.ALLOW
+        elif on_schema_change == "sync_all_columns":
+            on_destructive_change = OnDestructiveChange.ALLOW
+            on_additive_change = OnAdditiveChange.ALLOW
+        else:
+            raise ConfigError(
+                f"{self.canonical_name(context)}: Invalid on_schema_change value '{on_schema_change}'. "
+                "Valid values are 'ignore', 'fail', 'append_new_columns', 'sync_all_columns'."
+            )
 
-            incremental_kind_kwargs["on_destructive_change"] = on_destructive_change
-
+        incremental_kind_kwargs["on_destructive_change"] = on_destructive_change
+        incremental_kind_kwargs["on_additive_change"] = on_additive_change
         for field in ("forward_only", "auto_restatement_cron"):
             field_val = getattr(self, field, None)
             if field_val is None:
@@ -292,10 +307,11 @@ class ModelConfig(BaseModelConfig):
                     self.incremental_strategy
                     and strategy not in INCREMENTAL_BY_UNIQUE_KEY_STRATEGIES
                 ):
-                    raise ConfigError(
-                        f"{self.canonical_name(context)}: SQLMesh incremental by unique key strategy is not compatible with '{strategy}'"
-                        f" incremental strategy. Supported strategies include {collection_to_str(INCREMENTAL_BY_UNIQUE_KEY_STRATEGIES)}."
+                    get_console().log_warning(
+                        f"Unique key is not compatible with '{strategy}' incremental strategy in model '{self.canonical_name(context)}'. "
+                        f"Supported strategies include {collection_to_str(INCREMENTAL_BY_UNIQUE_KEY_STRATEGIES)}. Falling back to 'merge' strategy."
                     )
+                    strategy = "merge"
 
                 if self.incremental_predicates:
                     dialect = self.dialect(context)
@@ -421,7 +437,10 @@ class ModelConfig(BaseModelConfig):
         }
 
     def to_sqlmesh(
-        self, context: DbtContext, audit_definitions: t.Optional[t.Dict[str, ModelAudit]] = None
+        self,
+        context: DbtContext,
+        audit_definitions: t.Optional[t.Dict[str, ModelAudit]] = None,
+        virtual_environment_mode: VirtualEnvironmentMode = VirtualEnvironmentMode.default,
     ) -> Model:
         """Converts the dbt model into a SQLMesh model."""
         model_dialect = self.dialect(context)
@@ -565,7 +584,7 @@ class ModelConfig(BaseModelConfig):
             query,
             dialect=model_dialect,
             kind=kind,
-            start=self.start,
+            start=self.start or context.sqlmesh_config.model_defaults.start,
             audit_definitions=audit_definitions,
             path=model_kwargs.pop("path", self.path),
             # This ensures that we bypass query rendering that would otherwise be required to extract additional
@@ -573,6 +592,7 @@ class ModelConfig(BaseModelConfig):
             # Note: any table dependencies that are not referenced using the `ref` macro will not be included.
             extract_dependencies_from_query=False,
             allow_partials=allow_partials,
+            virtual_environment_mode=virtual_environment_mode,
             **optional_kwargs,
             **model_kwargs,
         )

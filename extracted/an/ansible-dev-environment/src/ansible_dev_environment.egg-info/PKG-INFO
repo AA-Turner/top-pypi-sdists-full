@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-dev-environment
-Version: 25.7.0
+Version: 25.8.0
 Summary: A pip-like ansible collection installer.
 Author-email: "Bradley A. Thornton" <bthornto@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>

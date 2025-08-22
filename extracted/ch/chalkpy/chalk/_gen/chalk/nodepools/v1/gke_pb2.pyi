@@ -165,6 +165,73 @@ class AutoUpgradeOptions(_message.Message):
     description: str
     def __init__(self, auto_upgrade_start_time: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
 
+class AcceleratorConfig(_message.Message):
+    __slots__ = (
+        "accelerator_count",
+        "accelerator_type",
+        "gpu_partition_size",
+        "gpu_sharing_config",
+        "gpu_driver_installation_config",
+    )
+    ACCELERATOR_COUNT_FIELD_NUMBER: _ClassVar[int]
+    ACCELERATOR_TYPE_FIELD_NUMBER: _ClassVar[int]
+    GPU_PARTITION_SIZE_FIELD_NUMBER: _ClassVar[int]
+    GPU_SHARING_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    GPU_DRIVER_INSTALLATION_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    accelerator_count: int
+    accelerator_type: str
+    gpu_partition_size: str
+    gpu_sharing_config: GPUSharingConfig
+    gpu_driver_installation_config: GPUDriverInstallationConfig
+    def __init__(
+        self,
+        accelerator_count: _Optional[int] = ...,
+        accelerator_type: _Optional[str] = ...,
+        gpu_partition_size: _Optional[str] = ...,
+        gpu_sharing_config: _Optional[_Union[GPUSharingConfig, _Mapping]] = ...,
+        gpu_driver_installation_config: _Optional[_Union[GPUDriverInstallationConfig, _Mapping]] = ...,
+    ) -> None: ...
+
+class GPUSharingConfig(_message.Message):
+    __slots__ = ("max_shared_clients_per_gpu", "gpu_sharing_strategy")
+    class GPUSharingStrategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        GPU_SHARING_STRATEGY_UNSPECIFIED: _ClassVar[GPUSharingConfig.GPUSharingStrategy]
+        GPU_SHARING_STRATEGY_TIME_SHARING: _ClassVar[GPUSharingConfig.GPUSharingStrategy]
+        GPU_SHARING_STRATEGY_MPS: _ClassVar[GPUSharingConfig.GPUSharingStrategy]
+
+    GPU_SHARING_STRATEGY_UNSPECIFIED: GPUSharingConfig.GPUSharingStrategy
+    GPU_SHARING_STRATEGY_TIME_SHARING: GPUSharingConfig.GPUSharingStrategy
+    GPU_SHARING_STRATEGY_MPS: GPUSharingConfig.GPUSharingStrategy
+    MAX_SHARED_CLIENTS_PER_GPU_FIELD_NUMBER: _ClassVar[int]
+    GPU_SHARING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
+    max_shared_clients_per_gpu: int
+    gpu_sharing_strategy: GPUSharingConfig.GPUSharingStrategy
+    def __init__(
+        self,
+        max_shared_clients_per_gpu: _Optional[int] = ...,
+        gpu_sharing_strategy: _Optional[_Union[GPUSharingConfig.GPUSharingStrategy, str]] = ...,
+    ) -> None: ...
+
+class GPUDriverInstallationConfig(_message.Message):
+    __slots__ = ("gpu_driver_version",)
+    class GPUDriverVersion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        GPU_DRIVER_VERSION_UNSPECIFIED: _ClassVar[GPUDriverInstallationConfig.GPUDriverVersion]
+        GPU_DRIVER_VERSION_INSTALLATION_DISABLED: _ClassVar[GPUDriverInstallationConfig.GPUDriverVersion]
+        GPU_DRIVER_VERSION_DEFAULT: _ClassVar[GPUDriverInstallationConfig.GPUDriverVersion]
+        GPU_DRIVER_VERSION_LATEST: _ClassVar[GPUDriverInstallationConfig.GPUDriverVersion]
+
+    GPU_DRIVER_VERSION_UNSPECIFIED: GPUDriverInstallationConfig.GPUDriverVersion
+    GPU_DRIVER_VERSION_INSTALLATION_DISABLED: GPUDriverInstallationConfig.GPUDriverVersion
+    GPU_DRIVER_VERSION_DEFAULT: GPUDriverInstallationConfig.GPUDriverVersion
+    GPU_DRIVER_VERSION_LATEST: GPUDriverInstallationConfig.GPUDriverVersion
+    GPU_DRIVER_VERSION_FIELD_NUMBER: _ClassVar[int]
+    gpu_driver_version: GPUDriverInstallationConfig.GPUDriverVersion
+    def __init__(
+        self, gpu_driver_version: _Optional[_Union[GPUDriverInstallationConfig.GPUDriverVersion, str]] = ...
+    ) -> None: ...
+
 class NodeConfig(_message.Message):
     __slots__ = (
         "machine_type",
@@ -177,6 +244,7 @@ class NodeConfig(_message.Message):
         "local_ssd_count",
         "tags",
         "preemptible",
+        "accelerators",
         "disk_type",
         "min_cpu_platform",
         "taints",
@@ -239,6 +307,7 @@ class NodeConfig(_message.Message):
     LOCAL_SSD_COUNT_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
+    ACCELERATORS_FIELD_NUMBER: _ClassVar[int]
     DISK_TYPE_FIELD_NUMBER: _ClassVar[int]
     MIN_CPU_PLATFORM_FIELD_NUMBER: _ClassVar[int]
     TAINTS_FIELD_NUMBER: _ClassVar[int]
@@ -258,6 +327,7 @@ class NodeConfig(_message.Message):
     local_ssd_count: int
     tags: _containers.RepeatedScalarFieldContainer[str]
     preemptible: bool
+    accelerators: _containers.RepeatedCompositeFieldContainer[AcceleratorConfig]
     disk_type: str
     min_cpu_platform: str
     taints: _containers.RepeatedCompositeFieldContainer[NodeTaint]
@@ -279,6 +349,7 @@ class NodeConfig(_message.Message):
         local_ssd_count: _Optional[int] = ...,
         tags: _Optional[_Iterable[str]] = ...,
         preemptible: bool = ...,
+        accelerators: _Optional[_Iterable[_Union[AcceleratorConfig, _Mapping]]] = ...,
         disk_type: _Optional[str] = ...,
         min_cpu_platform: _Optional[str] = ...,
         taints: _Optional[_Iterable[_Union[NodeTaint, _Mapping]]] = ...,

@@ -3027,6 +3027,52 @@ components:
             page:
               $ref: '#/components/schemas/Page'
           description: Response containing the main response payload, raw data, and pagination information.
+    Application:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - sign_on_mode
+        - assignment_modes
+      properties:
+        id:
+          type: string
+          description: |-
+            Integration specific identifier that uniquely identifies an application instance or tenant.
+            Example: lumos.slack.com or lumostester.slack.com
+          x-semantic: application-id
+        name:
+          type: string
+          description: 'The name or identifier of the application. ex: slack.com'
+        display_name:
+          type: string
+          description: 'The user friendly label for the application ex: Slack'
+        description:
+          type: string
+          description: The description of a application
+        status:
+          allOf:
+            - $ref: '#/components/schemas/ApplicationStatus'
+          description: The current status of an application within an integration
+        logo:
+          type: string
+          description: A URL that can be resolved to the logo of an application
+        sign_on_mode:
+          allOf:
+            - $ref: '#/components/schemas/SignOnMode'
+          description: The sign on mode of an application
+        sso_login_url:
+          type: string
+          description: The login URL for an application
+        assignment_modes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentMode'
+          description: The assignment modes for an application
+      description: Model containing information about an application
+      x-unique-hash:
+        - id
     ApplicationAccount:
       type: object
       required:
@@ -3061,6 +3107,41 @@ components:
       description: A single record of an activity that occurred within the system.
       x-unique-hash:
         - id
+    ApplicationEntitlementData:
+      type: object
+      required:
+        - application_id
+      properties:
+        application_id:
+          type: string
+          x-semantic: application-id
+      allOf:
+        - $ref: '#/components/schemas/FoundEntitlementData'
+      description: An entitlement representing an authorization or permission that can be granted to users within the connector.
+      example:
+        application_id: slack.com
+        entitlement_type: org_role
+        integration_specific_id: member
+        integration_specific_resource_id: ''
+        label: Org Member
+      x-unique-hash:
+        - integration_specific_id
+        - integration_specific_resource_id
+        - application_id
+    ApplicationResourceData:
+      type: object
+      required:
+        - application_id
+      properties:
+        application_id:
+          type: string
+          x-semantic: application-id
+      allOf:
+        - $ref: '#/components/schemas/FoundResourceData'
+      description: Resource data describing a resource within the connector.
+      x-unique-hash:
+        - integration_specific_id
+        - application_id
     ApplicationStatus:
       type: string
       enum:
@@ -3167,6 +3248,14 @@ components:
           type: boolean
           description: This should only ever be true. If the assignment can't happen we expect an error.
       description: Details about the entitlement assignment result
+    AssignmentMode:
+      type: string
+      enum:
+        - ACCOUNT
+        - ENTITLEMENT
+      description: |-
+        Enum representing the different assignment modes for an application. Indicates if this application
+        can be directly assigned to an account and/or entitlements can be assigned in the application
     AuthCredential:
       type: object
       properties:
@@ -4031,81 +4120,6 @@ components:
         refer to the [info endpoint](#tag/Describe/operation/info).
       x-unique-hash:
         - integration_specific_id
-    FoundApplication:
-      type: object
-      required:
-        - id
-        - name
-        - status
-        - sign_on_mode
-      properties:
-        id:
-          type: string
-          description: |-
-            Integration specific identifier that uniquely identifies an application instance or tenant.
-            Example: lumos.slack.com or lumostester.slack.com
-          x-semantic: application-id
-        name:
-          type: string
-          description: 'The name or identifier of the application. ex: slack.com'
-        display_name:
-          type: string
-          description: 'The user friendly label for the application ex: Slack'
-        description:
-          type: string
-          description: The description of a application
-        status:
-          allOf:
-            - $ref: '#/components/schemas/ApplicationStatus'
-          description: The current status of an application within an integration
-        logo:
-          type: string
-          description: A URL that can be resolved to the logo of an application
-        sign_on_mode:
-          allOf:
-            - $ref: '#/components/schemas/SignOnMode'
-          description: The sign on mode of an application
-        sso_login_url:
-          type: string
-          description: The login URL for an application
-      description: Model containing information about an application
-      x-unique-hash:
-        - id
-    FoundApplicationEntitlementData:
-      type: object
-      required:
-        - application_id
-      properties:
-        application_id:
-          type: string
-          x-semantic: application-id
-      allOf:
-        - $ref: '#/components/schemas/FoundEntitlementData'
-      description: An entitlement representing an authorization or permission that can be granted to users within the connector.
-      example:
-        application_id: slack.com
-        entitlement_type: org_role
-        integration_specific_id: member
-        integration_specific_resource_id: ''
-        label: Org Member
-      x-unique-hash:
-        - integration_specific_id
-        - integration_specific_resource_id
-        - application_id
-    FoundApplicationResourceData:
-      type: object
-      required:
-        - application_id
-      properties:
-        application_id:
-          type: string
-          x-semantic: application-id
-      allOf:
-        - $ref: '#/components/schemas/FoundResourceData'
-      description: Resource data describing a resource within the connector.
-      x-unique-hash:
-        - integration_specific_id
-        - application_id
     FoundEntitlementAssociation:
       type: object
       required:
@@ -4323,7 +4337,7 @@ components:
             - response
           properties:
             response:
-              $ref: '#/components/schemas/FoundApplication'
+              $ref: '#/components/schemas/Application'
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
@@ -4959,7 +4973,7 @@ components:
             response:
               type: array
               items:
-                $ref: '#/components/schemas/FoundApplicationEntitlementData'
+                $ref: '#/components/schemas/ApplicationEntitlementData'
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
@@ -4981,7 +4995,7 @@ components:
             response:
               type: array
               items:
-                $ref: '#/components/schemas/FoundApplicationResourceData'
+                $ref: '#/components/schemas/ApplicationResourceData'
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
@@ -4997,7 +5011,7 @@ components:
             response:
               type: array
               items:
-                $ref: '#/components/schemas/FoundApplication'
+                $ref: '#/components/schemas/Application'
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
@@ -5617,6 +5631,7 @@ components:
         - deactivate_account
         - delete_account
         - find_entitlement_associations
+        - get_account_entitlement_associations
         - get_authorization_url
         - get_last_activity
         - handle_authorization_callback

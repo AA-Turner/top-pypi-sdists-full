@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-20T21:57:30.320821                                                            #
+# Generated on 2025-08-21T23:31:59.739753                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import threading
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.card_utilities.async_cards
     import threading
+    import metaflow.mf_extensions.outerbounds.plugins.card_utilities.async_cards
 
 from .....metaflow_current import current as current
 

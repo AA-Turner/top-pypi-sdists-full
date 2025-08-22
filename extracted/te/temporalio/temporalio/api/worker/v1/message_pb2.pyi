@@ -4,10 +4,12 @@ isort:skip_file
 """
 
 import builtins
+import collections.abc
 import sys
 
 import google.protobuf.descriptor
 import google.protobuf.duration_pb2
+import google.protobuf.internal.containers
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
 
@@ -132,13 +134,23 @@ class WorkerHostInfo(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     HOST_NAME_FIELD_NUMBER: builtins.int
+    PROCESS_KEY_FIELD_NUMBER: builtins.int
     PROCESS_ID_FIELD_NUMBER: builtins.int
     CURRENT_HOST_CPU_USAGE_FIELD_NUMBER: builtins.int
     CURRENT_HOST_MEM_USAGE_FIELD_NUMBER: builtins.int
     host_name: builtins.str
     """Worker host identifier."""
+    process_key: builtins.str
+    """Worker process identifier. This id should be unique for all _processes_
+    running workers in the namespace, and should be shared by all workers
+    in the same process.
+    This will be used to build the worker command nexus task queue name:
+    "temporal-sys/worker-commands/{process_key}"
+    """
     process_id: builtins.str
-    """Worker process identifier, should be unique for the host."""
+    """Worker process identifier. Unlike process_key, this id only needs to be unique
+    within one host (so using e.g. a unix pid would be appropriate).
+    """
     current_host_cpu_usage: builtins.float
     """System used CPU as a float in the range [0.0, 1.0] where 1.0 is defined as all
     cores on the host pegged.
@@ -151,6 +163,7 @@ class WorkerHostInfo(google.protobuf.message.Message):
         self,
         *,
         host_name: builtins.str = ...,
+        process_key: builtins.str = ...,
         process_id: builtins.str = ...,
         current_host_cpu_usage: builtins.float = ...,
         current_host_mem_usage: builtins.float = ...,
@@ -166,6 +179,8 @@ class WorkerHostInfo(google.protobuf.message.Message):
             b"host_name",
             "process_id",
             b"process_id",
+            "process_key",
+            b"process_key",
         ],
     ) -> None: ...
 
@@ -202,6 +217,7 @@ class WorkerHeartbeat(google.protobuf.message.Message):
     TOTAL_STICKY_CACHE_HIT_FIELD_NUMBER: builtins.int
     TOTAL_STICKY_CACHE_MISS_FIELD_NUMBER: builtins.int
     CURRENT_STICKY_CACHE_SIZE_FIELD_NUMBER: builtins.int
+    PLUGINS_FIELD_NUMBER: builtins.int
     worker_instance_key: builtins.str
     """Worker identifier, should be unique for the namespace.
     It is distinct from worker identity, which is not necessarily namespace-unique.
@@ -258,6 +274,13 @@ class WorkerHeartbeat(google.protobuf.message.Message):
     """A Workflow Task did not find a cached Workflow execution to run against."""
     current_sticky_cache_size: builtins.int
     """Current cache size, expressed in number of Workflow Executions."""
+    @property
+    def plugins(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
+        global___PluginInfo
+    ]:
+        """Plugins currently in use by this SDK."""
     def __init__(
         self,
         *,
@@ -285,6 +308,7 @@ class WorkerHeartbeat(google.protobuf.message.Message):
         total_sticky_cache_hit: builtins.int = ...,
         total_sticky_cache_miss: builtins.int = ...,
         current_sticky_cache_size: builtins.int = ...,
+        plugins: collections.abc.Iterable[global___PluginInfo] | None = ...,
     ) -> None: ...
     def HasField(
         self,
@@ -340,6 +364,8 @@ class WorkerHeartbeat(google.protobuf.message.Message):
             b"nexus_poller_info",
             "nexus_task_slots_info",
             b"nexus_task_slots_info",
+            "plugins",
+            b"plugins",
             "sdk_name",
             b"sdk_name",
             "sdk_version",
@@ -390,3 +416,25 @@ class WorkerInfo(google.protobuf.message.Message):
     ) -> None: ...
 
 global___WorkerInfo = WorkerInfo
+
+class PluginInfo(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    NAME_FIELD_NUMBER: builtins.int
+    VERSION_FIELD_NUMBER: builtins.int
+    name: builtins.str
+    """The name of the plugin, required."""
+    version: builtins.str
+    """The version of the plugin, may be empty."""
+    def __init__(
+        self,
+        *,
+        name: builtins.str = ...,
+        version: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal["name", b"name", "version", b"version"],
+    ) -> None: ...
+
+global___PluginInfo = PluginInfo

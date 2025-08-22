@@ -6,7 +6,7 @@ from collections.abc import Set as AbstractSet
 from dataclasses import asdict, dataclass
 from functools import partial, reduce
 from itertools import chain, pairwise, product
-from math import ceil, log
+from math import ceil, log, pi, sqrt
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, assert_never, cast, overload, override
 from uuid import UUID
@@ -56,24 +56,17 @@ from whenever import DateDelta, DateTimeDelta, PlainDateTime, TimeDelta, ZonedDa
 import utilities.math
 from utilities.dataclasses import yield_fields
 from utilities.errors import ImpossibleCaseError
-from utilities.functions import (
-    get_class_name,
-    is_dataclass_class,
-    is_dataclass_instance,
-    make_isinstance,
-)
+from utilities.functions import get_class_name
 from utilities.gzip import read_binary
 from utilities.iterables import (
     CheckIterablesEqualError,
     CheckMappingsEqualError,
-    CheckSubSetError,
     CheckSuperMappingError,
     OneEmptyError,
     OneNonUniqueError,
     always_iterable,
     check_iterables_equal,
     check_mappings_equal,
-    check_subset,
     check_supermapping,
     is_iterable_not_str,
     one,
@@ -91,11 +84,14 @@ from utilities.reprlib import get_repr
 from utilities.types import MaybeStr, Number, PathLike, WeekDay
 from utilities.typing import (
     get_args,
+    is_dataclass_class,
+    is_dataclass_instance,
     is_frozenset_type,
     is_list_type,
     is_literal_type,
     is_optional_type,
     is_set_type,
+    make_isinstance,
 )
 from utilities.warnings import suppress_warnings
 from utilities.whenever import (
@@ -107,6 +103,7 @@ from utilities.whenever import (
 from utilities.zoneinfo import UTC, to_time_zone_name
 
 if TYPE_CHECKING:
+    import datetime as dt
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
     from collections.abc import Set as AbstractSet
 
@@ -302,29 +299,77 @@ def any_series(series: Series, /, *columns: ExprOrSeries) -> Series:
 ##
 
 
-def append_dataclass(df: DataFrame, obj: Dataclass, /) -> DataFrame:
-    """Append a dataclass object to a DataFrame."""
-    non_null_fields = {k: v for k, v in asdict(obj).items() if v is not None}
-    try:
-        check_subset(non_null_fields, df.columns)
-    except CheckSubSetError as error:
-        raise AppendDataClassError(
-            left=error.left, right=error.right, extra=error.extra
-        ) from None
-    row_cols = set(df.columns) & set(non_null_fields)
-    row = dataclass_to_dataframe(obj).select(*row_cols)
-    return concat([df, row], how="diagonal")
+def append_row(
+    df: DataFrame,
+    row: StrMapping,
+    /,
+    *,
+    predicate: Callable[[StrMapping], bool] | None = None,
+    disallow_extra: bool = False,
+    disallow_missing: bool | MaybeIterable[str] = False,
+    disallow_null: bool | MaybeIterable[str] = False,
+    in_place: bool = False,
+) -> DataFrame:
+    """Append a row to a DataFrame."""
+    if (predicate is not None) and not predicate(row):
+        raise _AppendRowPredicateError(df=df, row=row)
+    if disallow_extra and (len(extra := set(row) - set(df.columns)) >= 1):
+        raise _AppendRowExtraKeysError(df=df, row=row, extra=extra)
+    if disallow_missing is not False:
+        missing = set(df.columns) - set(row)
+        if disallow_missing is not True:
+            missing &= set(always_iterable(disallow_missing))
+        if len(missing) >= 1:
+            raise _AppendRowMissingKeysError(df=df, row=row, missing=missing)
+    other = DataFrame(data=[row], schema=df.schema)
+    if disallow_null:
+        other_null = other.select(col(c).is_null().any() for c in other.columns)
+        null = {k for k, v in other_null.row(0, named=True).items() if v}
+        if disallow_null is not True:
+            null &= set(always_iterable(disallow_null))
+        if len(null) >= 1:
+            raise _AppendRowNullColumnsError(df=df, row=row, columns=null)
+    return df.extend(other) if in_place else df.vstack(other)
 
 
 @dataclass(kw_only=True, slots=True)
-class AppendDataClassError[T](Exception):
-    left: AbstractSet[T]
-    right: AbstractSet[T]
-    extra: AbstractSet[T]
+class AppendRowError(Exception):
+    df: DataFrame
+    row: StrMapping
+
+
+@dataclass(kw_only=True, slots=True)
+class _AppendRowPredicateError(AppendRowError):
+    @override
+    def __str__(self) -> str:
+        return f"Predicate failed; got {get_repr(self.row)}"
+
+
+@dataclass(kw_only=True, slots=True)
+class _AppendRowExtraKeysError(AppendRowError):
+    extra: AbstractSet[str]
 
     @override
     def __str__(self) -> str:
-        return f"Dataclass fields {get_repr(self.left)} must be a subset of DataFrame columns {get_repr(self.right)}; dataclass had extra items {get_repr(self.extra)}"
+        return f"Extra key(s) found; got {get_repr(self.extra)}"
+
+
+@dataclass(kw_only=True, slots=True)
+class _AppendRowMissingKeysError(AppendRowError):
+    missing: AbstractSet[str]
+
+    @override
+    def __str__(self) -> str:
+        return f"Missing key(s) found; got {get_repr(self.missing)}"
+
+
+@dataclass(kw_only=True, slots=True)
+class _AppendRowNullColumnsError(AppendRowError):
+    columns: AbstractSet[str]
+
+    @override
+    def __str__(self) -> str:
+        return f"Null column(s) found; got {get_repr(self.columns)}"
 
 
 ##
@@ -785,13 +830,15 @@ def choice(
 ##
 
 
-def columns_to_dict(df: DataFrame, key: str, value: str, /) -> dict[Any, Any]:
+def columns_to_dict(
+    df: DataFrame, key: IntoExprColumn, value: IntoExprColumn, /
+) -> dict[Any, Any]:
     """Map a pair of columns into a dictionary. Must be unique on `key`."""
-    col_key = df[key]
-    if col_key.is_duplicated().any():
-        raise ColumnsToDictError(df=df, key=key)
-    col_value = df[value]
-    return dict(zip(col_key, col_value, strict=True))
+    df = df.select(key, value)
+    key_col, value_col = [df[get_expr_name(df, expr)] for expr in [key, value]]
+    if key_col.is_duplicated().any():
+        raise ColumnsToDictError(df=df, key=key_col.name)
+    return dict(zip(key_col, value_col, strict=True))
 
 
 @dataclass(kw_only=True, slots=True)
@@ -1931,7 +1978,49 @@ def nan_sum_horizontal(*columns: IntoExprColumn) -> ExprOrSeries:
 ##
 
 
-def normal(
+@overload
+def normal_pdf(
+    x: ExprLike,
+    /,
+    *,
+    loc: float | IntoExprColumn = 0.0,
+    scale: float | IntoExprColumn = 1.0,
+) -> Expr: ...
+@overload
+def normal_pdf(
+    x: Series,
+    /,
+    *,
+    loc: float | IntoExprColumn = 0.0,
+    scale: float | IntoExprColumn = 1.0,
+) -> Series: ...
+@overload
+def normal_pdf(
+    x: IntoExprColumn,
+    /,
+    *,
+    loc: float | IntoExprColumn = 0.0,
+    scale: float | IntoExprColumn = 1.0,
+) -> ExprOrSeries: ...
+def normal_pdf(
+    x: IntoExprColumn,
+    /,
+    *,
+    loc: float | IntoExprColumn = 0.0,
+    scale: float | IntoExprColumn = 1.0,
+) -> ExprOrSeries:
+    """Compute the PDF of a normal distribution."""
+    x = ensure_expr_or_series(x)
+    loc = loc if isinstance(loc, int | float) else ensure_expr_or_series(loc)
+    scale = scale if isinstance(scale, int | float) else ensure_expr_or_series(scale)
+    expr = (1 / (scale * sqrt(2 * pi))) * (-(1 / 2) * ((x - loc) / scale) ** 2).exp()
+    return try_reify_expr(expr, x)
+
+
+##
+
+
+def normal_rv(
     obj: int | Series | DataFrame,
     /,
     *,
@@ -1950,11 +2039,11 @@ def normal(
             values = rng.normal(loc=loc, scale=scale, size=height)
             return Series(name=name, values=values, dtype=dtype)
         case Series() as series:
-            return normal(
+            return normal_rv(
                 series.len(), loc=loc, scale=scale, seed=seed, name=name, dtype=dtype
             )
         case DataFrame() as df:
-            return normal(
+            return normal_rv(
                 df.height, loc=loc, scale=scale, seed=seed, name=name, dtype=dtype
             )
         case never:
@@ -1966,22 +2055,22 @@ def normal(
 
 @overload
 def number_of_decimals(
-    series: ExprLike, /, *, max_decimals: int = MAX_DECIMALS
+    column: ExprLike, /, *, max_decimals: int = MAX_DECIMALS
 ) -> Expr: ...
 @overload
 def number_of_decimals(
-    series: Series, /, *, max_decimals: int = MAX_DECIMALS
+    column: Series, /, *, max_decimals: int = MAX_DECIMALS
 ) -> Series: ...
 @overload
 def number_of_decimals(
-    series: IntoExprColumn, /, *, max_decimals: int = MAX_DECIMALS
+    column: IntoExprColumn, /, *, max_decimals: int = MAX_DECIMALS
 ) -> ExprOrSeries: ...
 def number_of_decimals(
-    series: IntoExprColumn, /, *, max_decimals: int = MAX_DECIMALS
+    column: IntoExprColumn, /, *, max_decimals: int = MAX_DECIMALS
 ) -> ExprOrSeries:
     """Get the number of decimals."""
-    series = ensure_expr_or_series(series)
-    frac = series - series.floor()
+    column = ensure_expr_or_series(column)
+    frac = column - column.floor()
     results = (
         _number_of_decimals_check_scale(frac, s) for s in range(max_decimals + 1)
     )
@@ -2420,6 +2509,34 @@ class RoundToFloatError(Exception):
 ##
 
 
+def search_period(
+    series: Series,
+    date_time: ZonedDateTime,
+    /,
+    *,
+    start_or_end: Literal["start", "end"] = "end",
+) -> int | None:
+    """Search a series of periods for the one containing a given date-time."""
+    end = series.struct["end"]
+    py_date_time = date_time.py_datetime()
+    match start_or_end:
+        case "start":
+            index = end.search_sorted(py_date_time, side="right")
+            if index >= len(series):
+                return None
+            item: dt.datetime = series[index]["start"]
+            return index if py_date_time >= item else None
+        case "end":
+            index = end.search_sorted(py_date_time, side="left")
+            if index >= len(series):
+                return None
+            item: dt.datetime = series[index]["start"]
+            return index if py_date_time > item else None
+
+
+##
+
+
 def select_exact(
     df: DataFrame, /, *columns: IntoExprColumn, drop: MaybeIterable[str] | None = None
 ) -> DataFrame:
@@ -2632,6 +2749,7 @@ def zoned_date_time_period_dtype(
 
 
 __all__ = [
+    "AppendRowError",
     "BooleanValueCountsError",
     "CheckPolarsDataFrameError",
     "ColumnsToDictError",
@@ -2662,7 +2780,7 @@ __all__ = [
     "all_series",
     "any_dataframe_columns",
     "any_series",
-    "append_dataclass",
+    "append_row",
     "are_frames_equal",
     "bernoulli",
     "boolean_value_counts",
@@ -2699,7 +2817,8 @@ __all__ = [
     "map_over_columns",
     "nan_sum_agg",
     "nan_sum_horizontal",
-    "normal",
+    "normal_pdf",
+    "normal_rv",
     "number_of_decimals",
     "offset_datetime",
     "one_column",
@@ -2709,6 +2828,7 @@ __all__ = [
     "read_series",
     "replace_time_zone",
     "round_to_float",
+    "search_period",
     "select_exact",
     "serialize_dataframe",
     "set_first_row_as_columns",

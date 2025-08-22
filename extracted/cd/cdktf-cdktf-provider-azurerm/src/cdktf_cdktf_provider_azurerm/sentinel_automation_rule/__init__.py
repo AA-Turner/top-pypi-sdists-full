@@ -1,7 +1,7 @@
 r'''
 # `azurerm_sentinel_automation_rule`
 
-Refer to the Terraform Registry for docs: [`azurerm_sentinel_automation_rule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule).
+Refer to the Terraform Registry for docs: [`azurerm_sentinel_automation_rule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SentinelAutomationRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.sentinelAutomationRule.SentinelAutomationRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule azurerm_sentinel_automation_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule azurerm_sentinel_automation_rule}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class SentinelAutomationRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule azurerm_sentinel_automation_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule azurerm_sentinel_automation_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#display_name SentinelAutomationRule#display_name}.
-        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#log_analytics_workspace_id SentinelAutomationRule#log_analytics_workspace_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#name SentinelAutomationRule#name}.
-        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.
-        :param action_incident: action_incident block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#action_incident SentinelAutomationRule#action_incident}
-        :param action_playbook: action_playbook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#action_playbook SentinelAutomationRule#action_playbook}
-        :param condition_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#condition_json SentinelAutomationRule#condition_json}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#enabled SentinelAutomationRule#enabled}.
-        :param expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#expiration SentinelAutomationRule#expiration}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#id SentinelAutomationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#timeouts SentinelAutomationRule#timeouts}
-        :param triggers_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#triggers_on SentinelAutomationRule#triggers_on}.
-        :param triggers_when: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#triggers_when SentinelAutomationRule#triggers_when}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#display_name SentinelAutomationRule#display_name}.
+        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#log_analytics_workspace_id SentinelAutomationRule#log_analytics_workspace_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#name SentinelAutomationRule#name}.
+        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.
+        :param action_incident: action_incident block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#action_incident SentinelAutomationRule#action_incident}
+        :param action_playbook: action_playbook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#action_playbook SentinelAutomationRule#action_playbook}
+        :param condition_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#condition_json SentinelAutomationRule#condition_json}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#enabled SentinelAutomationRule#enabled}.
+        :param expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#expiration SentinelAutomationRule#expiration}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#id SentinelAutomationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#timeouts SentinelAutomationRule#timeouts}
+        :param triggers_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#triggers_on SentinelAutomationRule#triggers_on}.
+        :param triggers_when: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#triggers_when SentinelAutomationRule#triggers_when}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class SentinelAutomationRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SentinelAutomationRule to import.
-        :param import_from_id: The id of the existing SentinelAutomationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SentinelAutomationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SentinelAutomationRule to import is found.
         '''
         if __debug__:
@@ -186,10 +186,10 @@ class SentinelAutomationRule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#create SentinelAutomationRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#delete SentinelAutomationRule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#read SentinelAutomationRule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#update SentinelAutomationRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#create SentinelAutomationRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#delete SentinelAutomationRule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#read SentinelAutomationRule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#update SentinelAutomationRule#update}.
         '''
         value = SentinelAutomationRuleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -484,13 +484,13 @@ class SentinelAutomationRuleActionIncident:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.
-        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#classification SentinelAutomationRule#classification}.
-        :param classification_comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#classification_comment SentinelAutomationRule#classification_comment}.
-        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#labels SentinelAutomationRule#labels}.
-        :param owner_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#owner_id SentinelAutomationRule#owner_id}.
-        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#severity SentinelAutomationRule#severity}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#status SentinelAutomationRule#status}.
+        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.
+        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#classification SentinelAutomationRule#classification}.
+        :param classification_comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#classification_comment SentinelAutomationRule#classification_comment}.
+        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#labels SentinelAutomationRule#labels}.
+        :param owner_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#owner_id SentinelAutomationRule#owner_id}.
+        :param severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#severity SentinelAutomationRule#severity}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#status SentinelAutomationRule#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__881cea92b200e3bcf0c80e768335afbb89914c8692fbdd5b32c61bc4ab85bd56)
@@ -519,44 +519,44 @@ class SentinelAutomationRuleActionIncident:
 
     @builtins.property
     def order(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.'''
         result = self._values.get("order")
         assert result is not None, "Required property 'order' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def classification(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#classification SentinelAutomationRule#classification}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#classification SentinelAutomationRule#classification}.'''
         result = self._values.get("classification")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def classification_comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#classification_comment SentinelAutomationRule#classification_comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#classification_comment SentinelAutomationRule#classification_comment}.'''
         result = self._values.get("classification_comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#labels SentinelAutomationRule#labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#labels SentinelAutomationRule#labels}.'''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def owner_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#owner_id SentinelAutomationRule#owner_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#owner_id SentinelAutomationRule#owner_id}.'''
         result = self._values.get("owner_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def severity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#severity SentinelAutomationRule#severity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#severity SentinelAutomationRule#severity}.'''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#status SentinelAutomationRule#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#status SentinelAutomationRule#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -870,9 +870,9 @@ class SentinelAutomationRuleActionPlaybook:
         tenant_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#logic_app_id SentinelAutomationRule#logic_app_id}.
-        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.
-        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#tenant_id SentinelAutomationRule#tenant_id}.
+        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#logic_app_id SentinelAutomationRule#logic_app_id}.
+        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#tenant_id SentinelAutomationRule#tenant_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__086c968ede5eaa7d3697983c7e88bcc8a5e04881e6965abac689ede552a44dc6)
@@ -888,21 +888,21 @@ class SentinelAutomationRuleActionPlaybook:
 
     @builtins.property
     def logic_app_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#logic_app_id SentinelAutomationRule#logic_app_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#logic_app_id SentinelAutomationRule#logic_app_id}.'''
         result = self._values.get("logic_app_id")
         assert result is not None, "Required property 'logic_app_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def order(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.'''
         result = self._values.get("order")
         assert result is not None, "Required property 'order' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def tenant_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#tenant_id SentinelAutomationRule#tenant_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#tenant_id SentinelAutomationRule#tenant_id}.'''
         result = self._values.get("tenant_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1169,19 +1169,19 @@ class SentinelAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#display_name SentinelAutomationRule#display_name}.
-        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#log_analytics_workspace_id SentinelAutomationRule#log_analytics_workspace_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#name SentinelAutomationRule#name}.
-        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.
-        :param action_incident: action_incident block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#action_incident SentinelAutomationRule#action_incident}
-        :param action_playbook: action_playbook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#action_playbook SentinelAutomationRule#action_playbook}
-        :param condition_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#condition_json SentinelAutomationRule#condition_json}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#enabled SentinelAutomationRule#enabled}.
-        :param expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#expiration SentinelAutomationRule#expiration}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#id SentinelAutomationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#timeouts SentinelAutomationRule#timeouts}
-        :param triggers_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#triggers_on SentinelAutomationRule#triggers_on}.
-        :param triggers_when: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#triggers_when SentinelAutomationRule#triggers_when}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#display_name SentinelAutomationRule#display_name}.
+        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#log_analytics_workspace_id SentinelAutomationRule#log_analytics_workspace_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#name SentinelAutomationRule#name}.
+        :param order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.
+        :param action_incident: action_incident block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#action_incident SentinelAutomationRule#action_incident}
+        :param action_playbook: action_playbook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#action_playbook SentinelAutomationRule#action_playbook}
+        :param condition_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#condition_json SentinelAutomationRule#condition_json}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#enabled SentinelAutomationRule#enabled}.
+        :param expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#expiration SentinelAutomationRule#expiration}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#id SentinelAutomationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#timeouts SentinelAutomationRule#timeouts}
+        :param triggers_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#triggers_on SentinelAutomationRule#triggers_on}.
+        :param triggers_when: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#triggers_when SentinelAutomationRule#triggers_when}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1314,28 +1314,28 @@ class SentinelAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#display_name SentinelAutomationRule#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#display_name SentinelAutomationRule#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_analytics_workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#log_analytics_workspace_id SentinelAutomationRule#log_analytics_workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#log_analytics_workspace_id SentinelAutomationRule#log_analytics_workspace_id}.'''
         result = self._values.get("log_analytics_workspace_id")
         assert result is not None, "Required property 'log_analytics_workspace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#name SentinelAutomationRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#name SentinelAutomationRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def order(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#order SentinelAutomationRule#order}.'''
         result = self._values.get("order")
         assert result is not None, "Required property 'order' is missing"
         return typing.cast(jsii.Number, result)
@@ -1346,7 +1346,7 @@ class SentinelAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SentinelAutomationRuleActionIncident]]]:
         '''action_incident block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#action_incident SentinelAutomationRule#action_incident}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#action_incident SentinelAutomationRule#action_incident}
         '''
         result = self._values.get("action_incident")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SentinelAutomationRuleActionIncident]]], result)
@@ -1357,14 +1357,14 @@ class SentinelAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SentinelAutomationRuleActionPlaybook]]]:
         '''action_playbook block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#action_playbook SentinelAutomationRule#action_playbook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#action_playbook SentinelAutomationRule#action_playbook}
         '''
         result = self._values.get("action_playbook")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SentinelAutomationRuleActionPlaybook]]], result)
 
     @builtins.property
     def condition_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#condition_json SentinelAutomationRule#condition_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#condition_json SentinelAutomationRule#condition_json}.'''
         result = self._values.get("condition_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1372,19 +1372,19 @@ class SentinelAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#enabled SentinelAutomationRule#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#enabled SentinelAutomationRule#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def expiration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#expiration SentinelAutomationRule#expiration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#expiration SentinelAutomationRule#expiration}.'''
         result = self._values.get("expiration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#id SentinelAutomationRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#id SentinelAutomationRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1396,20 +1396,20 @@ class SentinelAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SentinelAutomationRuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#timeouts SentinelAutomationRule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#timeouts SentinelAutomationRule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SentinelAutomationRuleTimeouts"], result)
 
     @builtins.property
     def triggers_on(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#triggers_on SentinelAutomationRule#triggers_on}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#triggers_on SentinelAutomationRule#triggers_on}.'''
         result = self._values.get("triggers_on")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def triggers_when(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#triggers_when SentinelAutomationRule#triggers_when}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#triggers_when SentinelAutomationRule#triggers_when}.'''
         result = self._values.get("triggers_when")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1445,10 +1445,10 @@ class SentinelAutomationRuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#create SentinelAutomationRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#delete SentinelAutomationRule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#read SentinelAutomationRule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#update SentinelAutomationRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#create SentinelAutomationRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#delete SentinelAutomationRule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#read SentinelAutomationRule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#update SentinelAutomationRule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d504f10876e4a6d19118ab6a38acfd238052a7d90ae7283b2cc2e84869bfaf58)
@@ -1468,25 +1468,25 @@ class SentinelAutomationRuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#create SentinelAutomationRule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#create SentinelAutomationRule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#delete SentinelAutomationRule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#delete SentinelAutomationRule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#read SentinelAutomationRule#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#read SentinelAutomationRule#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/sentinel_automation_rule#update SentinelAutomationRule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/sentinel_automation_rule#update SentinelAutomationRule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,23 +1,25 @@
 Metadata-Version: 2.1
 Name: osc-lib
-Version: 4.1.0
+Version: 4.2.0
 Summary: OpenStackClient Library
-Home-page: https://docs.openstack.org/osc-lib/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/osc-lib/
+Project-URL: Repository, https://opendev.org/openstack/osc-lib/
 Project-URL: Bug Tracker, https://storyboard.openstack.org/#!/project/openstack/osc-lib
-Project-URL: Documentation, https://docs.openstack.org/osc-lib/latest/
-Project-URL: Source Code, https://opendev.org/openstack/osc-lib/
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: OpenStack
-Classifier: Intended Audience :: Information Technology
-Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cliff>=4.9.0
 Requires-Dist: keystoneauth1>=5.10.0
@@ -91,4 +93,3 @@ Also, some of the test fixtures and modules may be used:
 
 * openstackclient.tests.fakes -> osc_lib.tests.fakes
 * openstackclient.tests.utils -> osc_lib.tests.utils
-

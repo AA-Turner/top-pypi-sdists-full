@@ -8,12 +8,12 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
+    CreateOfflineQueryJobRequest,
+    CreateOfflineQueryJobResponse,
     GetOfflineQueryRequest,
     GetOfflineQueryResponse,
     ListOfflineQueriesRequest,
     ListOfflineQueriesResponse,
-    ListRelevantJobQueueConsumersRequest,
-    ListRelevantJobQueueConsumersResponse,
 )
 from chalk._gen.chalk.server.v1.performance_summary_pb2 import (
     ListOfflineQueryShardPerformanceSummariesRequest,
@@ -45,9 +45,9 @@ class OfflineQueryMetadataServiceStub:
        option idempotency_level = NO_SIDE_EFFECTS;
      }
     """
-    ListRelevantJobQueueConsumers: UnaryUnaryMultiCallable[
-        ListRelevantJobQueueConsumersRequest,
-        ListRelevantJobQueueConsumersResponse,
+    CreateOfflineQueryJob: UnaryUnaryMultiCallable[
+        CreateOfflineQueryJobRequest,
+        CreateOfflineQueryJobResponse,
     ]
 
 class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
@@ -75,11 +75,11 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
         }
         """
     @abstractmethod
-    def ListRelevantJobQueueConsumers(
+    def CreateOfflineQueryJob(
         self,
-        request: ListRelevantJobQueueConsumersRequest,
+        request: CreateOfflineQueryJobRequest,
         context: ServicerContext,
-    ) -> ListRelevantJobQueueConsumersResponse: ...
+    ) -> CreateOfflineQueryJobResponse: ...
 
 def add_OfflineQueryMetadataServiceServicer_to_server(
     servicer: OfflineQueryMetadataServiceServicer, server: Server

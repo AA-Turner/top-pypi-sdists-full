@@ -1,7 +1,7 @@
 r'''
 # `azurerm_palo_alto_local_rulestack_outbound_untrust_certificate_association`
 
-Refer to the Terraform Registry for docs: [`azurerm_palo_alto_local_rulestack_outbound_untrust_certificate_association`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association).
+Refer to the Terraform Registry for docs: [`azurerm_palo_alto_local_rulestack_outbound_untrust_certificate_association`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PaloAltoLocalRulestackOutboundUntrustCertificateAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.paloAltoLocalRulestackOutboundUntrustCertificateAssociation.PaloAltoLocalRulestackOutboundUntrustCertificateAssociation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association azurerm_palo_alto_local_rulestack_outbound_untrust_certificate_association}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association azurerm_palo_alto_local_rulestack_outbound_untrust_certificate_association}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class PaloAltoLocalRulestackOutboundUntrustCertificateAssociation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association azurerm_palo_alto_local_rulestack_outbound_untrust_certificate_association} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association azurerm_palo_alto_local_rulestack_outbound_untrust_certificate_association} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#certificate_id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#certificate_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#timeouts PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#timeouts}
+        :param certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#certificate_id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#certificate_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#timeouts PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class PaloAltoLocalRulestackOutboundUntrustCertificateAssociation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PaloAltoLocalRulestackOutboundUntrustCertificateAssociation to import.
-        :param import_from_id: The id of the existing PaloAltoLocalRulestackOutboundUntrustCertificateAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PaloAltoLocalRulestackOutboundUntrustCertificateAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PaloAltoLocalRulestackOutboundUntrustCertificateAssociation to import is found.
         '''
         if __debug__:
@@ -129,9 +129,9 @@ class PaloAltoLocalRulestackOutboundUntrustCertificateAssociation(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#create PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#delete PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#read PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#create PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#delete PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#read PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#read}.
         '''
         value = PaloAltoLocalRulestackOutboundUntrustCertificateAssociationTimeouts(
             create=create, delete=delete, read=read
@@ -250,9 +250,9 @@ class PaloAltoLocalRulestackOutboundUntrustCertificateAssociationConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#certificate_id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#certificate_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#timeouts PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#timeouts}
+        :param certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#certificate_id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#certificate_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#timeouts PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -358,14 +358,14 @@ class PaloAltoLocalRulestackOutboundUntrustCertificateAssociationConfig(
 
     @builtins.property
     def certificate_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#certificate_id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#certificate_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#certificate_id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#certificate_id}.'''
         result = self._values.get("certificate_id")
         assert result is not None, "Required property 'certificate_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#id PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -379,7 +379,7 @@ class PaloAltoLocalRulestackOutboundUntrustCertificateAssociationConfig(
     ) -> typing.Optional["PaloAltoLocalRulestackOutboundUntrustCertificateAssociationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#timeouts PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#timeouts PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PaloAltoLocalRulestackOutboundUntrustCertificateAssociationTimeouts"], result)
@@ -410,9 +410,9 @@ class PaloAltoLocalRulestackOutboundUntrustCertificateAssociationTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#create PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#delete PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#read PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#create PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#delete PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#read PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__174411b573f8d2e40b5088edfa2a4364cd5143cfaaf67fd92dc1aff985ce01a7)
@@ -429,19 +429,19 @@ class PaloAltoLocalRulestackOutboundUntrustCertificateAssociationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#create PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#create PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#delete PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#delete PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#read PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/palo_alto_local_rulestack_outbound_untrust_certificate_association#read PaloAltoLocalRulestackOutboundUntrustCertificateAssociation#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

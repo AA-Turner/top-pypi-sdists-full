@@ -1,9 +1,15 @@
 # coding=utf-8
 from .._impl import (
+    scout_datasource_connection_api_AllChannelsConnectionsScrapingConfig as AllChannelsConnectionsScrapingConfig,
+    scout_datasource_connection_api_ApiConnectionDetails as ApiConnectionDetails,
+    scout_datasource_connection_api_ApiScrapingConfig as ApiScrapingConfig,
+    scout_datasource_connection_api_ApiScrapingConfigVisitor as ApiScrapingConfigVisitor,
     scout_datasource_connection_api_BigQueryChannelNameComponent as BigQueryChannelNameComponent,
     scout_datasource_connection_api_BigQueryConnectionDetails as BigQueryConnectionDetails,
     scout_datasource_connection_api_BigQueryScrapingConfig as BigQueryScrapingConfig,
     scout_datasource_connection_api_BucketName as BucketName,
+    scout_datasource_connection_api_ChannelAllowListConnectionsScrapingConfig as ChannelAllowListConnectionsScrapingConfig,
+    scout_datasource_connection_api_ChannelBlockListConnectionsScrapingConfig as ChannelBlockListConnectionsScrapingConfig,
     scout_datasource_connection_api_ColumnName as ColumnName,
     scout_datasource_connection_api_Connection as Connection,
     scout_datasource_connection_api_ConnectionDetails as ConnectionDetails,
@@ -61,10 +67,16 @@ from .._impl import (
 )
 
 __all__ = [
+    'AllChannelsConnectionsScrapingConfig',
+    'ApiConnectionDetails',
+    'ApiScrapingConfig',
+    'ApiScrapingConfigVisitor',
     'BigQueryChannelNameComponent',
     'BigQueryConnectionDetails',
     'BigQueryScrapingConfig',
     'BucketName',
+    'ChannelAllowListConnectionsScrapingConfig',
+    'ChannelBlockListConnectionsScrapingConfig',
     'ColumnName',
     'Connection',
     'ConnectionDetails',

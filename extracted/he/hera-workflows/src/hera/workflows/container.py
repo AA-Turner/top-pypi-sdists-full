@@ -38,7 +38,7 @@ class Container(
     `image`, `command` and `args`.
 
     ```py
-    Container(name="cowsay", image="docker/whalesay", command=["cowsay", "foo"])
+    Container(name="cowsay", image="argoproj/argosay:v2", command=["cowsay", "foo"])
     ```
 
     See how to use it in the [Container example](../../../examples/workflows/misc/container.md).
@@ -103,7 +103,7 @@ class Container(
             pod_spec_patch=self.pod_spec_patch,
             priority=self.priority,
             priority_class_name=self.priority_class_name,
-            retry_strategy=self.retry_strategy,
+            retry_strategy=self._build_retry_strategy(),
             scheduler_name=self.scheduler_name,
             security_context=self.pod_security_context,
             service_account_name=self.service_account_name,

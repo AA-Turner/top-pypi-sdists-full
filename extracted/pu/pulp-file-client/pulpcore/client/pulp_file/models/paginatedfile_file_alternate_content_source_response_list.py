@@ -24,6 +24,14 @@ from pulpcore.client.pulp_file.models.file_file_alternate_content_source_respons
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class PaginatedfileFileAlternateContentSourceResponseList(BaseModel):
     """
     PaginatedfileFileAlternateContentSourceResponseList

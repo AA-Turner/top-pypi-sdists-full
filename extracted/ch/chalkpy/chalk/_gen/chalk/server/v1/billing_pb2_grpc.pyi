@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.billing_pb2 import (
+    GetCreditBundlesRequest,
+    GetCreditBundlesResponse,
     GetNodesAndPodsRequest,
     GetNodesAndPodsResponse,
     GetNodesAndPodsUIRequest,
@@ -73,6 +75,11 @@ class BillingServiceStub:
         SyncUtilizationRequest,
         SyncUtilizationResponse,
     ]
+    GetCreditBundles: UnaryUnaryMultiCallable[
+        GetCreditBundlesRequest,
+        GetCreditBundlesResponse,
+    ]
+    """GetCreditBundles returns the available credit bundles for purchase"""
 
 class BillingServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -128,5 +135,12 @@ class BillingServiceServicer(metaclass=ABCMeta):
         request: SyncUtilizationRequest,
         context: ServicerContext,
     ) -> SyncUtilizationResponse: ...
+    @abstractmethod
+    def GetCreditBundles(
+        self,
+        request: GetCreditBundlesRequest,
+        context: ServicerContext,
+    ) -> GetCreditBundlesResponse:
+        """GetCreditBundles returns the available credit bundles for purchase"""
 
 def add_BillingServiceServicer_to_server(servicer: BillingServiceServicer, server: Server) -> None: ...

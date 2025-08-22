@@ -130,11 +130,6 @@ def _get_connection(conn_id: str) -> Connection:
         try:
             conn = secrets_backend.get_connection(conn_id=conn_id)
             if conn:
-                # TODO: this should probably be in get conn
-                if conn.password:
-                    mask_secret(conn.password)
-                if conn.extra:
-                    mask_secret(conn.extra)
                 return conn
         except Exception:
             log.exception(
@@ -606,14 +601,14 @@ class InletEventsAccessors(Mapping[Union[int, Asset, AssetAlias, AssetRef], Any]
 
 @cache  # Prevent multiple API access.
 def get_previous_dagrun_success(ti_id: UUID) -> PrevSuccessfulDagRunResponse:
-    from airflow.sdk.execution_time import task_runner
     from airflow.sdk.execution_time.comms import (
         GetPrevSuccessfulDagRun,
         PrevSuccessfulDagRunResponse,
         PrevSuccessfulDagRunResult,
     )
+    from airflow.sdk.execution_time.task_runner import SUPERVISOR_COMMS
 
-    msg = task_runner.SUPERVISOR_COMMS.send(GetPrevSuccessfulDagRun(ti_id=ti_id))
+    msg = SUPERVISOR_COMMS.send(GetPrevSuccessfulDagRun(ti_id=ti_id))
 
     if TYPE_CHECKING:
         assert isinstance(msg, PrevSuccessfulDagRunResult)

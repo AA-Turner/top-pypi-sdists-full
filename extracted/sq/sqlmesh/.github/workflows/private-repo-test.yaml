@@ -1,7 +1,7 @@
 name: Private Repo Testing
 
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - main
 
@@ -17,9 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -77,7 +78,7 @@ jobs:
           unset TWINE_USERNAME TWINE_PASSWORD && make publish-tests
       - name: Get GitHub App token
         id: get_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
           private-key: ${{ secrets.TOBIKO_RENOVATE_BOT_PRIVATE_KEY }}
           app-id: ${{ secrets.TOBIKO_RENOVATE_BOT_APP_ID }}

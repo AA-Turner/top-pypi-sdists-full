@@ -1,7 +1,7 @@
 r'''
 # `azurerm_cosmosdb_account`
 
-Refer to the Terraform Registry for docs: [`azurerm_cosmosdb_account`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account).
+Refer to the Terraform Registry for docs: [`azurerm_cosmosdb_account`](https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CosmosdbAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.cosmosdbAccount.CosmosdbAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account azurerm_cosmosdb_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account azurerm_cosmosdb_account}.'''
 
     def __init__(
         self,
@@ -96,47 +96,47 @@ class CosmosdbAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account azurerm_cosmosdb_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account azurerm_cosmosdb_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param consistency_policy: consistency_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#consistency_policy CosmosdbAccount#consistency_policy}
-        :param geo_location: geo_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#geo_location CosmosdbAccount#geo_location}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
-        :param offer_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#offer_type CosmosdbAccount#offer_type}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#resource_group_name CosmosdbAccount#resource_group_name}.
-        :param access_key_metadata_writes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#access_key_metadata_writes_enabled CosmosdbAccount#access_key_metadata_writes_enabled}.
-        :param analytical_storage: analytical_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#analytical_storage CosmosdbAccount#analytical_storage}
-        :param analytical_storage_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#analytical_storage_enabled CosmosdbAccount#analytical_storage_enabled}.
-        :param automatic_failover_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#automatic_failover_enabled CosmosdbAccount#automatic_failover_enabled}.
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#backup CosmosdbAccount#backup}
-        :param burst_capacity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#burst_capacity_enabled CosmosdbAccount#burst_capacity_enabled}.
-        :param capabilities: capabilities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#capabilities CosmosdbAccount#capabilities}
-        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#capacity CosmosdbAccount#capacity}
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#cors_rule CosmosdbAccount#cors_rule}
-        :param create_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#create_mode CosmosdbAccount#create_mode}.
-        :param default_identity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#default_identity_type CosmosdbAccount#default_identity_type}.
-        :param free_tier_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#free_tier_enabled CosmosdbAccount#free_tier_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#identity CosmosdbAccount#identity}
-        :param ip_range_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#ip_range_filter CosmosdbAccount#ip_range_filter}.
-        :param is_virtual_network_filter_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#is_virtual_network_filter_enabled CosmosdbAccount#is_virtual_network_filter_enabled}.
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#key_vault_key_id CosmosdbAccount#key_vault_key_id}.
-        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#kind CosmosdbAccount#kind}.
-        :param local_authentication_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#local_authentication_disabled CosmosdbAccount#local_authentication_disabled}.
-        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#managed_hsm_key_id CosmosdbAccount#managed_hsm_key_id}.
-        :param minimal_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#minimal_tls_version CosmosdbAccount#minimal_tls_version}.
-        :param mongo_server_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#mongo_server_version CosmosdbAccount#mongo_server_version}.
-        :param multiple_write_locations_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#multiple_write_locations_enabled CosmosdbAccount#multiple_write_locations_enabled}.
-        :param network_acl_bypass_for_azure_services: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#network_acl_bypass_for_azure_services CosmosdbAccount#network_acl_bypass_for_azure_services}.
-        :param network_acl_bypass_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#network_acl_bypass_ids CosmosdbAccount#network_acl_bypass_ids}.
-        :param partition_merge_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#partition_merge_enabled CosmosdbAccount#partition_merge_enabled}.
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#public_network_access_enabled CosmosdbAccount#public_network_access_enabled}.
-        :param restore: restore block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#restore CosmosdbAccount#restore}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#tags CosmosdbAccount#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#timeouts CosmosdbAccount#timeouts}
-        :param virtual_network_rule: virtual_network_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#virtual_network_rule CosmosdbAccount#virtual_network_rule}
+        :param consistency_policy: consistency_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#consistency_policy CosmosdbAccount#consistency_policy}
+        :param geo_location: geo_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#geo_location CosmosdbAccount#geo_location}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
+        :param offer_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#offer_type CosmosdbAccount#offer_type}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#resource_group_name CosmosdbAccount#resource_group_name}.
+        :param access_key_metadata_writes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#access_key_metadata_writes_enabled CosmosdbAccount#access_key_metadata_writes_enabled}.
+        :param analytical_storage: analytical_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#analytical_storage CosmosdbAccount#analytical_storage}
+        :param analytical_storage_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#analytical_storage_enabled CosmosdbAccount#analytical_storage_enabled}.
+        :param automatic_failover_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#automatic_failover_enabled CosmosdbAccount#automatic_failover_enabled}.
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#backup CosmosdbAccount#backup}
+        :param burst_capacity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#burst_capacity_enabled CosmosdbAccount#burst_capacity_enabled}.
+        :param capabilities: capabilities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#capabilities CosmosdbAccount#capabilities}
+        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#capacity CosmosdbAccount#capacity}
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#cors_rule CosmosdbAccount#cors_rule}
+        :param create_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#create_mode CosmosdbAccount#create_mode}.
+        :param default_identity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#default_identity_type CosmosdbAccount#default_identity_type}.
+        :param free_tier_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#free_tier_enabled CosmosdbAccount#free_tier_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#identity CosmosdbAccount#identity}
+        :param ip_range_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#ip_range_filter CosmosdbAccount#ip_range_filter}.
+        :param is_virtual_network_filter_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#is_virtual_network_filter_enabled CosmosdbAccount#is_virtual_network_filter_enabled}.
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#key_vault_key_id CosmosdbAccount#key_vault_key_id}.
+        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#kind CosmosdbAccount#kind}.
+        :param local_authentication_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#local_authentication_disabled CosmosdbAccount#local_authentication_disabled}.
+        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#managed_hsm_key_id CosmosdbAccount#managed_hsm_key_id}.
+        :param minimal_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#minimal_tls_version CosmosdbAccount#minimal_tls_version}.
+        :param mongo_server_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#mongo_server_version CosmosdbAccount#mongo_server_version}.
+        :param multiple_write_locations_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#multiple_write_locations_enabled CosmosdbAccount#multiple_write_locations_enabled}.
+        :param network_acl_bypass_for_azure_services: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#network_acl_bypass_for_azure_services CosmosdbAccount#network_acl_bypass_for_azure_services}.
+        :param network_acl_bypass_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#network_acl_bypass_ids CosmosdbAccount#network_acl_bypass_ids}.
+        :param partition_merge_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#partition_merge_enabled CosmosdbAccount#partition_merge_enabled}.
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#public_network_access_enabled CosmosdbAccount#public_network_access_enabled}.
+        :param restore: restore block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#restore CosmosdbAccount#restore}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#tags CosmosdbAccount#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#timeouts CosmosdbAccount#timeouts}
+        :param virtual_network_rule: virtual_network_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#virtual_network_rule CosmosdbAccount#virtual_network_rule}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -211,7 +211,7 @@ class CosmosdbAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CosmosdbAccount to import.
-        :param import_from_id: The id of the existing CosmosdbAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CosmosdbAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CosmosdbAccount to import is found.
         '''
         if __debug__:
@@ -225,7 +225,7 @@ class CosmosdbAccount(
     @jsii.member(jsii_name="putAnalyticalStorage")
     def put_analytical_storage(self, *, schema_type: builtins.str) -> None:
         '''
-        :param schema_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#schema_type CosmosdbAccount#schema_type}.
+        :param schema_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#schema_type CosmosdbAccount#schema_type}.
         '''
         value = CosmosdbAccountAnalyticalStorage(schema_type=schema_type)
 
@@ -242,11 +242,11 @@ class CosmosdbAccount(
         tier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.
-        :param interval_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#interval_in_minutes CosmosdbAccount#interval_in_minutes}.
-        :param retention_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#retention_in_hours CosmosdbAccount#retention_in_hours}.
-        :param storage_redundancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#storage_redundancy CosmosdbAccount#storage_redundancy}.
-        :param tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#tier CosmosdbAccount#tier}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.
+        :param interval_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#interval_in_minutes CosmosdbAccount#interval_in_minutes}.
+        :param retention_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#retention_in_hours CosmosdbAccount#retention_in_hours}.
+        :param storage_redundancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#storage_redundancy CosmosdbAccount#storage_redundancy}.
+        :param tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#tier CosmosdbAccount#tier}.
         '''
         value = CosmosdbAccountBackup(
             type=type,
@@ -274,7 +274,7 @@ class CosmosdbAccount(
     @jsii.member(jsii_name="putCapacity")
     def put_capacity(self, *, total_throughput_limit: jsii.Number) -> None:
         '''
-        :param total_throughput_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#total_throughput_limit CosmosdbAccount#total_throughput_limit}.
+        :param total_throughput_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#total_throughput_limit CosmosdbAccount#total_throughput_limit}.
         '''
         value = CosmosdbAccountCapacity(total_throughput_limit=total_throughput_limit)
 
@@ -289,9 +289,9 @@ class CosmosdbAccount(
         max_staleness_prefix: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param consistency_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#consistency_level CosmosdbAccount#consistency_level}.
-        :param max_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#max_interval_in_seconds CosmosdbAccount#max_interval_in_seconds}.
-        :param max_staleness_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#max_staleness_prefix CosmosdbAccount#max_staleness_prefix}.
+        :param consistency_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#consistency_level CosmosdbAccount#consistency_level}.
+        :param max_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#max_interval_in_seconds CosmosdbAccount#max_interval_in_seconds}.
+        :param max_staleness_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#max_staleness_prefix CosmosdbAccount#max_staleness_prefix}.
         '''
         value = CosmosdbAccountConsistencyPolicy(
             consistency_level=consistency_level,
@@ -312,11 +312,11 @@ class CosmosdbAccount(
         max_age_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#allowed_headers CosmosdbAccount#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#allowed_methods CosmosdbAccount#allowed_methods}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#allowed_origins CosmosdbAccount#allowed_origins}.
-        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#exposed_headers CosmosdbAccount#exposed_headers}.
-        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#max_age_in_seconds CosmosdbAccount#max_age_in_seconds}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#allowed_headers CosmosdbAccount#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#allowed_methods CosmosdbAccount#allowed_methods}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#allowed_origins CosmosdbAccount#allowed_origins}.
+        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#exposed_headers CosmosdbAccount#exposed_headers}.
+        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#max_age_in_seconds CosmosdbAccount#max_age_in_seconds}.
         '''
         value = CosmosdbAccountCorsRule(
             allowed_headers=allowed_headers,
@@ -349,8 +349,8 @@ class CosmosdbAccount(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#identity_ids CosmosdbAccount#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#identity_ids CosmosdbAccount#identity_ids}.
         '''
         value = CosmosdbAccountIdentity(type=type, identity_ids=identity_ids)
 
@@ -367,11 +367,11 @@ class CosmosdbAccount(
         tables_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param restore_timestamp_in_utc: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#restore_timestamp_in_utc CosmosdbAccount#restore_timestamp_in_utc}.
-        :param source_cosmosdb_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#source_cosmosdb_account_id CosmosdbAccount#source_cosmosdb_account_id}.
-        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#database CosmosdbAccount#database}
-        :param gremlin_database: gremlin_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#gremlin_database CosmosdbAccount#gremlin_database}
-        :param tables_to_restore: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#tables_to_restore CosmosdbAccount#tables_to_restore}.
+        :param restore_timestamp_in_utc: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#restore_timestamp_in_utc CosmosdbAccount#restore_timestamp_in_utc}.
+        :param source_cosmosdb_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#source_cosmosdb_account_id CosmosdbAccount#source_cosmosdb_account_id}.
+        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#database CosmosdbAccount#database}
+        :param gremlin_database: gremlin_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#gremlin_database CosmosdbAccount#gremlin_database}
+        :param tables_to_restore: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#tables_to_restore CosmosdbAccount#tables_to_restore}.
         '''
         value = CosmosdbAccountRestore(
             restore_timestamp_in_utc=restore_timestamp_in_utc,
@@ -393,10 +393,10 @@ class CosmosdbAccount(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#create CosmosdbAccount#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#delete CosmosdbAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#read CosmosdbAccount#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#update CosmosdbAccount#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#create CosmosdbAccount#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#delete CosmosdbAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#read CosmosdbAccount#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#update CosmosdbAccount#update}.
         '''
         value = CosmosdbAccountTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -1281,7 +1281,7 @@ class CosmosdbAccount(
 class CosmosdbAccountAnalyticalStorage:
     def __init__(self, *, schema_type: builtins.str) -> None:
         '''
-        :param schema_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#schema_type CosmosdbAccount#schema_type}.
+        :param schema_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#schema_type CosmosdbAccount#schema_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4424a209bbc91122bcdd6689e7c49269cbf85b99043b3ff22bdefb80d68343dd)
@@ -1292,7 +1292,7 @@ class CosmosdbAccountAnalyticalStorage:
 
     @builtins.property
     def schema_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#schema_type CosmosdbAccount#schema_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#schema_type CosmosdbAccount#schema_type}.'''
         result = self._values.get("schema_type")
         assert result is not None, "Required property 'schema_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1384,11 +1384,11 @@ class CosmosdbAccountBackup:
         tier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.
-        :param interval_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#interval_in_minutes CosmosdbAccount#interval_in_minutes}.
-        :param retention_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#retention_in_hours CosmosdbAccount#retention_in_hours}.
-        :param storage_redundancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#storage_redundancy CosmosdbAccount#storage_redundancy}.
-        :param tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#tier CosmosdbAccount#tier}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.
+        :param interval_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#interval_in_minutes CosmosdbAccount#interval_in_minutes}.
+        :param retention_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#retention_in_hours CosmosdbAccount#retention_in_hours}.
+        :param storage_redundancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#storage_redundancy CosmosdbAccount#storage_redundancy}.
+        :param tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#tier CosmosdbAccount#tier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9b27f8b74c561ea315a42e1a08ef708c7c47bcd0f5925836c95a443b1953a4e)
@@ -1411,32 +1411,32 @@ class CosmosdbAccountBackup:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def interval_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#interval_in_minutes CosmosdbAccount#interval_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#interval_in_minutes CosmosdbAccount#interval_in_minutes}.'''
         result = self._values.get("interval_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def retention_in_hours(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#retention_in_hours CosmosdbAccount#retention_in_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#retention_in_hours CosmosdbAccount#retention_in_hours}.'''
         result = self._values.get("retention_in_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def storage_redundancy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#storage_redundancy CosmosdbAccount#storage_redundancy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#storage_redundancy CosmosdbAccount#storage_redundancy}.'''
         result = self._values.get("storage_redundancy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#tier CosmosdbAccount#tier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#tier CosmosdbAccount#tier}.'''
         result = self._values.get("tier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1594,7 +1594,7 @@ class CosmosdbAccountBackupOutputReference(
 class CosmosdbAccountCapabilities:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5e66f8fcca563b812014289638b7bc12fda6a16e5296f4c59f4c439bd033e2b)
@@ -1605,7 +1605,7 @@ class CosmosdbAccountCapabilities:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1781,7 +1781,7 @@ class CosmosdbAccountCapabilitiesOutputReference(
 class CosmosdbAccountCapacity:
     def __init__(self, *, total_throughput_limit: jsii.Number) -> None:
         '''
-        :param total_throughput_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#total_throughput_limit CosmosdbAccount#total_throughput_limit}.
+        :param total_throughput_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#total_throughput_limit CosmosdbAccount#total_throughput_limit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__926aef6602376cd0db56e1500698492470c73800b02321ced39e244f83f4a1e3)
@@ -1792,7 +1792,7 @@ class CosmosdbAccountCapacity:
 
     @builtins.property
     def total_throughput_limit(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#total_throughput_limit CosmosdbAccount#total_throughput_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#total_throughput_limit CosmosdbAccount#total_throughput_limit}.'''
         result = self._values.get("total_throughput_limit")
         assert result is not None, "Required property 'total_throughput_limit' is missing"
         return typing.cast(jsii.Number, result)
@@ -1966,43 +1966,43 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param consistency_policy: consistency_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#consistency_policy CosmosdbAccount#consistency_policy}
-        :param geo_location: geo_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#geo_location CosmosdbAccount#geo_location}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
-        :param offer_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#offer_type CosmosdbAccount#offer_type}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#resource_group_name CosmosdbAccount#resource_group_name}.
-        :param access_key_metadata_writes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#access_key_metadata_writes_enabled CosmosdbAccount#access_key_metadata_writes_enabled}.
-        :param analytical_storage: analytical_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#analytical_storage CosmosdbAccount#analytical_storage}
-        :param analytical_storage_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#analytical_storage_enabled CosmosdbAccount#analytical_storage_enabled}.
-        :param automatic_failover_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#automatic_failover_enabled CosmosdbAccount#automatic_failover_enabled}.
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#backup CosmosdbAccount#backup}
-        :param burst_capacity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#burst_capacity_enabled CosmosdbAccount#burst_capacity_enabled}.
-        :param capabilities: capabilities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#capabilities CosmosdbAccount#capabilities}
-        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#capacity CosmosdbAccount#capacity}
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#cors_rule CosmosdbAccount#cors_rule}
-        :param create_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#create_mode CosmosdbAccount#create_mode}.
-        :param default_identity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#default_identity_type CosmosdbAccount#default_identity_type}.
-        :param free_tier_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#free_tier_enabled CosmosdbAccount#free_tier_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#identity CosmosdbAccount#identity}
-        :param ip_range_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#ip_range_filter CosmosdbAccount#ip_range_filter}.
-        :param is_virtual_network_filter_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#is_virtual_network_filter_enabled CosmosdbAccount#is_virtual_network_filter_enabled}.
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#key_vault_key_id CosmosdbAccount#key_vault_key_id}.
-        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#kind CosmosdbAccount#kind}.
-        :param local_authentication_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#local_authentication_disabled CosmosdbAccount#local_authentication_disabled}.
-        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#managed_hsm_key_id CosmosdbAccount#managed_hsm_key_id}.
-        :param minimal_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#minimal_tls_version CosmosdbAccount#minimal_tls_version}.
-        :param mongo_server_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#mongo_server_version CosmosdbAccount#mongo_server_version}.
-        :param multiple_write_locations_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#multiple_write_locations_enabled CosmosdbAccount#multiple_write_locations_enabled}.
-        :param network_acl_bypass_for_azure_services: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#network_acl_bypass_for_azure_services CosmosdbAccount#network_acl_bypass_for_azure_services}.
-        :param network_acl_bypass_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#network_acl_bypass_ids CosmosdbAccount#network_acl_bypass_ids}.
-        :param partition_merge_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#partition_merge_enabled CosmosdbAccount#partition_merge_enabled}.
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#public_network_access_enabled CosmosdbAccount#public_network_access_enabled}.
-        :param restore: restore block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#restore CosmosdbAccount#restore}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#tags CosmosdbAccount#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#timeouts CosmosdbAccount#timeouts}
-        :param virtual_network_rule: virtual_network_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#virtual_network_rule CosmosdbAccount#virtual_network_rule}
+        :param consistency_policy: consistency_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#consistency_policy CosmosdbAccount#consistency_policy}
+        :param geo_location: geo_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#geo_location CosmosdbAccount#geo_location}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
+        :param offer_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#offer_type CosmosdbAccount#offer_type}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#resource_group_name CosmosdbAccount#resource_group_name}.
+        :param access_key_metadata_writes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#access_key_metadata_writes_enabled CosmosdbAccount#access_key_metadata_writes_enabled}.
+        :param analytical_storage: analytical_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#analytical_storage CosmosdbAccount#analytical_storage}
+        :param analytical_storage_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#analytical_storage_enabled CosmosdbAccount#analytical_storage_enabled}.
+        :param automatic_failover_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#automatic_failover_enabled CosmosdbAccount#automatic_failover_enabled}.
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#backup CosmosdbAccount#backup}
+        :param burst_capacity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#burst_capacity_enabled CosmosdbAccount#burst_capacity_enabled}.
+        :param capabilities: capabilities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#capabilities CosmosdbAccount#capabilities}
+        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#capacity CosmosdbAccount#capacity}
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#cors_rule CosmosdbAccount#cors_rule}
+        :param create_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#create_mode CosmosdbAccount#create_mode}.
+        :param default_identity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#default_identity_type CosmosdbAccount#default_identity_type}.
+        :param free_tier_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#free_tier_enabled CosmosdbAccount#free_tier_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#identity CosmosdbAccount#identity}
+        :param ip_range_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#ip_range_filter CosmosdbAccount#ip_range_filter}.
+        :param is_virtual_network_filter_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#is_virtual_network_filter_enabled CosmosdbAccount#is_virtual_network_filter_enabled}.
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#key_vault_key_id CosmosdbAccount#key_vault_key_id}.
+        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#kind CosmosdbAccount#kind}.
+        :param local_authentication_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#local_authentication_disabled CosmosdbAccount#local_authentication_disabled}.
+        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#managed_hsm_key_id CosmosdbAccount#managed_hsm_key_id}.
+        :param minimal_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#minimal_tls_version CosmosdbAccount#minimal_tls_version}.
+        :param mongo_server_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#mongo_server_version CosmosdbAccount#mongo_server_version}.
+        :param multiple_write_locations_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#multiple_write_locations_enabled CosmosdbAccount#multiple_write_locations_enabled}.
+        :param network_acl_bypass_for_azure_services: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#network_acl_bypass_for_azure_services CosmosdbAccount#network_acl_bypass_for_azure_services}.
+        :param network_acl_bypass_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#network_acl_bypass_ids CosmosdbAccount#network_acl_bypass_ids}.
+        :param partition_merge_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#partition_merge_enabled CosmosdbAccount#partition_merge_enabled}.
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#public_network_access_enabled CosmosdbAccount#public_network_access_enabled}.
+        :param restore: restore block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#restore CosmosdbAccount#restore}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#tags CosmosdbAccount#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#timeouts CosmosdbAccount#timeouts}
+        :param virtual_network_rule: virtual_network_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#virtual_network_rule CosmosdbAccount#virtual_network_rule}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2221,7 +2221,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def consistency_policy(self) -> "CosmosdbAccountConsistencyPolicy":
         '''consistency_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#consistency_policy CosmosdbAccount#consistency_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#consistency_policy CosmosdbAccount#consistency_policy}
         '''
         result = self._values.get("consistency_policy")
         assert result is not None, "Required property 'consistency_policy' is missing"
@@ -2233,7 +2233,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CosmosdbAccountGeoLocation"]]:
         '''geo_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#geo_location CosmosdbAccount#geo_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#geo_location CosmosdbAccount#geo_location}
         '''
         result = self._values.get("geo_location")
         assert result is not None, "Required property 'geo_location' is missing"
@@ -2241,28 +2241,28 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def offer_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#offer_type CosmosdbAccount#offer_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#offer_type CosmosdbAccount#offer_type}.'''
         result = self._values.get("offer_type")
         assert result is not None, "Required property 'offer_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#resource_group_name CosmosdbAccount#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#resource_group_name CosmosdbAccount#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2271,7 +2271,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def access_key_metadata_writes_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#access_key_metadata_writes_enabled CosmosdbAccount#access_key_metadata_writes_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#access_key_metadata_writes_enabled CosmosdbAccount#access_key_metadata_writes_enabled}.'''
         result = self._values.get("access_key_metadata_writes_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2279,7 +2279,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def analytical_storage(self) -> typing.Optional[CosmosdbAccountAnalyticalStorage]:
         '''analytical_storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#analytical_storage CosmosdbAccount#analytical_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#analytical_storage CosmosdbAccount#analytical_storage}
         '''
         result = self._values.get("analytical_storage")
         return typing.cast(typing.Optional[CosmosdbAccountAnalyticalStorage], result)
@@ -2288,7 +2288,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def analytical_storage_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#analytical_storage_enabled CosmosdbAccount#analytical_storage_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#analytical_storage_enabled CosmosdbAccount#analytical_storage_enabled}.'''
         result = self._values.get("analytical_storage_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2296,7 +2296,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def automatic_failover_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#automatic_failover_enabled CosmosdbAccount#automatic_failover_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#automatic_failover_enabled CosmosdbAccount#automatic_failover_enabled}.'''
         result = self._values.get("automatic_failover_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2304,7 +2304,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup(self) -> typing.Optional[CosmosdbAccountBackup]:
         '''backup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#backup CosmosdbAccount#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#backup CosmosdbAccount#backup}
         '''
         result = self._values.get("backup")
         return typing.cast(typing.Optional[CosmosdbAccountBackup], result)
@@ -2313,7 +2313,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def burst_capacity_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#burst_capacity_enabled CosmosdbAccount#burst_capacity_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#burst_capacity_enabled CosmosdbAccount#burst_capacity_enabled}.'''
         result = self._values.get("burst_capacity_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2323,7 +2323,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CosmosdbAccountCapabilities]]]:
         '''capabilities block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#capabilities CosmosdbAccount#capabilities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#capabilities CosmosdbAccount#capabilities}
         '''
         result = self._values.get("capabilities")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CosmosdbAccountCapabilities]]], result)
@@ -2332,7 +2332,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capacity(self) -> typing.Optional[CosmosdbAccountCapacity]:
         '''capacity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#capacity CosmosdbAccount#capacity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#capacity CosmosdbAccount#capacity}
         '''
         result = self._values.get("capacity")
         return typing.cast(typing.Optional[CosmosdbAccountCapacity], result)
@@ -2341,20 +2341,20 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cors_rule(self) -> typing.Optional["CosmosdbAccountCorsRule"]:
         '''cors_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#cors_rule CosmosdbAccount#cors_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#cors_rule CosmosdbAccount#cors_rule}
         '''
         result = self._values.get("cors_rule")
         return typing.cast(typing.Optional["CosmosdbAccountCorsRule"], result)
 
     @builtins.property
     def create_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#create_mode CosmosdbAccount#create_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#create_mode CosmosdbAccount#create_mode}.'''
         result = self._values.get("create_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_identity_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#default_identity_type CosmosdbAccount#default_identity_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#default_identity_type CosmosdbAccount#default_identity_type}.'''
         result = self._values.get("default_identity_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2362,13 +2362,13 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def free_tier_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#free_tier_enabled CosmosdbAccount#free_tier_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#free_tier_enabled CosmosdbAccount#free_tier_enabled}.'''
         result = self._values.get("free_tier_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2380,14 +2380,14 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["CosmosdbAccountIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#identity CosmosdbAccount#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#identity CosmosdbAccount#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["CosmosdbAccountIdentity"], result)
 
     @builtins.property
     def ip_range_filter(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#ip_range_filter CosmosdbAccount#ip_range_filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#ip_range_filter CosmosdbAccount#ip_range_filter}.'''
         result = self._values.get("ip_range_filter")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2395,19 +2395,19 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_virtual_network_filter_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#is_virtual_network_filter_enabled CosmosdbAccount#is_virtual_network_filter_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#is_virtual_network_filter_enabled CosmosdbAccount#is_virtual_network_filter_enabled}.'''
         result = self._values.get("is_virtual_network_filter_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def key_vault_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#key_vault_key_id CosmosdbAccount#key_vault_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#key_vault_key_id CosmosdbAccount#key_vault_key_id}.'''
         result = self._values.get("key_vault_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kind(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#kind CosmosdbAccount#kind}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#kind CosmosdbAccount#kind}.'''
         result = self._values.get("kind")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2415,25 +2415,25 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def local_authentication_disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#local_authentication_disabled CosmosdbAccount#local_authentication_disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#local_authentication_disabled CosmosdbAccount#local_authentication_disabled}.'''
         result = self._values.get("local_authentication_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def managed_hsm_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#managed_hsm_key_id CosmosdbAccount#managed_hsm_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#managed_hsm_key_id CosmosdbAccount#managed_hsm_key_id}.'''
         result = self._values.get("managed_hsm_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def minimal_tls_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#minimal_tls_version CosmosdbAccount#minimal_tls_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#minimal_tls_version CosmosdbAccount#minimal_tls_version}.'''
         result = self._values.get("minimal_tls_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mongo_server_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#mongo_server_version CosmosdbAccount#mongo_server_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#mongo_server_version CosmosdbAccount#mongo_server_version}.'''
         result = self._values.get("mongo_server_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2441,7 +2441,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def multiple_write_locations_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#multiple_write_locations_enabled CosmosdbAccount#multiple_write_locations_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#multiple_write_locations_enabled CosmosdbAccount#multiple_write_locations_enabled}.'''
         result = self._values.get("multiple_write_locations_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2449,13 +2449,13 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_acl_bypass_for_azure_services(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#network_acl_bypass_for_azure_services CosmosdbAccount#network_acl_bypass_for_azure_services}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#network_acl_bypass_for_azure_services CosmosdbAccount#network_acl_bypass_for_azure_services}.'''
         result = self._values.get("network_acl_bypass_for_azure_services")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def network_acl_bypass_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#network_acl_bypass_ids CosmosdbAccount#network_acl_bypass_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#network_acl_bypass_ids CosmosdbAccount#network_acl_bypass_ids}.'''
         result = self._values.get("network_acl_bypass_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2463,7 +2463,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def partition_merge_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#partition_merge_enabled CosmosdbAccount#partition_merge_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#partition_merge_enabled CosmosdbAccount#partition_merge_enabled}.'''
         result = self._values.get("partition_merge_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2471,7 +2471,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_network_access_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#public_network_access_enabled CosmosdbAccount#public_network_access_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#public_network_access_enabled CosmosdbAccount#public_network_access_enabled}.'''
         result = self._values.get("public_network_access_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2479,14 +2479,14 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def restore(self) -> typing.Optional["CosmosdbAccountRestore"]:
         '''restore block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#restore CosmosdbAccount#restore}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#restore CosmosdbAccount#restore}
         '''
         result = self._values.get("restore")
         return typing.cast(typing.Optional["CosmosdbAccountRestore"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#tags CosmosdbAccount#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#tags CosmosdbAccount#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2494,7 +2494,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CosmosdbAccountTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#timeouts CosmosdbAccount#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#timeouts CosmosdbAccount#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CosmosdbAccountTimeouts"], result)
@@ -2505,7 +2505,7 @@ class CosmosdbAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CosmosdbAccountVirtualNetworkRule"]]]:
         '''virtual_network_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#virtual_network_rule CosmosdbAccount#virtual_network_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#virtual_network_rule CosmosdbAccount#virtual_network_rule}
         '''
         result = self._values.get("virtual_network_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CosmosdbAccountVirtualNetworkRule"]]], result)
@@ -2540,9 +2540,9 @@ class CosmosdbAccountConsistencyPolicy:
         max_staleness_prefix: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param consistency_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#consistency_level CosmosdbAccount#consistency_level}.
-        :param max_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#max_interval_in_seconds CosmosdbAccount#max_interval_in_seconds}.
-        :param max_staleness_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#max_staleness_prefix CosmosdbAccount#max_staleness_prefix}.
+        :param consistency_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#consistency_level CosmosdbAccount#consistency_level}.
+        :param max_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#max_interval_in_seconds CosmosdbAccount#max_interval_in_seconds}.
+        :param max_staleness_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#max_staleness_prefix CosmosdbAccount#max_staleness_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__216db6b25eefb34604ee28a3f3161bbc5a4474e1badcf80773c79cb515a0910f)
@@ -2559,20 +2559,20 @@ class CosmosdbAccountConsistencyPolicy:
 
     @builtins.property
     def consistency_level(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#consistency_level CosmosdbAccount#consistency_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#consistency_level CosmosdbAccount#consistency_level}.'''
         result = self._values.get("consistency_level")
         assert result is not None, "Required property 'consistency_level' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def max_interval_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#max_interval_in_seconds CosmosdbAccount#max_interval_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#max_interval_in_seconds CosmosdbAccount#max_interval_in_seconds}.'''
         result = self._values.get("max_interval_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_staleness_prefix(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#max_staleness_prefix CosmosdbAccount#max_staleness_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#max_staleness_prefix CosmosdbAccount#max_staleness_prefix}.'''
         result = self._values.get("max_staleness_prefix")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2705,11 +2705,11 @@ class CosmosdbAccountCorsRule:
         max_age_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#allowed_headers CosmosdbAccount#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#allowed_methods CosmosdbAccount#allowed_methods}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#allowed_origins CosmosdbAccount#allowed_origins}.
-        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#exposed_headers CosmosdbAccount#exposed_headers}.
-        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#max_age_in_seconds CosmosdbAccount#max_age_in_seconds}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#allowed_headers CosmosdbAccount#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#allowed_methods CosmosdbAccount#allowed_methods}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#allowed_origins CosmosdbAccount#allowed_origins}.
+        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#exposed_headers CosmosdbAccount#exposed_headers}.
+        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#max_age_in_seconds CosmosdbAccount#max_age_in_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56f5e2125a799ef0f9c2f66ccca11d2c4ba1d5737501bfdd19587cad1f2160d2)
@@ -2729,35 +2729,35 @@ class CosmosdbAccountCorsRule:
 
     @builtins.property
     def allowed_headers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#allowed_headers CosmosdbAccount#allowed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#allowed_headers CosmosdbAccount#allowed_headers}.'''
         result = self._values.get("allowed_headers")
         assert result is not None, "Required property 'allowed_headers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#allowed_methods CosmosdbAccount#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#allowed_methods CosmosdbAccount#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         assert result is not None, "Required property 'allowed_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#allowed_origins CosmosdbAccount#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#allowed_origins CosmosdbAccount#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def exposed_headers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#exposed_headers CosmosdbAccount#exposed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#exposed_headers CosmosdbAccount#exposed_headers}.'''
         result = self._values.get("exposed_headers")
         assert result is not None, "Required property 'exposed_headers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def max_age_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#max_age_in_seconds CosmosdbAccount#max_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#max_age_in_seconds CosmosdbAccount#max_age_in_seconds}.'''
         result = self._values.get("max_age_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2913,9 +2913,9 @@ class CosmosdbAccountGeoLocation:
         zone_redundant: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param failover_priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#failover_priority CosmosdbAccount#failover_priority}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.
-        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#zone_redundant CosmosdbAccount#zone_redundant}.
+        :param failover_priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#failover_priority CosmosdbAccount#failover_priority}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.
+        :param zone_redundant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#zone_redundant CosmosdbAccount#zone_redundant}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98ea689418f13aff93f1603ae3c1fb19f507d106f95ec6b670c09b88f869663c)
@@ -2931,14 +2931,14 @@ class CosmosdbAccountGeoLocation:
 
     @builtins.property
     def failover_priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#failover_priority CosmosdbAccount#failover_priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#failover_priority CosmosdbAccount#failover_priority}.'''
         result = self._values.get("failover_priority")
         assert result is not None, "Required property 'failover_priority' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#location CosmosdbAccount#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
@@ -2947,7 +2947,7 @@ class CosmosdbAccountGeoLocation:
     def zone_redundant(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#zone_redundant CosmosdbAccount#zone_redundant}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#zone_redundant CosmosdbAccount#zone_redundant}.'''
         result = self._values.get("zone_redundant")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3177,8 +3177,8 @@ class CosmosdbAccountIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#identity_ids CosmosdbAccount#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#identity_ids CosmosdbAccount#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdf876e71ec99606ccb75f7db07c0f5e6d2c1a81e6133bf6037316974a1ae6af)
@@ -3192,14 +3192,14 @@ class CosmosdbAccountIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#type CosmosdbAccount#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#identity_ids CosmosdbAccount#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#identity_ids CosmosdbAccount#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3318,11 +3318,11 @@ class CosmosdbAccountRestore:
         tables_to_restore: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param restore_timestamp_in_utc: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#restore_timestamp_in_utc CosmosdbAccount#restore_timestamp_in_utc}.
-        :param source_cosmosdb_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#source_cosmosdb_account_id CosmosdbAccount#source_cosmosdb_account_id}.
-        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#database CosmosdbAccount#database}
-        :param gremlin_database: gremlin_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#gremlin_database CosmosdbAccount#gremlin_database}
-        :param tables_to_restore: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#tables_to_restore CosmosdbAccount#tables_to_restore}.
+        :param restore_timestamp_in_utc: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#restore_timestamp_in_utc CosmosdbAccount#restore_timestamp_in_utc}.
+        :param source_cosmosdb_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#source_cosmosdb_account_id CosmosdbAccount#source_cosmosdb_account_id}.
+        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#database CosmosdbAccount#database}
+        :param gremlin_database: gremlin_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#gremlin_database CosmosdbAccount#gremlin_database}
+        :param tables_to_restore: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#tables_to_restore CosmosdbAccount#tables_to_restore}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b430088fd31eabdc8c3ce9c7d66c4b6c2f2fca2f425d3c55afa5e87f1b7d73fd)
@@ -3344,14 +3344,14 @@ class CosmosdbAccountRestore:
 
     @builtins.property
     def restore_timestamp_in_utc(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#restore_timestamp_in_utc CosmosdbAccount#restore_timestamp_in_utc}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#restore_timestamp_in_utc CosmosdbAccount#restore_timestamp_in_utc}.'''
         result = self._values.get("restore_timestamp_in_utc")
         assert result is not None, "Required property 'restore_timestamp_in_utc' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_cosmosdb_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#source_cosmosdb_account_id CosmosdbAccount#source_cosmosdb_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#source_cosmosdb_account_id CosmosdbAccount#source_cosmosdb_account_id}.'''
         result = self._values.get("source_cosmosdb_account_id")
         assert result is not None, "Required property 'source_cosmosdb_account_id' is missing"
         return typing.cast(builtins.str, result)
@@ -3362,7 +3362,7 @@ class CosmosdbAccountRestore:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CosmosdbAccountRestoreDatabase"]]]:
         '''database block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#database CosmosdbAccount#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#database CosmosdbAccount#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CosmosdbAccountRestoreDatabase"]]], result)
@@ -3373,14 +3373,14 @@ class CosmosdbAccountRestore:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CosmosdbAccountRestoreGremlinDatabase"]]]:
         '''gremlin_database block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#gremlin_database CosmosdbAccount#gremlin_database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#gremlin_database CosmosdbAccount#gremlin_database}
         '''
         result = self._values.get("gremlin_database")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CosmosdbAccountRestoreGremlinDatabase"]]], result)
 
     @builtins.property
     def tables_to_restore(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#tables_to_restore CosmosdbAccount#tables_to_restore}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#tables_to_restore CosmosdbAccount#tables_to_restore}.'''
         result = self._values.get("tables_to_restore")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3409,8 +3409,8 @@ class CosmosdbAccountRestoreDatabase:
         collection_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
-        :param collection_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#collection_names CosmosdbAccount#collection_names}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
+        :param collection_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#collection_names CosmosdbAccount#collection_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb0b056bb95624b65c9178b5a8261ed935fb72349f733d57f8c3a96218298b5f)
@@ -3424,14 +3424,14 @@ class CosmosdbAccountRestoreDatabase:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def collection_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#collection_names CosmosdbAccount#collection_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#collection_names CosmosdbAccount#collection_names}.'''
         result = self._values.get("collection_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3635,8 +3635,8 @@ class CosmosdbAccountRestoreGremlinDatabase:
         graph_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
-        :param graph_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#graph_names CosmosdbAccount#graph_names}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.
+        :param graph_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#graph_names CosmosdbAccount#graph_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4152e99fc5bd13a5b59e26efacd9e1dec68ba96ea3ab02d27e38702c105f2e59)
@@ -3650,14 +3650,14 @@ class CosmosdbAccountRestoreGremlinDatabase:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#name CosmosdbAccount#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def graph_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#graph_names CosmosdbAccount#graph_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#graph_names CosmosdbAccount#graph_names}.'''
         result = self._values.get("graph_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4014,10 +4014,10 @@ class CosmosdbAccountTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#create CosmosdbAccount#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#delete CosmosdbAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#read CosmosdbAccount#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#update CosmosdbAccount#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#create CosmosdbAccount#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#delete CosmosdbAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#read CosmosdbAccount#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#update CosmosdbAccount#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af732f9f83dabda6ad16b995792372f3f79ce7c66eab5259f24f53e8cb1f6953)
@@ -4037,25 +4037,25 @@ class CosmosdbAccountTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#create CosmosdbAccount#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#create CosmosdbAccount#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#delete CosmosdbAccount#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#delete CosmosdbAccount#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#read CosmosdbAccount#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#read CosmosdbAccount#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#update CosmosdbAccount#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#update CosmosdbAccount#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4209,8 +4209,8 @@ class CosmosdbAccountVirtualNetworkRule:
         ignore_missing_vnet_service_endpoint: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_missing_vnet_service_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#ignore_missing_vnet_service_endpoint CosmosdbAccount#ignore_missing_vnet_service_endpoint}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_missing_vnet_service_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#ignore_missing_vnet_service_endpoint CosmosdbAccount#ignore_missing_vnet_service_endpoint}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc4c3562116e2fb4008724dbd0e94d22c2481450fe3c12c4e5214a91c36ba7d6)
@@ -4224,7 +4224,7 @@ class CosmosdbAccountVirtualNetworkRule:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#id CosmosdbAccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -4237,7 +4237,7 @@ class CosmosdbAccountVirtualNetworkRule:
     def ignore_missing_vnet_service_endpoint(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/cosmosdb_account#ignore_missing_vnet_service_endpoint CosmosdbAccount#ignore_missing_vnet_service_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.41.0/docs/resources/cosmosdb_account#ignore_missing_vnet_service_endpoint CosmosdbAccount#ignore_missing_vnet_service_endpoint}.'''
         result = self._values.get("ignore_missing_vnet_service_endpoint")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

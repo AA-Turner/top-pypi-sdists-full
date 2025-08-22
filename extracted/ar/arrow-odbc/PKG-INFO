@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: arrow-odbc
-Version: 9.1.0
+Version: 9.2.0
 Requires-Dist: cffi
 Requires-Dist: pyarrow>=8.0.0
 License-File: LICENSE
 Summary: Read the data of an ODBC data source as sequence of Apache Arrow record batches.
 Author: Markus Klein
-License: MIT
+License-Expression: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: repository, https://github.com/pacman82/arrow-odbc-py

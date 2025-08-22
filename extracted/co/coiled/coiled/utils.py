@@ -2084,3 +2084,39 @@ def is_arm_only_image(image: str) -> bool:
         return False
 
     return False
+
+
+def join_command_parts(command: list[str]):
+    """
+    Takes output of shlex.split() and combines it while allowing some parts to remain unescaped.
+
+    For example, `shlex.join(shlex.split(...))` turns
+
+        echo "$foo is good" && echo "$bar is bad"
+
+    into
+
+        echo '$foo is good' '&&' echo '$bar is bad'
+
+    and `" ".join(shlex.split(...))` turns it into
+
+        echo $foo is good && echo $bar is bad
+
+    which is also wrong. We want
+
+        echo "$foo is good" && echo "$bar is bad"
+
+    (i.e., the original input).
+    """
+
+    if isinstance(command, str):
+        raise ValueError("join_command_parts expects list such as the output of `shlex.split()`, got string instead")
+
+    def quote_if_has_whitespace(s):
+        if re.search(r"\s", s):
+            # escape double quotes before wrapping in double quotes
+            s = s.replace('"', r"\"")
+            return f'"{s}"'
+        return s
+
+    return " ".join(quote_if_has_whitespace(part) for part in command)

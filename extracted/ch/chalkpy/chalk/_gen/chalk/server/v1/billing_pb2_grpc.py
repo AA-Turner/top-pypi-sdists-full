@@ -46,6 +46,11 @@ class BillingServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.SyncUtilizationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.SyncUtilizationResponse.FromString,
         )
+        self.GetCreditBundles = channel.unary_unary(
+            "/chalk.server.v1.BillingService/GetCreditBundles",
+            request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetCreditBundlesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetCreditBundlesResponse.FromString,
+        )
 
 
 class BillingServiceServicer(object):
@@ -100,6 +105,12 @@ class BillingServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetCreditBundles(self, request, context):
+        """GetCreditBundles returns the available credit bundles for purchase"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_BillingServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -132,6 +143,11 @@ def add_BillingServiceServicer_to_server(servicer, server):
             servicer.SyncUtilization,
             request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.SyncUtilizationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.SyncUtilizationResponse.SerializeToString,
+        ),
+        "GetCreditBundles": grpc.unary_unary_rpc_method_handler(
+            servicer.GetCreditBundles,
+            request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetCreditBundlesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetCreditBundlesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.BillingService", rpc_method_handlers)
@@ -306,6 +322,35 @@ class BillingService(object):
             "/chalk.server.v1.BillingService/SyncUtilization",
             chalk_dot_server_dot_v1_dot_billing__pb2.SyncUtilizationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_billing__pb2.SyncUtilizationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetCreditBundles(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BillingService/GetCreditBundles",
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetCreditBundlesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetCreditBundlesResponse.FromString,
             options,
             channel_credentials,
             insecure,

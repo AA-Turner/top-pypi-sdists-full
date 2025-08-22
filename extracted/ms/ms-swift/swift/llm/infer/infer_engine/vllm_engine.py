@@ -149,10 +149,11 @@ class VllmEngine(InferEngine):
         disable_log_stats = engine_kwargs.pop('disable_log_stats', True)
         if self.use_async_engine:
             engine_cls = AsyncEngineArgs
-            engine_kwargs['disable_log_requests'] = True
         else:
             engine_cls = EngineArgs
         parameters = inspect.signature(engine_cls).parameters
+        if self.use_async_engine and 'disable_log_requests' in parameters:
+            engine_kwargs['disable_log_requests'] = True
         if 'enable_lora' in parameters and enable_lora:
             engine_kwargs['enable_lora'] = enable_lora
             engine_kwargs['max_loras'] = max_loras
@@ -280,9 +281,16 @@ class VllmEngine(InferEngine):
                         mm_data = {key.rstrip('s'): media_data[0]}
             if mm_data:
                 llm_inputs['multi_modal_data'] = mm_data
+            mm_processor_kwargs = inputs.get('mm_processor_kwargs')
+            if mm_processor_kwargs:
+                llm_inputs['mm_processor_kwargs'] = mm_processor_kwargs
             if self.task_type == 'embedding':
                 from vllm.pooling_params import PoolingParams
-                return self.engine.encode(llm_inputs, PoolingParams(), request_id)
+                if 'task' in inspect.signature(PoolingParams).parameters:
+                    pooling_params = PoolingParams(task='embed')
+                else:
+                    pooling_params = PoolingParams()
+                return self.engine.encode(llm_inputs, pooling_params, request_id)
             elif self.use_async_engine:
                 return self.engine.generate(llm_inputs, generation_config, request_id, **kwargs)
             else:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spectree
-Version: 1.4.12
+Version: 1.5.0
 Summary: Generate OpenAPI document and validate request & response with Python annotations.
 Author-email: Keming Yang <kemingy94@gmail.com>
 License: Apache-2.0
@@ -24,7 +24,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pydantic<3,>=1.2
 Provides-Extra: offline
-Requires-Dist: offapi>=0.1.0; extra == "offline"
+Requires-Dist: offapi>=0.1.1; extra == "offline"
 Provides-Extra: falcon
 Requires-Dist: falcon>=3; extra == "falcon"
 Provides-Extra: starlette

@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-20T21:57:30.473790                                                            #
+# Generated on 2025-08-21T23:31:59.918322                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import typing
-    import metaflow
-    import metaflow.plugins.cards.component_serializer
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core
-    import metaflow.metaflow_current
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.events
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow
+    import metaflow.metaflow_current
+    import metaflow.events
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import typing
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core
+    import metaflow.plugins.cards.component_serializer
 
 
 TYPE_CHECKING: bool
@@ -245,12 +245,60 @@ class Current(object, metaclass=type):
         """
         ...
     @property
+    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
+        """
+        (only in the presence of the @checkpoint decorator)
+        
+        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
+        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
+        
+        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
+        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
+        where the checkpoint maybe loaded or saved.
+        
+        Returns
+        ----------
+        CurrentCheckpointer
+            The object for handling checkpointing within a step.
+        """
+        ...
+    @property
     def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
         """
         (only in the presence of the @huggingface_hub decorator)
         
         
         The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function. The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
+        """
+        ...
+    @property
+    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.apps":
+        """
+        (only in the presence of the @app_deploy decorator)
+        
+        
+        Returns
+        ----------
+        apps
+            The object carrying the Deployer class to deploy apps.
+        """
+        ...
+    @property
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+        """
+        (only in the presence of the @card decorator)
+        
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
+        
+        Methods available are `append` and `extend`
+        
+        Returns
+        -------
+        CardComponentCollector
+            The or one of the cards attached to this step.
         """
         ...
     @property
@@ -283,57 +331,9 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.apps":
-        """
-        (only in the presence of the @app_deploy decorator)
-        
-        
-        Returns
-        ----------
-        apps
-            The object carrying the Deployer class to deploy apps.
-        """
-        ...
-    @property
-    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
-        """
-        (only in the presence of the @checkpoint decorator)
-        
-        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
-        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
-        
-        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
-        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
-        where the checkpoint maybe loaded or saved.
-        
-        Returns
-        ----------
-        CurrentCheckpointer
-            The object for handling checkpointing within a step.
-        """
-        ...
-    @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
-        """
-        (only in the presence of the @card decorator)
-        
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
-        
-        Methods available are `append` and `extend`
-        
-        Returns
-        -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
-        """
-        ...
-    @property
     def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @trigger, or @trigger_on_finish decorators)
+        (only in the presence of the @trigger_on_finish, or @trigger decorators)
         
         Returns `Trigger` if the current run is triggered by an event
         

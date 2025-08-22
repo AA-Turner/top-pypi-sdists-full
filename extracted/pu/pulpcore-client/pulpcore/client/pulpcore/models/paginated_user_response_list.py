@@ -24,6 +24,14 @@ from pulpcore.client.pulpcore.models.user_response import UserResponse
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class PaginatedUserResponseList(BaseModel):
     """
     PaginatedUserResponseList

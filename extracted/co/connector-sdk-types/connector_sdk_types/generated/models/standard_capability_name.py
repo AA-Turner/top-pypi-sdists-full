@@ -36,6 +36,7 @@ class StandardCapabilityName(str, Enum):
     DEACTIVATE_ACCOUNT = 'deactivate_account'
     DELETE_ACCOUNT = 'delete_account'
     FIND_ENTITLEMENT_ASSOCIATIONS = 'find_entitlement_associations'
+    GET_ACCOUNT_ENTITLEMENT_ASSOCIATIONS = 'get_account_entitlement_associations'
     GET_AUTHORIZATION_URL = 'get_authorization_url'
     GET_LAST_ACTIVITY = 'get_last_activity'
     HANDLE_AUTHORIZATION_CALLBACK = 'handle_authorization_callback'

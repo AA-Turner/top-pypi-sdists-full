@@ -15,6 +15,11 @@ class SchedulerServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.ManualTriggerCronResolver = channel.unary_unary(
+            "/chalk.server.v1.SchedulerService/ManualTriggerCronResolver",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerCronResolverRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerCronResolverResponse.FromString,
+        )
         self.ManualTriggerScheduledQuery = channel.unary_unary(
             "/chalk.server.v1.SchedulerService/ManualTriggerScheduledQuery",
             request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryRequest.SerializeToString,
@@ -25,6 +30,12 @@ class SchedulerServiceStub(object):
 class SchedulerServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
+    def ManualTriggerCronResolver(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ManualTriggerScheduledQuery(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -34,6 +45,11 @@ class SchedulerServiceServicer(object):
 
 def add_SchedulerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "ManualTriggerCronResolver": grpc.unary_unary_rpc_method_handler(
+            servicer.ManualTriggerCronResolver,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerCronResolverRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerCronResolverResponse.SerializeToString,
+        ),
         "ManualTriggerScheduledQuery": grpc.unary_unary_rpc_method_handler(
             servicer.ManualTriggerScheduledQuery,
             request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryRequest.FromString,
@@ -47,6 +63,35 @@ def add_SchedulerServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class SchedulerService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def ManualTriggerCronResolver(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SchedulerService/ManualTriggerCronResolver",
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerCronResolverRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerCronResolverResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def ManualTriggerScheduledQuery(

@@ -32,15 +32,14 @@ from functools import lru_cache, partial
 from itertools import groupby
 from typing import TYPE_CHECKING, Any, Callable
 
-from sqlalchemy import and_, delete, desc, exists, func, inspect, select, text, tuple_, update
+from sqlalchemy import and_, delete, desc, exists, func, select, text, tuple_, update
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import joinedload, lazyload, load_only, make_transient, selectinload
-from sqlalchemy.orm.attributes import NO_VALUE
 from sqlalchemy.sql import expression
 
 from airflow import settings
-from airflow.api_fastapi.execution_api.datamodels.taskinstance import DagRun as DRDataModel, TIRunContext
-from airflow.callbacks.callback_requests import DagCallbackRequest, DagRunContext, TaskCallbackRequest
+from airflow.api_fastapi.execution_api.datamodels.taskinstance import TIRunContext
+from airflow.callbacks.callback_requests import DagCallbackRequest, TaskCallbackRequest
 from airflow.configuration import conf
 from airflow.dag_processing.bundles.base import BundleUsageTrackingManager
 from airflow.executors import workloads
@@ -132,19 +131,11 @@ class SchedulerDagBag:
 
     @staticmethod
     def _version_from_dag_run(dag_run, session):
-        if not dag_run.bundle_version:
+        if dag_run.bundle_version:
+            dag_version = dag_run.created_dag_version
+        else:
             dag_version = DagVersion.get_latest_version(dag_id=dag_run.dag_id, session=session)
-            if dag_version:
-                return dag_version
-
-        # Check if created_dag_version relationship is already loaded to avoid DetachedInstanceError
-        info = inspect(dag_run)
-        if info.attrs.created_dag_version.loaded_value is not NO_VALUE:
-            # Relationship is already loaded, safe to access
-            return dag_run.created_dag_version
-
-        # Relationship not loaded, fetch it explicitly from current session
-        return session.get(DagVersion, dag_run.created_dag_version_id)
+        return dag_version
 
     def get_dag(self, dag_run: DagRun, session: Session) -> DAG | None:
         version = self._version_from_dag_run(dag_run=dag_run, session=session)
@@ -789,20 +780,6 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
         objects = (log_records.popleft() for _ in range(len(log_records)))
         session.bulk_save_objects(objects=objects, preserve_order=False)
 
-    @staticmethod
-    def _is_metrics_enabled():
-        return any(
-            [
-                conf.getboolean("metrics", "statsd_datadog_enabled", fallback=False),
-                conf.getboolean("metrics", "statsd_on", fallback=False),
-                conf.getboolean("metrics", "otel_on", fallback=False),
-            ]
-        )
-
-    @staticmethod
-    def _is_tracing_enabled():
-        return conf.getboolean("traces", "otel_on")
-
     def _process_executor_events(self, executor: BaseExecutor, session: Session) -> int:
         return SchedulerJobRunner.process_executor_events(
             executor=executor,
@@ -850,8 +827,6 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
             select(TI)
             .where(filter_for_tis)
             .options(selectinload(TI.dag_model))
-            .options(joinedload(TI.dag_run).selectinload(DagRun.consumed_asset_events))
-            .options(joinedload(TI.dag_run).selectinload(DagRun.created_dag_version))
             .options(joinedload(TI.dag_version))
         )
         # row lock this entire set of taskinstances to make sure the scheduler doesn't fail when we have
@@ -972,7 +947,7 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                         ti=ti,
                         msg=msg,
                         context_from_server=TIRunContext(
-                            dag_run=DRDataModel.model_validate(ti.dag_run, from_attributes=True),
+                            dag_run=ti.dag_run,
                             max_tries=ti.max_tries,
                             variables=[],
                             connections=[],
@@ -1270,17 +1245,15 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
             self._mark_backfills_complete,
         )
 
-        if self._is_metrics_enabled() or self._is_tracing_enabled():
-            timers.call_regular_interval(
-                conf.getfloat("scheduler", "pool_metrics_interval", fallback=5.0),
-                self._emit_pool_metrics,
-            )
+        timers.call_regular_interval(
+            conf.getfloat("scheduler", "pool_metrics_interval", fallback=5.0),
+            self._emit_pool_metrics,
+        )
 
-        if self._is_metrics_enabled():
-            timers.call_regular_interval(
-                conf.getfloat("scheduler", "running_metrics_interval", fallback=30.0),
-                self._emit_running_ti_metrics,
-            )
+        timers.call_regular_interval(
+            conf.getfloat("scheduler", "running_metrics_interval", fallback=30.0),
+            self._emit_running_ti_metrics,
+        )
 
         timers.call_regular_interval(
             conf.getfloat("scheduler", "task_instance_heartbeat_timeout_detection_interval", fallback=10.0),
@@ -1324,8 +1297,7 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                 )
 
                 with create_session() as session:
-                    if self._is_tracing_enabled():
-                        self._end_spans_of_externally_ended_ops(session)
+                    self._end_spans_of_externally_ended_ops(session)
 
                     # This will schedule for as many executors as possible.
                     num_queued_tis = self._do_scheduling(session)
@@ -1649,7 +1621,6 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                     AssetEvent.timestamp <= triggered_date,
                     AssetEvent.timestamp > func.coalesce(cte.c.previous_dag_run_run_after, date.min),
                 )
-                .order_by(AssetEvent.timestamp.asc(), AssetEvent.id.asc())
             ).all()
 
             dag_run = dag.create_dagrun(
@@ -1895,10 +1866,6 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                     run_id=dag_run.run_id,
                     bundle_name=dag_model.bundle_name,
                     bundle_version=dag_run.bundle_version,
-                    context_from_server=DagRunContext(
-                        dag_run=dag_run,
-                        last_ti=dag_run.get_last_ti(dag=dag, session=session),
-                    ),
                     is_failure_callback=True,
                     msg="timed_out",
                 )
@@ -2015,7 +1982,6 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                     self._maybe_requeue_stuck_ti(
                         ti=ti,
                         session=session,
-                        executor=executor,
                     )
                     session.commit()
             except NotImplementedError:
@@ -2031,7 +1997,7 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
             )
         )
 
-    def _maybe_requeue_stuck_ti(self, *, ti, session, executor):
+    def _maybe_requeue_stuck_ti(self, *, ti, session):
         """
         Requeue task if it has not been attempted too many times.
 
@@ -2056,45 +2022,14 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                 "Task requeue attempts exceeded max; marking failed. task_instance=%s",
                 ti,
             )
-            msg = f"Task was requeued more than {self._num_stuck_queued_retries} times and will be failed."
             session.add(
                 Log(
                     event="stuck in queued tries exceeded",
                     task_instance=ti.key,
-                    extra=msg,
+                    extra=f"Task was requeued more than {self._num_stuck_queued_retries} times and will be failed.",
                 )
             )
-
-            try:
-                dag = self.scheduler_dag_bag.get_dag(dag_run=ti.dag_run, session=session)
-                task = dag.get_task(ti.task_id)
-            except Exception:
-                self.log.warning(
-                    "The DAG or task could not be found. If a failure callback exists, it will not be run.",
-                    exc_info=True,
-                )
-            else:
-                if task.on_failure_callback:
-                    if inspect(ti).detached:
-                        ti = session.merge(ti)
-                    request = TaskCallbackRequest(
-                        filepath=ti.dag_model.relative_fileloc,
-                        bundle_name=ti.dag_version.bundle_name,
-                        bundle_version=ti.dag_version.bundle_version,
-                        ti=ti,
-                        msg=msg,
-                        context_from_server=TIRunContext(
-                            dag_run=ti.dag_run,
-                            max_tries=ti.max_tries,
-                            variables=[],
-                            connections=[],
-                            xcom_keys_to_clear=[],
-                        ),
-                    )
-                    executor.send_callback(request)
-            finally:
-                ti.set_state(TaskInstanceState.FAILED, session=session)
-                executor.fail(ti.key)
+            ti.set_state(TaskInstanceState.FAILED, session=session)
 
     def _reschedule_stuck_task(self, ti: TaskInstance, session: Session):
         session.execute(
@@ -2369,7 +2304,7 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                 ti=ti,
                 msg=str(task_instance_heartbeat_timeout_message_details),
                 context_from_server=TIRunContext(
-                    dag_run=DRDataModel.model_validate(ti.dag_run, from_attributes=True),
+                    dag_run=ti.dag_run,
                     max_tries=ti.max_tries,
                     variables=[],
                     connections=[],

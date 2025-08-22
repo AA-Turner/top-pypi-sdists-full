@@ -9,7 +9,7 @@ from pytest_mock import MockerFixture
 from sqlmesh.core.config import Config, ModelDefaultsConfig
 from sqlmesh.core.dialect import jinja_query
 from sqlmesh.core.model import SqlModel
-from sqlmesh.core.model.kind import OnDestructiveChange
+from sqlmesh.core.model.kind import OnDestructiveChange, OnAdditiveChange
 from sqlmesh.dbt.common import Dependencies
 from sqlmesh.dbt.context import DbtContext
 from sqlmesh.dbt.loader import sqlmesh_config
@@ -133,6 +133,7 @@ def test_model_to_sqlmesh_fields():
     assert kind.batch_size == 5
     assert kind.lookback == 3
     assert kind.on_destructive_change == OnDestructiveChange.ALLOW
+    assert kind.on_additive_change == OnAdditiveChange.ALLOW
     assert (
         kind.merge_filter.sql(dialect=model.dialect)
         == """55 > "__MERGE_SOURCE__"."b" AND "__MERGE_TARGET__"."session_start" > CURRENT_DATE + INTERVAL '7' DAY"""
@@ -162,11 +163,14 @@ def test_model_to_sqlmesh_fields():
         start="Jan 1 2023",
         batch_size=5,
         batch_concurrency=2,
+        on_schema_change="ignore",
     )
     model = model_config.to_sqlmesh(context)
     assert isinstance(model.kind, IncrementalByTimeRangeKind)
     assert model.kind.batch_concurrency == 2
     assert model.kind.time_column.column.name == "ds"
+    assert model.kind.on_destructive_change == OnDestructiveChange.IGNORE
+    assert model.kind.on_additive_change == OnAdditiveChange.IGNORE
 
 
 def test_test_to_sqlmesh_fields():
@@ -650,6 +654,28 @@ def test_postgres_config():
         "outputs",
         "dev",
     )
+    # 'pass' field instead of 'password'
+    _test_warehouse_config(
+        """
+        dbt-postgres:
+          target: dev
+          outputs:
+            dev:
+              type: postgres
+              host: postgres
+              user: postgres
+              pass: postgres
+              port: 5432
+              dbname: postgres
+              schema: demo
+              threads: 3
+              keepalives_idle: 0
+        """,
+        PostgresConfig,
+        "dbt-postgres",
+        "outputs",
+        "dev",
+    )
 
 
 def test_redshift_config():
@@ -663,6 +689,28 @@ def test_redshift_config():
               host: hostname.region.redshift.amazonaws.com
               user: username
               password: password1
+              port: 5439
+              dbname: analytics
+              schema: analytics
+              threads: 4
+              ra3_node: false
+        """,
+        RedshiftConfig,
+        "dbt-redshift",
+        "outputs",
+        "dev",
+    )
+    # 'pass' field instead of 'password'
+    _test_warehouse_config(
+        """
+        dbt-redshift:
+          target: dev
+          outputs:
+            dev:
+              type: redshift
+              host: hostname.region.redshift.amazonaws.com
+              user: username
+              pass: password1
               port: 5439
               dbname: analytics
               schema: analytics
@@ -895,10 +943,10 @@ def test_connection_args(tmp_path):
     dbt_project_dir = "tests/fixtures/dbt/sushi_test"
 
     config = sqlmesh_config(dbt_project_dir)
-    assert config.gateways["in_memory"].connection.register_comments
-
-    config = sqlmesh_config(dbt_project_dir, register_comments=False)
     assert not config.gateways["in_memory"].connection.register_comments
+
+    config = sqlmesh_config(dbt_project_dir, register_comments=True)
+    assert config.gateways["in_memory"].connection.register_comments
 
 
 def test_custom_dbt_loader():
@@ -988,3 +1036,40 @@ def test_depends_on(assert_exp_eq, sushi_test_project):
 
     # Make sure the query wasn't rendered
     assert not sqlmesh_model._query_renderer._cache
+
+
+@pytest.mark.parametrize(
+    "on_schema_change, expected_additive, expected_destructive",
+    [
+        ("ignore", OnAdditiveChange.IGNORE, OnDestructiveChange.IGNORE),
+        ("fail", OnAdditiveChange.ERROR, OnDestructiveChange.ERROR),
+        ("append_new_columns", OnAdditiveChange.ALLOW, OnDestructiveChange.IGNORE),
+        ("sync_all_columns", OnAdditiveChange.ALLOW, OnDestructiveChange.ALLOW),
+    ],
+)
+def test_on_schema_change_properties(
+    on_schema_change: str,
+    expected_additive: OnAdditiveChange,
+    expected_destructive: OnDestructiveChange,
+):
+    model_config = ModelConfig(
+        name="name",
+        package_name="package",
+        alias="model",
+        schema="custom",
+        database="database",
+        materialized=Materialization.INCREMENTAL,
+        sql="SELECT * FROM foo.table",
+        time_column="ds",
+        start="Jan 1 2023",
+        batch_size=5,
+        batch_concurrency=2,
+        on_schema_change=on_schema_change,
+    )
+    context = DbtContext()
+    context.project_name = "Foo"
+    context.target = DuckDbConfig(name="target", schema="foo")
+    model = model_config.to_sqlmesh(context)
+
+    assert model.on_additive_change == expected_additive
+    assert model.on_destructive_change == expected_destructive

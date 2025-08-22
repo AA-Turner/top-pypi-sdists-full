@@ -44,7 +44,7 @@ from chalk.features.filter import Filter, TimeDelta, ClauseJoinWithAndException
 from chalk.features.tag import Tags
 from chalk.features.underscore import Underscore
 from chalk.serialization.parsed_annotation import ParsedAnnotation
-from chalk.utils.collections import ensure_tuple, get_unique_item, OrderedSet
+from chalk.utils.collections import ensure_tuple, get_unique_item, FrozenOrderedSet, OrderedSet
 from chalk.utils.duration import CHALK_MAX_TIMEDELTA, Duration, parse_chalk_duration
 from chalk.utils.import_utils import get_type_checking_imports
 from chalk.utils.json import JSON, pyarrow_json_type
@@ -174,7 +174,7 @@ class WindowConfigResolved:
     as could be the case with count, we will
     pick the primary key"""
 
-    aggregation_kwargs: Sequence[Tuple[Any, Any]]
+    aggregation_kwargs: FrozenOrderedSet[Tuple[str, Any]]
     """Only some aggregations allow kwargs, namely 'approx_top_k'."""
 
     pyarrow_dtype: pa.DataType

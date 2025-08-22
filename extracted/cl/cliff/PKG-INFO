@@ -1,22 +1,24 @@
 Metadata-Version: 2.1
 Name: cliff
-Version: 4.10.0
+Version: 4.11.0
 Summary: Command Line Interface Formulation Framework
-Home-page: https://docs.openstack.org/cliff/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/cliff/
+Project-URL: Repository, https://opendev.org/openstack/cliff/
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Intended Audience :: Developers
-Classifier: Environment :: Console
 Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: autopage>=0.4.0
 Requires-Dist: cmd2>=1.0.0
@@ -48,4 +50,3 @@ extensions.
 * Source: https://opendev.org/openstack/cliff
 * Bugs: https://storyboard.openstack.org/#!/project/openstack/cliff
 * Contributors: https://github.com/openstack/cliff/graphs/contributors
-

@@ -16,7 +16,7 @@ import hypothesis.strategies
 import numpy as np
 import polars as pl
 import whenever
-from hypothesis import given
+from hypothesis import assume, given
 from hypothesis.strategies import (
     DataObject,
     SearchStrategy,
@@ -57,11 +57,13 @@ from polars._typing import IntoExprColumn, SchemaDict
 from polars.schema import Schema
 from polars.testing import assert_frame_equal, assert_series_equal
 from pytest import mark, param, raises
+from scipy.stats import norm
 from whenever import DateDelta, DateTimeDelta, PlainDateTime, TimeDelta, ZonedDateTime
 
 import tests.test_math
 import utilities.polars
 from utilities.hypothesis import (
+    assume_does_not_raise,
     date_deltas,
     date_periods,
     date_time_deltas,
@@ -81,7 +83,6 @@ from utilities.hypothesis import (
 from utilities.numpy import DEFAULT_RNG
 from utilities.pathlib import PWD
 from utilities.polars import (
-    AppendDataClassError,
     BooleanValueCountsError,
     ColumnsToDictError,
     DatePeriodDType,
@@ -100,6 +101,10 @@ from utilities.polars import (
     SelectExactError,
     SetFirstRowAsColumnsError,
     TimePeriodDType,
+    _AppendRowExtraKeysError,
+    _AppendRowMissingKeysError,
+    _AppendRowNullColumnsError,
+    _AppendRowPredicateError,
     _check_polars_dataframe_predicates,
     _check_polars_dataframe_schema_list,
     _check_polars_dataframe_schema_set,
@@ -143,7 +148,7 @@ from utilities.polars import (
     all_series,
     any_dataframe_columns,
     any_series,
-    append_dataclass,
+    append_row,
     are_frames_equal,
     bernoulli,
     boolean_value_counts,
@@ -180,7 +185,8 @@ from utilities.polars import (
     map_over_columns,
     nan_sum_agg,
     nan_sum_horizontal,
-    normal,
+    normal_pdf,
+    normal_rv,
     number_of_decimals,
     offset_datetime,
     one_column,
@@ -191,6 +197,7 @@ from utilities.polars import (
     reify_exprs,
     replace_time_zone,
     round_to_float,
+    search_period,
     select_exact,
     serialize_dataframe,
     serialize_series,
@@ -221,6 +228,7 @@ from utilities.whenever import (
     get_now,
     get_now_plain,
     get_today,
+    to_zoned_date_time,
 )
 from utilities.zoneinfo import UTC, to_time_zone_name
 
@@ -355,91 +363,89 @@ class TestAnyAllDataFrameColumnsSeries:
         assert_series_equal(result, self.exp_any)
 
 
-class TestAppendDataClass:
-    @given(
-        data=fixed_dictionaries({
-            "a": int64s() | none(),
-            "b": floats() | none(),
-            "c": text_ascii() | none(),
-        })
+class TestAppendRow:
+    rows: ClassVar[list[tuple[int, int]]] = [(i, 2 * i) for i in range(3)]
+    schema: ClassVar[SchemaDict] = {"x": Int64, "y": Int64}
+    df: ClassVar[DataFrame] = DataFrame(data=rows, schema=schema, orient="row")
+
+    @mark.parametrize(
+        "row", [param({"x": 3, "y": 6}), param({"x": 3, "y": 6, "z": None})]
     )
-    def test_columns_and_fields_equal(self, *, data: StrMapping) -> None:
-        df = DataFrame(schema={"a": Int64, "b": Float64, "c": String})
+    def test_main(self, *, row: StrMapping) -> None:
+        result = append_row(self.df, row)
+        expected = DataFrame(
+            data=[*self.rows, (3, 6)], schema=self.schema, orient="row"
+        )
+        assert_frame_equal(result, expected)
 
-        @dataclass(kw_only=True, slots=True)
-        class Row:
-            a: int | None = None
-            b: float | None = None
-            c: str | None = None
+    def test_missing_key(self) -> None:
+        row = {"x": 3}
+        result = append_row(self.df, row)
+        expected = DataFrame(
+            data=[*self.rows, (3, None)], schema=self.schema, orient="row"
+        )
+        assert_frame_equal(result, expected)
 
-        row = Row(**data)
-        result = append_dataclass(df, row)
-        height = 0 if (row.a is None) and (row.b is None) and (row.c is None) else 1
-        check_polars_dataframe(result, height=height, schema_list=df.schema)
+    def test_disallow_missing_selected(self) -> None:
+        row = {"x": 3}
+        result = append_row(self.df, row, disallow_missing="x")
+        expected = DataFrame(
+            data=[*self.rows, (3, None)], schema=self.schema, orient="row"
+        )
+        assert_frame_equal(result, expected)
 
-    @given(data=fixed_dictionaries({"a": int64s() | none(), "b": floats() | none()}))
-    def test_extra_column(self, *, data: StrMapping) -> None:
-        df = DataFrame(schema={"a": Int64, "b": Float64, "c": String})
+    def test_disallow_null_selected(self) -> None:
+        row = {"x": 3, "y": None}
+        result = append_row(self.df, row, disallow_null="x")
+        expected = DataFrame(
+            data=[*self.rows, (3, None)], schema=self.schema, orient="row"
+        )
+        assert_frame_equal(result, expected)
 
-        @dataclass(kw_only=True, slots=True)
-        class Row:
-            a: int | None = None
-            b: float | None = None
+    def test_in_place(self) -> None:
+        df = DataFrame(data=self.rows, schema=self.schema, orient="row")
+        assert df.height == 3
+        row = {"x": 3, "y": 6}
+        _ = append_row(df, row, in_place=True)
+        assert df.height == 4
 
-        row = Row(**data)
-        result = append_dataclass(df, row)
-        height = 0 if (row.a is None) and (row.b is None) else 1
-        check_polars_dataframe(result, height=height, schema_list=df.schema)
+    def test_error_predicate(self) -> None:
+        row = {"x": 3}
+        with raises(_AppendRowPredicateError, match="Predicate failed; got {'x': 3}"):
+            _ = append_row(self.df, row, predicate=lambda row: "y" in row)
 
-    @given(data=fixed_dictionaries({"a": int64s() | none(), "b": floats() | none()}))
-    def test_extra_field_but_none(self, *, data: StrMapping) -> None:
-        df = DataFrame(schema={"a": Int64, "b": Float64})
+    def test_error_disallow_extra(self) -> None:
+        row = {"x": 3, "y": 6, "z": None}
+        with raises(_AppendRowExtraKeysError, match=r"Extra key\(s\) found; got {'z'}"):
+            _ = append_row(self.df, row, disallow_extra=True)
 
-        @dataclass(kw_only=True, slots=True)
-        class Row:
-            a: int | None = None
-            b: float | None = None
-            c: str | None = None
-
-        row = Row(**data)
-        result = append_dataclass(df, row)
-        height = 0 if (row.a is None) and (row.b is None) else 1
-        check_polars_dataframe(result, height=height, schema_list=df.schema)
-
-    @given(data=fixed_dictionaries({"datetime": zoned_date_times()}))
-    def test_zoned_datetime(self, *, data: StrMapping) -> None:
-        df = DataFrame(schema={"datetime": DatetimeUTC})
-
-        @dataclass(kw_only=True, slots=True)
-        class Row:
-            datetime: ZonedDateTime
-
-        row = Row(**data)
-        result = append_dataclass(df, row)
-        check_polars_dataframe(result, height=1, schema_list=df.schema)
-
-    @given(
-        data=fixed_dictionaries({
-            "a": int64s() | none(),
-            "b": floats() | none(),
-            "c": text_ascii(),
-        })
-    )
-    def test_error(self, *, data: StrMapping) -> None:
-        df = DataFrame(schema={"a": Int64, "b": Float64})
-
-        @dataclass(kw_only=True, slots=True)
-        class Row:
-            a: int | None = None
-            b: float | None = None
-            c: str
-
-        row = Row(**data)
+    def test_error_disallow_missing_all(self) -> None:
         with raises(
-            AppendDataClassError,
-            match="Dataclass fields .* must be a subset of DataFrame columns .*; dataclass had extra items .*",
+            _AppendRowMissingKeysError,
+            match=r"Missing key\(s\) found; got {'[xy]', '[xy]'}",
         ):
-            _ = append_dataclass(df, row)
+            _ = append_row(self.df, {}, disallow_missing=True)
+
+    def test_error_disallow_missing_selected(self) -> None:
+        with raises(
+            _AppendRowMissingKeysError, match=r"Missing key\(s\) found; got {'x'}"
+        ):
+            _ = append_row(self.df, {}, disallow_missing="x")
+
+    def test_error_disallow_null_all(self) -> None:
+        row = {"x": None, "y": None}
+        with raises(
+            _AppendRowNullColumnsError,
+            match=r"Null column\(s\) found; got {'[xy]', '[xy]'}",
+        ):
+            _ = append_row(self.df, row, disallow_null=True)
+
+    def test_error_disallow_null_selected(self) -> None:
+        row = {"x": None, "y": None}
+        with raises(
+            _AppendRowNullColumnsError, match=r"Null column\(s\) found; got {'x'}"
+        ):
+            _ = append_row(self.df, row, disallow_null="x")
 
 
 class TestAreFramesEqual:
@@ -832,21 +838,20 @@ class TestChoice:
 
 
 class TestColumnsToDict:
-    def test_main(self) -> None:
-        df = DataFrame(
-            data=[{"a": 1, "b": 11}, {"a": 2, "b": 12}, {"a": 3, "b": 13}],
-            schema={"a": Int64, "b": Int64},
-        )
-        mapping = columns_to_dict(df, "a", "b")
-        assert mapping == {1: 11, 2: 12, 3: 13}
+    schema: ClassVar[SchemaDict] = {"x": Int64, "y": Int64}
+
+    @mark.parametrize("x", [param("x"), param(col.x)])
+    @mark.parametrize("y", [param("y"), param(col.y)])
+    def test_main(self, *, x: IntoExprColumn, y: IntoExprColumn) -> None:
+        df = DataFrame(data=[(1, 2), (3, 4), (5, 6)], schema=self.schema, orient="row")
+        mapping = columns_to_dict(df, x, y)
+        expected = {1: 2, 3: 4, 5: 6}
+        assert mapping == expected
 
     def test_error(self) -> None:
-        df = DataFrame(
-            data=[{"a": 1, "b": 11}, {"a": 2, "b": 12}, {"a": 1, "b": 13}],
-            schema={"a": Int64, "b": Int64},
-        )
-        with raises(ColumnsToDictError, match="DataFrame must be unique on 'a':\n\n.*"):
-            _ = columns_to_dict(df, "a", "b")
+        df = DataFrame(data=[(1, 1), (1, 2), (1, 3)], schema=self.schema, orient="row")
+        with raises(ColumnsToDictError, match="DataFrame must be unique on 'x':\n\n.*"):
+            _ = columns_to_dict(df, "x", "y")
 
 
 class TestConcatSeries:
@@ -2195,22 +2200,39 @@ class TestNanSumHorizontal:
         assert result.item() == expected
 
 
-class TestNormal:
+class TestNormalPDF:
+    @given(
+        xs=lists(float64s(), max_size=10),
+        loc=float64s(),
+        scale=float64s(min_value=0.0, exclude_min=True),
+    )
+    def test_main(self, *, xs: list[float], loc: float, scale: float) -> None:
+        x = Series(name="x", values=xs, dtype=Float64)
+        series = normal_pdf(x, loc=loc, scale=scale)
+        _ = assume(series.is_finite().all())
+        with assume_does_not_raise(
+            RuntimeWarning, match="overflow encountered in (subtract|square|divide)"
+        ):
+            expected = norm.pdf(xs, loc=loc, scale=scale)
+        assert allclose(series, expected)
+
+
+class TestNormalRV:
     @given(length=hypothesis.strategies.integers(0, 10))
     def test_int(self, *, length: int) -> None:
-        series = normal(length)
+        series = normal_rv(length)
         self._assert(series, length)
 
     @given(length=hypothesis.strategies.integers(0, 10))
     def test_series(self, *, length: int) -> None:
         orig = int_range(end=length, eager=True)
-        series = normal(orig)
+        series = normal_rv(orig)
         self._assert(series, length)
 
     @given(length=hypothesis.strategies.integers(0, 10))
     def test_dataframe(self, *, length: int) -> None:
         df = int_range(end=length, eager=True).to_frame()
-        series = normal(df)
+        series = normal_rv(df)
         self._assert(series, length)
 
     def _assert(self, series: Series, length: int, /) -> None:
@@ -2452,6 +2474,94 @@ class TestRoundToFloat:
             match="At least 1 of the dividend and/or divisor must be a Series; got .* and .*",
         ):
             _ = round_to_float(cast("Any", x), cast("Any", y))
+
+
+class TestSearchPeriod:
+    @mark.parametrize(
+        ("time", "exp_start", "exp_end"),
+        [
+            param(whenever.Time(8, 58), None, None),
+            param(whenever.Time(8, 59), None, None),
+            param(whenever.Time(9), 0, None),
+            param(whenever.Time(9, 1), 0, 0),
+            param(whenever.Time(9, 59), 0, 0),
+            param(whenever.Time(10), 1, 0),
+            param(whenever.Time(10, 1), 1, 1),
+            param(whenever.Time(10, 59), 1, 1),
+            param(whenever.Time(11), 2, 1),
+            param(whenever.Time(11, 1), 2, 2),
+            param(whenever.Time(11, 59), 2, 2),
+            param(whenever.Time(12), None, 2),
+            param(whenever.Time(12, 1), None, None),
+            param(whenever.Time(12, 59), None, None),
+            param(whenever.Time(13), 3, None),
+            param(whenever.Time(13, 1), 3, 3),
+            param(whenever.Time(13, 59), 3, 3),
+            param(whenever.Time(14), None, 3),
+            param(whenever.Time(14, 1), None, None),
+            param(whenever.Time(14, 59), None, None),
+            param(whenever.Time(15), 4, None),
+            param(whenever.Time(15, 1), 4, 4),
+            param(whenever.Time(15, 59), 4, 4),
+            param(whenever.Time(16), None, 4),
+            param(whenever.Time(16, 1), None, None),
+            param(whenever.Time(16, 2), None, None),
+        ],
+    )
+    @mark.parametrize("start_or_end", [param("start"), param("end")])
+    def test_main(
+        self,
+        *,
+        time: whenever.Time,
+        start_or_end: Literal["start", "end"],
+        exp_start: int | None,
+        exp_end: int | None,
+    ) -> None:
+        date = whenever.Date(2000, 1, 1)
+        sr = DataFrame(
+            data=[
+                (
+                    date.at(whenever.Time(s)).py_datetime(),
+                    date.at(whenever.Time(e)).py_datetime(),
+                )
+                for s, e in [(9, 10), (10, 11), (11, 12), (13, 14), (15, 16)]
+            ],
+            schema={"start": DatetimeUTC, "end": DatetimeUTC},
+            orient="row",
+        ).with_columns(datetime=struct("start", "end"))["datetime"]
+        assert len(sr) == 5
+        date_time = date.at(time).assume_tz(UTC.key)
+        match start_or_end:
+            case "start":
+                expected = exp_start
+            case "end":
+                expected = exp_end
+            case never:
+                assert_never(never)
+        index = search_period(sr, date_time, start_or_end=start_or_end)
+        if expected is None:
+            assert index is None
+        else:
+            assert index is not None
+            assert 0 <= index <= (len(sr) - 1)
+            start, end = map(
+                to_zoned_date_time, cast("Iterable[dt.datetime]", sr[index].values())
+            )
+            match start_or_end:
+                case "start":
+                    assert start <= date_time < end
+                case "end":
+                    assert start < date_time <= end
+                case never:
+                    assert_never(never)
+            if index > 0:
+                prev_end = to_zoned_date_time(cast("dt.datetime", sr[index - 1]["end"]))
+                assert prev_end <= date_time
+            if index < (len(sr) - 1):
+                next_start = to_zoned_date_time(
+                    cast("dt.datetime", sr[index + 1]["start"])
+                )
+                assert date_time <= next_start
 
 
 class TestSelectExact:

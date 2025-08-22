@@ -152,6 +152,45 @@ class CreateProjectResponse(_message.Message):
     project: Project
     def __init__(self, project: _Optional[_Union[Project, _Mapping]] = ...) -> None: ...
 
+class UpdateProjectOperation(_message.Message):
+    __slots__ = ("name", "git_repo")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    GIT_REPO_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    git_repo: str
+    def __init__(self, name: _Optional[str] = ..., git_repo: _Optional[str] = ...) -> None: ...
+
+class UpdateProjectRequest(_message.Message):
+    __slots__ = ("id", "update", "update_mask")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    update: UpdateProjectOperation
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        update: _Optional[_Union[UpdateProjectOperation, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateProjectResponse(_message.Message):
+    __slots__ = ("project",)
+    PROJECT_FIELD_NUMBER: _ClassVar[int]
+    project: Project
+    def __init__(self, project: _Optional[_Union[Project, _Mapping]] = ...) -> None: ...
+
+class ArchiveProjectRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class ArchiveProjectResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class CreateEnvironmentRequest(_message.Message):
     __slots__ = ("project_id", "name", "is_default", "source_bundle_bucket")
     PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -183,6 +222,7 @@ class UpdateEnvironmentOperation(_message.Message):
         "private_pip_repositories",
         "online_store_secret",
         "feature_store_secret",
+        "is_default",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -197,11 +237,13 @@ class UpdateEnvironmentOperation(_message.Message):
     PRIVATE_PIP_REPOSITORIES_FIELD_NUMBER: _ClassVar[int]
     ONLINE_STORE_SECRET_FIELD_NUMBER: _ClassVar[int]
     FEATURE_STORE_SECRET_FIELD_NUMBER: _ClassVar[int]
+    IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
     specs_config_json: str
     additional_env_vars: _containers.ScalarMap[str, str]
     private_pip_repositories: str
     online_store_secret: str
     feature_store_secret: str
+    is_default: bool
     def __init__(
         self,
         specs_config_json: _Optional[str] = ...,
@@ -209,6 +251,7 @@ class UpdateEnvironmentOperation(_message.Message):
         private_pip_repositories: _Optional[str] = ...,
         online_store_secret: _Optional[str] = ...,
         feature_store_secret: _Optional[str] = ...,
+        is_default: bool = ...,
     ) -> None: ...
 
 class UpdateEnvironmentRequest(_message.Message):
@@ -243,7 +286,15 @@ class GetTeamResponse(_message.Message):
     def __init__(self, team: _Optional[_Union[Team, _Mapping]] = ...) -> None: ...
 
 class CreateServiceTokenRequest(_message.Message):
-    __slots__ = ("name", "permissions", "custom_claims", "customer_claims", "feature_tag_to_permission")
+    __slots__ = (
+        "name",
+        "permissions",
+        "custom_claims",
+        "customer_claims",
+        "feature_tag_to_permission",
+        "default_permission",
+        "team_permissions",
+    )
     class FeatureTagToPermissionEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -261,11 +312,15 @@ class CreateServiceTokenRequest(_message.Message):
     CUSTOM_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_TAG_TO_PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     name: str
     permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     custom_claims: _containers.RepeatedScalarFieldContainer[str]
     customer_claims: _containers.RepeatedCompositeFieldContainer[_agent_pb2.CustomClaim]
     feature_tag_to_permission: _containers.ScalarMap[str, _featurepermission_pb2.FeaturePermission]
+    default_permission: _featurepermission_pb2.FeaturePermission
+    team_permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -273,6 +328,8 @@ class CreateServiceTokenRequest(_message.Message):
         custom_claims: _Optional[_Iterable[str]] = ...,
         customer_claims: _Optional[_Iterable[_Union[_agent_pb2.CustomClaim, _Mapping]]] = ...,
         feature_tag_to_permission: _Optional[_Mapping[str, _featurepermission_pb2.FeaturePermission]] = ...,
+        default_permission: _Optional[_Union[_featurepermission_pb2.FeaturePermission, str]] = ...,
+        team_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
     ) -> None: ...
 
 class CreateServiceTokenResponse(_message.Message):
@@ -401,7 +458,15 @@ class ListServiceTokensResponse(_message.Message):
     ) -> None: ...
 
 class UpdateServiceTokenRequest(_message.Message):
-    __slots__ = ("client_id", "name", "permissions", "customer_claims", "feature_tag_to_permission")
+    __slots__ = (
+        "client_id",
+        "name",
+        "permissions",
+        "customer_claims",
+        "feature_tag_to_permission",
+        "default_permission",
+        "team_permissions",
+    )
     class FeatureTagToPermissionEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -419,11 +484,15 @@ class UpdateServiceTokenRequest(_message.Message):
     PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_TAG_TO_PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     name: str
     permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     customer_claims: _containers.RepeatedCompositeFieldContainer[_agent_pb2.CustomClaim]
     feature_tag_to_permission: _containers.ScalarMap[str, _featurepermission_pb2.FeaturePermission]
+    default_permission: _featurepermission_pb2.FeaturePermission
+    team_permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     def __init__(
         self,
         client_id: _Optional[str] = ...,
@@ -431,6 +500,8 @@ class UpdateServiceTokenRequest(_message.Message):
         permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
         customer_claims: _Optional[_Iterable[_Union[_agent_pb2.CustomClaim, _Mapping]]] = ...,
         feature_tag_to_permission: _Optional[_Mapping[str, _featurepermission_pb2.FeaturePermission]] = ...,
+        default_permission: _Optional[_Union[_featurepermission_pb2.FeaturePermission, str]] = ...,
+        team_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
     ) -> None: ...
 
 class UpdateServiceTokenResponse(_message.Message):
@@ -638,5 +709,25 @@ class ArchiveEnvironmentRequest(_message.Message):
     def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class ArchiveEnvironmentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeactivateUserRequest(_message.Message):
+    __slots__ = ("user_id",)
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    user_id: str
+    def __init__(self, user_id: _Optional[str] = ...) -> None: ...
+
+class DeactivateUserResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ReactivateUserRequest(_message.Message):
+    __slots__ = ("user_id",)
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    user_id: str
+    def __init__(self, user_id: _Optional[str] = ...) -> None: ...
+
+class ReactivateUserResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...

@@ -130,19 +130,23 @@ CFG_TO_PY_SETUP_ARGS = (
 )
 
 DEPRECATED_CFG = {
-    ('metadata' 'home_page'): (
+    ('metadata', 'home_page'): (
         "Use '[metadata] url' (setup.cfg) or '[project.urls]' "
         "(pyproject.toml) instead"
     ),
-    ('metadata' 'summary'): (
+    ('metadata', 'summary'): (
         "Use '[metadata] description' (setup.cfg) or '[project] description' "
         "(pyproject.toml) instead"
     ),
-    ('metadata' 'classifier'): (
+    ('metadata', 'description_file'): (
+        "Use '[metadata] long_description' (setup.cfg) or '[project] readme' "
+        "(pyproject.toml) instead"
+    ),
+    ('metadata', 'classifier'): (
         "Use '[metadata] classifiers' (setup.cfg) or '[project] classifiers' "
         "(pyproject.toml) instead"
     ),
-    ('metadata' 'platform'): (
+    ('metadata', 'platform'): (
         "Use '[metadata] platforms' (setup.cfg) or "
         "'[tool.setuptools] platforms' (pyproject.toml) instead"
     ),
@@ -198,17 +202,17 @@ DEPRECATED_CFG = {
         "Use '[options] py_modules' (setup.cfg) or '[tools.setuptools] "
         "py-modules' (pyproject.toml) instead"
     ),
-    ('backwards_compat' 'zip_safe'): (
+    ('backwards_compat', 'zip_safe'): (
         "This option is obsolete as it was only relevant in the context of "
         "eggs"
     ),
-    ('backwards_compat' 'dependency_links'): (
+    ('backwards_compat', 'dependency_links'): (
         "This option is ignored by pip starting from pip 19.0"
     ),
-    ('backwards_compat' 'tests_require'): (
+    ('backwards_compat', 'tests_require'): (
         "This option is ignored by pip starting from pip 19.0"
     ),
-    ('backwards_compat' 'include_package_data'): (
+    ('backwards_compat', 'include_package_data'): (
         "Use '[options] include_package_data' (setup.cfg) or "
         "'[tools.setuptools] include-package-data' (pyproject.toml) instead"
     ),
@@ -392,6 +396,25 @@ def cfg_to_args(path='setup.cfg', script_args=()):
     return kwargs
 
 
+def _read_description_file(config):
+    """Handle the legacy 'description_file' option."""
+    description_files = has_get_option(config, 'metadata', 'description_file')
+    if not description_files:
+        return None
+
+    description_files = split_multiline(description_files)
+
+    data = ''
+    for filename in description_files:
+        description_file = io.open(filename, encoding='utf-8')
+        try:
+            data += description_file.read().strip() + '\n\n'
+        finally:
+            description_file.close()
+
+    return data
+
+
 def setup_cfg_to_setup_kwargs(config, script_args=()):
     """Convert config options to kwargs.
 
@@ -405,36 +428,54 @@ def setup_cfg_to_setup_kwargs(config, script_args=()):
     # parse env_markers.
     all_requirements = {}
 
+    # We want people to use description and long_description over summary and
+    # description but there is obvious overlap. If we see the both of the
+    # former being used, don't normalize
+    skip_description_normalization = False
+    if has_get_option(config, 'metadata', 'description') and (
+        has_get_option(config, 'metadata', 'long_description')
+        or has_get_option(config, 'metadata', 'description_file')
+    ):
+        kwargs['description'] = has_get_option(
+            config, 'metadata', 'description'
+        )
+        long_description = has_get_option(
+            config, 'metadata', 'long_description'
+        )
+        if long_description:
+            kwargs['long_description'] = long_description
+        else:
+            kwargs['long_description'] = _read_description_file(config)
+
+        skip_description_normalization = True
+
     for alias, arg in CFG_TO_PY_SETUP_ARGS:
-
-        if (alias, arg) in DEPRECATED_CFG:
-            warnings.warn(
-                "The '[%s] %s' option is deprecated: %s"
-                % (alias, arg, DEPRECATED_CFG[(alias, arg)]),
-                DeprecationWarning,
-            )
-
         section, option = alias
 
+        if skip_description_normalization and alias in (
+            ('metadata', 'summary'),
+            ('metadata', 'description'),
+        ):
+            continue
+
         in_cfg_value = has_get_option(config, section, option)
-        if not in_cfg_value and arg == "long_description":
-            in_cfg_value = has_get_option(config, section, "description_file")
-            if in_cfg_value:
-                in_cfg_value = split_multiline(in_cfg_value)
-                value = ''
-                for filename in in_cfg_value:
-                    description_file = io.open(filename, encoding='utf-8')
-                    try:
-                        value += description_file.read().strip() + '\n\n'
-                    finally:
-                        description_file.close()
-                in_cfg_value = value
+
+        if alias == ('metadata', 'description') and not in_cfg_value:
+            in_cfg_value = _read_description_file(config)
 
         if not in_cfg_value:
             continue
 
+        if alias in DEPRECATED_CFG:
+            warnings.warn(
+                "The '[%s] %s' option is deprecated: %s"
+                % (alias[0], alias[1], DEPRECATED_CFG[alias]),
+                DeprecationWarning,
+            )
+
         if arg in CSV_FIELDS:
             in_cfg_value = split_csv(in_cfg_value)
+
         if arg in MULTI_FIELDS:
             in_cfg_value = split_multiline(in_cfg_value)
         elif arg in MAP_FIELDS:

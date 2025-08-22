@@ -1105,6 +1105,7 @@ class DatasetRevisionResponse(BaseModel):
     num_computers: int = 1
     errors: Optional[List[ChalkError]] = None
     metadata: Optional[Mapping[str, Any]] = None
+    query_has_errors: bool = False
 
 
 class SetDatasetRevisionMetadataRequest(BaseModel):
@@ -1144,6 +1145,7 @@ class DatasetRecomputeResponse(DatasetRevisionResponse):
             dashboard_url=revision.dashboard_url,
             errors=errors,
             num_computers=1,
+            query_has_errors=revision.query_has_errors,
         )
 
 
@@ -1220,6 +1222,7 @@ class DatasetRevisionInfoResponse(BaseModel):
     type: DatasetRevisionResponseType
     urls: Optional[Mapping[ShardBatchKey, str]] = None
     error: Optional[str] = None
+    query_has_errors: bool = False
 
     class Config:
         json_encoders = {ShardBatchKey: lambda v: str(v)}

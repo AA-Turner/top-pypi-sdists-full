@@ -64,6 +64,8 @@ class JobQueueItem(_message.Message):
         "cancelation_requested_at",
         "max_attempts",
         "mainline_deployment_id",
+        "shard_id",
+        "job_index",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -84,6 +86,8 @@ class JobQueueItem(_message.Message):
     CANCELATION_REQUESTED_AT_FIELD_NUMBER: _ClassVar[int]
     MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
     MAINLINE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SHARD_ID_FIELD_NUMBER: _ClassVar[int]
+    JOB_INDEX_FIELD_NUMBER: _ClassVar[int]
     id: int
     created_at: _timestamp_pb2.Timestamp
     environment_id: str
@@ -103,6 +107,8 @@ class JobQueueItem(_message.Message):
     cancelation_requested_at: _timestamp_pb2.Timestamp
     max_attempts: int
     mainline_deployment_id: str
+    shard_id: int
+    job_index: int
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -124,6 +130,8 @@ class JobQueueItem(_message.Message):
         cancelation_requested_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         max_attempts: _Optional[int] = ...,
         mainline_deployment_id: _Optional[str] = ...,
+        shard_id: _Optional[int] = ...,
+        job_index: _Optional[int] = ...,
     ) -> None: ...
 
 class GetDataPlaneJobQueueRequest(_message.Message):

@@ -1,4 +1,3 @@
-from orionis.app import Orionis
 from orionis.console.base.command import BaseCommand
 from orionis.console.exceptions import CLIOrionisRuntimeError
 from orionis.foundation.contracts.application import IApplication

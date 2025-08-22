@@ -133,10 +133,7 @@ class TableNode(Node):
         self.table_type = value
     
     def text(self) -> str:
-        """Convert table to text representation with same improvements as to_dataframe()."""
-        from edgar.documents.utils.table_matrix import TableMatrix, ColumnAnalyzer
-        from edgar.documents.utils.currency_merger import CurrencyColumnMerger
-        
+        """Convert table to text representation."""
         lines = []
         
         # Add caption if present
@@ -144,52 +141,20 @@ class TableNode(Node):
             lines.append(f"Table: {self.caption}")
             lines.append("")
         
-        # Build matrix to handle colspan/rowspan and apply improvements
-        matrix = TableMatrix()
-        matrix.build_from_rows(self.headers, self.rows)
+        # Add headers
+        for header_row in self.headers:
+            header_text = ' | '.join(cell.text() for cell in header_row)
+            lines.append(header_text)
         
-        # Remove spacing columns
-        analyzer = ColumnAnalyzer(matrix)
-        clean_matrix = matrix.filter_spacing_columns()
-        
-        # Merge currency columns
-        currency_merger = CurrencyColumnMerger(clean_matrix)
-        currency_merger.detect_currency_pairs()
-        if currency_merger.merge_pairs:
-            clean_matrix = currency_merger.apply_merges()
-        
-        # Add headers from cleaned matrix
         if self.headers:
-            for row_idx in range(len(self.headers)):
-                expanded_row = clean_matrix.get_expanded_row(row_idx)
-                header_texts = []
-                for cell in expanded_row:
-                    if cell is not None:
-                        header_texts.append(cell.text())
-                    else:
-                        header_texts.append('')
-                if header_texts:
-                    header_text = ' | '.join(header_texts)
-                    lines.append(header_text)
-            
             # Add separator
             lines.append('-' * 50)
         
-        # Add data rows from cleaned matrix
-        start_row = len(self.headers) if self.headers else 0
-        for row_idx in range(start_row, clean_matrix.row_count):
-            expanded_row = clean_matrix.get_expanded_row(row_idx)
-            row_texts = []
-            for cell in expanded_row:
-                if cell is not None:
-                    row_texts.append(cell.text())
-                else:
-                    row_texts.append('')
-            if row_texts and any(t.strip() for t in row_texts):
-                row_text = ' | '.join(row_texts)
-                lines.append(row_text)
+        # Add data rows
+        for row in self.rows:
+            lines.append(row.text())
         
-        # Add footer (if present)
+        # Add footer
         if self.footer:
             lines.append('-' * 50)
             for row in self.footer:
@@ -230,125 +195,41 @@ class TableNode(Node):
         return '\n'.join(parts)
     
     def to_dataframe(self) -> pd.DataFrame:
-        """Convert table to pandas DataFrame with proper colspan/rowspan handling."""
-        from edgar.documents.utils.table_matrix import TableMatrix, ColumnAnalyzer
-        from edgar.documents.utils.currency_merger import CurrencyColumnMerger
-        
-        # Build matrix to handle colspan/rowspan
-        matrix = TableMatrix()
-        matrix.build_from_rows(self.headers, self.rows)
-        
-        # Remove spacing columns
-        analyzer = ColumnAnalyzer(matrix)
-        clean_matrix = matrix.filter_spacing_columns()
-        
-        # Merge currency columns ($ + value)
-        currency_merger = CurrencyColumnMerger(clean_matrix)
-        currency_merger.detect_currency_pairs()
-        if currency_merger.merge_pairs:
-            clean_matrix = currency_merger.apply_merges()
-        
-        # Extract headers with proper alignment
+        """Convert table to pandas DataFrame."""
+        # Extract column headers
         if self.headers:
-            # Get expanded headers from matrix
-            header_arrays = []
-            num_header_rows = len(self.headers)
-            
-            for row_idx in range(num_header_rows):
-                expanded_row = clean_matrix.get_expanded_row(row_idx)
-                header_texts = []
-                
-                prev_text = ''
-                for i, cell in enumerate(expanded_row):
-                    if cell is not None:
-                        text = cell.text().strip()
-                        header_texts.append(text)
-                        prev_text = text
-                    else:
-                        # For spanned cells in first row, repeat the spanning header
-                        # For subsequent rows, use empty string
-                        if row_idx == 0 and prev_text:
-                            header_texts.append(prev_text)
-                        else:
-                            header_texts.append('')
-                
-                # Fill in spanned cells with parent header text for MultiIndex
-                if row_idx > 0 and header_arrays:
-                    # For lower level headers, inherit from parent if empty
-                    prev_header = header_arrays[-1]
-                    for i, text in enumerate(header_texts):
-                        if text == '' and i < len(prev_header):
-                            # Check if this is under a spanned parent header
-                            for j in range(i, -1, -1):
-                                if prev_header[j] != '':
-                                    # Keep empty to show it's under parent
-                                    break
-                
-                header_arrays.append(header_texts)
-            
-            # Create column index
-            if len(header_arrays) > 1:
-                # Multi-level headers - create MultiIndex
-                # Clean up arrays to same length
-                max_len = max(len(arr) for arr in header_arrays)
-                for arr in header_arrays:
-                    while len(arr) < max_len:
-                        arr.append('')
-                
-                df_columns = pd.MultiIndex.from_arrays(header_arrays)
+            # Handle multi-level headers
+            if len(self.headers) > 1:
+                # Create MultiIndex columns
+                columns = []
+                for header_row in self.headers:
+                    columns.append([cell.text() for cell in header_row])
+                df_columns = pd.MultiIndex.from_arrays(columns)
             else:
                 # Single level headers
-                df_columns = header_arrays[0] if header_arrays else []
+                df_columns = [cell.text() for cell in self.headers[0]]
         else:
             # No headers, use numeric columns
-            df_columns = list(range(clean_matrix.col_count))
+            if self.rows:
+                df_columns = range(len(self.rows[0].cells))
+            else:
+                df_columns = []
         
-        # Extract data rows with proper alignment
+        # Extract data
         data = []
-        start_row = len(self.headers) if self.headers else 0
-        
-        for row_idx in range(start_row, clean_matrix.row_count):
-            expanded_row = clean_matrix.get_expanded_row(row_idx)
+        for row in self.rows:
             row_data = []
-            
-            for cell in expanded_row:
-                if cell is not None:
-                    text = cell.text()
-                    # Check if this is a merged currency value (starts with $, €, £, etc.)
-                    if text and text[0] in {'$', '€', '£', '¥'}:
-                        # Keep the full text with currency symbol
-                        row_data.append(text)
-                    elif cell.is_numeric:
-                        row_data.append(cell.numeric_value)
-                    else:
-                        row_data.append(text)
+            for cell in row.cells:
+                if cell.is_numeric:
+                    row_data.append(cell.numeric_value)
                 else:
-                    row_data.append(None)  # Empty cell
-            
-            # Only add non-empty rows
-            if any(v is not None and str(v).strip() for v in row_data):
-                data.append(row_data)
+                    row_data.append(cell.text())
+            data.append(row_data)
         
         # Create DataFrame
-        if data and df_columns is not None:
-            # Ensure data width matches column width
-            col_count = len(df_columns) if hasattr(df_columns, '__len__') else df_columns.nlevels
-            for row in data:
-                while len(row) < col_count:
-                    row.append(None)
-                while len(row) > col_count:
-                    row.pop()
-            
-            df = pd.DataFrame(data, columns=df_columns)
-            
-            # Set row index if first column is labels
-            if self.has_row_headers and len(df.columns) > 0:
-                df = df.set_index(df.columns[0])
-            
-            return df
-        else:
-            # Return empty DataFrame with columns
-            return pd.DataFrame(columns=df_columns if df_columns is not None else [])
+        df = pd.DataFrame(data, columns=df_columns)
+        
+        return df
     
     def to_csv(self) -> str:
         """Export table as CSV."""

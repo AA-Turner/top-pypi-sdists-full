@@ -9,6 +9,8 @@ from lark_oapi.core.http import Transport
 from lark_oapi.core.model import Config, RequestOption, RawResponse
 from lark_oapi.core.utils import Files
 from requests_toolbelt import MultipartEncoder
+from ..model.batch_get_job_request import BatchGetJobRequest
+from ..model.batch_get_job_response import BatchGetJobResponse
 from ..model.get_job_request import GetJobRequest
 from ..model.get_job_response import GetJobResponse
 from ..model.list_job_request import ListJobRequest
@@ -22,6 +24,43 @@ from ..model.query_recent_change_job_response import QueryRecentChangeJobRespons
 class Job(object):
     def __init__(self, config: Config) -> None:
         self.config: Config = config
+
+    def batch_get(self, request: BatchGetJobRequest, option: Optional[RequestOption] = None) -> BatchGetJobResponse:
+        if option is None:
+            option = RequestOption()
+
+        # 鉴权、获取 token
+        verify(self.config, request, option)
+
+        # 添加 content-type
+        if request.body is not None:
+            option.headers[CONTENT_TYPE] = f"{APPLICATION_JSON}; charset=utf-8"
+
+        # 发起请求
+        resp: RawResponse = Transport.execute(self.config, request, option)
+
+        # 反序列化
+        response: BatchGetJobResponse = JSON.unmarshal(str(resp.content, UTF_8), BatchGetJobResponse)
+        response.raw = resp
+
+        return response
+
+    async def abatch_get(self, request: BatchGetJobRequest,
+                         option: Optional[RequestOption] = None) -> BatchGetJobResponse:
+        if option is None:
+            option = RequestOption()
+
+        # 鉴权、获取 token
+        verify(self.config, request, option)
+
+        # 发起请求
+        resp: RawResponse = await Transport.aexecute(self.config, request, option)
+
+        # 反序列化
+        response: BatchGetJobResponse = JSON.unmarshal(str(resp.content, UTF_8), BatchGetJobResponse)
+        response.raw = resp
+
+        return response
 
     def get(self, request: GetJobRequest, option: Optional[RequestOption] = None) -> GetJobResponse:
         if option is None:

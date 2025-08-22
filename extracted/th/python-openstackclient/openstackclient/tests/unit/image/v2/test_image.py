@@ -822,6 +822,8 @@ class TestImageList(TestImage):
             'Visibility',
             'Protected',
             'Project',
+            'Hash Algorithm',
+            'Hash Value',
             'Tags',
         )
 
@@ -830,14 +832,16 @@ class TestImageList(TestImage):
             (
                 self._image.id,
                 self._image.name,
-                None,
-                None,
-                None,
-                None,
-                None,
+                self._image.disk_format,
+                self._image.container_format,
+                self._image.size,
+                self._image.checksum,
+                self._image.status,
                 self._image.visibility,
                 self._image.is_protected,
                 self._image.owner_id,
+                self._image.hash_algo,
+                self._image.hash_value,
                 format_columns.ListColumn(self._image.tags),
             ),
         )
@@ -1356,15 +1360,17 @@ class TestImageSet(TestImage):
             exceptions.CommandError, self.cmd.take_action, parsed_args
         )
 
-    def test_image_set_bools1(self):
+    def test_image_set_bools_true(self):
         arglist = [
             '--protected',
             '--private',
+            '--hidden',
             'graven',
         ]
         verifylist = [
             ('is_protected', True),
             ('visibility', 'private'),
+            ('is_hidden', True),
             ('image', 'graven'),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
@@ -1374,6 +1380,7 @@ class TestImageSet(TestImage):
         kwargs = {
             'is_protected': True,
             'visibility': 'private',
+            'is_hidden': True,
         }
         # ImageManager.update(image, **kwargs)
         self.image_client.update_image.assert_called_with(
@@ -1381,15 +1388,17 @@ class TestImageSet(TestImage):
         )
         self.assertIsNone(result)
 
-    def test_image_set_bools2(self):
+    def test_image_set_bools_false(self):
         arglist = [
             '--unprotected',
             '--public',
+            '--unhidden',
             'graven',
         ]
         verifylist = [
             ('is_protected', False),
             ('visibility', 'public'),
+            ('is_hidden', False),
             ('image', 'graven'),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
@@ -1399,6 +1408,7 @@ class TestImageSet(TestImage):
         kwargs = {
             'is_protected': False,
             'visibility': 'public',
+            'is_hidden': False,
         }
         # ImageManager.update(image, **kwargs)
         self.image_client.update_image.assert_called_with(
@@ -1779,6 +1789,7 @@ class TestImageUnset(TestImage):
         attrs['hw_rng_model'] = 'virtio'
         attrs['prop'] = 'test'
         attrs['prop2'] = 'fake'
+        attrs['os_secure_boot'] = 'required'
         self.image = image_fakes.create_one_image(attrs)
 
         self.image_client.find_image.return_value = self.image
@@ -1822,11 +1833,18 @@ class TestImageUnset(TestImage):
             'hw_rng_model',
             '--property',
             'prop',
+            '--property',
+            'os_secure_boot',
             self.image.id,
         ]
 
+        # openstacksdk translates 'os_secure_boot' property to
+        # 'needs_secure_boot' Image attribute. This is true for
+        # all IMAGE_ATTRIBUTES_CUSTOM_NAMES keys
+        self.assertEqual(self.image.needs_secure_boot, 'required')
+        self.assertFalse(hasattr(self.image, 'os_secure_boot'))
         verifylist = [
-            ('properties', ['hw_rng_model', 'prop']),
+            ('properties', ['hw_rng_model', 'prop', 'os_secure_boot']),
             ('image', self.image.id),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
@@ -2039,6 +2057,36 @@ class TestImageImport(TestImage):
 
         self.image_client.import_image.assert_not_called()
 
+    def test_import_image__web_download_invalid_url(self):
+        arglist = [
+            self.image.name,
+            '--method',
+            'web-download',
+            '--uri',
+            'invalid:1234',
+        ]
+
+        verifylist = [
+            ('image', self.image.name),
+            ('import_method', 'web-download'),
+            ('uri', 'invalid:1234'),
+        ]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        exc = self.assertRaises(
+            exceptions.CommandError,
+            self.cmd.take_action,
+            parsed_args,
+        )
+
+        self.assertIn(
+            "'invalid:1234' is not a valid url",
+            str(exc),
+        )
+
+        self.image_client.import_image.assert_not_called()
+
     def test_import_image__web_download_invalid_image_state(self):
         self.image.status = 'uploading'  # != 'queued'
         arglist = [
@@ -2190,7 +2238,29 @@ class TestImageSave(TestImage):
         self.cmd.take_action(parsed_args)
 
         self.image_client.download_image.assert_called_once_with(
-            self.image.id, stream=True, output='/path/to/file'
+            self.image.id, output='/path/to/file', stream=True, chunk_size=1024
+        )
+
+    def test_save_data_with_chunk_size(self):
+        arglist = [
+            '--file',
+            '/path/to/file',
+            '--chunk-size',
+            '2048',
+            self.image.id,
+        ]
+
+        verifylist = [
+            ('filename', '/path/to/file'),
+            ('chunk_size', 2048),
+            ('image', self.image.id),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        self.cmd.take_action(parsed_args)
+
+        self.image_client.download_image.assert_called_once_with(
+            self.image.id, output='/path/to/file', stream=True, chunk_size=2048
         )
 
 

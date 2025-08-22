@@ -4671,7 +4671,7 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
             if os.path.exists(dst): os.remove(dst)
     except Exception as e:
         logger.info(log_ % str(e))
-        if 'chat not found' in str(e).lower():
+        if any(x in str(e).lower() for x in ['forbidden', 'chat not found', 'blocked by the user']):
             result = 'error'
     finally:
         print(f"finally {result=}")
@@ -9822,16 +9822,19 @@ async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME
 
         await bot.send_message(chat_id=chat_id, text='🎉')
         USER_PAYMENTS = []
-        sql = "SELECT USER_TID, USER_LSTS FROM \"USER\" WHERE USER_TID=$1"
+        sql = "SELECT USER_TID, USER_VARS, USER_LSTS FROM \"USER\" WHERE USER_TID=$1"
         data_usr = await db_select_pg(sql, (chat_id,), BASE_P)
         if not len(data_usr):
             dt_ = datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S')
             sql = "INSERT INTO \"USER\" (USER_TID, USER_DT) VALUES ($1, $2) ON CONFLICT DO NOTHING"
             await db_change_pg(sql, (chat_id, dt_,), BASE_P)
             USER_LSTS = json.loads(USER_LSTS_)
+            USER_VARS = json.loads(USER_VARS_)
+            if payload == 'gift': USER_VARS['USER_UTM'] = 'gift'
         else:
-            USER_TID, USER_LSTS = data_usr[0]
+            USER_TID, USER_VARS, USER_LSTS = data_usr[0]
             USER_LSTS = json.loads(USER_LSTS or USER_LSTS_)
+            USER_VARS = json.loads(USER_VARS or USER_VARS_)
             USER_PAYMENTS = USER_LSTS.get("USER_PAYMENTS", [])
 
         print(f"{payload=}")
@@ -9893,9 +9896,10 @@ async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME
 
         USER_LSTS["USER_PAYMENTS"] = USER_PAYMENTS
         USER_LSTS = json.dumps(USER_LSTS, ensure_ascii=False)
+        USER_VARS = json.dumps(USER_VARS, ensure_ascii=False)
 
-        sql = f"UPDATE \"USER\" SET USER_LSTS=$1 WHERE USER_TID=$2"
-        await db_change_pg(sql, (USER_LSTS, chat_id,), BASE_P)
+        sql = f"UPDATE \"USER\" SET USER_VARS=$1, USER_LSTS=$2 WHERE USER_TID=$3"
+        await db_change_pg(sql, (USER_VARS, USER_LSTS, chat_id,), BASE_P)
 
         # , {payload_txt}
         text = f"{l_payment_success[lz]} ★{total_amount}\n\n♥️ @{PROJECT_USERNAME} {l_payment_hashtag[lz]}"
@@ -11647,7 +11651,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
         await asyncio.sleep(e.retry_after + 1)
     except Exception as e:
-        if PROJECT_USERNAME == 'FereyBotBot' and 'blocked by the user' in str(e) and is_private:
+        if PROJECT_USERNAME == 'FereyBotBot' and any(x in str(e).lower() for x in ['forbidden', 'chat not found', 'blocked by the user']) and is_private:
             sql = f"DELETE FROM BOT_{ENT_TID}.USER WHERE USER_TID=$1"
             # await db_change_pg(sql, (chat_id,), BASE_P)
         logger.info(log_ % str(e))

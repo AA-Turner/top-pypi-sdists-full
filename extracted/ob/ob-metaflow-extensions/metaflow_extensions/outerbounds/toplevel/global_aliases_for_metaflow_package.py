@@ -109,6 +109,3 @@ from ..plugins.checkpoint_datastores import nebius_checkpoints, coreweave_checkp
 from ..plugins.aws import assume_role
 from . import ob_internal
 from .ob_internal import AppDeployer
-
-from obproject import ProjectFlow, ProjectEvent, project_trigger
-from highlight_card import highlight

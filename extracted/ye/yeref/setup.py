@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='yeref',
-    version='0.27.81',
+    version='0.27.83',
     description='desc-f',
     author='john smith',
     packages=['yeref'],

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyoxipng
-Version: 9.1.0
+Version: 9.1.1
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
@@ -15,7 +15,7 @@ Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: homepage, https://github.com/nfrasser/pyoxipng
 Project-URL: documentation, https://github.com/nfrasser/pyoxipng#readme
 Project-URL: repository, https://github.com/nfrasser/pyoxipng
-Project-URL: changelog, https://github.com/nfrasser/pyoxipng/blob/master/CHANGELOG.md
+Project-URL: changelog, https://github.com/nfrasser/pyoxipng/blob/main/CHANGELOG.md
 
 # pyoxipng
 

@@ -29,7 +29,12 @@ from sqlmesh.core.model import (
     SqlModel,
     ViewKind,
 )
-from sqlmesh.core.model.kind import SCDType2ByColumnKind, SCDType2ByTimeKind
+from sqlmesh.core.model.kind import (
+    SCDType2ByColumnKind,
+    SCDType2ByTimeKind,
+    OnDestructiveChange,
+    OnAdditiveChange,
+)
 from sqlmesh.core.state_sync.db.snapshot import _snapshot_to_json
 from sqlmesh.dbt.builtin import _relation_info_to_relation
 from sqlmesh.dbt.column import (
@@ -113,6 +118,8 @@ def test_model_kind():
         updated_at_as_valid_from=True,
         updated_at_name="updated_at",
         dialect="duckdb",
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.ALLOW,
     )
     assert ModelConfig(
         materialized=Materialization.SNAPSHOT,
@@ -126,6 +133,8 @@ def test_model_kind():
         columns=["foo"],
         execution_time_as_valid_from=True,
         dialect="duckdb",
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.ALLOW,
     )
     assert ModelConfig(
         materialized=Materialization.SNAPSHOT,
@@ -140,23 +149,40 @@ def test_model_kind():
         columns=["foo"],
         execution_time_as_valid_from=True,
         dialect="bigquery",
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.ALLOW,
     )
 
     assert ModelConfig(materialized=Materialization.INCREMENTAL, time_column="foo").model_kind(
         context
-    ) == IncrementalByTimeRangeKind(time_column="foo", dialect="duckdb", forward_only=True)
+    ) == IncrementalByTimeRangeKind(
+        time_column="foo",
+        dialect="duckdb",
+        forward_only=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
+    )
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL,
         time_column="foo",
         incremental_strategy="delete+insert",
         forward_only=False,
-    ).model_kind(context) == IncrementalByTimeRangeKind(time_column="foo", dialect="duckdb")
+    ).model_kind(context) == IncrementalByTimeRangeKind(
+        time_column="foo",
+        dialect="duckdb",
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
+    )
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL,
         time_column="foo",
         incremental_strategy="insert_overwrite",
     ).model_kind(context) == IncrementalByTimeRangeKind(
-        time_column="foo", dialect="duckdb", forward_only=True
+        time_column="foo",
+        dialect="duckdb",
+        forward_only=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL,
@@ -164,13 +190,22 @@ def test_model_kind():
         unique_key=["bar"],
         dialect="bigquery",
     ).model_kind(context) == IncrementalByTimeRangeKind(
-        time_column="foo", dialect="bigquery", forward_only=True
+        time_column="foo",
+        dialect="bigquery",
+        forward_only=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL, unique_key=["bar"], incremental_strategy="merge"
     ).model_kind(context) == IncrementalByUniqueKeyKind(
-        unique_key=["bar"], dialect="duckdb", forward_only=True, disable_restatement=False
+        unique_key=["bar"],
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     dbt_incremental_predicate = "DBT_INTERNAL_DEST.session_start > dateadd(day, -7, current_date)"
@@ -189,30 +224,52 @@ def test_model_kind():
         forward_only=True,
         disable_restatement=False,
         merge_filter=expected_sqlmesh_predicate,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(materialized=Materialization.INCREMENTAL, unique_key=["bar"]).model_kind(
         context
     ) == IncrementalByUniqueKeyKind(
-        unique_key=["bar"], dialect="duckdb", forward_only=True, disable_restatement=False
+        unique_key=["bar"],
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL, unique_key=["bar"], full_refresh=False
     ).model_kind(context) == IncrementalByUniqueKeyKind(
-        unique_key=["bar"], dialect="duckdb", forward_only=True, disable_restatement=True
+        unique_key=["bar"],
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL, unique_key=["bar"], full_refresh=True
     ).model_kind(context) == IncrementalByUniqueKeyKind(
-        unique_key=["bar"], dialect="duckdb", forward_only=True, disable_restatement=False
+        unique_key=["bar"],
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL, unique_key=["bar"], disable_restatement=True
     ).model_kind(context) == IncrementalByUniqueKeyKind(
-        unique_key=["bar"], dialect="duckdb", forward_only=True, disable_restatement=True
+        unique_key=["bar"],
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -221,7 +278,12 @@ def test_model_kind():
         disable_restatement=True,
         full_refresh=True,
     ).model_kind(context) == IncrementalByUniqueKeyKind(
-        unique_key=["bar"], dialect="duckdb", forward_only=True, disable_restatement=True
+        unique_key=["bar"],
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -236,12 +298,34 @@ def test_model_kind():
         forward_only=True,
         disable_restatement=True,
         auto_restatement_cron="0 0 * * *",
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
+
+    # Test incompatibile incremental strategies
+    for incremental_strategy in ("delete+insert", "insert_overwrite", "append"):
+        assert ModelConfig(
+            materialized=Materialization.INCREMENTAL,
+            unique_key=["bar"],
+            incremental_strategy=incremental_strategy,
+        ).model_kind(context) == IncrementalByUniqueKeyKind(
+            unique_key=["bar"],
+            dialect="duckdb",
+            forward_only=True,
+            disable_restatement=False,
+            on_destructive_change=OnDestructiveChange.IGNORE,
+            on_additive_change=OnAdditiveChange.IGNORE,
+        )
 
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL, time_column="foo", incremental_strategy="merge"
     ).model_kind(context) == IncrementalByTimeRangeKind(
-        time_column="foo", dialect="duckdb", forward_only=True, disable_restatement=False
+        time_column="foo",
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -250,7 +334,12 @@ def test_model_kind():
         incremental_strategy="merge",
         full_refresh=True,
     ).model_kind(context) == IncrementalByTimeRangeKind(
-        time_column="foo", dialect="duckdb", forward_only=True, disable_restatement=False
+        time_column="foo",
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -259,7 +348,12 @@ def test_model_kind():
         incremental_strategy="merge",
         full_refresh=False,
     ).model_kind(context) == IncrementalByTimeRangeKind(
-        time_column="foo", dialect="duckdb", forward_only=True, disable_restatement=False
+        time_column="foo",
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -268,7 +362,12 @@ def test_model_kind():
         incremental_strategy="append",
         disable_restatement=True,
     ).model_kind(context) == IncrementalByTimeRangeKind(
-        time_column="foo", dialect="duckdb", forward_only=True, disable_restatement=True
+        time_column="foo",
+        dialect="duckdb",
+        forward_only=True,
+        disable_restatement=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -277,7 +376,12 @@ def test_model_kind():
         incremental_strategy="insert_overwrite",
         partition_by={"field": "bar"},
         forward_only=False,
-    ).model_kind(context) == IncrementalByTimeRangeKind(time_column="foo", dialect="duckdb")
+    ).model_kind(context) == IncrementalByTimeRangeKind(
+        time_column="foo",
+        dialect="duckdb",
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
+    )
 
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL,
@@ -293,6 +397,8 @@ def test_model_kind():
         forward_only=False,
         auto_restatement_cron="0 0 * * *",
         auto_restatement_intervals=3,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -300,33 +406,56 @@ def test_model_kind():
         incremental_strategy="insert_overwrite",
         partition_by={"field": "bar"},
     ).model_kind(context) == IncrementalUnmanagedKind(
-        insert_overwrite=True, disable_restatement=False
+        insert_overwrite=True,
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(materialized=Materialization.INCREMENTAL).model_kind(
         context
-    ) == IncrementalUnmanagedKind(insert_overwrite=True, disable_restatement=False)
+    ) == IncrementalUnmanagedKind(
+        insert_overwrite=True,
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
+    )
 
     assert ModelConfig(materialized=Materialization.INCREMENTAL, forward_only=False).model_kind(
         context
     ) == IncrementalUnmanagedKind(
-        insert_overwrite=True, disable_restatement=False, forward_only=False
+        insert_overwrite=True,
+        disable_restatement=False,
+        forward_only=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL, incremental_strategy="append"
-    ).model_kind(context) == IncrementalUnmanagedKind(disable_restatement=False)
+    ).model_kind(context) == IncrementalUnmanagedKind(
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
+    )
 
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL, incremental_strategy="append", full_refresh=None
-    ).model_kind(context) == IncrementalUnmanagedKind(disable_restatement=False)
+    ).model_kind(context) == IncrementalUnmanagedKind(
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
+    )
 
     assert ModelConfig(
         materialized=Materialization.INCREMENTAL,
         incremental_strategy="insert_overwrite",
         partition_by={"field": "bar", "data_type": "int64"},
     ).model_kind(context) == IncrementalUnmanagedKind(
-        insert_overwrite=True, disable_restatement=False
+        insert_overwrite=True,
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -335,7 +464,10 @@ def test_model_kind():
         partition_by={"field": "bar", "data_type": "int64"},
         full_refresh=False,
     ).model_kind(context) == IncrementalUnmanagedKind(
-        insert_overwrite=True, disable_restatement=True
+        insert_overwrite=True,
+        disable_restatement=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -345,7 +477,10 @@ def test_model_kind():
         disable_restatement=True,
         full_refresh=True,
     ).model_kind(context) == IncrementalUnmanagedKind(
-        insert_overwrite=True, disable_restatement=True
+        insert_overwrite=True,
+        disable_restatement=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -354,7 +489,10 @@ def test_model_kind():
         partition_by={"field": "bar", "data_type": "int64"},
         disable_restatement=True,
     ).model_kind(context) == IncrementalUnmanagedKind(
-        insert_overwrite=True, disable_restatement=True
+        insert_overwrite=True,
+        disable_restatement=True,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert ModelConfig(
@@ -362,7 +500,11 @@ def test_model_kind():
         incremental_strategy="insert_overwrite",
         auto_restatement_cron="0 0 * * *",
     ).model_kind(context) == IncrementalUnmanagedKind(
-        insert_overwrite=True, auto_restatement_cron="0 0 * * *", disable_restatement=False
+        insert_overwrite=True,
+        auto_restatement_cron="0 0 * * *",
+        disable_restatement=False,
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.IGNORE,
     )
 
     assert (
@@ -371,25 +513,6 @@ def test_model_kind():
         )
         == ManagedKind()
     )
-
-    with pytest.raises(ConfigError):
-        ModelConfig(
-            materialized=Materialization.INCREMENTAL,
-            unique_key=["bar"],
-            incremental_strategy="delete+insert",
-        ).model_kind(context)
-    with pytest.raises(ConfigError):
-        ModelConfig(
-            materialized=Materialization.INCREMENTAL,
-            unique_key=["bar"],
-            incremental_strategy="insert_overwrite",
-        ).model_kind(context)
-    with pytest.raises(ConfigError):
-        ModelConfig(
-            materialized=Materialization.INCREMENTAL,
-            unique_key=["bar"],
-            incremental_strategy="append",
-        ).model_kind(context)
 
 
 def test_model_kind_snapshot_bigquery():
@@ -410,6 +533,7 @@ def test_model_kind_snapshot_bigquery():
         updated_at_name="updated_at",
         time_data_type=exp.DataType.build("TIMESTAMPTZ"),
         dialect="bigquery",
+        on_destructive_change=OnDestructiveChange.IGNORE,
     )
 
     # time_data_type is bigquery version even though model dialect is DuckDB
@@ -428,6 +552,7 @@ def test_model_kind_snapshot_bigquery():
         updated_at_name="updated_at",
         time_data_type=exp.DataType.build("TIMESTAMPTZ"),  # bigquery version
         dialect="duckdb",
+        on_destructive_change=OnDestructiveChange.IGNORE,
     )
 
 
@@ -480,22 +605,18 @@ def test_seed_columns():
         package="package",
         path=Path("examples/sushi_dbt/seeds/waiter_names.csv"),
         columns={
-            "address": ColumnConfig(
-                name="address", data_type="text", description="Business address"
-            ),
-            "zipcode": ColumnConfig(
-                name="zipcode", data_type="text", description="Business zipcode"
-            ),
+            "id": ColumnConfig(name="id", data_type="text", description="The ID"),
+            "name": ColumnConfig(name="name", data_type="text", description="The name"),
         },
     )
 
     expected_column_types = {
-        "address": exp.DataType.build("text"),
-        "zipcode": exp.DataType.build("text"),
+        "id": exp.DataType.build("text"),
+        "name": exp.DataType.build("text"),
     }
     expected_column_descriptions = {
-        "address": "Business address",
-        "zipcode": "Business zipcode",
+        "id": "The ID",
+        "name": "The name",
     }
 
     context = DbtContext()
@@ -512,21 +633,21 @@ def test_seed_column_types():
         package="package",
         path=Path("examples/sushi_dbt/seeds/waiter_names.csv"),
         column_types={
-            "address": "text",
-            "zipcode": "text",
+            "id": "text",
+            "name": "text",
         },
         columns={
-            "zipcode": ColumnConfig(name="zipcode", description="Business zipcode"),
+            "name": ColumnConfig(name="name", description="The name"),
         },
         quote_columns=True,
     )
 
     expected_column_types = {
-        "address": exp.DataType.build("text"),
-        "zipcode": exp.DataType.build("text"),
+        "id": exp.DataType.build("text"),
+        "name": exp.DataType.build("text"),
     }
     expected_column_descriptions = {
-        "zipcode": "Business zipcode",
+        "name": "The name",
     }
 
     context = DbtContext()
@@ -863,13 +984,40 @@ def test_logging(sushi_test_project: Project, runtime_renderer: t.Callable):
     renderer = runtime_renderer(context, engine_adapter=engine_adapter)
 
     logger = logging.getLogger("sqlmesh.dbt.builtin")
-    with patch.object(logger, "debug") as mock_logger:
-        assert renderer('{{ log("foo") }}') == ""
-    assert "foo" in mock_logger.call_args[0][0]
 
-    with patch.object(logger, "debug") as mock_logger:
+    # Test log with info=False (default), should only log to file with debug and not to console
+    with (
+        patch.object(logger, "debug") as mock_debug,
+        patch.object(logger, "info") as mock_info,
+        patch.object(get_console(), "log_status_update") as mock_console,
+    ):
+        assert renderer('{{ log("foo") }}') == ""
+        mock_debug.assert_called_once()
+        assert "foo" in mock_debug.call_args[0][0]
+        mock_info.assert_not_called()
+        mock_console.assert_not_called()
+
+    # Test log with info=True, should log to info and also call log_status_update
+    with (
+        patch.object(logger, "debug") as mock_debug,
+        patch.object(logger, "info") as mock_info,
+        patch.object(get_console(), "log_status_update") as mock_console,
+    ):
+        assert renderer('{{ log("output to be logged with info", info=true) }}') == ""
+        mock_info.assert_called_once()
+        assert "output to be logged with info" in mock_info.call_args[0][0]
+        mock_debug.assert_not_called()
+        mock_console.assert_called_once()
+        assert "output to be logged with info" in mock_console.call_args[0][0]
+
+    # Test print function as well, should use debug
+    with (
+        patch.object(logger, "debug") as mock_logger,
+        patch.object(get_console(), "log_status_update") as mock_console,
+    ):
         assert renderer('{{ print("bar") }}') == ""
-    assert "bar" in mock_logger.call_args[0][0]
+        assert "bar" in mock_logger.call_args[0][0]
+        mock_console.assert_not_called()
 
 
 @pytest.mark.xdist_group("dbt_manifest")
@@ -1592,6 +1740,7 @@ def test_on_run_start_end():
     assert root_environment_statements.after_all == [
         "JINJA_STATEMENT_BEGIN;\n{{ create_tables(schemas) }}\nJINJA_END;",
         "JINJA_STATEMENT_BEGIN;\nDROP TABLE to_be_executed_last;\nJINJA_END;",
+        "JINJA_STATEMENT_BEGIN;\n{{ graph_usage() }}\nJINJA_END;",
     ]
 
     assert root_environment_statements.jinja_macros.root_package_name == "sushi"
@@ -1612,6 +1761,7 @@ def test_on_run_start_end():
         snapshots=sushi_context.snapshots,
         runtime_stage=RuntimeStage.AFTER_ALL,
         environment_naming_info=EnvironmentNamingInfo(name="dev"),
+        engine_adapter=sushi_context.engine_adapter,
     )
 
     assert rendered_before_all == [
@@ -1621,12 +1771,35 @@ def test_on_run_start_end():
     ]
 
     # The jinja macro should have resolved the schemas for this environment and generated corresponding statements
-    assert sorted(rendered_after_all) == sorted(
-        [
-            "CREATE OR REPLACE TABLE schema_table_snapshots__dev AS SELECT 'snapshots__dev' AS schema",
-            "CREATE OR REPLACE TABLE schema_table_sushi__dev AS SELECT 'sushi__dev' AS schema",
-            "DROP TABLE to_be_executed_last",
-        ]
+    expected_statements = [
+        "CREATE OR REPLACE TABLE schema_table_snapshots__dev AS SELECT 'snapshots__dev' AS schema",
+        "CREATE OR REPLACE TABLE schema_table_sushi__dev AS SELECT 'sushi__dev' AS schema",
+        "DROP TABLE to_be_executed_last",
+    ]
+    assert sorted(rendered_after_all[:-1]) == sorted(expected_statements)
+
+    # Assert the models with their materialisations are present in the rendered graph_table statement
+    graph_table_stmt = rendered_after_all[-1]
+    assert "'model.sushi.simple_model_a' AS unique_id, 'table' AS materialized" in graph_table_stmt
+    assert "'model.sushi.waiters' AS unique_id, 'ephemeral' AS materialized" in graph_table_stmt
+    assert "'model.sushi.simple_model_b' AS unique_id, 'table' AS materialized" in graph_table_stmt
+    assert (
+        "'model.sushi.waiter_as_customer_by_day' AS unique_id, 'incremental' AS materialized"
+        in graph_table_stmt
+    )
+    assert "'model.sushi.top_waiters' AS unique_id, 'view' AS materialized" in graph_table_stmt
+    assert "'model.customers.customers' AS unique_id, 'view' AS materialized" in graph_table_stmt
+    assert (
+        "'model.customers.customer_revenue_by_day' AS unique_id, 'incremental' AS materialized"
+        in graph_table_stmt
+    )
+    assert (
+        "'model.sushi.waiter_revenue_by_day.v1' AS unique_id, 'incremental' AS materialized"
+        in graph_table_stmt
+    )
+    assert (
+        "'model.sushi.waiter_revenue_by_day.v2' AS unique_id, 'incremental' AS materialized"
+        in graph_table_stmt
     )
 
     # Nested dbt_packages on run start / on run end
@@ -1661,6 +1834,7 @@ def test_on_run_start_end():
         snapshots=sushi_context.snapshots,
         runtime_stage=RuntimeStage.AFTER_ALL,
         environment_naming_info=EnvironmentNamingInfo(name="dev"),
+        engine_adapter=sushi_context.engine_adapter,
     )
 
     # Validate order of execution to match dbt's

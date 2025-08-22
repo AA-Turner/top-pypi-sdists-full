@@ -1,4 +1,4 @@
-.PHONY: lint format check-version
+.PHONY: lint format check-version check-base-imports
 
 # lint commands
 
@@ -14,3 +14,7 @@ VERSION_KIND ?= patch
 
 bump-version:
 	uv run --with hatch hatch version $(VERSION_KIND)
+
+
+check-base-imports:
+	DATABASE_URI="foo" REDIS_URI="bar" uv run python -c "from langgraph_runtime_inmem import *"
