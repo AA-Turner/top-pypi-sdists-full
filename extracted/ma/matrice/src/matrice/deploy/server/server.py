@@ -60,10 +60,6 @@ class MatriceDeployServer:
             ValueError: If required parameters are invalid
             Exception: If initialization fails
         """
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(levelname)s - %(message)s"
-        )
         try:
             # Validate inputs
             self._validate_init_parameters(
@@ -315,12 +311,18 @@ class MatriceDeployServer:
             dynamic_batching,
         )
 
+        post_processing_config = self.job_params.get("postProcessingConfig", None)
+        if post_processing_config is None:
+            post_processing_config = {}
+        post_processing_config["facial_recognition_server_id"] = self.job_params.get("facial_recognition_server_id", None)
+        post_processing_config["session"] = self.session  # Pass the session to post-processing
+        
         self.inference_interface = InferenceInterface(
             action_tracker=self.action_tracker,
             model_manager=self.model_manager,
             batch_size=batch_size,
             dynamic_batching=dynamic_batching,
-            post_processing_config=self.job_params.get("postProcessingConfig", None),
+            post_processing_config=post_processing_config,
             custom_post_processing_fn=self.custom_post_processing_fn,
             app_name=self.app_name,
         )

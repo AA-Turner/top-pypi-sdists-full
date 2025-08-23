@@ -1129,8 +1129,8 @@ try:
             **kwargs: Any,
         ) -> None:
             try:
-                if parent_run_id is None:
-                    parent_run_id = run_manager.current_run_id
+                # if parent_run_id is None:
+                #     parent_run_id = run_manager.current_run_id
                 run = run_manager.start_run(run_id, parent_run_id)
                 
                 user_id = _get_user_id(metadata)

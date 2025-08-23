@@ -252,7 +252,7 @@ class PostProcessor:
 
         logger.debug("Registered use cases with registry")
     
-    def _generate_cache_key(self, config: BaseConfig, stream_key: Optional[str] = None) -> str:
+    def _generate_cache_key(self, stream_key: Optional[str] = None) -> str:
         """
         Generate a cache key for use case instances based on config and stream key.
         
@@ -263,19 +263,33 @@ class PostProcessor:
         Returns:
             str: Cache key for the use case instance
         """
-        # Create a deterministic hash based on config parameters and stream key
-        config_dict = {
-            'category': config.category,
-            'usecase': config.usecase,
-            'config_data': config.to_dict() if hasattr(config, 'to_dict') else str(config)
-        }
+        # def _make_json_serializable(obj):
+        #     if isinstance(obj, BaseConfig):
+        #         return _make_json_serializable(obj.to_dict())
+        #     elif isinstance(obj, dict):
+        #         return {k: _make_json_serializable(v) for k, v in obj.items()}
+        #     elif isinstance(obj, list):
+        #         return [_make_json_serializable(item) for item in obj]
+        #     else:
+        #         return str(obj)
+            
+        # config_dict = _make_json_serializable(config.to_dict())
         
-        if stream_key:
-            config_dict['stream_key'] = stream_key
+        # if stream_key:
+        # # Create a deterministic hash based on config parameters and stream key
+        # config_dict = {
+        #     'category': config.category,
+        #     'usecase': config.usecase,
+        #     'config_data': config.to_dict() if hasattr(config, 'to_dict') else str(config)
+        # }
         
-        # Sort keys for consistent hashing
-        config_str = json.dumps(config_dict, sort_keys=True)
-        return hashlib.md5(config_str.encode()).hexdigest()
+        # if stream_key:
+        #     config_dict['stream_key'] = stream_key
+        
+        # # Sort keys for consistent hashing
+        # config_str = json.dumps(config_dict, sort_keys=True)
+        # return hashlib.md5(config_str.encode()).hexdigest()
+        return stream_key
     
     def _get_use_case_instance(self, config: BaseConfig, stream_key: Optional[str] = None):
         """
@@ -289,7 +303,7 @@ class PostProcessor:
             Use case instance
         """
         # Generate cache key
-        cache_key = self._generate_cache_key(config, stream_key)
+        cache_key = self._generate_cache_key(stream_key)
         
         # Check if we have a cached instance
         if cache_key in self._use_case_cache:
@@ -310,7 +324,7 @@ class PostProcessor:
         
         return use_case
     
-    def process(self, data: Any, config: Union[BaseConfig, Dict[str, Any], str, Path], input_bytes: Optional[bytes] = None,
+    async def process(self, data: Any, config: Union[BaseConfig, Dict[str, Any], str, Path], input_bytes: Optional[bytes] = None,
                 context: Optional[ProcessingContext] = None, stream_key: Optional[str] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
         Process data using the specified configuration.

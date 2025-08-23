@@ -1,7 +1,7 @@
 r'''
 # `data_aws_ecr_repository`
 
-Refer to the Terraform Registry for docs: [`data_aws_ecr_repository`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository).
+Refer to the Terraform Registry for docs: [`data_aws_ecr_repository`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsEcrRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsEcrRepository.DataAwsEcrRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository aws_ecr_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository aws_ecr_repository}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataAwsEcrRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository aws_ecr_repository} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository aws_ecr_repository} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#name DataAwsEcrRepository#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#id DataAwsEcrRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#region DataAwsEcrRepository#region}
-        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#registry_id DataAwsEcrRepository#registry_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#tags DataAwsEcrRepository#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#name DataAwsEcrRepository#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#id DataAwsEcrRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#region DataAwsEcrRepository#region}
+        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#registry_id DataAwsEcrRepository#registry_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#tags DataAwsEcrRepository#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataAwsEcrRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsEcrRepository to import.
-        :param import_from_id: The id of the existing DataAwsEcrRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsEcrRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsEcrRepository to import is found.
         '''
         if __debug__:
@@ -178,6 +178,13 @@ class DataAwsEcrRepository(
     @jsii.member(jsii_name="imageTagMutability")
     def image_tag_mutability(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "imageTagMutability"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imageTagMutabilityExclusionFilter")
+    def image_tag_mutability_exclusion_filter(
+        self,
+    ) -> "DataAwsEcrRepositoryImageTagMutabilityExclusionFilterList":
+        return typing.cast("DataAwsEcrRepositoryImageTagMutabilityExclusionFilterList", jsii.get(self, "imageTagMutabilityExclusionFilter"))
 
     @builtins.property
     @jsii.member(jsii_name="mostRecentImageTags")
@@ -318,11 +325,11 @@ class DataAwsEcrRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#name DataAwsEcrRepository#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#id DataAwsEcrRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#region DataAwsEcrRepository#region}
-        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#registry_id DataAwsEcrRepository#registry_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#tags DataAwsEcrRepository#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#name DataAwsEcrRepository#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#id DataAwsEcrRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#region DataAwsEcrRepository#region}
+        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#registry_id DataAwsEcrRepository#registry_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#tags DataAwsEcrRepository#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -432,14 +439,14 @@ class DataAwsEcrRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#name DataAwsEcrRepository#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#name DataAwsEcrRepository#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#id DataAwsEcrRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#id DataAwsEcrRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -451,20 +458,20 @@ class DataAwsEcrRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#region DataAwsEcrRepository#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#region DataAwsEcrRepository#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def registry_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#registry_id DataAwsEcrRepository#registry_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#registry_id DataAwsEcrRepository#registry_id}.'''
         result = self._values.get("registry_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/ecr_repository#tags DataAwsEcrRepository#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/ecr_repository#tags DataAwsEcrRepository#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -777,6 +784,157 @@ class DataAwsEcrRepositoryImageScanningConfigurationOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsEcrRepository.DataAwsEcrRepositoryImageTagMutabilityExclusionFilter",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataAwsEcrRepositoryImageTagMutabilityExclusionFilter:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsEcrRepositoryImageTagMutabilityExclusionFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsEcrRepositoryImageTagMutabilityExclusionFilterList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsEcrRepository.DataAwsEcrRepositoryImageTagMutabilityExclusionFilterList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f0cd7803d6fe60bfd4d8829e54aa1d88217e76a59604b4fe5db56aae748a815)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsEcrRepositoryImageTagMutabilityExclusionFilterOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a2e13806aea395b74f468ea19bcf933cba7a7a496665d5da28ebe4af3f5641bf)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsEcrRepositoryImageTagMutabilityExclusionFilterOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04c8dd9978378579dad032624c710fbefeba0650f9d8f119bf079b8a68c2e160)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5eb8dad6b952b1c0dffb427a14daa2563c585a6af9c62bc342ebede4bf586941)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5eea2bb02b3e191ed502f1e6efa6448d3349a9c39f8af5aa706cf0877bd1422c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsEcrRepositoryImageTagMutabilityExclusionFilterOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsEcrRepository.DataAwsEcrRepositoryImageTagMutabilityExclusionFilterOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97c452d04ffaf04c9c9646012faa80cd773d19ee1bcb7ce1430aeaeb1136d83b)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="filter")
+    def filter(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "filter"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filterType")
+    def filter_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "filterType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataAwsEcrRepositoryImageTagMutabilityExclusionFilter]:
+        return typing.cast(typing.Optional[DataAwsEcrRepositoryImageTagMutabilityExclusionFilter], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataAwsEcrRepositoryImageTagMutabilityExclusionFilter],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41f911fbde257ee3a3c95dad646e1b2f805e46b2f889b4bf6dcd7bdaa6d82a29)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "DataAwsEcrRepository",
     "DataAwsEcrRepositoryConfig",
@@ -786,6 +944,9 @@ __all__ = [
     "DataAwsEcrRepositoryImageScanningConfiguration",
     "DataAwsEcrRepositoryImageScanningConfigurationList",
     "DataAwsEcrRepositoryImageScanningConfigurationOutputReference",
+    "DataAwsEcrRepositoryImageTagMutabilityExclusionFilter",
+    "DataAwsEcrRepositoryImageTagMutabilityExclusionFilterList",
+    "DataAwsEcrRepositoryImageTagMutabilityExclusionFilterOutputReference",
 ]
 
 publication.publish()
@@ -957,6 +1118,53 @@ def _typecheckingstub__d2031cef87c1596f40ded55b8768a6470f8eff6172099049138971fde
 
 def _typecheckingstub__74edc695c9ca18dda40525768deb6ba5c268d477e04d19b9b6cd8c70891467c8(
     value: typing.Optional[DataAwsEcrRepositoryImageScanningConfiguration],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f0cd7803d6fe60bfd4d8829e54aa1d88217e76a59604b4fe5db56aae748a815(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2e13806aea395b74f468ea19bcf933cba7a7a496665d5da28ebe4af3f5641bf(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04c8dd9978378579dad032624c710fbefeba0650f9d8f119bf079b8a68c2e160(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5eb8dad6b952b1c0dffb427a14daa2563c585a6af9c62bc342ebede4bf586941(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5eea2bb02b3e191ed502f1e6efa6448d3349a9c39f8af5aa706cf0877bd1422c(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97c452d04ffaf04c9c9646012faa80cd773d19ee1bcb7ce1430aeaeb1136d83b(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41f911fbde257ee3a3c95dad646e1b2f805e46b2f889b4bf6dcd7bdaa6d82a29(
+    value: typing.Optional[DataAwsEcrRepositoryImageTagMutabilityExclusionFilter],
 ) -> None:
     """Type checking stubs"""
     pass

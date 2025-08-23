@@ -1,7 +1,7 @@
 r'''
 # `aws_spot_instance_request`
 
-Refer to the Terraform Registry for docs: [`aws_spot_instance_request`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request).
+Refer to the Terraform Registry for docs: [`aws_spot_instance_request`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SpotInstanceRequest(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.spotInstanceRequest.SpotInstanceRequest",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request aws_spot_instance_request}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request aws_spot_instance_request}.'''
 
     def __init__(
         self,
@@ -115,66 +115,66 @@ class SpotInstanceRequest(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request aws_spot_instance_request} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request aws_spot_instance_request} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param ami: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ami SpotInstanceRequest#ami}.
-        :param associate_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#associate_public_ip_address SpotInstanceRequest#associate_public_ip_address}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#availability_zone SpotInstanceRequest#availability_zone}.
-        :param capacity_reservation_specification: capacity_reservation_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_specification SpotInstanceRequest#capacity_reservation_specification}
-        :param cpu_options: cpu_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#cpu_options SpotInstanceRequest#cpu_options}
-        :param credit_specification: credit_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#credit_specification SpotInstanceRequest#credit_specification}
-        :param disable_api_stop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#disable_api_stop SpotInstanceRequest#disable_api_stop}.
-        :param disable_api_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#disable_api_termination SpotInstanceRequest#disable_api_termination}.
-        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ebs_block_device SpotInstanceRequest#ebs_block_device}
-        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ebs_optimized SpotInstanceRequest#ebs_optimized}.
-        :param enable_primary_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enable_primary_ipv6 SpotInstanceRequest#enable_primary_ipv6}.
-        :param enclave_options: enclave_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enclave_options SpotInstanceRequest#enclave_options}
-        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ephemeral_block_device SpotInstanceRequest#ephemeral_block_device}
-        :param fetch_password_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#get_password_data SpotInstanceRequest#get_password_data}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#force_destroy SpotInstanceRequest#force_destroy}.
-        :param hibernation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#hibernation SpotInstanceRequest#hibernation}.
-        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#host_id SpotInstanceRequest#host_id}.
-        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#host_resource_group_arn SpotInstanceRequest#host_resource_group_arn}.
-        :param iam_instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#iam_instance_profile SpotInstanceRequest#iam_instance_profile}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_initiated_shutdown_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_initiated_shutdown_behavior SpotInstanceRequest#instance_initiated_shutdown_behavior}.
-        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_interruption_behavior SpotInstanceRequest#instance_interruption_behavior}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_type SpotInstanceRequest#instance_type}.
-        :param ipv6_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ipv6_address_count SpotInstanceRequest#ipv6_address_count}.
-        :param ipv6_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ipv6_addresses SpotInstanceRequest#ipv6_addresses}.
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#key_name SpotInstanceRequest#key_name}.
-        :param launch_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#launch_group SpotInstanceRequest#launch_group}.
-        :param launch_template: launch_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#launch_template SpotInstanceRequest#launch_template}
-        :param maintenance_options: maintenance_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#maintenance_options SpotInstanceRequest#maintenance_options}
-        :param metadata_options: metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#metadata_options SpotInstanceRequest#metadata_options}
-        :param monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#monitoring SpotInstanceRequest#monitoring}.
-        :param network_interface: network_interface block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#network_interface SpotInstanceRequest#network_interface}
-        :param placement_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#placement_group SpotInstanceRequest#placement_group}.
-        :param placement_partition_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#placement_partition_number SpotInstanceRequest#placement_partition_number}.
-        :param private_dns_name_options: private_dns_name_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#private_dns_name_options SpotInstanceRequest#private_dns_name_options}
-        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#private_ip SpotInstanceRequest#private_ip}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#region SpotInstanceRequest#region}
-        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#root_block_device SpotInstanceRequest#root_block_device}
-        :param secondary_private_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#secondary_private_ips SpotInstanceRequest#secondary_private_ips}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#security_groups SpotInstanceRequest#security_groups}.
-        :param source_dest_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#source_dest_check SpotInstanceRequest#source_dest_check}.
-        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#spot_price SpotInstanceRequest#spot_price}.
-        :param spot_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#spot_type SpotInstanceRequest#spot_type}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#subnet_id SpotInstanceRequest#subnet_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
-        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tenancy SpotInstanceRequest#tenancy}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#timeouts SpotInstanceRequest#timeouts}
-        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#user_data SpotInstanceRequest#user_data}.
-        :param user_data_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#user_data_base64 SpotInstanceRequest#user_data_base64}.
-        :param user_data_replace_on_change: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#user_data_replace_on_change SpotInstanceRequest#user_data_replace_on_change}.
-        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#valid_from SpotInstanceRequest#valid_from}.
-        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#valid_until SpotInstanceRequest#valid_until}.
-        :param volume_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_tags SpotInstanceRequest#volume_tags}.
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#vpc_security_group_ids SpotInstanceRequest#vpc_security_group_ids}.
-        :param wait_for_fulfillment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#wait_for_fulfillment SpotInstanceRequest#wait_for_fulfillment}.
+        :param ami: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ami SpotInstanceRequest#ami}.
+        :param associate_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#associate_public_ip_address SpotInstanceRequest#associate_public_ip_address}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#availability_zone SpotInstanceRequest#availability_zone}.
+        :param capacity_reservation_specification: capacity_reservation_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_specification SpotInstanceRequest#capacity_reservation_specification}
+        :param cpu_options: cpu_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#cpu_options SpotInstanceRequest#cpu_options}
+        :param credit_specification: credit_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#credit_specification SpotInstanceRequest#credit_specification}
+        :param disable_api_stop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#disable_api_stop SpotInstanceRequest#disable_api_stop}.
+        :param disable_api_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#disable_api_termination SpotInstanceRequest#disable_api_termination}.
+        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ebs_block_device SpotInstanceRequest#ebs_block_device}
+        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ebs_optimized SpotInstanceRequest#ebs_optimized}.
+        :param enable_primary_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enable_primary_ipv6 SpotInstanceRequest#enable_primary_ipv6}.
+        :param enclave_options: enclave_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enclave_options SpotInstanceRequest#enclave_options}
+        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ephemeral_block_device SpotInstanceRequest#ephemeral_block_device}
+        :param fetch_password_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#get_password_data SpotInstanceRequest#get_password_data}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#force_destroy SpotInstanceRequest#force_destroy}.
+        :param hibernation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#hibernation SpotInstanceRequest#hibernation}.
+        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#host_id SpotInstanceRequest#host_id}.
+        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#host_resource_group_arn SpotInstanceRequest#host_resource_group_arn}.
+        :param iam_instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#iam_instance_profile SpotInstanceRequest#iam_instance_profile}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_initiated_shutdown_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_initiated_shutdown_behavior SpotInstanceRequest#instance_initiated_shutdown_behavior}.
+        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_interruption_behavior SpotInstanceRequest#instance_interruption_behavior}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_type SpotInstanceRequest#instance_type}.
+        :param ipv6_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ipv6_address_count SpotInstanceRequest#ipv6_address_count}.
+        :param ipv6_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ipv6_addresses SpotInstanceRequest#ipv6_addresses}.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#key_name SpotInstanceRequest#key_name}.
+        :param launch_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#launch_group SpotInstanceRequest#launch_group}.
+        :param launch_template: launch_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#launch_template SpotInstanceRequest#launch_template}
+        :param maintenance_options: maintenance_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#maintenance_options SpotInstanceRequest#maintenance_options}
+        :param metadata_options: metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#metadata_options SpotInstanceRequest#metadata_options}
+        :param monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#monitoring SpotInstanceRequest#monitoring}.
+        :param network_interface: network_interface block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#network_interface SpotInstanceRequest#network_interface}
+        :param placement_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#placement_group SpotInstanceRequest#placement_group}.
+        :param placement_partition_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#placement_partition_number SpotInstanceRequest#placement_partition_number}.
+        :param private_dns_name_options: private_dns_name_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#private_dns_name_options SpotInstanceRequest#private_dns_name_options}
+        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#private_ip SpotInstanceRequest#private_ip}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#region SpotInstanceRequest#region}
+        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#root_block_device SpotInstanceRequest#root_block_device}
+        :param secondary_private_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#secondary_private_ips SpotInstanceRequest#secondary_private_ips}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#security_groups SpotInstanceRequest#security_groups}.
+        :param source_dest_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#source_dest_check SpotInstanceRequest#source_dest_check}.
+        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#spot_price SpotInstanceRequest#spot_price}.
+        :param spot_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#spot_type SpotInstanceRequest#spot_type}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#subnet_id SpotInstanceRequest#subnet_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
+        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tenancy SpotInstanceRequest#tenancy}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#timeouts SpotInstanceRequest#timeouts}
+        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#user_data SpotInstanceRequest#user_data}.
+        :param user_data_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#user_data_base64 SpotInstanceRequest#user_data_base64}.
+        :param user_data_replace_on_change: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#user_data_replace_on_change SpotInstanceRequest#user_data_replace_on_change}.
+        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#valid_from SpotInstanceRequest#valid_from}.
+        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#valid_until SpotInstanceRequest#valid_until}.
+        :param volume_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_tags SpotInstanceRequest#volume_tags}.
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#vpc_security_group_ids SpotInstanceRequest#vpc_security_group_ids}.
+        :param wait_for_fulfillment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#wait_for_fulfillment SpotInstanceRequest#wait_for_fulfillment}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -268,7 +268,7 @@ class SpotInstanceRequest(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SpotInstanceRequest to import.
-        :param import_from_id: The id of the existing SpotInstanceRequest that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SpotInstanceRequest that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SpotInstanceRequest to import is found.
         '''
         if __debug__:
@@ -287,8 +287,8 @@ class SpotInstanceRequest(
         capacity_reservation_target: typing.Optional[typing.Union["SpotInstanceRequestCapacityReservationSpecificationCapacityReservationTarget", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param capacity_reservation_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_preference SpotInstanceRequest#capacity_reservation_preference}.
-        :param capacity_reservation_target: capacity_reservation_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_target SpotInstanceRequest#capacity_reservation_target}
+        :param capacity_reservation_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_preference SpotInstanceRequest#capacity_reservation_preference}.
+        :param capacity_reservation_target: capacity_reservation_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_target SpotInstanceRequest#capacity_reservation_target}
         '''
         value = SpotInstanceRequestCapacityReservationSpecification(
             capacity_reservation_preference=capacity_reservation_preference,
@@ -306,9 +306,9 @@ class SpotInstanceRequest(
         threads_per_core: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param amd_sev_snp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#amd_sev_snp SpotInstanceRequest#amd_sev_snp}.
-        :param core_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#core_count SpotInstanceRequest#core_count}.
-        :param threads_per_core: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#threads_per_core SpotInstanceRequest#threads_per_core}.
+        :param amd_sev_snp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#amd_sev_snp SpotInstanceRequest#amd_sev_snp}.
+        :param core_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#core_count SpotInstanceRequest#core_count}.
+        :param threads_per_core: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#threads_per_core SpotInstanceRequest#threads_per_core}.
         '''
         value = SpotInstanceRequestCpuOptions(
             amd_sev_snp=amd_sev_snp,
@@ -325,7 +325,7 @@ class SpotInstanceRequest(
         cpu_credits: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu_credits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#cpu_credits SpotInstanceRequest#cpu_credits}.
+        :param cpu_credits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#cpu_credits SpotInstanceRequest#cpu_credits}.
         '''
         value = SpotInstanceRequestCreditSpecification(cpu_credits=cpu_credits)
 
@@ -351,7 +351,7 @@ class SpotInstanceRequest(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enabled SpotInstanceRequest#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enabled SpotInstanceRequest#enabled}.
         '''
         value = SpotInstanceRequestEnclaveOptions(enabled=enabled)
 
@@ -379,9 +379,9 @@ class SpotInstanceRequest(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#name SpotInstanceRequest#name}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#version SpotInstanceRequest#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#name SpotInstanceRequest#name}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#version SpotInstanceRequest#version}.
         '''
         value = SpotInstanceRequestLaunchTemplate(id=id, name=name, version=version)
 
@@ -394,7 +394,7 @@ class SpotInstanceRequest(
         auto_recovery: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auto_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#auto_recovery SpotInstanceRequest#auto_recovery}.
+        :param auto_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#auto_recovery SpotInstanceRequest#auto_recovery}.
         '''
         value = SpotInstanceRequestMaintenanceOptions(auto_recovery=auto_recovery)
 
@@ -411,11 +411,11 @@ class SpotInstanceRequest(
         instance_metadata_tags: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_endpoint SpotInstanceRequest#http_endpoint}.
-        :param http_protocol_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_protocol_ipv6 SpotInstanceRequest#http_protocol_ipv6}.
-        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_put_response_hop_limit SpotInstanceRequest#http_put_response_hop_limit}.
-        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_tokens SpotInstanceRequest#http_tokens}.
-        :param instance_metadata_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_metadata_tags SpotInstanceRequest#instance_metadata_tags}.
+        :param http_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_endpoint SpotInstanceRequest#http_endpoint}.
+        :param http_protocol_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_protocol_ipv6 SpotInstanceRequest#http_protocol_ipv6}.
+        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_put_response_hop_limit SpotInstanceRequest#http_put_response_hop_limit}.
+        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_tokens SpotInstanceRequest#http_tokens}.
+        :param instance_metadata_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_metadata_tags SpotInstanceRequest#instance_metadata_tags}.
         '''
         value = SpotInstanceRequestMetadataOptions(
             http_endpoint=http_endpoint,
@@ -449,9 +449,9 @@ class SpotInstanceRequest(
         hostname_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enable_resource_name_dns_aaaa_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enable_resource_name_dns_aaaa_record SpotInstanceRequest#enable_resource_name_dns_aaaa_record}.
-        :param enable_resource_name_dns_a_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enable_resource_name_dns_a_record SpotInstanceRequest#enable_resource_name_dns_a_record}.
-        :param hostname_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#hostname_type SpotInstanceRequest#hostname_type}.
+        :param enable_resource_name_dns_aaaa_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enable_resource_name_dns_aaaa_record SpotInstanceRequest#enable_resource_name_dns_aaaa_record}.
+        :param enable_resource_name_dns_a_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enable_resource_name_dns_a_record SpotInstanceRequest#enable_resource_name_dns_a_record}.
+        :param hostname_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#hostname_type SpotInstanceRequest#hostname_type}.
         '''
         value = SpotInstanceRequestPrivateDnsNameOptions(
             enable_resource_name_dns_aaaa_record=enable_resource_name_dns_aaaa_record,
@@ -476,15 +476,15 @@ class SpotInstanceRequest(
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.
         '''
         value = SpotInstanceRequestRootBlockDevice(
             delete_on_termination=delete_on_termination,
@@ -509,9 +509,9 @@ class SpotInstanceRequest(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#create SpotInstanceRequest#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete SpotInstanceRequest#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#read SpotInstanceRequest#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#create SpotInstanceRequest#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete SpotInstanceRequest#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#read SpotInstanceRequest#read}.
         '''
         value = SpotInstanceRequestTimeouts(create=create, delete=delete, read=read)
 
@@ -829,6 +829,13 @@ class SpotInstanceRequest(
     @jsii.member(jsii_name="passwordData")
     def password_data(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "passwordData"))
+
+    @builtins.property
+    @jsii.member(jsii_name="primaryNetworkInterface")
+    def primary_network_interface(
+        self,
+    ) -> "SpotInstanceRequestPrimaryNetworkInterfaceList":
+        return typing.cast("SpotInstanceRequestPrimaryNetworkInterfaceList", jsii.get(self, "primaryNetworkInterface"))
 
     @builtins.property
     @jsii.member(jsii_name="primaryNetworkInterfaceId")
@@ -1803,8 +1810,8 @@ class SpotInstanceRequestCapacityReservationSpecification:
         capacity_reservation_target: typing.Optional[typing.Union["SpotInstanceRequestCapacityReservationSpecificationCapacityReservationTarget", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param capacity_reservation_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_preference SpotInstanceRequest#capacity_reservation_preference}.
-        :param capacity_reservation_target: capacity_reservation_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_target SpotInstanceRequest#capacity_reservation_target}
+        :param capacity_reservation_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_preference SpotInstanceRequest#capacity_reservation_preference}.
+        :param capacity_reservation_target: capacity_reservation_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_target SpotInstanceRequest#capacity_reservation_target}
         '''
         if isinstance(capacity_reservation_target, dict):
             capacity_reservation_target = SpotInstanceRequestCapacityReservationSpecificationCapacityReservationTarget(**capacity_reservation_target)
@@ -1820,7 +1827,7 @@ class SpotInstanceRequestCapacityReservationSpecification:
 
     @builtins.property
     def capacity_reservation_preference(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_preference SpotInstanceRequest#capacity_reservation_preference}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_preference SpotInstanceRequest#capacity_reservation_preference}.'''
         result = self._values.get("capacity_reservation_preference")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1830,7 +1837,7 @@ class SpotInstanceRequestCapacityReservationSpecification:
     ) -> typing.Optional["SpotInstanceRequestCapacityReservationSpecificationCapacityReservationTarget"]:
         '''capacity_reservation_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_target SpotInstanceRequest#capacity_reservation_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_target SpotInstanceRequest#capacity_reservation_target}
         '''
         result = self._values.get("capacity_reservation_target")
         return typing.cast(typing.Optional["SpotInstanceRequestCapacityReservationSpecificationCapacityReservationTarget"], result)
@@ -1863,8 +1870,8 @@ class SpotInstanceRequestCapacityReservationSpecificationCapacityReservationTarg
         capacity_reservation_resource_group_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param capacity_reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_id SpotInstanceRequest#capacity_reservation_id}.
-        :param capacity_reservation_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_resource_group_arn SpotInstanceRequest#capacity_reservation_resource_group_arn}.
+        :param capacity_reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_id SpotInstanceRequest#capacity_reservation_id}.
+        :param capacity_reservation_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_resource_group_arn SpotInstanceRequest#capacity_reservation_resource_group_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b53096ce4768807440502947af749f45780fdbfcbf448b5ca382576811e34a6)
@@ -1878,13 +1885,13 @@ class SpotInstanceRequestCapacityReservationSpecificationCapacityReservationTarg
 
     @builtins.property
     def capacity_reservation_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_id SpotInstanceRequest#capacity_reservation_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_id SpotInstanceRequest#capacity_reservation_id}.'''
         result = self._values.get("capacity_reservation_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def capacity_reservation_resource_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_resource_group_arn SpotInstanceRequest#capacity_reservation_resource_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_resource_group_arn SpotInstanceRequest#capacity_reservation_resource_group_arn}.'''
         result = self._values.get("capacity_reservation_resource_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2010,8 +2017,8 @@ class SpotInstanceRequestCapacityReservationSpecificationOutputReference(
         capacity_reservation_resource_group_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param capacity_reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_id SpotInstanceRequest#capacity_reservation_id}.
-        :param capacity_reservation_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_resource_group_arn SpotInstanceRequest#capacity_reservation_resource_group_arn}.
+        :param capacity_reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_id SpotInstanceRequest#capacity_reservation_id}.
+        :param capacity_reservation_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_resource_group_arn SpotInstanceRequest#capacity_reservation_resource_group_arn}.
         '''
         value = SpotInstanceRequestCapacityReservationSpecificationCapacityReservationTarget(
             capacity_reservation_id=capacity_reservation_id,
@@ -2222,62 +2229,62 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param ami: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ami SpotInstanceRequest#ami}.
-        :param associate_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#associate_public_ip_address SpotInstanceRequest#associate_public_ip_address}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#availability_zone SpotInstanceRequest#availability_zone}.
-        :param capacity_reservation_specification: capacity_reservation_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_specification SpotInstanceRequest#capacity_reservation_specification}
-        :param cpu_options: cpu_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#cpu_options SpotInstanceRequest#cpu_options}
-        :param credit_specification: credit_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#credit_specification SpotInstanceRequest#credit_specification}
-        :param disable_api_stop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#disable_api_stop SpotInstanceRequest#disable_api_stop}.
-        :param disable_api_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#disable_api_termination SpotInstanceRequest#disable_api_termination}.
-        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ebs_block_device SpotInstanceRequest#ebs_block_device}
-        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ebs_optimized SpotInstanceRequest#ebs_optimized}.
-        :param enable_primary_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enable_primary_ipv6 SpotInstanceRequest#enable_primary_ipv6}.
-        :param enclave_options: enclave_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enclave_options SpotInstanceRequest#enclave_options}
-        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ephemeral_block_device SpotInstanceRequest#ephemeral_block_device}
-        :param fetch_password_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#get_password_data SpotInstanceRequest#get_password_data}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#force_destroy SpotInstanceRequest#force_destroy}.
-        :param hibernation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#hibernation SpotInstanceRequest#hibernation}.
-        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#host_id SpotInstanceRequest#host_id}.
-        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#host_resource_group_arn SpotInstanceRequest#host_resource_group_arn}.
-        :param iam_instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#iam_instance_profile SpotInstanceRequest#iam_instance_profile}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_initiated_shutdown_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_initiated_shutdown_behavior SpotInstanceRequest#instance_initiated_shutdown_behavior}.
-        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_interruption_behavior SpotInstanceRequest#instance_interruption_behavior}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_type SpotInstanceRequest#instance_type}.
-        :param ipv6_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ipv6_address_count SpotInstanceRequest#ipv6_address_count}.
-        :param ipv6_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ipv6_addresses SpotInstanceRequest#ipv6_addresses}.
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#key_name SpotInstanceRequest#key_name}.
-        :param launch_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#launch_group SpotInstanceRequest#launch_group}.
-        :param launch_template: launch_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#launch_template SpotInstanceRequest#launch_template}
-        :param maintenance_options: maintenance_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#maintenance_options SpotInstanceRequest#maintenance_options}
-        :param metadata_options: metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#metadata_options SpotInstanceRequest#metadata_options}
-        :param monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#monitoring SpotInstanceRequest#monitoring}.
-        :param network_interface: network_interface block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#network_interface SpotInstanceRequest#network_interface}
-        :param placement_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#placement_group SpotInstanceRequest#placement_group}.
-        :param placement_partition_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#placement_partition_number SpotInstanceRequest#placement_partition_number}.
-        :param private_dns_name_options: private_dns_name_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#private_dns_name_options SpotInstanceRequest#private_dns_name_options}
-        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#private_ip SpotInstanceRequest#private_ip}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#region SpotInstanceRequest#region}
-        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#root_block_device SpotInstanceRequest#root_block_device}
-        :param secondary_private_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#secondary_private_ips SpotInstanceRequest#secondary_private_ips}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#security_groups SpotInstanceRequest#security_groups}.
-        :param source_dest_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#source_dest_check SpotInstanceRequest#source_dest_check}.
-        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#spot_price SpotInstanceRequest#spot_price}.
-        :param spot_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#spot_type SpotInstanceRequest#spot_type}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#subnet_id SpotInstanceRequest#subnet_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
-        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tenancy SpotInstanceRequest#tenancy}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#timeouts SpotInstanceRequest#timeouts}
-        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#user_data SpotInstanceRequest#user_data}.
-        :param user_data_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#user_data_base64 SpotInstanceRequest#user_data_base64}.
-        :param user_data_replace_on_change: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#user_data_replace_on_change SpotInstanceRequest#user_data_replace_on_change}.
-        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#valid_from SpotInstanceRequest#valid_from}.
-        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#valid_until SpotInstanceRequest#valid_until}.
-        :param volume_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_tags SpotInstanceRequest#volume_tags}.
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#vpc_security_group_ids SpotInstanceRequest#vpc_security_group_ids}.
-        :param wait_for_fulfillment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#wait_for_fulfillment SpotInstanceRequest#wait_for_fulfillment}.
+        :param ami: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ami SpotInstanceRequest#ami}.
+        :param associate_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#associate_public_ip_address SpotInstanceRequest#associate_public_ip_address}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#availability_zone SpotInstanceRequest#availability_zone}.
+        :param capacity_reservation_specification: capacity_reservation_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_specification SpotInstanceRequest#capacity_reservation_specification}
+        :param cpu_options: cpu_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#cpu_options SpotInstanceRequest#cpu_options}
+        :param credit_specification: credit_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#credit_specification SpotInstanceRequest#credit_specification}
+        :param disable_api_stop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#disable_api_stop SpotInstanceRequest#disable_api_stop}.
+        :param disable_api_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#disable_api_termination SpotInstanceRequest#disable_api_termination}.
+        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ebs_block_device SpotInstanceRequest#ebs_block_device}
+        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ebs_optimized SpotInstanceRequest#ebs_optimized}.
+        :param enable_primary_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enable_primary_ipv6 SpotInstanceRequest#enable_primary_ipv6}.
+        :param enclave_options: enclave_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enclave_options SpotInstanceRequest#enclave_options}
+        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ephemeral_block_device SpotInstanceRequest#ephemeral_block_device}
+        :param fetch_password_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#get_password_data SpotInstanceRequest#get_password_data}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#force_destroy SpotInstanceRequest#force_destroy}.
+        :param hibernation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#hibernation SpotInstanceRequest#hibernation}.
+        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#host_id SpotInstanceRequest#host_id}.
+        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#host_resource_group_arn SpotInstanceRequest#host_resource_group_arn}.
+        :param iam_instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#iam_instance_profile SpotInstanceRequest#iam_instance_profile}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_initiated_shutdown_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_initiated_shutdown_behavior SpotInstanceRequest#instance_initiated_shutdown_behavior}.
+        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_interruption_behavior SpotInstanceRequest#instance_interruption_behavior}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_type SpotInstanceRequest#instance_type}.
+        :param ipv6_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ipv6_address_count SpotInstanceRequest#ipv6_address_count}.
+        :param ipv6_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ipv6_addresses SpotInstanceRequest#ipv6_addresses}.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#key_name SpotInstanceRequest#key_name}.
+        :param launch_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#launch_group SpotInstanceRequest#launch_group}.
+        :param launch_template: launch_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#launch_template SpotInstanceRequest#launch_template}
+        :param maintenance_options: maintenance_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#maintenance_options SpotInstanceRequest#maintenance_options}
+        :param metadata_options: metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#metadata_options SpotInstanceRequest#metadata_options}
+        :param monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#monitoring SpotInstanceRequest#monitoring}.
+        :param network_interface: network_interface block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#network_interface SpotInstanceRequest#network_interface}
+        :param placement_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#placement_group SpotInstanceRequest#placement_group}.
+        :param placement_partition_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#placement_partition_number SpotInstanceRequest#placement_partition_number}.
+        :param private_dns_name_options: private_dns_name_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#private_dns_name_options SpotInstanceRequest#private_dns_name_options}
+        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#private_ip SpotInstanceRequest#private_ip}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#region SpotInstanceRequest#region}
+        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#root_block_device SpotInstanceRequest#root_block_device}
+        :param secondary_private_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#secondary_private_ips SpotInstanceRequest#secondary_private_ips}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#security_groups SpotInstanceRequest#security_groups}.
+        :param source_dest_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#source_dest_check SpotInstanceRequest#source_dest_check}.
+        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#spot_price SpotInstanceRequest#spot_price}.
+        :param spot_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#spot_type SpotInstanceRequest#spot_type}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#subnet_id SpotInstanceRequest#subnet_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
+        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tenancy SpotInstanceRequest#tenancy}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#timeouts SpotInstanceRequest#timeouts}
+        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#user_data SpotInstanceRequest#user_data}.
+        :param user_data_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#user_data_base64 SpotInstanceRequest#user_data_base64}.
+        :param user_data_replace_on_change: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#user_data_replace_on_change SpotInstanceRequest#user_data_replace_on_change}.
+        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#valid_from SpotInstanceRequest#valid_from}.
+        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#valid_until SpotInstanceRequest#valid_until}.
+        :param volume_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_tags SpotInstanceRequest#volume_tags}.
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#vpc_security_group_ids SpotInstanceRequest#vpc_security_group_ids}.
+        :param wait_for_fulfillment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#wait_for_fulfillment SpotInstanceRequest#wait_for_fulfillment}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2560,7 +2567,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ami(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ami SpotInstanceRequest#ami}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ami SpotInstanceRequest#ami}.'''
         result = self._values.get("ami")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2568,13 +2575,13 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def associate_public_ip_address(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#associate_public_ip_address SpotInstanceRequest#associate_public_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#associate_public_ip_address SpotInstanceRequest#associate_public_ip_address}.'''
         result = self._values.get("associate_public_ip_address")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#availability_zone SpotInstanceRequest#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#availability_zone SpotInstanceRequest#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2584,7 +2591,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[SpotInstanceRequestCapacityReservationSpecification]:
         '''capacity_reservation_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#capacity_reservation_specification SpotInstanceRequest#capacity_reservation_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#capacity_reservation_specification SpotInstanceRequest#capacity_reservation_specification}
         '''
         result = self._values.get("capacity_reservation_specification")
         return typing.cast(typing.Optional[SpotInstanceRequestCapacityReservationSpecification], result)
@@ -2593,7 +2600,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cpu_options(self) -> typing.Optional["SpotInstanceRequestCpuOptions"]:
         '''cpu_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#cpu_options SpotInstanceRequest#cpu_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#cpu_options SpotInstanceRequest#cpu_options}
         '''
         result = self._values.get("cpu_options")
         return typing.cast(typing.Optional["SpotInstanceRequestCpuOptions"], result)
@@ -2604,7 +2611,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SpotInstanceRequestCreditSpecification"]:
         '''credit_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#credit_specification SpotInstanceRequest#credit_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#credit_specification SpotInstanceRequest#credit_specification}
         '''
         result = self._values.get("credit_specification")
         return typing.cast(typing.Optional["SpotInstanceRequestCreditSpecification"], result)
@@ -2613,7 +2620,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disable_api_stop(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#disable_api_stop SpotInstanceRequest#disable_api_stop}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#disable_api_stop SpotInstanceRequest#disable_api_stop}.'''
         result = self._values.get("disable_api_stop")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2621,7 +2628,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disable_api_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#disable_api_termination SpotInstanceRequest#disable_api_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#disable_api_termination SpotInstanceRequest#disable_api_termination}.'''
         result = self._values.get("disable_api_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2631,7 +2638,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotInstanceRequestEbsBlockDevice"]]]:
         '''ebs_block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ebs_block_device SpotInstanceRequest#ebs_block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ebs_block_device SpotInstanceRequest#ebs_block_device}
         '''
         result = self._values.get("ebs_block_device")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotInstanceRequestEbsBlockDevice"]]], result)
@@ -2640,7 +2647,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ebs_optimized(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ebs_optimized SpotInstanceRequest#ebs_optimized}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ebs_optimized SpotInstanceRequest#ebs_optimized}.'''
         result = self._values.get("ebs_optimized")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2648,7 +2655,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_primary_ipv6(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enable_primary_ipv6 SpotInstanceRequest#enable_primary_ipv6}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enable_primary_ipv6 SpotInstanceRequest#enable_primary_ipv6}.'''
         result = self._values.get("enable_primary_ipv6")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2656,7 +2663,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enclave_options(self) -> typing.Optional["SpotInstanceRequestEnclaveOptions"]:
         '''enclave_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enclave_options SpotInstanceRequest#enclave_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enclave_options SpotInstanceRequest#enclave_options}
         '''
         result = self._values.get("enclave_options")
         return typing.cast(typing.Optional["SpotInstanceRequestEnclaveOptions"], result)
@@ -2667,7 +2674,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotInstanceRequestEphemeralBlockDevice"]]]:
         '''ephemeral_block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ephemeral_block_device SpotInstanceRequest#ephemeral_block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ephemeral_block_device SpotInstanceRequest#ephemeral_block_device}
         '''
         result = self._values.get("ephemeral_block_device")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotInstanceRequestEphemeralBlockDevice"]]], result)
@@ -2676,7 +2683,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fetch_password_data(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#get_password_data SpotInstanceRequest#get_password_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#get_password_data SpotInstanceRequest#get_password_data}.'''
         result = self._values.get("fetch_password_data")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2684,7 +2691,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#force_destroy SpotInstanceRequest#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#force_destroy SpotInstanceRequest#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2692,31 +2699,31 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def hibernation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#hibernation SpotInstanceRequest#hibernation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#hibernation SpotInstanceRequest#hibernation}.'''
         result = self._values.get("hibernation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def host_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#host_id SpotInstanceRequest#host_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#host_id SpotInstanceRequest#host_id}.'''
         result = self._values.get("host_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host_resource_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#host_resource_group_arn SpotInstanceRequest#host_resource_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#host_resource_group_arn SpotInstanceRequest#host_resource_group_arn}.'''
         result = self._values.get("host_resource_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam_instance_profile(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#iam_instance_profile SpotInstanceRequest#iam_instance_profile}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#iam_instance_profile SpotInstanceRequest#iam_instance_profile}.'''
         result = self._values.get("iam_instance_profile")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2726,43 +2733,43 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_initiated_shutdown_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_initiated_shutdown_behavior SpotInstanceRequest#instance_initiated_shutdown_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_initiated_shutdown_behavior SpotInstanceRequest#instance_initiated_shutdown_behavior}.'''
         result = self._values.get("instance_initiated_shutdown_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_interruption_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_interruption_behavior SpotInstanceRequest#instance_interruption_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_interruption_behavior SpotInstanceRequest#instance_interruption_behavior}.'''
         result = self._values.get("instance_interruption_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_type SpotInstanceRequest#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_type SpotInstanceRequest#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ipv6_address_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ipv6_address_count SpotInstanceRequest#ipv6_address_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ipv6_address_count SpotInstanceRequest#ipv6_address_count}.'''
         result = self._values.get("ipv6_address_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ipv6_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#ipv6_addresses SpotInstanceRequest#ipv6_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#ipv6_addresses SpotInstanceRequest#ipv6_addresses}.'''
         result = self._values.get("ipv6_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def key_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#key_name SpotInstanceRequest#key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#key_name SpotInstanceRequest#key_name}.'''
         result = self._values.get("key_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def launch_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#launch_group SpotInstanceRequest#launch_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#launch_group SpotInstanceRequest#launch_group}.'''
         result = self._values.get("launch_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2770,7 +2777,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def launch_template(self) -> typing.Optional["SpotInstanceRequestLaunchTemplate"]:
         '''launch_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#launch_template SpotInstanceRequest#launch_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#launch_template SpotInstanceRequest#launch_template}
         '''
         result = self._values.get("launch_template")
         return typing.cast(typing.Optional["SpotInstanceRequestLaunchTemplate"], result)
@@ -2781,7 +2788,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SpotInstanceRequestMaintenanceOptions"]:
         '''maintenance_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#maintenance_options SpotInstanceRequest#maintenance_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#maintenance_options SpotInstanceRequest#maintenance_options}
         '''
         result = self._values.get("maintenance_options")
         return typing.cast(typing.Optional["SpotInstanceRequestMaintenanceOptions"], result)
@@ -2790,7 +2797,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata_options(self) -> typing.Optional["SpotInstanceRequestMetadataOptions"]:
         '''metadata_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#metadata_options SpotInstanceRequest#metadata_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#metadata_options SpotInstanceRequest#metadata_options}
         '''
         result = self._values.get("metadata_options")
         return typing.cast(typing.Optional["SpotInstanceRequestMetadataOptions"], result)
@@ -2799,7 +2806,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitoring(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#monitoring SpotInstanceRequest#monitoring}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#monitoring SpotInstanceRequest#monitoring}.'''
         result = self._values.get("monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2809,20 +2816,20 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotInstanceRequestNetworkInterface"]]]:
         '''network_interface block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#network_interface SpotInstanceRequest#network_interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#network_interface SpotInstanceRequest#network_interface}
         '''
         result = self._values.get("network_interface")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotInstanceRequestNetworkInterface"]]], result)
 
     @builtins.property
     def placement_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#placement_group SpotInstanceRequest#placement_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#placement_group SpotInstanceRequest#placement_group}.'''
         result = self._values.get("placement_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def placement_partition_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#placement_partition_number SpotInstanceRequest#placement_partition_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#placement_partition_number SpotInstanceRequest#placement_partition_number}.'''
         result = self._values.get("placement_partition_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2832,14 +2839,14 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SpotInstanceRequestPrivateDnsNameOptions"]:
         '''private_dns_name_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#private_dns_name_options SpotInstanceRequest#private_dns_name_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#private_dns_name_options SpotInstanceRequest#private_dns_name_options}
         '''
         result = self._values.get("private_dns_name_options")
         return typing.cast(typing.Optional["SpotInstanceRequestPrivateDnsNameOptions"], result)
 
     @builtins.property
     def private_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#private_ip SpotInstanceRequest#private_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#private_ip SpotInstanceRequest#private_ip}.'''
         result = self._values.get("private_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2847,7 +2854,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#region SpotInstanceRequest#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#region SpotInstanceRequest#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2858,20 +2865,20 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SpotInstanceRequestRootBlockDevice"]:
         '''root_block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#root_block_device SpotInstanceRequest#root_block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#root_block_device SpotInstanceRequest#root_block_device}
         '''
         result = self._values.get("root_block_device")
         return typing.cast(typing.Optional["SpotInstanceRequestRootBlockDevice"], result)
 
     @builtins.property
     def secondary_private_ips(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#secondary_private_ips SpotInstanceRequest#secondary_private_ips}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#secondary_private_ips SpotInstanceRequest#secondary_private_ips}.'''
         result = self._values.get("secondary_private_ips")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#security_groups SpotInstanceRequest#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#security_groups SpotInstanceRequest#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2879,43 +2886,43 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_dest_check(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#source_dest_check SpotInstanceRequest#source_dest_check}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#source_dest_check SpotInstanceRequest#source_dest_check}.'''
         result = self._values.get("source_dest_check")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def spot_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#spot_price SpotInstanceRequest#spot_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#spot_price SpotInstanceRequest#spot_price}.'''
         result = self._values.get("spot_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def spot_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#spot_type SpotInstanceRequest#spot_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#spot_type SpotInstanceRequest#spot_type}.'''
         result = self._values.get("spot_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#subnet_id SpotInstanceRequest#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#subnet_id SpotInstanceRequest#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tenancy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tenancy SpotInstanceRequest#tenancy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tenancy SpotInstanceRequest#tenancy}.'''
         result = self._values.get("tenancy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2923,20 +2930,20 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SpotInstanceRequestTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#timeouts SpotInstanceRequest#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#timeouts SpotInstanceRequest#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SpotInstanceRequestTimeouts"], result)
 
     @builtins.property
     def user_data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#user_data SpotInstanceRequest#user_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#user_data SpotInstanceRequest#user_data}.'''
         result = self._values.get("user_data")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_data_base64(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#user_data_base64 SpotInstanceRequest#user_data_base64}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#user_data_base64 SpotInstanceRequest#user_data_base64}.'''
         result = self._values.get("user_data_base64")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2944,19 +2951,19 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_data_replace_on_change(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#user_data_replace_on_change SpotInstanceRequest#user_data_replace_on_change}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#user_data_replace_on_change SpotInstanceRequest#user_data_replace_on_change}.'''
         result = self._values.get("user_data_replace_on_change")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def valid_from(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#valid_from SpotInstanceRequest#valid_from}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#valid_from SpotInstanceRequest#valid_from}.'''
         result = self._values.get("valid_from")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def valid_until(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#valid_until SpotInstanceRequest#valid_until}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#valid_until SpotInstanceRequest#valid_until}.'''
         result = self._values.get("valid_until")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2964,13 +2971,13 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def volume_tags(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_tags SpotInstanceRequest#volume_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_tags SpotInstanceRequest#volume_tags}.'''
         result = self._values.get("volume_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#vpc_security_group_ids SpotInstanceRequest#vpc_security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#vpc_security_group_ids SpotInstanceRequest#vpc_security_group_ids}.'''
         result = self._values.get("vpc_security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2978,7 +2985,7 @@ class SpotInstanceRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def wait_for_fulfillment(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#wait_for_fulfillment SpotInstanceRequest#wait_for_fulfillment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#wait_for_fulfillment SpotInstanceRequest#wait_for_fulfillment}.'''
         result = self._values.get("wait_for_fulfillment")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3012,9 +3019,9 @@ class SpotInstanceRequestCpuOptions:
         threads_per_core: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param amd_sev_snp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#amd_sev_snp SpotInstanceRequest#amd_sev_snp}.
-        :param core_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#core_count SpotInstanceRequest#core_count}.
-        :param threads_per_core: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#threads_per_core SpotInstanceRequest#threads_per_core}.
+        :param amd_sev_snp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#amd_sev_snp SpotInstanceRequest#amd_sev_snp}.
+        :param core_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#core_count SpotInstanceRequest#core_count}.
+        :param threads_per_core: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#threads_per_core SpotInstanceRequest#threads_per_core}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f386932bc6e87dd6ae91d9a2b535ae535aeb97fb89a49697cbfe168d584feae6)
@@ -3031,19 +3038,19 @@ class SpotInstanceRequestCpuOptions:
 
     @builtins.property
     def amd_sev_snp(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#amd_sev_snp SpotInstanceRequest#amd_sev_snp}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#amd_sev_snp SpotInstanceRequest#amd_sev_snp}.'''
         result = self._values.get("amd_sev_snp")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def core_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#core_count SpotInstanceRequest#core_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#core_count SpotInstanceRequest#core_count}.'''
         result = self._values.get("core_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def threads_per_core(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#threads_per_core SpotInstanceRequest#threads_per_core}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#threads_per_core SpotInstanceRequest#threads_per_core}.'''
         result = self._values.get("threads_per_core")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3166,7 +3173,7 @@ class SpotInstanceRequestCpuOptionsOutputReference(
 class SpotInstanceRequestCreditSpecification:
     def __init__(self, *, cpu_credits: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param cpu_credits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#cpu_credits SpotInstanceRequest#cpu_credits}.
+        :param cpu_credits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#cpu_credits SpotInstanceRequest#cpu_credits}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b4d999fd7644782459b00ad83d039b8747f32544ceb428e175b607e9feb8886)
@@ -3177,7 +3184,7 @@ class SpotInstanceRequestCreditSpecification:
 
     @builtins.property
     def cpu_credits(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#cpu_credits SpotInstanceRequest#cpu_credits}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#cpu_credits SpotInstanceRequest#cpu_credits}.'''
         result = self._values.get("cpu_credits")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3284,17 +3291,17 @@ class SpotInstanceRequestEbsBlockDevice:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#device_name SpotInstanceRequest#device_name}.
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.
-        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#snapshot_id SpotInstanceRequest#snapshot_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#device_name SpotInstanceRequest#device_name}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.
+        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#snapshot_id SpotInstanceRequest#snapshot_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bda27cbb38c3d47c10571df43995a3b7397e9cf89371396b2399ce8e58ab7508)
@@ -3335,7 +3342,7 @@ class SpotInstanceRequestEbsBlockDevice:
 
     @builtins.property
     def device_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#device_name SpotInstanceRequest#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#device_name SpotInstanceRequest#device_name}.'''
         result = self._values.get("device_name")
         assert result is not None, "Required property 'device_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3344,7 +3351,7 @@ class SpotInstanceRequestEbsBlockDevice:
     def delete_on_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3352,55 +3359,55 @@ class SpotInstanceRequestEbsBlockDevice:
     def encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def snapshot_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#snapshot_id SpotInstanceRequest#snapshot_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#snapshot_id SpotInstanceRequest#snapshot_id}.'''
         result = self._values.get("snapshot_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.'''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3811,7 +3818,7 @@ class SpotInstanceRequestEnclaveOptions:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enabled SpotInstanceRequest#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enabled SpotInstanceRequest#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49426f37d1aa67f28328f0c59c8746acf7bb306b8327391daa4ce392110873c3)
@@ -3824,7 +3831,7 @@ class SpotInstanceRequestEnclaveOptions:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enabled SpotInstanceRequest#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enabled SpotInstanceRequest#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3920,9 +3927,9 @@ class SpotInstanceRequestEphemeralBlockDevice:
         virtual_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#device_name SpotInstanceRequest#device_name}.
-        :param no_device: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#no_device SpotInstanceRequest#no_device}.
-        :param virtual_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#virtual_name SpotInstanceRequest#virtual_name}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#device_name SpotInstanceRequest#device_name}.
+        :param no_device: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#no_device SpotInstanceRequest#no_device}.
+        :param virtual_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#virtual_name SpotInstanceRequest#virtual_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1921f2b95234545c956e4a1ac273943f2fb962a93df65ebd3c49047ed1f66e86)
@@ -3939,7 +3946,7 @@ class SpotInstanceRequestEphemeralBlockDevice:
 
     @builtins.property
     def device_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#device_name SpotInstanceRequest#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#device_name SpotInstanceRequest#device_name}.'''
         result = self._values.get("device_name")
         assert result is not None, "Required property 'device_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3948,13 +3955,13 @@ class SpotInstanceRequestEphemeralBlockDevice:
     def no_device(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#no_device SpotInstanceRequest#no_device}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#no_device SpotInstanceRequest#no_device}.'''
         result = self._values.get("no_device")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def virtual_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#virtual_name SpotInstanceRequest#virtual_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#virtual_name SpotInstanceRequest#virtual_name}.'''
         result = self._values.get("virtual_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4185,9 +4192,9 @@ class SpotInstanceRequestLaunchTemplate:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#name SpotInstanceRequest#name}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#version SpotInstanceRequest#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#name SpotInstanceRequest#name}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#version SpotInstanceRequest#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f562604b8b443d81df1d6c4e72ee94f5c6fc2f0aef42e96b962e57e6b583768d)
@@ -4204,7 +4211,7 @@ class SpotInstanceRequestLaunchTemplate:
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#id SpotInstanceRequest#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -4214,13 +4221,13 @@ class SpotInstanceRequestLaunchTemplate:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#name SpotInstanceRequest#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#name SpotInstanceRequest#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#version SpotInstanceRequest#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#version SpotInstanceRequest#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4343,7 +4350,7 @@ class SpotInstanceRequestLaunchTemplateOutputReference(
 class SpotInstanceRequestMaintenanceOptions:
     def __init__(self, *, auto_recovery: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param auto_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#auto_recovery SpotInstanceRequest#auto_recovery}.
+        :param auto_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#auto_recovery SpotInstanceRequest#auto_recovery}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50d75a7f38b4249102640206613211496aedbb4562cde95c787b7155e155b576)
@@ -4354,7 +4361,7 @@ class SpotInstanceRequestMaintenanceOptions:
 
     @builtins.property
     def auto_recovery(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#auto_recovery SpotInstanceRequest#auto_recovery}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#auto_recovery SpotInstanceRequest#auto_recovery}.'''
         result = self._values.get("auto_recovery")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4449,11 +4456,11 @@ class SpotInstanceRequestMetadataOptions:
         instance_metadata_tags: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_endpoint SpotInstanceRequest#http_endpoint}.
-        :param http_protocol_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_protocol_ipv6 SpotInstanceRequest#http_protocol_ipv6}.
-        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_put_response_hop_limit SpotInstanceRequest#http_put_response_hop_limit}.
-        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_tokens SpotInstanceRequest#http_tokens}.
-        :param instance_metadata_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_metadata_tags SpotInstanceRequest#instance_metadata_tags}.
+        :param http_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_endpoint SpotInstanceRequest#http_endpoint}.
+        :param http_protocol_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_protocol_ipv6 SpotInstanceRequest#http_protocol_ipv6}.
+        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_put_response_hop_limit SpotInstanceRequest#http_put_response_hop_limit}.
+        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_tokens SpotInstanceRequest#http_tokens}.
+        :param instance_metadata_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_metadata_tags SpotInstanceRequest#instance_metadata_tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24aad8c2bb03b213aaa1ae2f63fad8302e681db4092c3a10cdf128e85e97e4d7)
@@ -4476,31 +4483,31 @@ class SpotInstanceRequestMetadataOptions:
 
     @builtins.property
     def http_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_endpoint SpotInstanceRequest#http_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_endpoint SpotInstanceRequest#http_endpoint}.'''
         result = self._values.get("http_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def http_protocol_ipv6(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_protocol_ipv6 SpotInstanceRequest#http_protocol_ipv6}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_protocol_ipv6 SpotInstanceRequest#http_protocol_ipv6}.'''
         result = self._values.get("http_protocol_ipv6")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def http_put_response_hop_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_put_response_hop_limit SpotInstanceRequest#http_put_response_hop_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_put_response_hop_limit SpotInstanceRequest#http_put_response_hop_limit}.'''
         result = self._values.get("http_put_response_hop_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def http_tokens(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#http_tokens SpotInstanceRequest#http_tokens}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#http_tokens SpotInstanceRequest#http_tokens}.'''
         result = self._values.get("http_tokens")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_metadata_tags(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#instance_metadata_tags SpotInstanceRequest#instance_metadata_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#instance_metadata_tags SpotInstanceRequest#instance_metadata_tags}.'''
         result = self._values.get("instance_metadata_tags")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4677,10 +4684,10 @@ class SpotInstanceRequestNetworkInterface:
         network_card_index: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param device_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#device_index SpotInstanceRequest#device_index}.
-        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#network_interface_id SpotInstanceRequest#network_interface_id}.
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.
-        :param network_card_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#network_card_index SpotInstanceRequest#network_card_index}.
+        :param device_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#device_index SpotInstanceRequest#device_index}.
+        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#network_interface_id SpotInstanceRequest#network_interface_id}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.
+        :param network_card_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#network_card_index SpotInstanceRequest#network_card_index}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ed7fbbde47db6ba03720cd9e06de7db62dbd0b75fbf0861ba9c02e163c11e52)
@@ -4699,14 +4706,14 @@ class SpotInstanceRequestNetworkInterface:
 
     @builtins.property
     def device_index(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#device_index SpotInstanceRequest#device_index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#device_index SpotInstanceRequest#device_index}.'''
         result = self._values.get("device_index")
         assert result is not None, "Required property 'device_index' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def network_interface_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#network_interface_id SpotInstanceRequest#network_interface_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#network_interface_id SpotInstanceRequest#network_interface_id}.'''
         result = self._values.get("network_interface_id")
         assert result is not None, "Required property 'network_interface_id' is missing"
         return typing.cast(builtins.str, result)
@@ -4715,13 +4722,13 @@ class SpotInstanceRequestNetworkInterface:
     def delete_on_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def network_card_index(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#network_card_index SpotInstanceRequest#network_card_index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#network_card_index SpotInstanceRequest#network_card_index}.'''
         result = self._values.get("network_card_index")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4958,6 +4965,157 @@ class SpotInstanceRequestNetworkInterfaceOutputReference(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-aws.spotInstanceRequest.SpotInstanceRequestPrimaryNetworkInterface",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class SpotInstanceRequestPrimaryNetworkInterface:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SpotInstanceRequestPrimaryNetworkInterface(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SpotInstanceRequestPrimaryNetworkInterfaceList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.spotInstanceRequest.SpotInstanceRequestPrimaryNetworkInterfaceList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fce7e216f50726af5f4c448d7517953cf8b74739c8cae15eff595a72385bf813)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "SpotInstanceRequestPrimaryNetworkInterfaceOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d35a41a929d674dc31b17f5399e9013f85d6e570e77dcf923d883b0630323365)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("SpotInstanceRequestPrimaryNetworkInterfaceOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78e1251b6502ad8d14fe9bc5f5a697f878517b4be31fcc35b2c66ba4324100f3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05f9d0a1dc014481c860e8d4d662cf8777dd7bd107ad401fed1a16b3a2defab5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4027aaa6d456ea76078a11a23c2bf16ff5dd27a0126784ab0a291645a8396105)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class SpotInstanceRequestPrimaryNetworkInterfaceOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.spotInstanceRequest.SpotInstanceRequestPrimaryNetworkInterfaceOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc42067fb548e76d5f13603c643c0d60967160e2aa00a618f1d4a5faa9293935)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="deleteOnTermination")
+    def delete_on_termination(self) -> _cdktf_9a9027ec.IResolvable:
+        return typing.cast(_cdktf_9a9027ec.IResolvable, jsii.get(self, "deleteOnTermination"))
+
+    @builtins.property
+    @jsii.member(jsii_name="networkInterfaceId")
+    def network_interface_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "networkInterfaceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[SpotInstanceRequestPrimaryNetworkInterface]:
+        return typing.cast(typing.Optional[SpotInstanceRequestPrimaryNetworkInterface], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[SpotInstanceRequestPrimaryNetworkInterface],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1a4b6d03ee8cfc9c4320f51a8eb660c0637b2d406b5711f1291abe9af0bc710)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-aws.spotInstanceRequest.SpotInstanceRequestPrivateDnsNameOptions",
     jsii_struct_bases=[],
     name_mapping={
@@ -4975,9 +5133,9 @@ class SpotInstanceRequestPrivateDnsNameOptions:
         hostname_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enable_resource_name_dns_aaaa_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enable_resource_name_dns_aaaa_record SpotInstanceRequest#enable_resource_name_dns_aaaa_record}.
-        :param enable_resource_name_dns_a_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enable_resource_name_dns_a_record SpotInstanceRequest#enable_resource_name_dns_a_record}.
-        :param hostname_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#hostname_type SpotInstanceRequest#hostname_type}.
+        :param enable_resource_name_dns_aaaa_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enable_resource_name_dns_aaaa_record SpotInstanceRequest#enable_resource_name_dns_aaaa_record}.
+        :param enable_resource_name_dns_a_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enable_resource_name_dns_a_record SpotInstanceRequest#enable_resource_name_dns_a_record}.
+        :param hostname_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#hostname_type SpotInstanceRequest#hostname_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__921239175b4251b30a3cbd19472def171e74c1a20fec003f4059e9b840dc6eac)
@@ -4996,7 +5154,7 @@ class SpotInstanceRequestPrivateDnsNameOptions:
     def enable_resource_name_dns_aaaa_record(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enable_resource_name_dns_aaaa_record SpotInstanceRequest#enable_resource_name_dns_aaaa_record}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enable_resource_name_dns_aaaa_record SpotInstanceRequest#enable_resource_name_dns_aaaa_record}.'''
         result = self._values.get("enable_resource_name_dns_aaaa_record")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5004,13 +5162,13 @@ class SpotInstanceRequestPrivateDnsNameOptions:
     def enable_resource_name_dns_a_record(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#enable_resource_name_dns_a_record SpotInstanceRequest#enable_resource_name_dns_a_record}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#enable_resource_name_dns_a_record SpotInstanceRequest#enable_resource_name_dns_a_record}.'''
         result = self._values.get("enable_resource_name_dns_a_record")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def hostname_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#hostname_type SpotInstanceRequest#hostname_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#hostname_type SpotInstanceRequest#hostname_type}.'''
         result = self._values.get("hostname_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5171,15 +5329,15 @@ class SpotInstanceRequestRootBlockDevice:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c4402fec0f68de14745d888bab9c1fec2ccb7223b10f62aabc07531ad83d28e)
@@ -5216,7 +5374,7 @@ class SpotInstanceRequestRootBlockDevice:
     def delete_on_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete_on_termination SpotInstanceRequest#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5224,49 +5382,49 @@ class SpotInstanceRequestRootBlockDevice:
     def encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#encrypted SpotInstanceRequest#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#iops SpotInstanceRequest#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#kms_key_id SpotInstanceRequest#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags SpotInstanceRequest#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#tags_all SpotInstanceRequest#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#throughput SpotInstanceRequest#throughput}.'''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_size SpotInstanceRequest#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#volume_type SpotInstanceRequest#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5545,9 +5703,9 @@ class SpotInstanceRequestTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#create SpotInstanceRequest#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete SpotInstanceRequest#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#read SpotInstanceRequest#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#create SpotInstanceRequest#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete SpotInstanceRequest#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#read SpotInstanceRequest#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__380f32426a89d2e00d045ee849daf364faaf0f2b1e1f17525c9b8a2c80246218)
@@ -5564,19 +5722,19 @@ class SpotInstanceRequestTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#create SpotInstanceRequest#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#create SpotInstanceRequest#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#delete SpotInstanceRequest#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#delete SpotInstanceRequest#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/spot_instance_request#read SpotInstanceRequest#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/spot_instance_request#read SpotInstanceRequest#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5721,6 +5879,9 @@ __all__ = [
     "SpotInstanceRequestNetworkInterface",
     "SpotInstanceRequestNetworkInterfaceList",
     "SpotInstanceRequestNetworkInterfaceOutputReference",
+    "SpotInstanceRequestPrimaryNetworkInterface",
+    "SpotInstanceRequestPrimaryNetworkInterfaceList",
+    "SpotInstanceRequestPrimaryNetworkInterfaceOutputReference",
     "SpotInstanceRequestPrivateDnsNameOptions",
     "SpotInstanceRequestPrivateDnsNameOptionsOutputReference",
     "SpotInstanceRequestRootBlockDevice",
@@ -6727,6 +6888,53 @@ def _typecheckingstub__62fd82eeb2b5e6ec5d05cebd741ff821169809e4d8be918df8fbc48f8
 
 def _typecheckingstub__bfecfe5d5ea38655ccb62d00a69cf2459429c17df061d538fe7fa4d71e1e5eda(
     value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SpotInstanceRequestNetworkInterface]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fce7e216f50726af5f4c448d7517953cf8b74739c8cae15eff595a72385bf813(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d35a41a929d674dc31b17f5399e9013f85d6e570e77dcf923d883b0630323365(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78e1251b6502ad8d14fe9bc5f5a697f878517b4be31fcc35b2c66ba4324100f3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05f9d0a1dc014481c860e8d4d662cf8777dd7bd107ad401fed1a16b3a2defab5(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4027aaa6d456ea76078a11a23c2bf16ff5dd27a0126784ab0a291645a8396105(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc42067fb548e76d5f13603c643c0d60967160e2aa00a618f1d4a5faa9293935(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1a4b6d03ee8cfc9c4320f51a8eb660c0637b2d406b5711f1291abe9af0bc710(
+    value: typing.Optional[SpotInstanceRequestPrimaryNetworkInterface],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,8 +1,10 @@
+import os
 import sys
 
 import pytest
 
 PYPY = '__pypy__' in sys.builtin_module_names
+GRAALPY = sys.implementation.name == 'graalpy'
 
 
 @pytest.fixture(scope='session')
@@ -19,7 +21,7 @@ def lop_loader():
                 try:
                     from lazy_object_proxy.cext import Proxy
                 except ImportError:
-                    if PYPY:
+                    if PYPY or GRAALPY or os.environ.get('SETUPPY_FORCE_PURE'):
                         pytest.skip(reason='C Extension not available.')
                     else:
                         raise

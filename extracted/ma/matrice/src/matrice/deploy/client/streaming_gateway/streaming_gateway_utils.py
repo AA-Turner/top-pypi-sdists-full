@@ -64,6 +64,7 @@ class InputConfig:
     max_frames: Optional[int] = None  # Maximum frames per video chunk
     video_format: str = "mp4"  # Video format for encoding
     simulate_video_file_stream: bool = False
+    camera_location: Optional[str] = None  # Physical location of the camera
 
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -339,9 +340,9 @@ class _RealTimeJsonEventPicker:
 
     def send_api_call(self,json_data):
         headers = {'Content-Type': 'application/json'}
-        API_URL = "https://monthly-genuine-troll.ngrok-free.app" #"https://monthly-genuine-troll.ngrok-free.app" #https://matricedemo.forumalertcloud.io/matriceapi/
-        API_USER = "admin" #"admin" #"matrice"
-        API_PASS = "admin" #"admin" #"hR9aN9mQ"
+        API_URL = "https://matricedemo.forumalertcloud.io/matriceapi/" #"https://monthly-genuine-troll.ngrok-free.app" #https://matricedemo.forumalertcloud.io/matriceapi/
+        API_USER = "matrice" #"admin" #"matrice"
+        API_PASS = "hR9aN9mQ" #"admin" #"hR9aN9mQ"
         try:
             response = requests.post(
             API_URL,
@@ -396,7 +397,7 @@ class _RealTimeJsonEventPicker:
                     # Advance to next required severity
                     self._sequence.popleft()
                     self._hit_counter = 0
-                    self.send_api_call(incidents)
+                    self.send_api_call(frame_json)
                     return event
             elif self._hit_counter>0:
                 self._hit_counter-=1
@@ -411,7 +412,7 @@ class _RealTimeJsonEventPicker:
                         "video_timestamp_secs": int(frame_id)/30
                     }
                     self.reset()
-                    self.send_api_call(incidents)
+                    self.send_api_call(frame_json)
                     return event
 
         else:
@@ -425,7 +426,7 @@ class _RealTimeJsonEventPicker:
                         "video_timestamp_secs": int(frame_id)/30
                     }
                     self.reset()
-                    self.send_api_call(incidents)
+                    self.send_api_call(frame_json)
                     return event
             elif self._hit_counter>0:
                 self._hit_counter-=1
@@ -446,6 +447,7 @@ def create_camera_input(
     video_duration: float = None,
     max_frames: int = None,
     video_format: str = "mp4",
+    camera_location: str = None,
 ) -> InputConfig:
     """Create a camera input configuration.
 
@@ -460,6 +462,7 @@ def create_camera_input(
         video_duration: Duration of video chunks in seconds (only for VIDEO mode)
         max_frames: Maximum frames per video chunk (only for VIDEO mode)
         video_format: Video format for encoding (mp4, avi, webm)
+        camera_location: Physical location of the camera (e.g., "Building A, Floor 2, Room 205")
 
     Returns:
         InputConfig: Configured input for camera
@@ -482,6 +485,7 @@ def create_camera_input(
         video_duration=video_duration,
         max_frames=max_frames,
         video_format=video_format,
+        camera_location=camera_location,
     )
 
 

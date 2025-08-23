@@ -186,4 +186,3 @@ def insert_dataframe(conn, df, table_name):
         conn.rollback()
     finally:
         cursor.close()
-        conn.close()

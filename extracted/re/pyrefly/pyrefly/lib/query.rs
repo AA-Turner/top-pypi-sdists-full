@@ -26,6 +26,7 @@ use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::class::Class;
 use pyrefly_types::literal::Lit;
 use pyrefly_types::qname::QName;
+use pyrefly_types::type_var::Restriction;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::Forallable;
 use pyrefly_types::types::Type;
@@ -262,6 +263,7 @@ impl Query {
                 },
                 FunctionKind::IsInstance => String::from("isinstance"),
                 FunctionKind::IsSubclass => String::from("issubclass"),
+                FunctionKind::Cast => String::from("typing.cast"),
                 // should never see this in expression context
                 FunctionKind::Dataclass => String::from("dataclasses.dataclass"),
                 FunctionKind::DataclassField => String::from("dataclasses.field"),
@@ -322,14 +324,29 @@ impl Query {
                 }
             }
         }
-        fn class_name_from_bound_obj(ty: &Type) -> String {
+        fn class_names_from_bound_obj(ty: &Type) -> Vec<String> {
             match ty {
-                Type::ClassType(c) => qname_to_string(c.qname()),
-                Type::ClassDef(c) => qname_to_string(c.qname()),
-                Type::TypedDict(d) => qname_to_string(d.qname()),
-                Type::Literal(Lit::Str(_)) | Type::LiteralString => String::from("builtins.str"),
-                Type::Literal(Lit::Int(_)) => String::from("builtins.int"),
-                Type::Literal(Lit::Bool(_)) => String::from("builtins.bool"),
+                Type::ClassType(c) => vec![qname_to_string(c.qname())],
+                Type::ClassDef(c) => vec![qname_to_string(c.qname())],
+                Type::TypedDict(d) => vec![qname_to_string(d.qname())],
+                Type::Literal(Lit::Str(_)) | Type::LiteralString => {
+                    vec![String::from("builtins.str")]
+                }
+                Type::Literal(Lit::Int(_)) => vec![String::from("builtins.int")],
+                Type::Literal(Lit::Bool(_)) => vec![String::from("builtins.bool")],
+                Type::Quantified(q) => match &q.restriction {
+                    // for explicit bound - use name of the type used as bound
+                    Restriction::Bound(b) => class_names_from_bound_obj(b),
+                    // no bound - use name of the type variable (not very useful but not worse than status quo)
+                    Restriction::Unrestricted => vec![q.name().to_string()],
+                    Restriction::Constraints(_) => {
+                        panic!("unexpected restriction: {q:?}")
+                    }
+                },
+                Type::Union(tys) => tys
+                    .iter()
+                    .flat_map(class_names_from_bound_obj)
+                    .collect_vec(),
                 _ => panic!("unexpected type: {ty:?}"),
             }
         }
@@ -358,6 +375,46 @@ impl Query {
                 class_name: Some(class_name),
             }]
         }
+        fn for_callable(
+            callee_range: TextRange,
+            module_info: &ModuleInfo,
+            transaction: &Transaction<'_>,
+            handle: &Handle,
+        ) -> Vec<Callee> {
+            // a bit unfortunate that we have to rely on LSP functionality to get the target
+            let defs = transaction
+                .find_definition(
+                    handle,
+                    // take location of last included character in range (which should work for identifiers and attributes)
+                    callee_range.end().checked_sub(TextSize::from(1)).unwrap(),
+                    &FindPreference::default(),
+                )
+                .into_iter()
+                // filter out attributes since we don't know how to handle them
+                .filter(|d| !matches!(d.metadata, DefinitionMetadata::Attribute(_)))
+                .collect_vec();
+            if defs.is_empty() {
+                vec![]
+            } else if defs.len() == 1 {
+                // TODO: decide what do to with multiple definitions
+                match &defs[0].metadata {
+                    DefinitionMetadata::Variable(_) => {
+                        let name = module_info.code_at(defs[0].definition_range);
+                        vec![Callee {
+                            kind: String::from(CALLEE_KIND_FUNCTION),
+                            target: format!("$parameter${name}"),
+                            class_name: None,
+                        }]
+                    }
+                    x => panic!("callable ty - unexpected metadata kind, {:?}", x),
+                }
+            } else {
+                panic!(
+                    "callable ty at [{}] not supported yet, {defs:?}",
+                    module_info.display_range(callee_range)
+                )
+            }
+        }
         fn callee_from_type(
             ty: &Type,
             callee_range: TextRange,
@@ -369,6 +426,16 @@ impl Query {
                 Type::Type(ty) => {
                     callee_from_type(ty, callee_range, module_info, transaction, handle)
                 }
+                Type::Quantified(q) => match &q.restriction {
+                    Restriction::Bound(b) => {
+                        callee_from_type(b, callee_range, module_info, transaction, handle)
+                    }
+                    x => panic!(
+                        "unexpected restriction {}: {x:?}",
+                        module_info.display_range(callee_range)
+                    ),
+                },
+                Type::Never(_) => vec![],
                 Type::Union(tys) => {
                     // get callee for each type
                     tys.iter()
@@ -380,11 +447,18 @@ impl Query {
                         .sorted_by(|a, b| a.target.cmp(&b.target))
                         .collect_vec()
                 }
-                Type::BoundMethod(m) => vec![Callee {
-                    kind: callee_method_kind_from_bound_method_type(&m.func),
-                    target: target_from_bound_method_type(&m.func),
-                    class_name: Some(class_name_from_bound_obj(&m.obj)),
-                }],
+                Type::BoundMethod(m) => class_names_from_bound_obj(&m.obj)
+                    .into_iter()
+                    .map(|c| Callee {
+                        kind: callee_method_kind_from_bound_method_type(&m.func),
+                        target: target_from_bound_method_type(&m.func),
+                        class_name: Some(c),
+                    })
+                    .unique()
+                    // return sorted by target
+                    .sorted_by(|a, b| a.target.cmp(&b.target))
+                    .collect_vec(),
+
                 Type::Function(f) => vec![callee_from_function(f)],
                 Type::Overload(f) => vec![Callee {
                     // assuming that overload represents function and method overloads
@@ -393,37 +467,7 @@ impl Query {
                     target: target_from_def_kind(&f.metadata.kind),
                     class_name: None,
                 }],
-                Type::Callable(_) => {
-                    // a bit unfortunate that we have to rely on LSP functionality to get the target
-                    let defs = transaction.find_definition(
-                        handle,
-                        // take location of last included character in range (which should work for identifiers and attributes)
-                        callee_range.end().checked_sub(TextSize::from(1)).unwrap(),
-                        &FindPreference::default(),
-                    );
-                    if defs.len() == 1 {
-                        // TODO: decide what do to with multiple definitions
-                        match &defs[0].metadata {
-                            DefinitionMetadata::Variable(_) => {
-                                let name = module_info.code_at(defs[0].definition_range);
-                                vec![Callee {
-                                    kind: String::from(CALLEE_KIND_FUNCTION),
-                                    target: format!("$parameter${name}"),
-                                    class_name: None,
-                                }]
-                            }
-                            DefinitionMetadata::Attribute(_) => {
-                                // cannot determine callee for case a.b() when b is callable but not function
-                                // (i.e instance of the class defining __call__)
-                                // - return no results similar to pyre1
-                                vec![]
-                            }
-                            x => panic!("callable ty - unexpected metadata kind, {:?}", x),
-                        }
-                    } else {
-                        panic!("callable ty not supported yet, {defs:?}")
-                    }
-                }
+                Type::Callable(_) => for_callable(callee_range, module_info, transaction, handle),
                 Type::ClassDef(cls) => {
                     callee_from_mro(cls, transaction, handle, "__init__", |solver, c| {
                         // find first class that has __init__ or __new__
@@ -440,13 +484,13 @@ impl Query {
                         }
                     })
                 }
-                Type::Forall(v) => {
-                    if let Forallable::Function(func) = &v.body {
-                        vec![callee_from_function(func)]
-                    } else {
-                        panic!("unsupported forallable type")
+                Type::Forall(v) => match &v.body {
+                    Forallable::Function(func) => vec![callee_from_function(func)],
+                    Forallable::Callable(_) => {
+                        for_callable(callee_range, module_info, transaction, handle)
                     }
-                }
+                    _ => panic!("unsupported forallable type {:?}", v.body),
+                },
                 Type::SelfType(c) | Type::ClassType(c) => callee_from_mro(
                     c.class_object(),
                     transaction,
@@ -461,6 +505,9 @@ impl Query {
                     },
                 ),
                 Type::Any(_) => vec![],
+                Type::TypeAlias(t) => {
+                    callee_from_type(&t.as_type(), callee_range, module_info, transaction, handle)
+                }
                 _ => panic!(
                     "unexpected type at [{}]: {ty:?}",
                     module_info.display_range(callee_range)

@@ -12,6 +12,7 @@ use dupe::Dupe;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -315,8 +316,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Check that got is assignable to want
     pub fn is_subset_eq(&self, got: &Type, want: &Type) -> bool {
         self.solver().is_subset_eq(got, want, self.type_order())
+    }
+
+    /// Check that got and want are consistent with each other
+    pub fn is_equal(&self, got: &Type, want: &Type) -> bool {
+        self.solver().is_equal(got, want, self.type_order())
     }
 
     pub fn expr_class_keyword(&self, x: &Expr, errors: &ErrorCollector) -> Annotation {
@@ -1025,8 +1032,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let exit_type =
                 self.context_value_exit(context_manager_type, kind, range, errors, Some(&context));
             self.check_type(
-                &Type::optional(self.stdlib.bool().clone().to_type()),
                 &exit_type,
+                &Type::optional(self.stdlib.bool().clone().to_type()),
                 range,
                 errors,
                 &|| TypeCheckContext {
@@ -1624,10 +1631,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match restriction {
             // Default must be a subtype of the upper bound
             Restriction::Bound(bound_ty) => {
-                if !self
-                    .solver()
-                    .is_subset_eq(default, bound_ty, self.type_order())
-                {
+                if !self.is_subset_eq(default, bound_ty) {
                     self.error(
                         errors,
                         range,
@@ -1641,10 +1645,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Restriction::Constraints(constraints) => {
                 // Default must exactly match one of the constraints
-                if !constraints
-                    .iter()
-                    .any(|c| self.is_subset_eq(c, default) && self.is_subset_eq(default, c))
-                {
+                if !constraints.iter().any(|c| self.is_equal(c, default)) {
                     let formatted_constraints = constraints
                         .iter()
                         .map(|x| format!("`{x}`"))
@@ -1821,6 +1822,46 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn check_assign_to_typed_dict_subscript(
+        &self,
+        typed_dict: &Name,
+        field_name: Option<&Name>,
+        field_ty: &Type,
+        read_only: bool,
+        value: &ExprOrBinding,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        if read_only {
+            let key = if let Some(field_name) = field_name {
+                format!("Key `{field_name}`")
+            } else {
+                "`extra_items`".to_owned()
+            };
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::ReadOnly),
+                format!("{key} in TypedDict `{typed_dict}` is read-only"),
+            )
+        } else {
+            let context = &|| {
+                TypeCheckContext::of_kind(if let Some(field_name) = field_name {
+                    TypeCheckKind::TypedDictKey(field_name.clone())
+                } else {
+                    TypeCheckKind::TypedDictExtra
+                })
+            };
+            match value {
+                ExprOrBinding::Expr(e) => self.expr(e, Some((field_ty, context)), errors),
+                ExprOrBinding::Binding(b) => {
+                    let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
+                    self.check_and_return_type(binding_ty, field_ty, range, errors, context)
+                }
+            }
+        }
+    }
+
     fn check_assign_to_subscript(
         &self,
         subscript: &ExprSubscript,
@@ -1833,52 +1874,50 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match (base, &slice_ty) {
                 (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
                     let field_name = Name::new(field_name);
-                    if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
-                        if field.is_read_only() {
-                            self.error(
+                    let (field_ty, read_only) =
+                        if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
+                            let read_only = field.is_read_only();
+                            (field.ty, read_only)
+                        } else if let ExtraItems::Extra(extra) =
+                            self.typed_dict_extra_items(typed_dict.class_object())
+                        {
+                            (extra.ty, extra.read_only)
+                        } else {
+                            return self.error(
                                 errors,
                                 subscript.slice.range(),
-                                ErrorInfo::Kind(ErrorKind::ReadOnly),
+                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                                 format!(
-                                    "Key `{}` in TypedDict `{}` is read-only",
-                                    field_name,
+                                    "TypedDict `{}` does not have key `{}`",
                                     typed_dict.name(),
+                                    field_name
                                 ),
-                            )
-                        } else {
-                            let context = &|| {
-                                TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
-                                    field_name.clone(),
-                                ))
-                            };
-                            match value {
-                                ExprOrBinding::Expr(e) => {
-                                    self.expr(e, Some((&field.ty, context)), errors)
-                                }
-                                ExprOrBinding::Binding(b) => {
-                                    let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
-                                    self.check_and_return_type(
-                                        &field.ty,
-                                        binding_ty,
-                                        subscript.range(),
-                                        errors,
-                                        context,
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        self.error(
-                            errors,
-                            subscript.slice.range(),
-                            ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
-                            format!(
-                                "TypedDict `{}` does not have key `{}`",
-                                typed_dict.name(),
-                                field_name
-                            ),
-                        )
-                    }
+                            );
+                        };
+                    self.check_assign_to_typed_dict_subscript(
+                        typed_dict.name(),
+                        Some(&field_name),
+                        &field_ty,
+                        read_only,
+                        value,
+                        subscript.range(),
+                        errors,
+                    )
+                }
+                (Type::TypedDict(typed_dict), Type::ClassType(cls))
+                    if cls.is_builtin("str")
+                        && let ExtraItems::Extra(extra) =
+                            self.typed_dict_extra_items(typed_dict.class_object()) =>
+                {
+                    self.check_assign_to_typed_dict_subscript(
+                        typed_dict.name(),
+                        None,
+                        &extra.ty,
+                        extra.read_only,
+                        value,
+                        subscript.range(),
+                        errors,
+                    )
                 }
                 (_, _) => {
                     let call_setitem = |value_arg| {
@@ -1934,7 +1973,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         } else if is_generator {
             if let Some((_, _, return_ty)) = self.decompose_generator(annotation) {
-                self.check_type(&return_ty, implicit_return.ty(), range, errors, &|| {
+                self.check_type(implicit_return.ty(), &return_ty, range, errors, &|| {
                     TypeCheckContext::of_kind(TypeCheckKind::ImplicitFunctionReturn(
                         has_explicit_returns,
                     ))
@@ -1948,7 +1987,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         } else {
-            self.check_type(annotation, implicit_return.ty(), range, errors, &|| {
+            self.check_type(implicit_return.ty(), annotation, range, errors, &|| {
                 TypeCheckContext::of_kind(TypeCheckKind::ImplicitFunctionReturn(
                     has_explicit_returns,
                 ))
@@ -2288,7 +2327,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             },
                     } = &*self.get_idx(*k)
                 {
-                    self.check_and_return_type(want, ty, x.range, errors, &|| {
+                    self.check_and_return_type(ty, want, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
                     })
                 } else {
@@ -2308,7 +2347,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             },
                     } = &*self.get_idx(*k)
                 {
-                    self.check_and_return_type(want, ty, x.range, errors, &|| {
+                    self.check_and_return_type(ty, want, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
                     })
                 } else {
@@ -2330,7 +2369,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             },
                     } = &*self.get_idx(*k)
                 {
-                    self.check_and_return_type(want, ty, x.range, errors, &|| {
+                    self.check_and_return_type(ty, want, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
                     })
                 } else {
@@ -2539,7 +2578,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 let check_exception_type = |exception_type: Type, range| {
                     let exception = self.untype(exception_type, range, errors);
-                    self.check_type(&base_exception_type, &exception, range, errors, &|| {
+                    self.check_type(&exception, &base_exception_type, range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::ExceptionClass)
                     });
                     if let Some(base_exception_group_any_type) =
@@ -2610,21 +2649,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.ty(self.stdlib)
                             .map(|ty| self.stdlib.async_iterable(ty.clone()).to_type())
                     });
-                    self.async_iterate(
-                        &self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors),
-                        e.range(),
-                        errors,
-                    )
+                    let iterable = self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors);
+                    self.async_iterate(&iterable, e.range(), errors)
                 } else {
                     let hint = ty.clone().and_then(|x| {
                         x.ty(self.stdlib)
                             .map(|ty| self.stdlib.iterable(ty.clone()).to_type())
                     });
-                    self.iterate(
-                        &self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors),
-                        e.range(),
-                        errors,
-                    )
+                    let iterable = self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors);
+                    self.iterate(&iterable, e.range(), errors)
                 };
                 let mut values = Vec::new();
                 for iterable in iterables {
@@ -2644,7 +2677,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .and_then(|x| x.ty(self.stdlib).map(|t| (t, &x.target)))
                 {
                     Some((ty, target)) => {
-                        self.check_and_return_type(&ty, context_value, *range, errors, &|| {
+                        self.check_and_return_type(context_value, &ty, *range, errors, &|| {
                             TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
                         })
                     }
@@ -2700,7 +2733,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .map(|idx| self.get_idx(idx))
                     .and_then(|ann| ann.ty(self.stdlib))
                 {
-                    self.check_type(&want, &got, *range, errors, &|| {
+                    self.check_type(&got, &want, *range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::UnpackedAssign)
                     });
                 }
@@ -2943,8 +2976,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         )
                     } else {
                         self.check_and_return_type(
-                            &yield_hint,
                             Type::None,
+                            &yield_hint,
                             x.range,
                             errors,
                             &|| TypeCheckContext::of_kind(TypeCheckKind::UnexpectedBareYield),
@@ -3034,7 +3067,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .stdlib
                         .generator(want_yield, want_send, Type::any_implicit())
                         .to_type();
-                    self.check_type(&want, &ty, x.range, errors, &|| {
+                    self.check_type(&ty, &want, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::YieldFrom)
                     });
                 }

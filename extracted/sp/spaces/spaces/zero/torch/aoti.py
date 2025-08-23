@@ -65,6 +65,7 @@ def aoti_compile(
     assert exported_program.example_inputs is not None
     args, kwargs = exported_program.example_inputs
     artifacts = torch._inductor.aot_compile(gm, args, kwargs, options=inductor_configs) # pyright: ignore [reportArgumentType]
+    artifacts = cast(list[str | Weights], artifacts)
     archive_file = BytesIO()
     files = (file for file in artifacts if isinstance(file, str))
     package_aoti(archive_file, list(files))

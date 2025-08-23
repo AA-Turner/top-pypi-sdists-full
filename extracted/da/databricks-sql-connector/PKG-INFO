@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: databricks-sql-connector
-Version: 4.0.5
+Version: 4.1.2
 Summary: Databricks SQL Connector for Python
 License: Apache-2.0
 Author: Databricks
@@ -22,6 +22,7 @@ Requires-Dist: pandas (>=1.2.5,<2.3.0) ; python_version >= "3.8" and python_vers
 Requires-Dist: pandas (>=2.2.3,<2.3.0) ; python_version >= "3.13"
 Requires-Dist: pyarrow (>=14.0.1) ; (python_version >= "3.8" and python_version < "3.13") and (extra == "pyarrow")
 Requires-Dist: pyarrow (>=18.0.0) ; (python_version >= "3.13") and (extra == "pyarrow")
+Requires-Dist: pyjwt (>=2.0.0,<3.0.0)
 Requires-Dist: python-dateutil (>=2.8.0,<3.0.0)
 Requires-Dist: requests (>=2.18.1,<3.0.0)
 Requires-Dist: thrift (>=0.16.0,<0.21.0)
@@ -38,6 +39,8 @@ Description-Content-Type: text/markdown
 The Databricks SQL Connector for Python allows you to develop Python applications that connect to Databricks clusters and SQL warehouses. It is a Thrift-based client with no dependencies on ODBC or JDBC. It conforms to the [Python DB API 2.0 specification](https://www.python.org/dev/peps/pep-0249/).
 
 This connector uses Arrow as the data-exchange format, and supports APIs (e.g. `fetchmany_arrow`) to directly fetch Arrow tables. Arrow tables are wrapped in the `ArrowQueue` class to provide a natural API to get several rows at a time. [PyArrow](https://arrow.apache.org/docs/python/index.html) is required to enable this and use these APIs, you can install it via  `pip install pyarrow` or `pip install databricks-sql-connector[pyarrow]`.
+
+The connector includes built-in support for HTTP/HTTPS proxy servers with multiple authentication methods including basic authentication and Kerberos/Negotiate authentication. See `docs/proxy.md` and `examples/proxy_authentication.py` for details.
 
 You are welcome to file an issue here for general use cases. You can also contact Databricks Support [here](help.databricks.com).
 

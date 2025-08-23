@@ -9,6 +9,7 @@ base = [
         "pillow",
         "confluent_kafka[snappy]",
         "aiokafka",
+        "aiohttp",
         "filterpy",
         "scipy",
         "scikit-learn",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.19.post1
+Version: 2.6.20
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
@@ -23,6 +23,7 @@ Requires-Dist: PySide6 (==6.9.1)
 Requires-Dist: Pygments (>=2.19.2,<3.0.0)
 Requires-Dist: SQLAlchemy (>=2.0.41,<3.0.0)
 Requires-Dist: SpeechRecognition (>=3.14.3,<4.0.0)
+Requires-Dist: Telethon (>=1.40.0,<2.0.0)
 Requires-Dist: anthropic (>=0.54.0,<0.55.0)
 Requires-Dist: azure-core (>=1.34.0,<2.0.0)
 Requires-Dist: beautifulsoup4 (>=4.13.4,<5.0.0)
@@ -80,6 +81,7 @@ Requires-Dist: openai-agents (>=0.2.3,<0.3.0)
 Requires-Dist: opencv-python (>=4.11.0.86,<5.0.0.0)
 Requires-Dist: packaging (>=24.2,<25.0)
 Requires-Dist: pandas (>=2.2.3,<3.0.0)
+Requires-Dist: paramiko (>=4.0.0,<5.0.0)
 Requires-Dist: pillow (>=10.4.0,<11.0.0)
 Requires-Dist: pinecone-client (>=3.2.2,<4.0.0)
 Requires-Dist: psutil (>=7.0.0,<8.0.0)
@@ -109,7 +111,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.19** | build: **2025-08-22** | Python: **>=3.10, <3.14**
+Release: **2.6.20** | build: **2025-08-22** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -1454,6 +1456,8 @@ The following plugins are currently available, and model can use them instantly:
 
 - `Serial port / USB` - plugin provides commands for reading and sending data to USB ports.
 
+- `Server (SSH/FTP)` - Connect to remote servers using FTP, SFTP, and SSH. Execute remote commands, upload, download, and more.
+
 - `Slack` - Handle users, conversations, messages, and files on Slack.
 
 - `System Prompt Extra (append)` - appends additional system prompts (extra data) from a list to every current system prompt. You can enhance every system prompt with extra instructions that will be automatically appended to the system prompt.
@@ -1801,6 +1805,14 @@ Provides commands for reading and sending data to USB ports.
 You can send commands to, for example, an Arduino or any other controllers using the serial port for communication.
 
 Documentation: https://pygpt.readthedocs.io/en/latest/plugins.html#serial-port-usb
+
+## Server (SSH/FTP)
+
+The Server plugin provides integration for remote server management via SSH, SFTP, and FTP protocols. This plugin allows executing commands, transferring files, and managing directories on remote servers.
+
+For security reasons, the model will not see any credentials, only the server name and port fields (see the docs)
+
+Documentation: https://pygpt.readthedocs.io/en/latest/plugins.html#server-ssh-ftp
 
 ## Slack
 
@@ -3525,6 +3537,11 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.20 (2025-08-22)**
+
+- Added a new plugin: Server (FTP/SSH) - connect to remote servers using FTP, SFTP, and SSH. Execute remote commands, upload, download, and more (beta).
+- Added support for Wayland in Snap/compiled versions.
 
 **2.6.19 (2025-08-22)**
 

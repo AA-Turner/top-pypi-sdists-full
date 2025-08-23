@@ -28,7 +28,7 @@ except Exception:
     import traceback
 
     traceback.print_exc()
-    version = release = '3.8.0'
+    version = release = '3.9.0'
 
 pygments_style = 'trac'
 templates_path = ['.']
@@ -39,8 +39,17 @@ extlinks = {
 
 html_theme = 'furo'
 html_theme_options = {
-    'githuburl': 'https://github.com/ionelmc/python-hunter/',
+    'source_repository': 'https://github.com/ionelmc/python-hunter/',
+    'source_branch': 'master',
+    'source_directory': 'docs/',
+    'footer_icons': [
+        {
+            'url': 'https://github.com/ionelmc/python-hunter/',
+            'html': 'github.com/ionelmc/python-hunter',
+        },
+    ],
 }
+
 
 html_use_smartypants = True
 html_last_updated_fmt = '%b %d, %Y'

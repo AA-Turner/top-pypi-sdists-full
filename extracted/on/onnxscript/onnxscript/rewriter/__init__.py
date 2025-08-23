@@ -9,6 +9,7 @@ __all__ = [
     "rewrite",
     "RewritePass",
     "MatchResult",
+    "MatchContext",
     "RewriteRule",
     "RewriteRuleClassBase",
     "RewriteRuleSet",
@@ -26,12 +27,13 @@ from onnxscript.rewriter import (
     broadcast_to_matmul,
     cast_constant_of_shape,
     collapse_slices,
+    fuse_pad_into_conv,
     fuse_relus_clips,
     no_op,
     pattern,
     redundant_scatter_nd,
 )
-from onnxscript.rewriter._basics import MatchingTracer, MatchResult, MatchStatus
+from onnxscript.rewriter._basics import MatchContext, MatchingTracer, MatchResult, MatchStatus
 from onnxscript.rewriter._rewrite_rule import (
     RewriterContext,
     RewriteRule,
@@ -48,6 +50,7 @@ _DEFAULT_REWRITE_RULES: tuple[pattern.RewriteRule, ...] = (
     *fuse_relus_clips.fuse_relus_clips_rules().rules,
     *basic_rules.basic_optimization_rules().rules,
     *redundant_scatter_nd.rules.rules,
+    *fuse_pad_into_conv.fuse_pad_into_conv_rule_set().rules,
 )
 
 

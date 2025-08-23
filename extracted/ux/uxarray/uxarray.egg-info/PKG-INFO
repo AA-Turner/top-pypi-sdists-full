@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uxarray
-Version: 2025.6.0
+Version: 2025.8.0
 Summary: Xarray extension for unstructured climate and global weather data analysis and visualization.
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -243,6 +243,7 @@ Requires-Dist: xarray
 Requires-Dist: hvplot
 Requires-Dist: healpix
 Requires-Dist: polars
+Requires-Dist: pyproj
 Provides-Extra: complete
 Requires-Dist: uxarray[dev]; extra == "complete"
 Provides-Extra: dev

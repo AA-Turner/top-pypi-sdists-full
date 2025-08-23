@@ -1,7 +1,7 @@
 r'''
 # `data_google_compute_network_attachment`
 
-Refer to the Terraform Registry for docs: [`data_google_compute_network_attachment`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment).
+Refer to the Terraform Registry for docs: [`data_google_compute_network_attachment`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleComputeNetworkAttachment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleComputeNetworkAttachment.DataGoogleComputeNetworkAttachment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment google_compute_network_attachment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment google_compute_network_attachment}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGoogleComputeNetworkAttachment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment google_compute_network_attachment} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment google_compute_network_attachment} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#name DataGoogleComputeNetworkAttachment#name}
-        :param region: URL of the region where the network attachment resides. This field applies only to the region resource. You must specify this field as part of the HTTP request URL. It is not settable as a field in the request body. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#region DataGoogleComputeNetworkAttachment#region}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#project DataGoogleComputeNetworkAttachment#project}.
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#name DataGoogleComputeNetworkAttachment#name}
+        :param region: URL of the region where the network attachment resides. This field applies only to the region resource. You must specify this field as part of the HTTP request URL. It is not settable as a field in the request body. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#region DataGoogleComputeNetworkAttachment#region}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#project DataGoogleComputeNetworkAttachment#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGoogleComputeNetworkAttachment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleComputeNetworkAttachment to import.
-        :param import_from_id: The id of the existing DataGoogleComputeNetworkAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleComputeNetworkAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleComputeNetworkAttachment to import is found.
         '''
         if __debug__:
@@ -295,9 +295,9 @@ class DataGoogleComputeNetworkAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgu
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#name DataGoogleComputeNetworkAttachment#name}
-        :param region: URL of the region where the network attachment resides. This field applies only to the region resource. You must specify this field as part of the HTTP request URL. It is not settable as a field in the request body. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#region DataGoogleComputeNetworkAttachment#region}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#project DataGoogleComputeNetworkAttachment#project}.
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#name DataGoogleComputeNetworkAttachment#name}
+        :param region: URL of the region where the network attachment resides. This field applies only to the region resource. You must specify this field as part of the HTTP request URL. It is not settable as a field in the request body. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#region DataGoogleComputeNetworkAttachment#region}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#project DataGoogleComputeNetworkAttachment#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -404,7 +404,7 @@ class DataGoogleComputeNetworkAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgu
 
         Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#name DataGoogleComputeNetworkAttachment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#name DataGoogleComputeNetworkAttachment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -416,7 +416,7 @@ class DataGoogleComputeNetworkAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgu
 
         This field applies only to the region resource. You must specify this field as part of the HTTP request URL. It is not settable as a field in the request body.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#region DataGoogleComputeNetworkAttachment#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#region DataGoogleComputeNetworkAttachment#region}
         '''
         result = self._values.get("region")
         assert result is not None, "Required property 'region' is missing"
@@ -424,7 +424,7 @@ class DataGoogleComputeNetworkAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgu
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/compute_network_attachment#project DataGoogleComputeNetworkAttachment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/compute_network_attachment#project DataGoogleComputeNetworkAttachment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

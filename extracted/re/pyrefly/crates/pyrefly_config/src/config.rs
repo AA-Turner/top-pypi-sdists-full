@@ -375,6 +375,9 @@ impl ConfigFile {
     pub const PYREFLY_FILE_NAME: &str = "pyrefly.toml";
     pub const PYPROJECT_FILE_NAME: &str = "pyproject.toml";
     pub const CONFIG_FILE_NAMES: &[&str] = &[Self::PYREFLY_FILE_NAME, Self::PYPROJECT_FILE_NAME];
+    /// Files that don't contain pyrefly-specific config information but indicate that we're at the
+    /// root of a Python project, which should be added to the search path.
+    pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["mypy.ini", "pyrightconfig.json"];
 
     /// Writes the configuration to a file in the specified directory.
     /// TODO(connernilsen) relative these paths to the config file's directory
@@ -387,9 +390,6 @@ impl ConfigFile {
 
         Ok(())
     }
-    /// Files that don't contain pyrefly-specific config information but indicate that we're at the
-    /// root of a Python project, which should be added to the search path.
-    pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["setup.py", "mypy.ini", "pyrightconfig.json"];
 
     pub fn default_project_includes() -> Globs {
         Globs::new(vec!["**/*".to_owned()]).unwrap_or_else(|_| Globs::empty())
@@ -446,7 +446,7 @@ impl ConfigFile {
     }
 
     /// Gets the full, ordered path used for import lookup. Used for pretty-printing.
-    pub fn structured_import_lookup_path(&self) -> Vec<ImportLookupPathPart> {
+    pub fn structured_import_lookup_path(&self) -> Vec<ImportLookupPathPart<'_>> {
         let mut result = vec![
             ImportLookupPathPart::SearchPathFromArgs(&self.search_path_from_args),
             ImportLookupPathPart::SearchPathFromFile(&self.search_path_from_file),
@@ -534,7 +534,7 @@ impl ConfigFile {
                 self.root.permissive_ignores.unwrap())
     }
 
-    pub fn get_error_config(&self, path: &Path) -> ErrorConfig {
+    pub fn get_error_config(&self, path: &Path) -> ErrorConfig<'_> {
         ErrorConfig::new(
             self.errors(path),
             self.ignore_errors_in_generated_code(path),
@@ -1352,16 +1352,6 @@ mod tests {
     fn test_pyproject_toml_no_pyrefly_search_path() {
         let root = TempDir::new().unwrap();
         let config = create_empty_file_and_parse_config(&root, ConfigFile::PYPROJECT_FILE_NAME);
-        assert_eq!(
-            config.search_path().cloned().collect::<Vec<_>>(),
-            vec![root.path().to_path_buf()]
-        );
-    }
-
-    #[test]
-    fn test_setup_py_search_path() {
-        let root = TempDir::new().unwrap();
-        let config = create_empty_file_and_parse_config(&root, "setup.py");
         assert_eq!(
             config.search_path().cloned().collect::<Vec<_>>(),
             vec![root.path().to_path_buf()]

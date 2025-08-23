@@ -223,6 +223,6 @@ def reqVersion(valu, reqver,
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.
-version = (2, 218, 1)
+version = (2, 219, 0)
 verstring = '.'.join([str(x) for x in version])
-commit = 'f91b8902226a2b8d984804f164c4c65e8b7e5ce3'
+commit = '9e442b257a7ddfa8d476eafdcad21c3a0440cc83'

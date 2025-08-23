@@ -3714,10 +3714,12 @@ class DisassociateTrialComponentRequestTypeDef(TypedDict):
 class DockerSettingsOutputTypeDef(TypedDict):
     EnableDockerAccess: NotRequired[FeatureStatusType]
     VpcOnlyTrustedAccounts: NotRequired[List[str]]
+    RootlessDocker: NotRequired[FeatureStatusType]
 
 class DockerSettingsTypeDef(TypedDict):
     EnableDockerAccess: NotRequired[FeatureStatusType]
     VpcOnlyTrustedAccounts: NotRequired[Sequence[str]]
+    RootlessDocker: NotRequired[FeatureStatusType]
 
 class DomainDetailsTypeDef(TypedDict):
     DomainArn: NotRequired[str]

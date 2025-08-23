@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: pybuilder
-Version: 0.13.16
+Version: 0.13.17
 Summary: PyBuilder — an easy-to-use build automation tool for Python.
 Home-page: https://pybuilder.io
 Author: Arcadiy Ivanov, Alexander Metzner, Maximilien Riehl, Michael Gruber, Udo Juettner, Marcel Wolf, Valentin Haenel
 Author-email: arcadiy@ivanov.biz, alexander.metzner@gmail.com, max@riehl.io, aelgru@gmail.com, udo.juettner@gmail.com, marcel.wolf@me.com, valentin@haenel.co
 Maintainer: Arcadiy Ivanov
 Maintainer-email: arcadiy@ivanov.biz
-License: Apache License, Version 2.0
+License: Apache-2.0
 Project-URL: Bug Tracker, https://github.com/pybuilder/pybuilder/issues
 Project-URL: Documentation, https://pybuilder.io/documentation
 Project-URL: Source Code, https://github.com/pybuilder/pybuilder
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
@@ -29,7 +30,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing

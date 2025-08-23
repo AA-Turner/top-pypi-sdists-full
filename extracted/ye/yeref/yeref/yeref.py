@@ -228,7 +228,7 @@ BOT_CADMIN_ = '☐☑'
 BOT_VARS_ = '{"BOT_PROMO": "#911", "BOT_CHANNEL": 0, "BOT_CHANNELTID": 0, "BOT_GROUP": 0, "BOT_GROUPTID": 0, "BOT_CHATGPT": "", "BOT_GEO": 0, "BOT_TZ": "+00:00", "BOT_DT": "", "BOT_LZ": "en", "BOT_LC": "en", "BOT_ISSTARTED": 0, "BOT_ISMENTIONED": 0}'
 BOT_LSTS_ = '{"BOT_ADMINS": [], "BOT_COMMANDS": ["/start"]}'
 USER_VARS_ = '{"USER_TEXT": "", "USER_REACTION": "", "USER_PUSH": "", "USER_EMAIL": "", "USER_PROMO": "", "USER_CONTACT": "", "USER_GEO": "", "USER_UTM": "", "USER_ID": 0, "USER_DT": "", "USER_TZ": "+00:00", "USER_LC": "en", "USER_LZ": "en", "USER_ISADMIN": 0, "USER_ISBLOG": 0, "USER_ISPREMIUM": 0, "USER_BALL": 0, "USER_RAND": 0, "USER_QUIZ": 0, "USER_TASK": 0, "USER_DICE": 0, "MSGID_PAID": 0, "DATE_TIME": 0}'
-USER_LSTS_ = '{"USER_UTMREF": [], "USER_PAYMENTS": [], "USER_TXS": [], "USER_DAU": [], "USER_MAU": [], "USER_STATUSES": [], "USER_TEXTS": []}'
+USER_LSTS_ = '{"USER_UTMREF": [], "USER_PAYMENTS": [], "USER_TXS": [], "USER_DAU": [], "USER_MAU": [], "USER_STATUSES": [], "USER_TEXTS": [], "USER_LIMITS": {}}'
 
 UB_CONFIG_ = '☑☑☑☐☐☑☑☐☐☐☐☐☐'
 UB_CMONITOR_ = '☐'
@@ -10863,6 +10863,10 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_MEDIA = post['POST_MEDIA']
         POST_BUTTONS = post['POST_BUTTONS']
         POST_CHKBOX = post['POST_CHKBOX']
+        if POST_TEXT:
+            print(f"before balance_html_tags_async {POST_TEXT}")
+            POST_TEXT = await balance_html_tags_async(POST_TEXT)
+            print(f"after balance_html_tags_async {POST_TEXT}")
         POST_BLOG = await region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_TYPE)
 
         POST_ISPAY = POST_CHKBOX['POST_ISPAY'] if 'POST_ISPAY' in POST_CHKBOX else False
@@ -11418,7 +11422,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                             await extra_bot.session.close()
                 else:
                     file_id = POST_MEDIA[index]['filew_id']
-            elif index == 0 and POST_MEDIA[index]['file_link'] not in [photo_jpg] and len(POST_TEXT_) > 1024:
+            elif index == 0 and POST_MEDIA[index]['file_link'] not in [photo_jpg] and len(POST_TEXT_) > 1024 and POST_CHKBOX['POST_REACTION'] and POST_CHKBOX['POST_EFFECT']:
                 POST_TEXT_ = await correct_txt_tags_for_tg(POST_TEXT_)
                 print(f"{POST_TEXT_=}")
 
@@ -11437,14 +11441,28 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
             if not result:
                 print(f"after {file_id=}")
-                result = await bot.send_photo(chat_id=chat_id, photo=file_id, caption=POST_TEXT,
-                                              parse_mode=ParseMode.HTML,
-                                              show_caption_above_media=POST_CHKBOX['POST_ISPREVIEW'],
-                                              has_spoiler=POST_CHKBOX['POST_ISSPOILER'],
-                                              disable_notification=not POST_CHKBOX['POST_ISSOUND'],
-                                              protect_content=POST_CHKBOX['POST_ISPROTECT'],
-                                              message_effect_id=POST_CHKBOX['POST_EFFECT'],
-                                              reply_markup=reply_markup.as_markup())
+                get_me_ = await bot.get_me()
+                print(f"{get_me_=}")
+                try:
+                    result = await bot.send_photo(chat_id=chat_id, photo=file_id, caption=POST_TEXT,
+                                                  parse_mode=ParseMode.HTML,
+                                                  show_caption_above_media=POST_CHKBOX['POST_ISPREVIEW'],
+                                                  has_spoiler=POST_CHKBOX['POST_ISSPOILER'],
+                                                  disable_notification=not POST_CHKBOX['POST_ISSOUND'],
+                                                  protect_content=POST_CHKBOX['POST_ISPROTECT'],
+                                                  message_effect_id=POST_CHKBOX['POST_EFFECT'],
+                                                  reply_markup=reply_markup.as_markup())
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+                    result = await bot.send_photo(chat_id=chat_id, photo=POST_MEDIA[index]['fileb_id'], caption=POST_TEXT,
+                                                  parse_mode=ParseMode.HTML,
+                                                  show_caption_above_media=POST_CHKBOX['POST_ISPREVIEW'],
+                                                  has_spoiler=POST_CHKBOX['POST_ISSPOILER'],
+                                                  disable_notification=not POST_CHKBOX['POST_ISSOUND'],
+                                                  protect_content=POST_CHKBOX['POST_ISPROTECT'],
+                                                  message_effect_id=POST_CHKBOX['POST_EFFECT'],
+                                                  reply_markup=reply_markup.as_markup())
         elif POST_TYPE in ['animation', 'gif']:
             print(f"sova")
             try:
@@ -11659,114 +11677,345 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
     return result
 
 
+async def balance_html_tags_async(txt, self_closing=None):
+    """
+    Асинхронная функция:
+      1) подставляет '>' для незакрытых открывающих тегов вида "<tag" или "<tag attr='...'" (если перед следующим '<' или концом строки нет '>'),
+      2) затем балансирует теги: удаляет лишние закрывающие теги и закрывает пропущенные в LIFO-порядке.
+    Возвращает исправлённую строку.
+    Использование:
+      fixed = await balance_html_tags_async(orig_html)
+    """
+    result = txt
+    try:
+        if txt is None: return ''
+
+        if self_closing is None:
+            self_closing = {'br', 'img', 'hr', 'input', 'meta', 'link'}
+
+        # 1) Нормализуем незакрытые открывающие теги: если встречаем "<tag ..." и до следующего "<" или конца строки нет ">", добавляем ">"
+        #    Шаблон ищет '<' + имя тега + опциональные атрибуты, и только если до следующего '<' или конца строки нет символа '>'
+        txt = re.sub(
+            r'(<\s*[\w:-]+(?:\s[^<>]*)?)(?=[^>]*?(?:<|$))',
+            r'\1>',
+            txt,
+            flags=re.DOTALL
+        )
+
+        # 2) Разделяем на теги и текст и балансируем
+        parts = re.split(r'(<\/?[\w:-]+(?:\s[^<>]*?)?>)', txt, flags=re.DOTALL)
+        tag_re = re.compile(r'^\s*<\s*(\/?)\s*([\w:-]+)(?:\s[^<>]*?)?>\s*$', re.DOTALL)
+
+        stack = []
+        out = []
+
+        for p in parts:
+            if not p: continue
+            m = tag_re.match(p)
+            if m:
+                is_closing = bool(m.group(1))
+                tag = m.group(2).lower()
+                if is_closing:
+                    if stack and stack[-1] == tag:
+                        out.append(p)
+                        stack.pop()
+                    elif tag in stack:
+                        # закрываем промежуточные теги до нужного, затем сам тег
+                        while stack and stack[-1] != tag:
+                            t = stack.pop()
+                            out.append(f'</{t}>')
+                        out.append(p)
+                        stack.pop()
+                    else:
+                        # лишний закрывающий — пропускаем
+                        continue
+                else:
+                    # открывающий тег (с атрибутами сохраняем)
+                    if tag in self_closing:
+                        out.append(p)
+                    else:
+                        out.append(p)
+                        stack.append(tag)
+            else:
+                out.append(p)
+
+        # Закрываем незакрытые теги в обратном порядке
+        while stack:
+            t = stack.pop()
+            out.append(f'</{t}>')
+
+        # Не блокируем event loop
+        await asyncio.sleep(0)
+        result = ''.join(out)
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
+
+
 async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_TYPE='bot'):
+    """
+    Версия без импортов внутри функции.
+    Убирает/разворачивает все <span>, <div>, <tg-spoiler> и не остаёт запрещённых тегов.
+    Требует: json, re, random, asyncio, Telegraph (telegraph.aio), short_name, logger, log_, db_select_pg в области видимости.
+    """
     result = None
     try:
-        # if PROJECT_TYPE in ['post']: return
-        cnt = 0
-        POST_MEDIA = json.loads(POST_MEDIA) if isinstance(POST_MEDIA, str) else POST_MEDIA
-        print(f"bb {POST_TEXT=}, {POST_TYPE=}")
-        POST_TEXT = POST_TEXT if POST_TEXT else str_empty
-        POST_TEXT = POST_TEXT.replace('<tg-spoiler>', '').replace('</tg-spoiler>', '').replace('<pre>py\n', '').replace(
-            '<pre>', '').replace('</pre>', '').replace('<br>', '')
-        POST_TEXT = POST_TEXT.replace('<span style="caret-color: var(--tg-theme-hint-color);">', '')
-        POST_TEXT = POST_TEXT.replace('&nbsp;', '')
-        POST_TEXT = re.sub(r'<span style="background-color: rgba\(0, 123, 247, 0\.7\);">(.*?)<\/span>', r'\1',
-                           POST_TEXT)
-        POST_TEXT = re.sub(r'<span style="background-color: gray;">(.*?)<\/span>', r'\1', POST_TEXT)
-        POST_TEXT = re.sub(r'<span style="background-color: rgba\(0, 123, 247, 0\.8\);">(.*?)<\/span>', r'\1',
-                           POST_TEXT)
-        # POST_TEXT = re.sub(r'</?div>', '\n', POST_TEXT)
-        POST_TEXT = re.sub(r'</?div[^>]*>', '\n', POST_TEXT)
-        POST_TEXT = re.sub(r'<span[^>]*>.*?</span>', '', POST_TEXT)
-        POST_TEXT = POST_TEXT.replace('<strike>', '<s>').replace('</strike>', '</s>')
-        POST_TEXT = POST_TEXT.strip()
-        POST_TEXT = POST_TEXT or str_empty
-        print(f"aa {POST_TEXT=}")
-        ENT_NAME = ENT_TID
+        # нормализация POST_MEDIA (гарантируем список)
+        POST_MEDIA = json.loads(POST_MEDIA) if isinstance(POST_MEDIA, str) else (POST_MEDIA or [])
+        if isinstance(POST_MEDIA, dict):
+            POST_MEDIA = [POST_MEDIA]
 
-        print(f"{PROJECT_TYPE=}")
-        while cnt >= 0:
-            try:
-                if PROJECT_TYPE == 'bot':
-                    print(f"1")
-                    sql = "SELECT BOT_USERNAME, BOT_FIRSTNAME FROM \"BOT\" WHERE BOT_TID=$1"
-                    data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
-                    if not len(data_bot): return result
-                    BOT_USERNAME, BOT_FIRSTNAME = data_bot[0]
+        POST_TEXT = POST_TEXT or ''
 
-                    # get_chat_ = await bot.get_me()
-                    ENT_USERNAME = f"@{BOT_USERNAME}"
-                    ENT_NAME = BOT_FIRSTNAME
-                    ENT_LINK = f"https://t.me/{BOT_USERNAME}"
-                    print(f"2 15997")
-                elif PROJECT_TYPE == 'user':
-                    sql = "SELECT UB_USERNAME, UB_FIRSTNAME, UB_BOTUSERNAME, UB_CHANNELLINK FROM UB WHERE UB_TID=$1"
-                    data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
-                    UB_USERNAME, UB_FIRSTNAME, UB_BOTUSERNAME, UB_CHANNELLINK = data_bot[0]
+        # --- helper: sanitize pre/code content, чтобы внутри них не осталось span/div/tg-spoiler ---
+        placeholders = []
 
-                    if UB_USERNAME:
-                        ENT_USERNAME = f"@{UB_USERNAME}"
-                        ENT_LINK = f"https://t.me/{UB_USERNAME.strip('@')}"
-                    else:
-                        ENT_USERNAME = UB_FIRSTNAME
-                        ENT_LINK = f"https://t.me/"
-                elif PROJECT_TYPE == 'post':
-                    ENT_USERNAME = '@FereyPostBot'
-                    ENT_NAME = '🫧 Ferey Post App'
-                    ENT_LINK = 'https://t.me/FereyPostBot'
+        def sanitize_pre_content(tag_html):
+            m = re.match(r'(?is)^<pre\b[^>]*>(.*?)</pre>$', tag_html)
+            if not m:
+                return tag_html
+            inner = m.group(1)
+            # если внутри есть <div> — превратим каждую в <blockquote>, оставшийся текст — в <pre>
+            if re.search(r'(?is)<\s*div\b', inner):
+                # извлечь все дивы
+                divs = re.findall(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', inner)
+                parts = []
+                # текст вне дивов
+                outside = re.sub(r'(?is)<\s*div\b[^>]*>.*?</\s*div\s*>', '', inner).strip()
+                if outside:
+                    outside_clean = re.sub(r'\s+', ' ', outside)
+                    parts.append(f'<pre>{outside_clean}</pre>')
+                for d in divs:
+                    d_clean = re.sub(r'\s+', ' ', d.strip())
+                    # удалить span внутри дивов
+                    d_clean = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', d_clean)
+                    parts.append(f'<blockquote>{d_clean}</blockquote>')
+                return ''.join(parts)
+            else:
+                # просто удалить любые div/span/tg-spoiler внутри pre и вернуть текст в pre
+                inner_no_div = re.sub(r'(?is)<\s*div\b[^>]*>', '', inner)
+                inner_no_div = re.sub(r'(?is)</\s*div\s*>', '', inner_no_div)
+                inner_no_span = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', inner_no_div)
+                inner_no_spoiler = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', inner_no_span)
+                inner_clean = inner_no_spoiler.strip()
+                return f'<pre>{inner_clean}</pre>'
+
+        def sanitize_code_content(tag_html):
+            m = re.match(r'(?is)^<code\b[^>]*>(.*?)</code>$', tag_html)
+            if not m:
+                return tag_html
+            inner = m.group(1)
+            # удалить теги внутри code — оставить только текст
+            inner = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', inner)
+            inner = re.sub(r'(?is)<[^>]+>', '', inner)
+            inner = inner.strip()
+            return f'<code>{inner}</code>'
+
+        def hide_pre_code(text):
+            def repl(m):
+                tag = m.group(0)
+                if tag.lower().startswith('<pre'):
+                    safe = sanitize_pre_content(tag)
                 else:
-                    get_chat_ = await bot.get_chat(int(ENT_TID))
-                    ENT_USERNAME = get_chat_.title
-                    ENT_NAME = ENT_USERNAME
-                    ENT_LINK = f"https://t.me/{get_chat_.username}" if get_chat_.username else 'https://t.me'
+                    safe = sanitize_code_content(tag)
+                i = len(placeholders)
+                placeholders.append(safe)
+                return f"__PRECODE_PLACEHOLDER_{i}__"
+            # сначала pre затем code
+            text = re.sub(r'(?is)(<pre\b[^>]*>.*?</pre>)', repl, text)
+            text = re.sub(r'(?is)(<code\b[^>]*>.*?</code>)', repl, text)
+            return text
 
-                figure_html = ''
-                telegraph_ = Telegraph()
-                await telegraph_.create_account(short_name=short_name, author_name=ENT_USERNAME, author_url=ENT_LINK)
-                # print(f"16022б {POST_MEDIA=}")
+        def restore_pre_code(text):
+            for i, val in enumerate(placeholders):
+                text = text.replace(f"__PRECODE_PLACEHOLDER_{i}__", val)
+            return text
 
-                for item in POST_MEDIA:
-                    # print(f"16025 {item=}")
-                    if not isinstance(item, dict): continue
+        # --- начало очистки ---
+        safe = hide_pre_code(POST_TEXT)
 
-                    # print(f"ffkfkfkf  {item=}")
-                    tgph_ph = str(item['file_link']).replace('https://telegra.ph', '')
-                    if str(item['file_type']) in ['video', 'video_note']:
-                        figure_html = f'{figure_html}<figure><video src="{tgph_ph}" preload="auto" autoplay="autoplay" loop="loop" muted="muted"></video><figcaption>Video: {ENT_LINK}</figcaption></figure>'
-                    else:
-                        figure_html = f'{figure_html}<figure><img src="{tgph_ph}"/><figcaption>Photo: {ENT_LINK}</figcaption></figure>'
+        # удалить tg-spoiler теги сразу (не хотим их оставлять)
+        safe = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe)
 
-                print(f"{figure_html=}")
-                # figure_html = '<figure><img src="https://ddejfvww7sqtk.cloudfront.net/user-media/08-09-2024/75565/1041116.jpg"/><figcaption>Photo: {ENT_LINK}</figcaption></figure>'
-                p_html = ''
-                if POST_TEXT and POST_TEXT != '':
-                    POST_TEXT = POST_TEXT.strip()
-                    if '\n' in POST_TEXT:
-                        POST_TEXTS = POST_TEXT.split('\n')
-                        for i in range(len(POST_TEXTS)):
-                            if POST_TEXTS[i] == '': continue
+        # &nbsp; и <br> -> переводы строк
+        safe = safe.replace('&nbsp;', ' ').replace('<br>', '\n')
 
-                            if len(POST_TEXTS) > 2 and i == 1 and random.choice([True, False]):
-                                p_html = f"{p_html}<p><blockquote>{POST_TEXTS[i]}</blockquote></p>"
-                            elif len(POST_TEXTS) > 4 and i == 4 and random.choice([True, False]):
-                                p_html = f"{p_html}<p><aside>{POST_TEXTS[i]}</aside></p>"
-                            else:
-                                p_html = f"{p_html}<p>{POST_TEXTS[i]}</p>"
-                    else:
-                        p_html = f"<p>{POST_TEXT}</p>"
-                html_ = f"{figure_html}{p_html}"
-                page_blog = await telegraph_.create_page(title=f"📰 {ENT_NAME}", html_content=html_,
-                                                         author_name=str(ENT_USERNAME), author_url=ENT_LINK)
+        # убрать caret-specific span
+        safe = safe.replace('<span style="caret-color: var(--tg-theme-hint-color);">', '')
 
-                print(f"{html_=}")
-                result = page_blog['url']
-                logger.info(log_ % f"{ENT_TID}: {result}")
-                return result
-            except Exception as e:
-                logger.info(log_ % str(e) + f"{POST_TEXT=}")
-                await asyncio.sleep(round(random.uniform(3, 5), 2))
-                cnt -= 1
+        # убрать span с background-color, оставить inner
+        safe = re.sub(r'(?is)<span[^>]*style="[^"]*background-color:[^"]*"[^>]*>(.*?)</span>', r'\1', safe)
+
+        # rgba-hashtag -> оставить #tag
+        safe = re.sub(r'(?is)<span[^>]*style="[^"]*rgba\([^"]*\)[^"]*"[^>]*>\s*(#[^<\s]+)\s*</span>', r'\1', safe)
+
+        # активно удаляем ВСЕ span теги (вне pre/code, т.к. они в плейсхолдерах): разворачиваем inner
+        prev = None
+        while prev != safe:
+            prev = safe
+            safe = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe)
+
+        # заменить <strike> на <s>
+        safe = safe.replace('<strike>', '<s>').replace('</strike>', '</s>')
+
+        # вынести блоки из inline-обёрток (b/... вокруг block tags)
+        inline_tags = r'(?:b|i|u|strong|em|a)'
+        block_tags = r'(?:blockquote|pre|figure|aside|div|code)'
+        pattern_unwrap = re.compile(rf'(?is)<\s*({inline_tags})\b[^>]*>\s*(<(?:{block_tags})\b[^>]*>.*?</(?:{block_tags})>)\s*</\1\s*>')
+        while True:
+            new = pattern_unwrap.sub(r'\2', safe)
+            if new == safe:
+                break
+            safe = new
+
+        # Обработка специфичных tgui-div'ов:
+        # tgui-79024... — если border-left -> blockquote, если display:inline* -> unwrap inner, иначе blockquote
+        def replace_tgui_790(m):
+            attrs = m.group(1) or ''
+            inner_ = m.group(2) or ''
+            if re.search(r'display\s*:\s*(?:inline|inline-block)', attrs, flags=re.IGNORECASE):
+                return inner_
+            if re.search(r'border-left', attrs, flags=re.IGNORECASE):
+                return f'<blockquote>{inner_}</blockquote>'
+            return f'<blockquote>{inner_}</blockquote>'
+
+        safe = re.sub(r'(?is)<div\s+class="tgui-79024fcb6d81ad79"([^>]*)>(.*?)</div>', lambda m: replace_tgui_790(m), safe)
+
+        # tgui-86... -> превращаем в blockquote (не tg-spoiler)
+        safe = re.sub(r'(?is)<div\s+class="tgui-86f452d8e92a2075[^"]*"[^>]*>(.*?)</div>', r'<blockquote>\1</blockquote>', safe)
+
+        # остальные div -> разворачиваем содержимое (unwrap) / заменяем закрывающие на переносы
+        safe = re.sub(r'(?is)</\s*div\s*>', '\n', safe)
+        safe = re.sub(r'(?is)<\s*div\b[^>]*>', '\n', safe)
+
+        # нормализуем переносы
+        safe = re.sub(r'\r', '\n', safe)
+        safe = re.sub(r'\n\s*\n+', '\n\n', safe)
+        safe = safe.strip()
+
+        # восстановим pre/code из плейсхолдеров (они уже санитизированы)
+        safe = restore_pre_code(safe)
+
+        # дополнительно: удалить оставшиеся tg-spoiler/ span/ div явные случаи
+        safe = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe)
+        safe = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', safe)
+        # ещё раз убрать любые span
+        safe = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe)
+
+        # разбиваем на логические блоки по двойному переносу
+        blocks = []
+        for raw in safe.split('\n\n'):
+            b = raw.strip()
+            if not b:
+                continue
+            blocks.append(b)
+
+        # --- собираем media ---
+        figure_html = ''
+        for item in POST_MEDIA:
+            if not isinstance(item, dict):
+                continue
+            tgph_ph = str(item.get('file_link', '')).replace('https://telegra.ph', '')
+            if str(item.get('file_type')) in ['video', 'video_note']:
+                figure_html += f'<figure><video src="{tgph_ph}" preload="auto" autoplay="autoplay" loop="loop" muted="muted"></video><figcaption>Video: {{ENT_LINK}}</figcaption></figure>'
+            else:
+                figure_html += f'<figure><img src="{tgph_ph}"/><figcaption>Photo: {{ENT_LINK}}</figcaption></figure>'
+
+        # --- формируем p_html ---
+        p_html = ''
+        for blk in blocks:
+            s = blk.strip()
+            if re.match(r'(?is)^<(?:blockquote|pre|figure|aside|code)\b', s):
+                p_html += s
+            else:
+                inner = re.sub(r'\n+', ' ', s)
+                p_html += f'<p>{inner}</p>'
+
+        # нормализуем <a>, <img>, <video> — оставляем только href/src
+        def keep_a(m):
+            href = m.group(1)
+            inner = m.group(2) or ''
+            return f'<a href="{href}">{inner}</a>'
+        p_html = re.sub(r'(?is)<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', keep_a, p_html)
+
+        def keep_img(m):
+            src = m.group(1)
+            return f'<img src="{src}"/>'
+        p_html = re.sub(r'(?is)<img\b[^>]*src=["\']([^"\']+)["\'][^>]*\/?>', keep_img, p_html)
+
+        def keep_video(m):
+            src = m.group(1)
+            inner = m.group(2) or ''
+            return f'<video src="{src}">{inner}</video>'
+        p_html = re.sub(r'(?is)<video\b[^>]*src=["\']([^"\']+)["\'][^>]*>(.*?)</video>', keep_video, p_html)
+
+        # убрать любые оставшиеся span/tg-spoiler/div внутри p_html
+        p_html = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', p_html)
+        p_html = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', p_html)
+        p_html = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', p_html)
+
+        # удалить все атрибуты у тегов (оставить только имя тега), после нормализаций
+        p_html = re.sub(r'(?is)<(\w+)(?:\s+[^>]*)>', r'<\1>', p_html)
+
+        # финальная страховка: удалить любые остаточные запрещённые теги словом (span, tg-spoiler, div)
+        p_html = re.sub(r'(?is)</?(?:span|tg-spoiler|div)\b[^>]*>', '', p_html)
+
+        # --- ENT lookup (не менял логику) ---
+        ENT_NAME = ENT_TID
+        ENT_USERNAME = ''
+        ENT_LINK = ''
+        try:
+            if PROJECT_TYPE == 'bot':
+                sql = "SELECT BOT_USERNAME, BOT_FIRSTNAME FROM \"BOT\" WHERE BOT_TID=$1"
+                data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
+                if not len(data_bot):
+                    return result
+                BOT_USERNAME, BOT_FIRSTNAME = data_bot[0]
+                ENT_USERNAME = f"@{BOT_USERNAME}"
+                ENT_NAME = BOT_FIRSTNAME
+                ENT_LINK = f"https://t.me/{BOT_USERNAME}"
+            elif PROJECT_TYPE == 'user':
+                sql = "SELECT UB_USERNAME, UB_FIRSTNAME, UB_BOTUSERNAME, UB_CHANNELLINK FROM UB WHERE UB_TID=$1"
+                data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
+                UB_USERNAME, UB_FIRSTNAME, UB_BOTUSERNAME, UB_CHANNELLINK = data_bot[0]
+                if UB_USERNAME:
+                    ENT_USERNAME = f"@{UB_USERNAME}"
+                    ENT_LINK = f"https://t.me/{UB_USERNAME.strip('@')}"
+                else:
+                    ENT_USERNAME = UB_FIRSTNAME
+                    ENT_LINK = f"https://t.me/"
+            elif PROJECT_TYPE == 'post':
+                ENT_USERNAME = '@FereyPostBot'
+                ENT_NAME = '🫧 Ferey Post App'
+                ENT_LINK = 'https://t.me/FereyPostBot'
+            else:
+                get_chat_ = await bot.get_chat(int(ENT_TID))
+                ENT_USERNAME = get_chat_.title
+                ENT_NAME = ENT_USERNAME
+                ENT_LINK = f"https://t.me/{get_chat_.username}" if get_chat_.username else 'https://t.me'
+        except Exception as e:
+            logger.info(log_ % f"region_blog2 ENT lookup error: {e}")
+
+        if figure_html:
+            figure_html = figure_html.replace('{ENT_LINK}', ENT_LINK)
+
+        html_ = f"{figure_html}{p_html}"
+
+        # --- создать telegraph-страницу ---
+        try:
+            telegraph_ = Telegraph()
+            await telegraph_.create_account(short_name=short_name, author_name=ENT_USERNAME or ENT_NAME, author_url=ENT_LINK or '')
+            page_blog = await telegraph_.create_page(title=f"📰 {ENT_NAME}", html_content=html_,
+                                                     author_name=str(ENT_USERNAME or ENT_NAME), author_url=ENT_LINK or '')
+            result = page_blog.get('url')
+            logger.info(log_ % f"{ENT_TID}: {result}")
+            return result
+        except Exception as e:
+            logger.info(log_ % str(e) + f"{POST_TEXT=}")
+            await asyncio.sleep(round(random.uniform(3, 5), 2))
+            return result
+
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -15433,7 +15682,7 @@ async def check_sub_pay_pg(chat_id, lz, BOT_TOKEN_E18B, BASE_P):
     return is_paid, till_paid
 
 
-async def no_war_text(txt):
+async def no_new_text(txt):
     result = txt
     try:
         pass  # result = txt.replace('а', 'ä').replace('А', 'Ä').replace('в', 'ʙ').replace('В', 'B').replace('г', 'ґ')  # .replace('Г', 'Ґ').replace('е', 'é').replace('Е', 'É').replace('ж', 'җ').replace('Ж', 'Җ').replace('з', 'з́')  # .replace('З', 'З́').replace('й', 'ҋ').replace('Й', 'Ҋ').replace('к','қ').replace('К', 'Қ').replace('М', 'M')  # .replace('Н','H').replace('о', 'ô').replace('О', 'Ô').replace('р', 'p').replace('Р', 'P').replace('с', 'č')  # .replace('С', 'Č').replace('т', 'ҭ').replace('Т', 'Ҭ').replace('у', 'ў').replace('У', 'Ў').replace('х', 'x')  # .replace('Х', 'X').replace('э', 'є').replace('Э', 'Є')  # result = txt.replace('А', 'Ä').replace('в', 'ʙ').replace('В', 'B').replace('г', 'ґ').replace('Г', 'Ґ').  # replace('Е', 'É').replace('ж', 'җ').replace('Ж', 'Җ').replace('й', 'ҋ').replace('К', 'Қ').replace('М', 'M')  # .replace('Н', 'H').replace('о', 'ô').replace('О', 'Ô').replace('р', 'p').replace('Р', 'P').replace('С', 'Č')  # .replace('Т', 'Ҭ').replace('У', 'Ў').replace('х', 'x').replace('Х', 'X').replace('э', 'є')
@@ -18034,10 +18283,15 @@ def handle_ver(emj, emj_data, entities_list):
     return str(None)
 
 
-def cleanhtml(raw_html):
-    cleanr = re.compile('<.*?>')
-    cleantext = re.sub(cleanr, '', raw_html.strip())
-    return cleantext
+async def clean_html(raw_html):
+    result = raw_html
+    try:
+        result = re.sub(r'<.*?>', '', raw_html or '')
+        result = re.sub(r'[#@]\S+|[\u200b\u2060\ufeff]+', '', result).strip()
+    except Exception as e:
+        logger.info(log_ % e)
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
 
 
 async def format_text_md(txt, is_web=False):

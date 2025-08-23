@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gcsa
-Version: 2.5.1
+Version: 2.6.0
 Summary: Simple API for Google Calendar management
 Home-page: https://github.com/kuzmoyev/google-calendar-simple-api
 Author: Yevhen Kuzmovych
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE
-Requires-Dist: tzlocal<5,>=4
+Requires-Dist: tzlocal<6,>=4
 Requires-Dist: google-api-python-client>=1.8
 Requires-Dist: google-auth-httplib2>=0.0.4
 Requires-Dist: google-auth-oauthlib<2.0,>=0.5
@@ -54,6 +54,17 @@ Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Requires-Dist: sphinxcontrib-googleanalytics; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 Google Calendar Simple API
 ==========================
@@ -80,6 +91,14 @@ It is a Pythonic object oriented adapter for the official API. See the full `doc
 
 Installation
 ------------
+
+Using `uv`_:
+
+.. code-block:: bash
+
+    uv add gcsa
+
+Using pip:
 
 .. code-block:: bash
 
@@ -143,6 +162,7 @@ References
 Template for `setup.py` was taken from `kennethreitz/setup.py`_
 
 
+.. _uv: https://docs.astral.sh/uv/
 .. _documentation: https://google-calendar-simple-api.readthedocs.io/en/latest/?badge=latest
 .. _`Getting started page`: https://google-calendar-simple-api.readthedocs.io/en/latest/getting_started.html
 .. _beautiful_date: https://github.com/kuzmoyev/beautiful-date

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-embeddings-ollama
-Version: 0.8.1
+Version: 0.8.2
 Summary: llama-index embeddings ollama integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
@@ -8,6 +8,7 @@ License-File: LICENSE
 Requires-Python: <4.0,>=3.9
 Requires-Dist: llama-index-core<0.14,>=0.13.0
 Requires-Dist: ollama>=0.3.1
+Requires-Dist: pytest-asyncio>=0.23.8
 Description-Content-Type: text/markdown
 
 # LlamaIndex Embeddings Integration: Ollama

@@ -58,6 +58,10 @@ def foo(member: str) -> None:
 
 def bar(member: int) -> None:
     MyEnum[member] # E: Enum `MyEnum` can only be indexed by strings
+
+def foo(member: MyEnum) -> None:
+    assert_type(member.name, str)
+    assert_type(member.value, int)
 "#,
 );
 
@@ -112,7 +116,7 @@ Color = Enum("C", 'RED', 'GREEN', 'BLUE')  # E: Expected string literal "Color"
 );
 
 testcase!(
-    bug = "Matching EnumMeta against Iterable is failing because Type::to_unbound_callable() doesn't support generic methods",
+    bug = "`e` is `Any` because we need to use the bound object to instantiate _EnumMemberT in EnumMeta.__iter__",
     test_iterate,
     r#"
 from typing import assert_type
@@ -120,7 +124,7 @@ from enum import Enum
 class E(Enum):
     X = 1
     Y = 2
-for e in E:  # E: Type `type[E]` is not iterable
+for e in E:
     assert_type(e, E)  # E: assert_type(Any, E)
     "#,
 );
@@ -319,6 +323,23 @@ MyEnum.__members__
 );
 
 testcase!(
+    test_enum_extend_final,
+    r#"
+from enum import Enum
+class A(Enum): pass
+
+class B(Enum):
+    X = 1
+
+class C(A):
+    X = 1
+
+class D(B): # E: Cannot extend final class `B`
+    pass
+"#,
+);
+
+testcase!(
     test_enum_name,
     r#"
 from typing import assert_type, Literal
@@ -375,11 +396,10 @@ assert_type(e.foo, str)
 );
 
 testcase!(
-    bug = "We correctly understand that `foo` is a property but it isn't resolving at attribute access time",
     test_magic_enum_attr_3_11,
     TestEnv::new_with_version(PythonVersion::new(3, 11, 0)),
     r#"
-from typing_extensions import reveal_type
+from typing_extensions import assert_type, Any
 import enum
 class E(enum.Enum):
     _value_: int
@@ -388,7 +408,7 @@ class E(enum.Enum):
     @enum._magic_enum_attr
     def foo(self) -> str: ...
 e = E.E0
-reveal_type(e.foo)  # E: revealed type: property
+assert_type(e.foo, str)
     "#,
 );
 
@@ -457,4 +477,12 @@ from typing import assert_type, Literal
 assert_type(py.Color.RED, Literal[py.Color.RED])
 assert_type(pyi.Color.RED, Literal[pyi.Color.RED])
 "#,
+);
+
+testcase!(
+    test_empty_functional_def,
+    r#"
+from enum import Enum
+E = Enum('E', [])
+    "#,
 );

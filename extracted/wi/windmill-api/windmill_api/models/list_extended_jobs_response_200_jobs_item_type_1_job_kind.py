@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class ListExtendedJobsResponse200JobsItemType1JobKind(str, Enum):
+    AIAGENT = "aiagent"
     APPDEPENDENCIES = "appdependencies"
     APPSCRIPT = "appscript"
     DEPENDENCIES = "dependencies"

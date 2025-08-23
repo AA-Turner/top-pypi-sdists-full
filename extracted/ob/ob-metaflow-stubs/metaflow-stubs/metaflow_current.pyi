@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-21T23:31:59.918322                                                            #
+# Generated on 2025-08-22T06:36:31.649935                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import metaflow
-    import metaflow.metaflow_current
-    import metaflow.events
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import typing
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core
+    import metaflow
     import metaflow.plugins.cards.component_serializer
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.metaflow_current
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import metaflow.events
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core
+    import typing
 
 
 TYPE_CHECKING: bool
@@ -229,40 +229,6 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
-    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
-        """
-        (only in the presence of the @model decorator)
-        
-        The object used for loading / saving models.
-        `current.model` exposes a `save` method to save models and a `load` method to load models.
-        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
-        or models loaded via `current.model.load`.
-        
-        Returns
-        ----------
-        ModelSerializer
-            The object used for loading / saving models.
-        """
-        ...
-    @property
-    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
-        """
-        (only in the presence of the @checkpoint decorator)
-        
-        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
-        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
-        
-        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
-        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
-        where the checkpoint maybe loaded or saved.
-        
-        Returns
-        ----------
-        CurrentCheckpointer
-            The object for handling checkpointing within a step.
-        """
-        ...
-    @property
     def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
         """
         (only in the presence of the @huggingface_hub decorator)
@@ -281,6 +247,22 @@ class Current(object, metaclass=type):
         ----------
         apps
             The object carrying the Deployer class to deploy apps.
+        """
+        ...
+    @property
+    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+        """
+        (only in the presence of the @model decorator)
+        
+        The object used for loading / saving models.
+        `current.model` exposes a `save` method to save models and a `load` method to load models.
+        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
+        or models loaded via `current.model.load`.
+        
+        Returns
+        ----------
+        ModelSerializer
+            The object used for loading / saving models.
         """
         ...
     @property
@@ -328,6 +310,24 @@ class Current(object, metaclass=type):
         (only in the presence of the @parallel decorator)
         
         True if the current step is a @parallel step.
+        """
+        ...
+    @property
+    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
+        """
+        (only in the presence of the @checkpoint decorator)
+        
+        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
+        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
+        
+        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
+        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
+        where the checkpoint maybe loaded or saved.
+        
+        Returns
+        ----------
+        CurrentCheckpointer
+            The object for handling checkpointing within a step.
         """
         ...
     @property

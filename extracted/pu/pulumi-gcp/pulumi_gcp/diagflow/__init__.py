@@ -7,6 +7,7 @@ from .. import _utilities
 import typing
 # Export this package's modules as members:
 from .agent import *
+from .conversation_profile import *
 from .cx_agent import *
 from .cx_entity_type import *
 from .cx_environment import *
@@ -15,6 +16,7 @@ from .cx_generative_settings import *
 from .cx_generator import *
 from .cx_intent import *
 from .cx_page import *
+from .cx_playbook import *
 from .cx_security_settings import *
 from .cx_test_case import *
 from .cx_tool import *

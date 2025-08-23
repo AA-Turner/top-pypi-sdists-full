@@ -16,6 +16,8 @@ use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_types::callable::Params;
 use pyrefly_types::simplify::unions;
+use pyrefly_types::typed_dict::ExtraItem;
+use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
 use ruff_python_ast::Expr;
@@ -297,7 +299,7 @@ impl ClassField {
     }
 
     pub fn as_param(
-        self,
+        &self,
         name: &Name,
         default: bool,
         kw_only: bool,
@@ -311,9 +313,9 @@ impl ClassField {
         let param_ty = if let Some(converter_param) = converter_param {
             converter_param
         } else if let Some(descriptor_setter) = descriptor_setter {
-            Self::get_descriptor_setter_value(&descriptor_setter)
+            Self::get_descriptor_setter_value(descriptor_setter)
         } else {
-            ty
+            ty.clone()
         };
         let required = match default {
             true => Required::Optional(None),
@@ -567,11 +569,11 @@ impl<'a> Instance<'a> {
 }
 
 fn bind_class_attribute(
-    cls: &Class,
+    obj: Type,
     attr: Type,
     read_only_reason: &Option<ReadOnlyReason>,
 ) -> Attribute {
-    let ty = make_bound_classmethod(cls, attr).into_inner();
+    let ty = make_bound_classmethod(obj, attr).into_inner();
     if let Some(reason) = read_only_reason {
         Attribute::read_only(ty, reason.clone())
     } else {
@@ -602,9 +604,9 @@ fn make_bound_method_helper(
     Ok(Type::BoundMethod(Box::new(BoundMethod { obj, func })))
 }
 
-fn make_bound_classmethod(cls: &Class, attr: Type) -> Result<Type, Type> {
+fn make_bound_classmethod(obj: Type, attr: Type) -> Result<Type, Type> {
     let should_bind = |meta: &FuncMetadata| meta.flags.is_classmethod;
-    make_bound_method_helper(Type::ClassDef(cls.dupe()), attr, &should_bind)
+    make_bound_method_helper(obj, attr, &should_bind)
 }
 
 fn make_bound_method(obj: Type, attr: Type) -> Result<Type, Type> {
@@ -649,8 +651,9 @@ fn bind_instance_attribute(
         )
     } else {
         Attribute::read_write(
-            make_bound_method(instance.to_type(), attr)
-                .unwrap_or_else(|attr| make_bound_classmethod(instance.class, attr).into_inner()),
+            make_bound_method(instance.to_type(), attr).unwrap_or_else(|attr| {
+                make_bound_classmethod(Type::ClassDef(instance.class.dupe()), attr).into_inner()
+            }),
         )
     }
 }
@@ -907,6 +910,68 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
         }
+        if let Some(td) = metadata.typed_dict_metadata()
+            && let Some(is_total) = td.fields.get(name)
+        {
+            // If this is a TypedDict field, make sure it is compatible with any inherited metadata
+            // restricting extra items.
+            let inherited_extra = metadata.base_class_objects().iter().find_map(|base| {
+                self.get_metadata_for_class(base)
+                    .typed_dict_metadata()
+                    .map(|m| (base, m.extra_items.clone()))
+            });
+            match inherited_extra {
+                Some((base, ExtraItems::Closed)) => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                        format!(
+                            "Cannot extend closed TypedDict `{}` with extra item `{}`",
+                            base.name(),
+                            name
+                        ),
+                    );
+                }
+                Some((base, ExtraItems::Extra(ExtraItem { ty, read_only })))
+                    if let Some(annot) = &direct_annotation =>
+                {
+                    let field_ty = annot.get_type();
+                    if read_only {
+                        // The field type needs to be assignable to the extra_items type.
+                        if !self.is_subset_eq(field_ty, &ty) {
+                            self.error(
+                                errors, range, ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                            format!(
+                                "`{}` is not assignable to `extra_items` type `{}` of TypedDict `{}`",
+                                self.for_display(field_ty.clone()), self.for_display(ty), base.name()));
+                        }
+                    } else {
+                        // The field needs to be non-required and its type consistent with the extra_items type.
+                        let required = annot.has_qualifier(&Qualifier::Required)
+                            || (*is_total && !annot.has_qualifier(&Qualifier::NotRequired));
+                        if required {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                format!("TypedDict `{}` with non-read-only `extra_items` cannot be extended with required extra item `{}`", base.name(), name),
+                            );
+                        } else if !self.is_equal(field_ty, &ty) {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                format!(
+                                    "`{}` is not consistent with `extra_items` type `{}` of TypedDict `{}`",
+                                    self.for_display(field_ty.clone()), self.for_display(ty), base.name()),
+                            );
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
 
         let annotation = direct_annotation.as_ref().or(inherited_annotation.as_ref());
         let read_only_reason = self.determine_read_only_reason(
@@ -996,11 +1061,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // - Do we care about distributing descriptor behavior over unions? If so, what about the case when
             //   the raw class field is a union of a descriptor and a non-descriptor? Do we want to allow this?
             Type::ClassType(c) => {
-                if c.class_object().contains(&dunder::GET) {
+                if self.get_instance_attribute(c, &dunder::GET).is_some() {
                     descriptor_getter =
                         Some(self.attr_infer_for_type(&ty, &dunder::GET, range, errors, None));
                 }
-                if c.class_object().contains(&dunder::SET) {
+                if self.get_instance_attribute(c, &dunder::SET).is_some() {
                     descriptor_setter =
                         Some(self.attr_infer_for_type(&ty, &dunder::SET, range, errors, None));
                 }
@@ -1090,7 +1155,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && dm.kws.frozen
             && dm.fields.contains(name)
         {
-            let reason = if metadata.pydantic_metadata().is_some() {
+            let reason = if metadata.is_pydantic_model() {
                 ReadOnlyReason::PydanticFrozen
             } else {
                 ReadOnlyReason::FrozenDataclass
@@ -1317,6 +1382,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn as_class_attribute(&self, field: ClassField, cls: &Class) -> Attribute {
+        self.as_class_attribute_impl(field, cls, None, None)
+    }
+
+    fn as_class_attribute_impl(
+        &self,
+        field: ClassField,
+        cls: &Class,
+        bind_to_override: Option<Type>,
+        subst_self_type_override: Option<Type>,
+    ) -> Attribute {
+        let bind_to = bind_to_override.unwrap_or(Type::ClassDef(cls.dupe()));
         match &field.0 {
             ClassFieldInner::Simple {
                 ty,
@@ -1338,14 +1414,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } => Attribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(cls.dupe())),
             ClassFieldInner::Simple { ty, .. } => {
                 if self.depends_on_class_type_parameter(&field, cls) {
-                    self.get_function_depending_on_class_type_parameter(cls, ty)
-                        .unwrap_or_else(|| {
-                            Attribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
-                                cls.dupe(),
-                            ))
-                        })
+                    self.get_function_depending_on_class_type_parameter(
+                        cls,
+                        ty,
+                        bind_to,
+                        subst_self_type_override.unwrap_or_else(|| self.instantiate(cls)),
+                    )
+                    .unwrap_or_else(|| {
+                        Attribute::no_access(NoAccessReason::ClassAttributeIsGeneric(cls.dupe()))
+                    })
                 } else {
-                    bind_class_attribute(cls, ty.clone(), field.read_only_reason())
+                    let mut attr_ty = ty.clone();
+                    if let Some(subst_self_type) = subst_self_type_override {
+                        attr_ty
+                            .subst_self_type_mut(&subst_self_type, &|a, b| self.is_subset_eq(a, b));
+                    }
+                    bind_class_attribute(bind_to, attr_ty, field.read_only_reason())
                 }
             }
         }
@@ -1364,6 +1448,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         ty: &Type,
+        bind_to_cls: Type,
+        subst_self_type: Type,
     ) -> Option<Attribute> {
         let mut foralled = match ty {
             Type::Function(func) => Type::Forall(Box::new(Forall {
@@ -1411,8 +1497,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 return None;
             }
         };
-        foralled.subst_self_type_mut(&self.instantiate(cls), &|a, b| self.is_subset_eq(a, b));
-        Some(bind_class_attribute(cls, foralled, &None))
+        foralled.subst_self_type_mut(&subst_self_type, &|a, b| self.is_subset_eq(a, b));
+        Some(bind_class_attribute(bind_to_cls, foralled, &None))
     }
 
     fn is_typed_dict_field(&self, metadata: &ClassMetadata, field_name: &Name) -> bool {
@@ -1778,6 +1864,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_class_attribute(&self, cls: &Class, name: &Name) -> Option<Attribute> {
         self.get_class_member(cls, name)
             .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), cls))
+    }
+
+    pub fn get_bounded_quantified_class_attribute(
+        &self,
+        quantified: Quantified,
+        class: &Class,
+        name: &Name,
+    ) -> Option<Attribute> {
+        self.get_class_member(class, name).map(|member| {
+            self.as_class_attribute_impl(
+                Arc::unwrap_or_clone(member.value),
+                class,
+                Some(Type::Type(Box::new(Type::Quantified(Box::new(
+                    quantified.clone(),
+                ))))),
+                Some(Type::Quantified(Box::new(quantified))),
+            )
+        })
     }
 
     pub fn field_is_inherited_from_object(&self, cls: &Class, name: &Name) -> bool {

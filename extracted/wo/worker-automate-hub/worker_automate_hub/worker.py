@@ -54,7 +54,15 @@ async def check_and_execute_tasks(stop_event: threading.Event):
             if task is not None:
                 processo_existe = await is_uuid_in_tasks(task.uuidProcesso)
                 if processo_existe:
-                    await burn_queue(task.uuidFila)
+                    i = 0
+                    while i < 5:
+                        try:
+                            await burn_queue(task.uuidFila)
+                            break
+                        except:
+                            i += 1
+                            await asyncio.sleep(2)
+                            pass
                     logger.info(f"Executando a task: {task.nomProcesso}")
                     await perform_task(task)
                 else:
@@ -75,7 +83,15 @@ async def check_and_execute_tasks(stop_event: threading.Event):
                             ),
                         )
                         # Libera o registro da fila e informa o chat
-                        await burn_queue(task.uuidFila)
+                        i = 0
+                        while i < 5:
+                            try:
+                                await burn_queue(task.uuidFila)
+                                break
+                            except:
+                                i += 1
+                                await asyncio.sleep(2)
+                                pass
                         await send_gchat_message(log_message)
                     except Exception as e:
                         console.print(

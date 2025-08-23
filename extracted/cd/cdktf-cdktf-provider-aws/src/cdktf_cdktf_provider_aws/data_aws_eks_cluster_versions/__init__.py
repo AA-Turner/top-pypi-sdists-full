@@ -1,7 +1,7 @@
 r'''
 # `data_aws_eks_cluster_versions`
 
-Refer to the Terraform Registry for docs: [`data_aws_eks_cluster_versions`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions).
+Refer to the Terraform Registry for docs: [`data_aws_eks_cluster_versions`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsEksClusterVersions(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsEksClusterVersions.DataAwsEksClusterVersions",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions aws_eks_cluster_versions}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions aws_eks_cluster_versions}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataAwsEksClusterVersions(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions aws_eks_cluster_versions} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions aws_eks_cluster_versions} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#cluster_type DataAwsEksClusterVersions#cluster_type}.
-        :param cluster_versions_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#cluster_versions_only DataAwsEksClusterVersions#cluster_versions_only}.
-        :param default_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#default_only DataAwsEksClusterVersions#default_only}.
-        :param include_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#include_all DataAwsEksClusterVersions#include_all}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#region DataAwsEksClusterVersions#region}
-        :param version_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#version_status DataAwsEksClusterVersions#version_status}.
+        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#cluster_type DataAwsEksClusterVersions#cluster_type}.
+        :param cluster_versions_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#cluster_versions_only DataAwsEksClusterVersions#cluster_versions_only}.
+        :param default_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#default_only DataAwsEksClusterVersions#default_only}.
+        :param include_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#include_all DataAwsEksClusterVersions#include_all}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#region DataAwsEksClusterVersions#region}
+        :param version_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#version_status DataAwsEksClusterVersions#version_status}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataAwsEksClusterVersions(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsEksClusterVersions to import.
-        :param import_from_id: The id of the existing DataAwsEksClusterVersions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsEksClusterVersions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsEksClusterVersions to import is found.
         '''
         if __debug__:
@@ -515,12 +515,12 @@ class DataAwsEksClusterVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#cluster_type DataAwsEksClusterVersions#cluster_type}.
-        :param cluster_versions_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#cluster_versions_only DataAwsEksClusterVersions#cluster_versions_only}.
-        :param default_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#default_only DataAwsEksClusterVersions#default_only}.
-        :param include_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#include_all DataAwsEksClusterVersions#include_all}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#region DataAwsEksClusterVersions#region}
-        :param version_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#version_status DataAwsEksClusterVersions#version_status}.
+        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#cluster_type DataAwsEksClusterVersions#cluster_type}.
+        :param cluster_versions_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#cluster_versions_only DataAwsEksClusterVersions#cluster_versions_only}.
+        :param default_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#default_only DataAwsEksClusterVersions#default_only}.
+        :param include_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#include_all DataAwsEksClusterVersions#include_all}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#region DataAwsEksClusterVersions#region}
+        :param version_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#version_status DataAwsEksClusterVersions#version_status}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -633,13 +633,13 @@ class DataAwsEksClusterVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#cluster_type DataAwsEksClusterVersions#cluster_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#cluster_type DataAwsEksClusterVersions#cluster_type}.'''
         result = self._values.get("cluster_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cluster_versions_only(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#cluster_versions_only DataAwsEksClusterVersions#cluster_versions_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#cluster_versions_only DataAwsEksClusterVersions#cluster_versions_only}.'''
         result = self._values.get("cluster_versions_only")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -647,7 +647,7 @@ class DataAwsEksClusterVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#default_only DataAwsEksClusterVersions#default_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#default_only DataAwsEksClusterVersions#default_only}.'''
         result = self._values.get("default_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -655,7 +655,7 @@ class DataAwsEksClusterVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def include_all(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#include_all DataAwsEksClusterVersions#include_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#include_all DataAwsEksClusterVersions#include_all}.'''
         result = self._values.get("include_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -663,14 +663,14 @@ class DataAwsEksClusterVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#region DataAwsEksClusterVersions#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#region DataAwsEksClusterVersions#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/data-sources/eks_cluster_versions#version_status DataAwsEksClusterVersions#version_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/data-sources/eks_cluster_versions#version_status DataAwsEksClusterVersions#version_status}.'''
         result = self._values.get("version_status")
         return typing.cast(typing.Optional[builtins.str], result)
 

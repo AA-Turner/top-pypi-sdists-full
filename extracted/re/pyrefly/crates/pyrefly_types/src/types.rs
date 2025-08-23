@@ -388,17 +388,6 @@ pub struct BoundMethod {
 }
 
 impl BoundMethod {
-    pub fn drop_self(&self) -> Option<Type> {
-        self.func
-            .clone()
-            .as_type()
-            .drop_first_param_of_unbound_callable()
-    }
-
-    pub fn as_function(self) -> Type {
-        self.func.as_type()
-    }
-
     pub fn with_bound_object(&self, obj: Type) -> Self {
         Self {
             obj,
@@ -931,41 +920,6 @@ impl Type {
         }
     }
 
-    /// If this is an unbound callable (i.e., a callable that is not BoundMethod), strip the first parameter.
-    /// TODO: Does not handle generics.
-    pub fn drop_first_param_of_unbound_callable(&self) -> Option<Type> {
-        match self {
-            Type::Callable(callable) => callable
-                .drop_first_param()
-                .map(|callable| Type::Callable(Box::new(callable))),
-            Type::Function(func) => func.signature.drop_first_param().map(|callable| {
-                Type::Function(Box::new(Function {
-                    signature: callable,
-                    metadata: func.metadata.clone(),
-                }))
-            }),
-            Type::Overload(overload) => overload
-                .signatures
-                .try_mapped_ref(|x| match x {
-                    OverloadType::Function(f) => {
-                        f.signature.drop_first_param().ok_or(()).map(|c| Function {
-                            signature: c,
-                            metadata: f.metadata.clone(),
-                        })
-                    }
-                    _ => Err(()),
-                })
-                .ok()
-                .map(|signatures| {
-                    Type::Overload(Overload {
-                        signatures: signatures.mapped(OverloadType::Function),
-                        metadata: overload.metadata.clone(),
-                    })
-                }),
-            _ => None,
-        }
-    }
-
     pub fn is_none(&self) -> bool {
         matches!(self, Type::None)
     }
@@ -1402,6 +1356,7 @@ impl Type {
             Type::TypeVarTuple(t) => Some(t.qname()),
             Type::ParamSpec(t) => Some(t.qname()),
             Type::SelfType(cls) => Some(cls.qname()),
+            Type::Literal(Lit::Enum(e)) => Some(e.class.qname()),
             _ => None,
         }
     }

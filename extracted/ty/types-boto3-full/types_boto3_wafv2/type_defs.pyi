@@ -2076,3 +2076,4 @@ class UpdateWebACLRequestTypeDef(TypedDict):
     TokenDomains: NotRequired[Sequence[str]]
     AssociationConfig: NotRequired[AssociationConfigUnionTypeDef]
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]
+    ApplicationConfig: NotRequired[ApplicationConfigUnionTypeDef]

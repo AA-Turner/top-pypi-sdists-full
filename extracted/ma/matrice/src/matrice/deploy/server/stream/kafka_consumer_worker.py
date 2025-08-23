@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import base64
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
@@ -19,11 +18,12 @@ class KafkaConsumerWorker:
         session,
         deployment_id: str,
         deployment_instance_id: str,
-        input_queue,  # Simple queue wrapper
+        input_queue: asyncio.PriorityQueue,  # Simple queue wrapper
         consumer_group_suffix: str = "",
         poll_timeout: float = 1.0,
         max_messages_per_poll: int = 1,
-        inference_pipeline_id: str = ""
+        inference_pipeline_id: str = "",
+        app_name: str = ""
     ):
         """Initialize Kafka consumer worker.
         
@@ -45,10 +45,8 @@ class KafkaConsumerWorker:
         self.poll_timeout = poll_timeout
         self.max_messages_per_poll = max_messages_per_poll
         self.inference_pipeline_id = inference_pipeline_id
+        self.app_name = app_name.lower().replace(" ", "_")
         # Kafka setup with unique consumer group for this worker
-        consumer_group_id = f"{deployment_id}-consumer-{worker_id}"
-        if consumer_group_suffix:
-            consumer_group_id += f"-{consumer_group_suffix}"
         custom_request_service_id = (
             self.inference_pipeline_id
             if (
@@ -57,12 +55,15 @@ class KafkaConsumerWorker:
             )
             else deployment_id
         )
+        consumer_group_id = f"{custom_request_service_id}-consumer-{app_name}"
+        if consumer_group_suffix:
+            consumer_group_id += f"-{consumer_group_suffix}"
         self.kafka_deployment = MatriceKafkaDeployment(
             session,
             deployment_id,
             "server",
             consumer_group_id,
-            f"{deployment_instance_id}-consumer-{worker_id}",
+            f"{consumer_group_id}-{worker_id}",
             custom_request_service_id=custom_request_service_id
         )
         # Note: async consumer setup moved to start() method
@@ -70,6 +71,7 @@ class KafkaConsumerWorker:
         # Worker state
         self.is_running = False
         self.is_active = True
+        self.global_counter = 0
         self._stop_event = asyncio.Event()
         self._processing_task: Optional[asyncio.Task] = None
         
@@ -183,7 +185,9 @@ class KafkaConsumerWorker:
                     except Exception:
                         pass
                     try:
-                        await self.input_queue.put(processed_message)
+                        processed_message["global_counter"] = self.global_counter
+                        self.global_counter += 1
+                        await self.input_queue.put((self.global_counter, processed_message))
                         self.messages_consumed += 1
                         self.messages_queued += 1
                         self.last_message_time = datetime.now(timezone.utc)

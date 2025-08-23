@@ -1,7 +1,7 @@
 r'''
 # `aws_quicksight_ip_restriction`
 
-Refer to the Terraform Registry for docs: [`aws_quicksight_ip_restriction`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction).
+Refer to the Terraform Registry for docs: [`aws_quicksight_ip_restriction`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QuicksightIpRestriction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.quicksightIpRestriction.QuicksightIpRestriction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction aws_quicksight_ip_restriction}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction aws_quicksight_ip_restriction}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class QuicksightIpRestriction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction aws_quicksight_ip_restriction} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction aws_quicksight_ip_restriction} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#enabled QuicksightIpRestriction#enabled}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#aws_account_id QuicksightIpRestriction#aws_account_id}.
-        :param ip_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#ip_restriction_rule_map QuicksightIpRestriction#ip_restriction_rule_map}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#region QuicksightIpRestriction#region}
-        :param vpc_endpoint_id_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#vpc_endpoint_id_restriction_rule_map QuicksightIpRestriction#vpc_endpoint_id_restriction_rule_map}.
-        :param vpc_id_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#vpc_id_restriction_rule_map QuicksightIpRestriction#vpc_id_restriction_rule_map}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#enabled QuicksightIpRestriction#enabled}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#aws_account_id QuicksightIpRestriction#aws_account_id}.
+        :param ip_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#ip_restriction_rule_map QuicksightIpRestriction#ip_restriction_rule_map}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#region QuicksightIpRestriction#region}
+        :param vpc_endpoint_id_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#vpc_endpoint_id_restriction_rule_map QuicksightIpRestriction#vpc_endpoint_id_restriction_rule_map}.
+        :param vpc_id_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#vpc_id_restriction_rule_map QuicksightIpRestriction#vpc_id_restriction_rule_map}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class QuicksightIpRestriction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QuicksightIpRestriction to import.
-        :param import_from_id: The id of the existing QuicksightIpRestriction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QuicksightIpRestriction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QuicksightIpRestriction to import is found.
         '''
         if __debug__:
@@ -332,12 +332,12 @@ class QuicksightIpRestrictionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#enabled QuicksightIpRestriction#enabled}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#aws_account_id QuicksightIpRestriction#aws_account_id}.
-        :param ip_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#ip_restriction_rule_map QuicksightIpRestriction#ip_restriction_rule_map}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#region QuicksightIpRestriction#region}
-        :param vpc_endpoint_id_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#vpc_endpoint_id_restriction_rule_map QuicksightIpRestriction#vpc_endpoint_id_restriction_rule_map}.
-        :param vpc_id_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#vpc_id_restriction_rule_map QuicksightIpRestriction#vpc_id_restriction_rule_map}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#enabled QuicksightIpRestriction#enabled}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#aws_account_id QuicksightIpRestriction#aws_account_id}.
+        :param ip_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#ip_restriction_rule_map QuicksightIpRestriction#ip_restriction_rule_map}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#region QuicksightIpRestriction#region}
+        :param vpc_endpoint_id_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#vpc_endpoint_id_restriction_rule_map QuicksightIpRestriction#vpc_endpoint_id_restriction_rule_map}.
+        :param vpc_id_restriction_rule_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#vpc_id_restriction_rule_map QuicksightIpRestriction#vpc_id_restriction_rule_map}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -450,14 +450,14 @@ class QuicksightIpRestrictionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#enabled QuicksightIpRestriction#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#enabled QuicksightIpRestriction#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#aws_account_id QuicksightIpRestriction#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#aws_account_id QuicksightIpRestriction#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -465,7 +465,7 @@ class QuicksightIpRestrictionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ip_restriction_rule_map(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#ip_restriction_rule_map QuicksightIpRestriction#ip_restriction_rule_map}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#ip_restriction_rule_map QuicksightIpRestriction#ip_restriction_rule_map}.'''
         result = self._values.get("ip_restriction_rule_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -473,7 +473,7 @@ class QuicksightIpRestrictionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#region QuicksightIpRestriction#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#region QuicksightIpRestriction#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -482,7 +482,7 @@ class QuicksightIpRestrictionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_endpoint_id_restriction_rule_map(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#vpc_endpoint_id_restriction_rule_map QuicksightIpRestriction#vpc_endpoint_id_restriction_rule_map}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#vpc_endpoint_id_restriction_rule_map QuicksightIpRestriction#vpc_endpoint_id_restriction_rule_map}.'''
         result = self._values.get("vpc_endpoint_id_restriction_rule_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -490,7 +490,7 @@ class QuicksightIpRestrictionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_id_restriction_rule_map(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_ip_restriction#vpc_id_restriction_rule_map QuicksightIpRestriction#vpc_id_restriction_rule_map}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/quicksight_ip_restriction#vpc_id_restriction_rule_map QuicksightIpRestriction#vpc_id_restriction_rule_map}.'''
         result = self._values.get("vpc_id_restriction_rule_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

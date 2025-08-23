@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: megatron-energon
-Version: 7.2.0
+Version: 7.2.1
 Summary: Megatron's multi-modal data loader
 Project-URL: Homepage, https://github.com/NVIDIA/Megatron-Energon
 Author-email: Lukas Vögtle <lvoegtle@nvidia.com>, Philipp Fischer <pfischer@nvidia.com>

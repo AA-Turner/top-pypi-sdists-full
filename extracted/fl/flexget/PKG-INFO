@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flexget
-Version: 3.17.13
+Version: 3.17.14
 Summary: FlexGet is a program aimed to automate downloading or processing content (torrents, podcasts, etc.) from different sources like RSS-feeds, html-pages, various sites and more.
 Project-URL: Forum, https://github.com/Flexget/Flexget/discussions
 Project-URL: Homepage, https://flexget.com
@@ -194,6 +194,7 @@ Requires-Dist: pynzb==0.1.0; extra == 'locked'
 Requires-Dist: pyparsing==3.2.3; extra == 'locked'
 Requires-Dist: pyrss2gen==1.1; extra == 'locked'
 Requires-Dist: pytest-cov==6.2.1; extra == 'locked'
+Requires-Dist: pytest-socket==0.7.0; extra == 'locked'
 Requires-Dist: pytest-xdist==3.8.0; extra == 'locked'
 Requires-Dist: pytest==8.4.1; extra == 'locked'
 Requires-Dist: python-dateutil==2.9.0.post0; extra == 'locked'
@@ -405,7 +406,7 @@ For more detailed instructions see the `installation guide`_.
 How to contribute
 -----------------------
 
-Refer to `the contributor guide <https://flexget.readthedocs.io/en/latest/contributor/index.html>`__.
+Refer to the `contributor guide <https://flexget.readthedocs.io/en/latest/contributor/index.html>`__.
 
 If you don't want to use virtualenv there's ``flexget_vanilla.py`` file which
 can be used to run FlexGet without virtualenv, note that you will need to

@@ -1,7 +1,7 @@
 r'''
 # `data_google_firestore_document`
 
-Refer to the Terraform Registry for docs: [`data_google_firestore_document`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document).
+Refer to the Terraform Registry for docs: [`data_google_firestore_document`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleFirestoreDocument(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleFirestoreDocument.DataGoogleFirestoreDocument",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document google_firestore_document}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document google_firestore_document}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataGoogleFirestoreDocument(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document google_firestore_document} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document google_firestore_document} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#collection DataGoogleFirestoreDocument#collection}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#database DataGoogleFirestoreDocument#database}
-        :param document_id: The client-assigned document ID to use for this document during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#document_id DataGoogleFirestoreDocument#document_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#id DataGoogleFirestoreDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#project DataGoogleFirestoreDocument#project}.
+        :param collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#collection DataGoogleFirestoreDocument#collection}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#database DataGoogleFirestoreDocument#database}
+        :param document_id: The client-assigned document ID to use for this document during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#document_id DataGoogleFirestoreDocument#document_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#id DataGoogleFirestoreDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#project DataGoogleFirestoreDocument#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataGoogleFirestoreDocument(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleFirestoreDocument to import.
-        :param import_from_id: The id of the existing DataGoogleFirestoreDocument that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleFirestoreDocument that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleFirestoreDocument to import is found.
         '''
         if __debug__:
@@ -301,11 +301,11 @@ class DataGoogleFirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#collection DataGoogleFirestoreDocument#collection}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#database DataGoogleFirestoreDocument#database}
-        :param document_id: The client-assigned document ID to use for this document during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#document_id DataGoogleFirestoreDocument#document_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#id DataGoogleFirestoreDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#project DataGoogleFirestoreDocument#project}.
+        :param collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#collection DataGoogleFirestoreDocument#collection}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#database DataGoogleFirestoreDocument#database}
+        :param document_id: The client-assigned document ID to use for this document during creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#document_id DataGoogleFirestoreDocument#document_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#id DataGoogleFirestoreDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#project DataGoogleFirestoreDocument#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -415,7 +415,7 @@ class DataGoogleFirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def collection(self) -> builtins.str:
         '''The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#collection DataGoogleFirestoreDocument#collection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#collection DataGoogleFirestoreDocument#collection}
         '''
         result = self._values.get("collection")
         assert result is not None, "Required property 'collection' is missing"
@@ -425,7 +425,7 @@ class DataGoogleFirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> builtins.str:
         '''The Firestore database id. Defaults to '"(default)"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#database DataGoogleFirestoreDocument#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#database DataGoogleFirestoreDocument#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -435,7 +435,7 @@ class DataGoogleFirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def document_id(self) -> builtins.str:
         '''The client-assigned document ID to use for this document during creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#document_id DataGoogleFirestoreDocument#document_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#document_id DataGoogleFirestoreDocument#document_id}
         '''
         result = self._values.get("document_id")
         assert result is not None, "Required property 'document_id' is missing"
@@ -443,7 +443,7 @@ class DataGoogleFirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#id DataGoogleFirestoreDocument#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#id DataGoogleFirestoreDocument#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -453,7 +453,7 @@ class DataGoogleFirestoreDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/firestore_document#project DataGoogleFirestoreDocument#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/firestore_document#project DataGoogleFirestoreDocument#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

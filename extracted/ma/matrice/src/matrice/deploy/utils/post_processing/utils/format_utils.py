@@ -24,10 +24,12 @@ def match_results_structure(results):
         ResultFormat: Detected format type
     """
     if isinstance(results, list):
-        # Array format - detection or instance segmentation
+        # Array format - detection, instance segmentation, or face recognition
         if len(results) > 0 and isinstance(results[0], dict):
             if results[0].get("masks"):
                 return ResultFormat.INSTANCE_SEGMENTATION
+            elif results[0].get("embedding") or results[0].get("landmarks"):
+                return ResultFormat.FACE_RECOGNITION
             elif "bounding_box" in results[0] and "category" in results[0] and "confidence" in results[0]:
                 return ResultFormat.DETECTION
         return ResultFormat.DETECTION  # Default for list format
@@ -46,8 +48,11 @@ def match_results_structure(results):
             if isinstance(first_frame_data, list) and len(first_frame_data) > 0:
                 first_detection = first_frame_data[0]
                 if isinstance(first_detection, dict):
+                    # Check for face recognition format first (has embedding or landmarks)
+                    if first_detection.get("embedding") or first_detection.get("landmarks"):
+                        return ResultFormat.FACE_RECOGNITION
                     # Check if it has track_id (object tracking) or not (activity recognition)
-                    if "track_id" in first_detection:
+                    elif "track_id" in first_detection:
                         return ResultFormat.OBJECT_TRACKING
                     elif "category" in first_detection and "confidence" in first_detection:
                         return ResultFormat.ACTIVITY_RECOGNITION
@@ -107,6 +112,12 @@ def convert_to_coco_format(results: Any) -> List[Dict]:
             if "masks" in detection:
                 coco_result["segmentation"] = detection["masks"]
             
+            # Add face recognition specific fields if present
+            if "embedding" in detection:
+                coco_result["embedding"] = detection["embedding"]
+            if "landmarks" in detection:
+                coco_result["landmarks"] = detection["landmarks"]
+            
             coco_results.append(coco_result)
         
         return coco_results
@@ -145,6 +156,12 @@ def convert_to_coco_format(results: Any) -> List[Dict]:
                     
                     if "track_id" in detection:
                         coco_result["track_id"] = detection["track_id"]
+                    
+                    # Add face recognition specific fields if present
+                    if "embedding" in detection:
+                        coco_result["embedding"] = detection["embedding"]
+                    if "landmarks" in detection:
+                        coco_result["landmarks"] = detection["landmarks"]
                     
                     coco_results.append(coco_result)
                     result_id += 1
@@ -216,6 +233,13 @@ def convert_to_tracking_format(detections: List[Dict], frame_id: str = "0") -> D
             "confidence": detection.get("confidence", 0.0),
             "bounding_box": detection.get("bounding_box", detection.get("bbox", {}))
         }
+        
+        # Add face recognition specific fields if present
+        if "embedding" in detection:
+            tracking_detection["embedding"] = detection["embedding"]
+        if "landmarks" in detection:
+            tracking_detection["landmarks"] = detection["landmarks"]
+        
         tracking_results[frame_id].append(tracking_detection)
     
     return tracking_results
@@ -257,6 +281,13 @@ def convert_tracking_to_detection_format(tracking_results: Dict) -> List[Dict]:
                 }
                 if "track_id" in detection:
                     detection_item["track_id"] = detection["track_id"]
+                
+                # Add face recognition specific fields if present
+                if "embedding" in detection:
+                    detection_item["embedding"] = detection["embedding"]
+                if "landmarks" in detection:
+                    detection_item["landmarks"] = detection["landmarks"]
+                
                 detections.append(detection_item)
     
     return detections 

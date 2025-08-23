@@ -10,6 +10,8 @@ use std::sync::Arc;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
+use pyrefly_types::typed_dict::ExtraItems;
+use pyrefly_types::types::BoundMethod;
 use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -130,6 +132,10 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.typed_dict_kw_param_info(typed_dict)
     }
 
+    pub fn typed_dict_extra_items(self, cls: &Class) -> ExtraItems {
+        self.0.typed_dict_extra_items(cls)
+    }
+
     pub fn get_variance_from_class(self, cls: &Class) -> Arc<VarianceMap> {
         self.0
             .get_from_class(cls, &KeyVariance(cls.index()))
@@ -142,5 +148,9 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
 
     pub fn instantiate_fresh_forall(self, forall: Forall<Forallable>) -> (Vec<Var>, Type) {
         self.0.instantiate_fresh_forall(forall)
+    }
+
+    pub fn bind_boundmethod(self, m: &BoundMethod) -> Option<Type> {
+        self.0.bind_boundmethod(m)
     }
 }

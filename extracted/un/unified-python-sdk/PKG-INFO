@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: Unified-python-sdk
-Version: 0.48.15
+Version: 0.48.16
 Summary: Python Client SDK for Unified.to
 Author: Unified API Inc.
 Requires-Python: >=3.9.2

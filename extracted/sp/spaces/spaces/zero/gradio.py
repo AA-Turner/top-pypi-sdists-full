@@ -58,9 +58,9 @@ class GradioPartialContext(NamedTuple):
     def get():
         TrackedIterable.__reduce__ = tracked_iterable__reduce__
         return GradioPartialContext(
-            event_id=LocalContext.event_id.get(),
-            in_event_listener=LocalContext.in_event_listener.get(),
-            progress=LocalContext.progress.get(),
+            event_id=LocalContext.event_id.get(None),
+            in_event_listener=LocalContext.in_event_listener.get(False),
+            progress=LocalContext.progress.get(None),
         )
 
     @staticmethod
@@ -71,7 +71,7 @@ class GradioPartialContext(NamedTuple):
 
 
 def get_queue_instance():
-    blocks = LocalContext.blocks.get()
+    blocks = LocalContext.blocks.get(None)
     if blocks is None: # pragma: no cover
         return None
     return blocks._queue
@@ -79,7 +79,7 @@ def get_queue_instance():
 
 def get_event():
     queue = get_queue_instance()
-    event_id = LocalContext.event_id.get()
+    event_id = LocalContext.event_id.get(None)
     if queue is None:
         return None
     if event_id is None: # pragma: no cover
@@ -94,7 +94,7 @@ def get_event():
 
 def get_server_port() -> int | None:
     from_request_context = True
-    if (blocks := LocalContext.blocks.get()) is None: # Request
+    if (blocks := LocalContext.blocks.get(None)) is None: # Request
         from_request_context = False
         if (blocks := Context.root_block) is None: # Caching
             return None

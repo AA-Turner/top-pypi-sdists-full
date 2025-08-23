@@ -9,6 +9,12 @@ from ..models.extended_jobs_jobs_item_type_1_flow_status_failure_module_type imp
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.extended_jobs_jobs_item_type_1_flow_status_failure_module_agent_actions_item_type_0 import (
+        ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType0,
+    )
+    from ..models.extended_jobs_jobs_item_type_1_flow_status_failure_module_agent_actions_item_type_1 import (
+        ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType1,
+    )
     from ..models.extended_jobs_jobs_item_type_1_flow_status_failure_module_approvers_item import (
         ExtendedJobsJobsItemType1FlowStatusFailureModuleApproversItem,
     )
@@ -43,6 +49,9 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModule:
         approvers (Union[Unset, List['ExtendedJobsJobsItemType1FlowStatusFailureModuleApproversItem']]):
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
+        agent_actions (Union[Unset, List[Union['ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType0',
+            'ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType1']]]):
+        agent_actions_success (Union[Unset, List[bool]]):
         parent_module (Union[Unset, str]):
     """
 
@@ -59,10 +68,24 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModule:
     approvers: Union[Unset, List["ExtendedJobsJobsItemType1FlowStatusFailureModuleApproversItem"]] = UNSET
     failed_retries: Union[Unset, List[str]] = UNSET
     skipped: Union[Unset, bool] = UNSET
+    agent_actions: Union[
+        Unset,
+        List[
+            Union[
+                "ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType0",
+                "ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType1",
+            ]
+        ],
+    ] = UNSET
+    agent_actions_success: Union[Unset, List[bool]] = UNSET
     parent_module: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        from ..models.extended_jobs_jobs_item_type_1_flow_status_failure_module_agent_actions_item_type_0 import (
+            ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType0,
+        )
+
         type = self.type.value
 
         id = self.id
@@ -102,6 +125,26 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModule:
             failed_retries = self.failed_retries
 
         skipped = self.skipped
+        agent_actions: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.agent_actions, Unset):
+            agent_actions = []
+            for agent_actions_item_data in self.agent_actions:
+                agent_actions_item: Dict[str, Any]
+
+                if isinstance(
+                    agent_actions_item_data, ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType0
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                else:
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                agent_actions.append(agent_actions_item)
+
+        agent_actions_success: Union[Unset, List[bool]] = UNSET
+        if not isinstance(self.agent_actions_success, Unset):
+            agent_actions_success = self.agent_actions_success
+
         parent_module = self.parent_module
 
         field_dict: Dict[str, Any] = {}
@@ -135,6 +178,10 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModule:
             field_dict["failed_retries"] = failed_retries
         if skipped is not UNSET:
             field_dict["skipped"] = skipped
+        if agent_actions is not UNSET:
+            field_dict["agent_actions"] = agent_actions
+        if agent_actions_success is not UNSET:
+            field_dict["agent_actions_success"] = agent_actions_success
         if parent_module is not UNSET:
             field_dict["parent_module"] = parent_module
 
@@ -142,6 +189,12 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModule:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.extended_jobs_jobs_item_type_1_flow_status_failure_module_agent_actions_item_type_0 import (
+            ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType0,
+        )
+        from ..models.extended_jobs_jobs_item_type_1_flow_status_failure_module_agent_actions_item_type_1 import (
+            ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType1,
+        )
         from ..models.extended_jobs_jobs_item_type_1_flow_status_failure_module_approvers_item import (
             ExtendedJobsJobsItemType1FlowStatusFailureModuleApproversItem,
         )
@@ -204,6 +257,40 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModule:
 
         skipped = d.pop("skipped", UNSET)
 
+        agent_actions = []
+        _agent_actions = d.pop("agent_actions", UNSET)
+        for agent_actions_item_data in _agent_actions or []:
+
+            def _parse_agent_actions_item(
+                data: object,
+            ) -> Union[
+                "ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType0",
+                "ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType1",
+            ]:
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_0 = (
+                        ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType0.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_0
+                except:  # noqa: E722
+                    pass
+                if not isinstance(data, dict):
+                    raise TypeError()
+                agent_actions_item_type_1 = (
+                    ExtendedJobsJobsItemType1FlowStatusFailureModuleAgentActionsItemType1.from_dict(data)
+                )
+
+                return agent_actions_item_type_1
+
+            agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
+
+            agent_actions.append(agent_actions_item)
+
+        agent_actions_success = cast(List[bool], d.pop("agent_actions_success", UNSET))
+
         parent_module = d.pop("parent_module", UNSET)
 
         extended_jobs_jobs_item_type_1_flow_status_failure_module = cls(
@@ -220,6 +307,8 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModule:
             approvers=approvers,
             failed_retries=failed_retries,
             skipped=skipped,
+            agent_actions=agent_actions,
+            agent_actions_success=agent_actions_success,
             parent_module=parent_module,
         )
 

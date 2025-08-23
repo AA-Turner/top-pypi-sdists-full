@@ -163,6 +163,7 @@ impl ClassKind {
             ("cached_property", "cached_property") => Self::Property(name.clone()),
             ("cinder", "cached_property") => Self::Property(name.clone()),
             ("cinder", "async_cached_property") => Self::Property(name.clone()),
+            ("enum", "property") => Self::Property(name.clone()),
             ("enum", "member") => Self::EnumMember,
             ("enum", "nonmember") => Self::EnumNonmember,
             ("dataclasses", "Field") => Self::DataclassField,
@@ -333,7 +334,7 @@ impl ClassType {
         Self(self.0.dupe(), self.1.substitute_with(substitution))
     }
 
-    pub fn substitution(&self) -> Substitution {
+    pub fn substitution(&self) -> Substitution<'_> {
         self.targs().substitution()
     }
 

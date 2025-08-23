@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: onnx-ir
-Version: 0.1.6
+Version: 0.1.7
 Summary: Efficient in-memory representation for ONNX
 Author-email: ONNX Contributors <onnx-technical-discuss@lists.lfaidata.foundation>
-License: Apache License v2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://onnx.ai/ir-py
 Project-URL: Issues, https://github.com/onnx/ir-py/issues
 Project-URL: Repository, https://github.com/onnx/ir-py
@@ -13,7 +13,6 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE

@@ -9,6 +9,12 @@ from ..models.get_completed_job_response_200_flow_status_modules_item_type impor
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_0 import (
+        GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0,
+    )
+    from ..models.get_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_1 import (
+        GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1,
+    )
     from ..models.get_completed_job_response_200_flow_status_modules_item_approvers_item import (
         GetCompletedJobResponse200FlowStatusModulesItemApproversItem,
     )
@@ -43,6 +49,9 @@ class GetCompletedJobResponse200FlowStatusModulesItem:
         approvers (Union[Unset, List['GetCompletedJobResponse200FlowStatusModulesItemApproversItem']]):
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
+        agent_actions (Union[Unset, List[Union['GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0',
+            'GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1']]]):
+        agent_actions_success (Union[Unset, List[bool]]):
     """
 
     type: GetCompletedJobResponse200FlowStatusModulesItemType
@@ -58,9 +67,23 @@ class GetCompletedJobResponse200FlowStatusModulesItem:
     approvers: Union[Unset, List["GetCompletedJobResponse200FlowStatusModulesItemApproversItem"]] = UNSET
     failed_retries: Union[Unset, List[str]] = UNSET
     skipped: Union[Unset, bool] = UNSET
+    agent_actions: Union[
+        Unset,
+        List[
+            Union[
+                "GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0",
+                "GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1",
+            ]
+        ],
+    ] = UNSET
+    agent_actions_success: Union[Unset, List[bool]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        from ..models.get_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_0 import (
+            GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0,
+        )
+
         type = self.type.value
 
         id = self.id
@@ -100,6 +123,25 @@ class GetCompletedJobResponse200FlowStatusModulesItem:
             failed_retries = self.failed_retries
 
         skipped = self.skipped
+        agent_actions: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.agent_actions, Unset):
+            agent_actions = []
+            for agent_actions_item_data in self.agent_actions:
+                agent_actions_item: Dict[str, Any]
+
+                if isinstance(
+                    agent_actions_item_data, GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                else:
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                agent_actions.append(agent_actions_item)
+
+        agent_actions_success: Union[Unset, List[bool]] = UNSET
+        if not isinstance(self.agent_actions_success, Unset):
+            agent_actions_success = self.agent_actions_success
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -132,11 +174,21 @@ class GetCompletedJobResponse200FlowStatusModulesItem:
             field_dict["failed_retries"] = failed_retries
         if skipped is not UNSET:
             field_dict["skipped"] = skipped
+        if agent_actions is not UNSET:
+            field_dict["agent_actions"] = agent_actions
+        if agent_actions_success is not UNSET:
+            field_dict["agent_actions_success"] = agent_actions_success
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_0 import (
+            GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0,
+        )
+        from ..models.get_completed_job_response_200_flow_status_modules_item_agent_actions_item_type_1 import (
+            GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1,
+        )
         from ..models.get_completed_job_response_200_flow_status_modules_item_approvers_item import (
             GetCompletedJobResponse200FlowStatusModulesItemApproversItem,
         )
@@ -197,6 +249,40 @@ class GetCompletedJobResponse200FlowStatusModulesItem:
 
         skipped = d.pop("skipped", UNSET)
 
+        agent_actions = []
+        _agent_actions = d.pop("agent_actions", UNSET)
+        for agent_actions_item_data in _agent_actions or []:
+
+            def _parse_agent_actions_item(
+                data: object,
+            ) -> Union[
+                "GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0",
+                "GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1",
+            ]:
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_0 = (
+                        GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType0.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_0
+                except:  # noqa: E722
+                    pass
+                if not isinstance(data, dict):
+                    raise TypeError()
+                agent_actions_item_type_1 = (
+                    GetCompletedJobResponse200FlowStatusModulesItemAgentActionsItemType1.from_dict(data)
+                )
+
+                return agent_actions_item_type_1
+
+            agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
+
+            agent_actions.append(agent_actions_item)
+
+        agent_actions_success = cast(List[bool], d.pop("agent_actions_success", UNSET))
+
         get_completed_job_response_200_flow_status_modules_item = cls(
             type=type,
             id=id,
@@ -211,6 +297,8 @@ class GetCompletedJobResponse200FlowStatusModulesItem:
             approvers=approvers,
             failed_retries=failed_retries,
             skipped=skipped,
+            agent_actions=agent_actions,
+            agent_actions_success=agent_actions_success,
         )
 
         get_completed_job_response_200_flow_status_modules_item.additional_properties = d

@@ -7,7 +7,6 @@ from itertools import chain, repeat
 from typing import Any, Callable, Literal, Optional, Union
 
 from pydantic import PrivateAttr
-from rich.console import Console
 from typing_extensions import Self
 
 import weave
@@ -37,7 +36,6 @@ from weave.trace.vals import WeaveObject
 from weave.trace.weave_client import Call, CallsIter, get_ref
 from weave.trace_server.trace_server_interface import CallsFilter
 
-console = Console()
 logger = logging.getLogger(__name__)
 
 INVALID_MODEL_ERROR = (
@@ -191,8 +189,14 @@ class Evaluation(Object):
 
         scores = {}
         if scorers := self.scorers:
-            for scorer in scorers:
-                apply_scorer_result = await model_call.apply_scorer(scorer, example)
+            # Run all scorer calls in parallel
+            scorer_tasks = [
+                model_call.apply_scorer(scorer, example) for scorer in scorers
+            ]
+            apply_scorer_results = await asyncio.gather(*scorer_tasks)
+
+            # Process results and build scores dict
+            for scorer, apply_scorer_result in zip(scorers, apply_scorer_results):
                 result = apply_scorer_result.result
                 scorer_attributes = get_scorer_attributes(scorer)
                 scorer_name = scorer_attributes.scorer_name

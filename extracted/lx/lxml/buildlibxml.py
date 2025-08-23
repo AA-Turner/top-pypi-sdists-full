@@ -1,9 +1,8 @@
 import json
-import os, re, sys, subprocess, platform
+import os, re, sys, platform
 import tarfile
 import time
-from distutils import log
-from contextlib import closing, contextmanager
+from contextlib import closing
 from ftplib import FTP
 
 import urllib.error
@@ -28,6 +27,22 @@ sys_platform = sys.platform
 
 # use pre-built libraries on Windows
 
+def read_file_digest(file):
+    buffer = bytearray(2**18)
+    view = memoryview(buffer)
+
+    from hashlib import sha256
+    filehash = sha256()
+    with open(file, 'rb') as f:
+        while True:
+            size = f.readinto(buffer)
+            if not size:
+                break
+            filehash.update(view[:size])
+
+    return 'sha256:' + filehash.hexdigest()
+
+
 def download_and_extract_windows_binaries(destdir):
     url = "https://api.github.com/repos/lxml/libxml2-win-binaries/releases?per_page=5"
     releases, _ = read_url(
@@ -43,7 +58,10 @@ def download_and_extract_windows_binaries(destdir):
             max_release = release
 
     url = "https://github.com/lxml/libxml2-win-binaries/releases/download/%s/" % max_release['tag_name']
-    filenames = [asset['name'] for asset in max_release.get('assets', ())]
+    asset_files = {
+        asset['name']: (asset['size'], asset['digest'])
+        for asset in max_release.get('assets', ())
+    }
 
     # Check for native ARM64 build or the environment variable that is set by
     # Visual Studio for cross-compilation (same variable as setuptools uses)
@@ -55,13 +73,17 @@ def download_and_extract_windows_binaries(destdir):
         arch = "win32"
 
     arch_part = '.' + arch + '.'
-    filenames = [filename for filename in filenames if arch_part in filename]
+    asset_files = {
+        filename: details
+        for filename, details in asset_files.items()
+        if arch_part in filename
+    }
 
     libs = {}
     for libname in ['libxml2', 'libxslt', 'zlib', 'iconv']:
         libs[libname] = "%s-%s.%s.zip" % (
             libname,
-            find_max_version(libname, filenames),
+            find_max_version(libname, list(asset_files)),
             arch,
         )
 
@@ -71,11 +93,17 @@ def download_and_extract_windows_binaries(destdir):
     for libname, libfn in libs.items():
         srcfile = urljoin(url, libfn)
         destfile = os.path.join(destdir, libfn)
-        if os.path.exists(destfile + ".keep"):
-            print('Using local copy of  "{}"'.format(srcfile))
-        else:
-            print('Retrieving "%s" to "%s"' % (srcfile, destfile))
-            urlretrieve(srcfile, destfile)
+        if os.path.exists(destfile):
+            file_size, file_digest = asset_files.get(libfn, (None, None))
+            if file_size and os.path.getsize(destfile) == file_size and read_file_digest(destfile) == file_digest:
+                print('Using local copy of  "{}"'.format(srcfile))
+                continue
+
+        print('Retrieving "%s" to "%s"' % (srcfile, destfile))
+        urlretrieve(srcfile, destfile)
+
+    for libname, libfn in libs.items():
+        destfile = os.path.join(destdir, libfn)
         d = unpack_zipfile(destfile, destdir)
         libs[libname] = d
 
@@ -84,7 +112,7 @@ def download_and_extract_windows_binaries(destdir):
 
 def find_top_dir_of_zipfile(zipfile):
     topdir = None
-    files = [f.filename for f in zipfile.filelist]
+    files = (f.filename for f in zipfile.filelist)
     dirs = [d for d in files if d.endswith('/')]
     if dirs:
         dirs.sort(key=len)
@@ -103,13 +131,12 @@ def find_top_dir_of_zipfile(zipfile):
 def unpack_zipfile(zipfn, destdir):
     assert zipfn.endswith('.zip')
     import zipfile
-    print('Unpacking %s into %s' % (os.path.basename(zipfn), destdir))
-    f = zipfile.ZipFile(zipfn)
-    try:
+
+    print(f'Unpacking {os.path.basename(zipfn)} into {destdir}')
+    with zipfile.ZipFile(zipfn) as f:
         extracted_dir = os.path.join(destdir, find_top_dir_of_zipfile(f))
         f.extractall(path=destdir)
-    finally:
-        f.close()
+
     assert os.path.exists(extracted_dir), 'missing: %s' % extracted_dir
     return extracted_dir
 
@@ -250,16 +277,6 @@ def tryint(s):
         return s
 
 
-@contextmanager
-def py2_tarxz(filename):
-    import tempfile
-    with tempfile.TemporaryFile() as tmp:
-        subprocess.check_call(["xz", "-dc", filename], stdout=tmp.fileno())
-        tmp.seek(0)
-        with closing(tarfile.TarFile(fileobj=tmp)) as tf:
-            yield tf
-
-
 def download_libxml2(dest_dir, version=None):
     """Downloads libxml2, returning the filename where the library was downloaded"""
     #version_re = re.compile(r'LATEST_LIBXML2_IS_([0-9.]+[0-9](?:-[abrc0-9]+)?)')
@@ -371,31 +388,65 @@ def download_library(dest_dir, location, name, version_re, filename, version=Non
     return dest_filename
 
 
-def unpack_tarball(tar_filename, dest):
+def unpack_tarball(tar_filename, dest) -> str:
     print('Unpacking %s into %s' % (os.path.basename(tar_filename), dest))
-    if sys.version_info[0] < 3 and tar_filename.endswith('.xz'):
-        # Py 2.7 lacks lzma support
-        tar_cm = py2_tarxz(tar_filename)
-    else:
-        tar_cm = closing(tarfile.open(tar_filename))
+    os_path = os.path
+    abs_dest = os_path.abspath(dest)
+
+    tar_cm = tarfile.open(tar_filename)
+
+    if hasattr(tarfile, 'data_filter'):
+        tar_cm.extraction_filter = tarfile.data_filter
 
     base_dir = None
-    with tar_cm as tar:
+    with closing(tar_cm) as tar:
+        directories = []
         for member in tar:
-            base_name = member.name.split('/')[0]
+            # Guard against malicious tar file content.
+            path = os_path.join(dest, member.name)
+            abs_path = os_path.abspath(path)
+            if not os_path.commonpath([abs_dest, abs_path]).startswith(abs_dest):
+                raise RuntimeError('Unexpected path in %s: %s' % (tar_filename, member.name))
+
+            if member.isdir():
+                directories.append(member)
+                continue
+            elif member.issym() or member.islnk():
+                link_path = os_path.abspath(os_path.join(
+                    os_path.dirname(abs_path) if member.issym() else abs_dest,
+                    member.linkname))
+                if not os_path.commonpath([abs_dest, link_path]).startswith(abs_dest):
+                    raise RuntimeError('Unexpected path in %s: %s' % (tar_filename, member.name))
+            elif member.islnk():
+                link_path = os_path.abspath(os_path.join(abs_dest, member.linkname))
+            elif not member.isfile():
+                raise RuntimeError('Unexpected path in %s: %s' % (tar_filename, member.name))
+
+            # Find common base directory.
+            first_dir = member.name.split('/')[0]
             if base_dir is None:
-                base_dir = base_name
-            elif base_dir != base_name:
-                print('Unexpected path in %s: %s' % (tar_filename, base_name))
-        tar.extractall(dest)
-    return os.path.join(dest, base_dir)
+                base_dir = first_dir
+            elif base_dir != first_dir:
+                print('Unexpected path in %s: %s' % (tar_filename, first_dir))
+                continue
+
+            # Extract only new files.
+            if os_path.exists(abs_path) and os_path.getsize(abs_path) == member.size:
+                continue
+            tar.extract(member, abs_dest)
+
+        # Update directory properties/times/etc.
+        for member in directories:
+            tar.extract(member, abs_dest)
+
+    return os_path.join(dest, base_dir)
 
 
 def call_subprocess(cmd, **kw):
     import subprocess
     cwd = kw.get('cwd', '.')
     cmd_desc = ' '.join(cmd)
-    log.info('Running "%s" in %s' % (cmd_desc, cwd))
+    print(f'Running "{cmd_desc}" in {cwd}')
     returncode = subprocess.call(cmd, **kw)
     if returncode:
         raise Exception('Command "%s" returned code %s' % (cmd_desc, returncode))
@@ -437,15 +488,34 @@ def configure_darwin_env(env_setup):
         env_setup['env'] = env_default
 
 
-def build_libxml2xslt(download_dir, build_dir,
-                      static_include_dirs, static_library_dirs,
-                      static_cflags, static_binaries,
-                      libxml2_version=None,
-                      libxslt_version=None,
-                      libiconv_version=None,
-                      zlib_version=None,
-                      multicore=None,
-                      with_zlib=True):
+def build_libxml2xslt(
+        download_dir, build_dir,
+        static_include_dirs, static_library_dirs,
+        static_cflags, static_binaries,
+        libxml2_version=None,
+        libxslt_version=None,
+        libiconv_version=None,
+        zlib_version=None,
+        multicore=None,
+        with_zlib=True):
+    lib_dirs = download_libs(download_dir, build_dir,
+        libxml2_version, libxslt_version, libiconv_version, zlib_version, with_zlib=with_zlib)
+    return build_libs(
+        build_dir, lib_dirs,
+        static_include_dirs, static_library_dirs, static_cflags, static_binaries,
+        libxml2_version=libxml2_version,
+        multicore=multicore,
+        with_zlib=with_zlib,
+    )
+
+
+def download_libs(
+        download_dir, build_dir,
+        libxml2_version=None,
+        libxslt_version=None,
+        libiconv_version=None,
+        zlib_version=None,
+        with_zlib=True):
     safe_mkdir(download_dir)
     safe_mkdir(build_dir)
 
@@ -456,6 +526,18 @@ def build_libxml2xslt(download_dir, build_dir,
     libiconv_dir = unpack_tarball(download_libiconv(download_dir, libiconv_version), build_dir)
     libxml2_dir  = unpack_tarball(download_libxml2(download_dir, libxml2_version), build_dir)
     libxslt_dir  = unpack_tarball(download_libxslt(download_dir, libxslt_version), build_dir)
+
+    return zlib_dir, libiconv_dir, libxml2_dir, libxslt_dir
+
+
+def build_libs(
+        build_dir, lib_dirs,
+        static_include_dirs, static_library_dirs,
+        static_cflags, static_binaries,
+        libxml2_version=None,
+        multicore=None,
+        with_zlib=True):
+    zlib_dir, libiconv_dir, libxml2_dir, libxslt_dir = lib_dirs
 
     prefix = os.path.join(os.path.abspath(build_dir), 'libxml2')
     lib_dir = os.path.join(prefix, 'lib')
@@ -566,25 +648,52 @@ def build_libxml2xslt(download_dir, build_dir,
     return xml2_config, xslt_config
 
 
-def main():
+def main(with_zlib=True, download_only=False, platform=None):
     static_include_dirs = []
     static_library_dirs = []
     download_dir = "libs"
 
+    if platform is None:
+        platform = sys_platform
+
     if sys_platform.startswith('win'):
         return get_prebuilt_libxml2xslt(
             download_dir, static_include_dirs, static_library_dirs)
-    else:
-        return build_libxml2xslt(
-            download_dir, 'build/tmp',
-            static_include_dirs, static_library_dirs,
-            static_cflags=[],
-            static_binaries=[]
-        )
+
+    get_env = os.environ.get
+    zlib_version = get_env('ZLIB_VERSION')
+    libiconv_version = get_env('LIBICONV_VERSION')
+    libxml2_version = get_env('LIBXML2_VERSION')
+    libxslt_version = get_env('LIBXSLT_VERSION')
+
+    build_dir = 'build/tmp'
+    lib_dirs = download_libs(
+        download_dir, build_dir,
+        libxml2_version=libxml2_version,
+        libxslt_version=libxslt_version,
+        libiconv_version=libiconv_version,
+        zlib_version=zlib_version,
+        with_zlib=with_zlib,
+    )
+    if download_only:
+        return None, None
+
+    return build_libs(
+        build_dir, lib_dirs,
+        static_include_dirs, static_library_dirs,
+        static_cflags=[],
+        static_binaries=[],
+        libxml2_version=libxml2_version,
+        with_zlib=with_zlib,
+    )
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
+    args = sys.argv[1:]
+    download_only = '--download-only' in args
+    if download_only:
+        args.remove('--download-only')
+    if args:
         # change global sys_platform setting
-        sys_platform = sys.argv[1]
-    main()
+        sys_platform = args[0]
+    main(download_only=download_only, platform=sys_platform)

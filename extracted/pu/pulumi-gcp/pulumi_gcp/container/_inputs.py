@@ -291,6 +291,8 @@ __all__ = [
     'ClusterNodeConfigArgsDict',
     'ClusterNodeConfigAdvancedMachineFeaturesArgs',
     'ClusterNodeConfigAdvancedMachineFeaturesArgsDict',
+    'ClusterNodeConfigBootDiskArgs',
+    'ClusterNodeConfigBootDiskArgsDict',
     'ClusterNodeConfigConfidentialNodesArgs',
     'ClusterNodeConfigConfidentialNodesArgsDict',
     'ClusterNodeConfigContainerdConfigArgs',
@@ -323,6 +325,12 @@ __all__ = [
     'ClusterNodeConfigHostMaintenancePolicyArgsDict',
     'ClusterNodeConfigKubeletConfigArgs',
     'ClusterNodeConfigKubeletConfigArgsDict',
+    'ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgs',
+    'ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict',
+    'ClusterNodeConfigKubeletConfigEvictionSoftArgs',
+    'ClusterNodeConfigKubeletConfigEvictionSoftArgsDict',
+    'ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgs',
+    'ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict',
     'ClusterNodeConfigLinuxNodeConfigArgs',
     'ClusterNodeConfigLinuxNodeConfigArgsDict',
     'ClusterNodeConfigLinuxNodeConfigHugepagesConfigArgs',
@@ -389,6 +397,8 @@ __all__ = [
     'ClusterNodePoolNodeConfigArgsDict',
     'ClusterNodePoolNodeConfigAdvancedMachineFeaturesArgs',
     'ClusterNodePoolNodeConfigAdvancedMachineFeaturesArgsDict',
+    'ClusterNodePoolNodeConfigBootDiskArgs',
+    'ClusterNodePoolNodeConfigBootDiskArgsDict',
     'ClusterNodePoolNodeConfigConfidentialNodesArgs',
     'ClusterNodePoolNodeConfigConfidentialNodesArgsDict',
     'ClusterNodePoolNodeConfigContainerdConfigArgs',
@@ -421,6 +431,12 @@ __all__ = [
     'ClusterNodePoolNodeConfigHostMaintenancePolicyArgsDict',
     'ClusterNodePoolNodeConfigKubeletConfigArgs',
     'ClusterNodePoolNodeConfigKubeletConfigArgsDict',
+    'ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs',
+    'ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict',
+    'ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgs',
+    'ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgsDict',
+    'ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs',
+    'ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict',
     'ClusterNodePoolNodeConfigLinuxNodeConfigArgs',
     'ClusterNodePoolNodeConfigLinuxNodeConfigArgsDict',
     'ClusterNodePoolNodeConfigLinuxNodeConfigHugepagesConfigArgs',
@@ -517,6 +533,8 @@ __all__ = [
     'NodePoolNodeConfigArgsDict',
     'NodePoolNodeConfigAdvancedMachineFeaturesArgs',
     'NodePoolNodeConfigAdvancedMachineFeaturesArgsDict',
+    'NodePoolNodeConfigBootDiskArgs',
+    'NodePoolNodeConfigBootDiskArgsDict',
     'NodePoolNodeConfigConfidentialNodesArgs',
     'NodePoolNodeConfigConfidentialNodesArgsDict',
     'NodePoolNodeConfigContainerdConfigArgs',
@@ -549,6 +567,12 @@ __all__ = [
     'NodePoolNodeConfigHostMaintenancePolicyArgsDict',
     'NodePoolNodeConfigKubeletConfigArgs',
     'NodePoolNodeConfigKubeletConfigArgsDict',
+    'NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs',
+    'NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict',
+    'NodePoolNodeConfigKubeletConfigEvictionSoftArgs',
+    'NodePoolNodeConfigKubeletConfigEvictionSoftArgsDict',
+    'NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs',
+    'NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict',
     'NodePoolNodeConfigLinuxNodeConfigArgs',
     'NodePoolNodeConfigLinuxNodeConfigArgsDict',
     'NodePoolNodeConfigLinuxNodeConfigHugepagesConfigArgs',
@@ -8782,6 +8806,10 @@ if not MYPY:
         Specifies options for controlling
         advanced machine features. Structure is documented below.
         """
+        boot_disk: NotRequired[pulumi.Input['ClusterNodeConfigBootDiskArgsDict']]
+        """
+        Configuration of the node pool boot disk. Structure is documented below
+        """
         boot_disk_kms_key: NotRequired[pulumi.Input[_builtins.str]]
         """
         The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. This should be of the form projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKeys/[KEY_NAME]. For more information about protecting resources with Cloud KMS Keys please see: <https://cloud.google.com/compute/docs/disks/customer-managed-encryption>
@@ -8797,12 +8825,13 @@ if not MYPY:
         disk_size_gb: NotRequired[pulumi.Input[_builtins.int]]
         """
         Size of the disk attached to each node, specified
-        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB.
+        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated to `boot_disk.size_gb`, and must match if specified in both places.
+        Prefer configuring `boot_disk`.
         """
         disk_type: NotRequired[pulumi.Input[_builtins.str]]
         """
         Type of the disk attached to each node
-        (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced'
+        (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced' This is being migrated to `boot_disk.disk_type`, and must match if specified in both places. Prefer configuring `boot_disk`.
         """
         effective_taints: NotRequired[pulumi.Input[Sequence[pulumi.Input['ClusterNodeConfigEffectiveTaintArgsDict']]]]
         """
@@ -8981,7 +9010,7 @@ if not MYPY:
         """
         sole_tenant_config: NotRequired[pulumi.Input['ClusterNodeConfigSoleTenantConfigArgsDict']]
         """
-        Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). `node_affinity` structure is documented below.
+        Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). Structure is documented below.
         """
         spot: NotRequired[pulumi.Input[_builtins.bool]]
         """
@@ -9025,6 +9054,7 @@ elif False:
 class ClusterNodeConfigArgs:
     def __init__(__self__, *,
                  advanced_machine_features: Optional[pulumi.Input['ClusterNodeConfigAdvancedMachineFeaturesArgs']] = None,
+                 boot_disk: Optional[pulumi.Input['ClusterNodeConfigBootDiskArgs']] = None,
                  boot_disk_kms_key: Optional[pulumi.Input[_builtins.str]] = None,
                  confidential_nodes: Optional[pulumi.Input['ClusterNodeConfigConfidentialNodesArgs']] = None,
                  containerd_config: Optional[pulumi.Input['ClusterNodeConfigContainerdConfigArgs']] = None,
@@ -9072,13 +9102,15 @@ class ClusterNodeConfigArgs:
         """
         :param pulumi.Input['ClusterNodeConfigAdvancedMachineFeaturesArgs'] advanced_machine_features: Specifies options for controlling
                advanced machine features. Structure is documented below.
+        :param pulumi.Input['ClusterNodeConfigBootDiskArgs'] boot_disk: Configuration of the node pool boot disk. Structure is documented below
         :param pulumi.Input[_builtins.str] boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. This should be of the form projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKeys/[KEY_NAME]. For more information about protecting resources with Cloud KMS Keys please see: <https://cloud.google.com/compute/docs/disks/customer-managed-encryption>
         :param pulumi.Input['ClusterNodeConfigConfidentialNodesArgs'] confidential_nodes: Configuration for Confidential Nodes feature. Structure is documented below.
         :param pulumi.Input['ClusterNodeConfigContainerdConfigArgs'] containerd_config: Parameters to customize containerd runtime. Structure is documented below.
         :param pulumi.Input[_builtins.int] disk_size_gb: Size of the disk attached to each node, specified
-               in GB. The smallest allowed disk size is 10GB. Defaults to 100GB.
+               in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated to `boot_disk.size_gb`, and must match if specified in both places.
+               Prefer configuring `boot_disk`.
         :param pulumi.Input[_builtins.str] disk_type: Type of the disk attached to each node
-               (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced'
+               (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced' This is being migrated to `boot_disk.disk_type`, and must match if specified in both places. Prefer configuring `boot_disk`.
         :param pulumi.Input[Sequence[pulumi.Input['ClusterNodeConfigEffectiveTaintArgs']]] effective_taints: List of kubernetes taints applied to each node. Structure is documented above.
         :param pulumi.Input[_builtins.bool] enable_confidential_storage: Enabling Confidential Storage will create boot disk with confidential mode. It is disabled by default.
         :param pulumi.Input['ClusterNodeConfigEphemeralStorageConfigArgs'] ephemeral_storage_config: Parameters for the ephemeral storage filesystem. If unspecified, ephemeral storage is backed by the boot disk. Structure is documented below.
@@ -9158,7 +9190,7 @@ class ClusterNodeConfigArgs:
         :param pulumi.Input[_builtins.str] service_account: The service account to be used by the Node VMs.
                If not specified, the "default" service account is used.
         :param pulumi.Input['ClusterNodeConfigShieldedInstanceConfigArgs'] shielded_instance_config: Shielded Instance options. Structure is documented below.
-        :param pulumi.Input['ClusterNodeConfigSoleTenantConfigArgs'] sole_tenant_config: Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). `node_affinity` structure is documented below.
+        :param pulumi.Input['ClusterNodeConfigSoleTenantConfigArgs'] sole_tenant_config: Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). Structure is documented below.
         :param pulumi.Input[_builtins.bool] spot: A boolean that represents whether the underlying node VMs are spot.
                See the [official documentation](https://cloud.google.com/kubernetes-engine/docs/concepts/spot-vms)
                for more information. Defaults to false.
@@ -9179,6 +9211,8 @@ class ClusterNodeConfigArgs:
         """
         if advanced_machine_features is not None:
             pulumi.set(__self__, "advanced_machine_features", advanced_machine_features)
+        if boot_disk is not None:
+            pulumi.set(__self__, "boot_disk", boot_disk)
         if boot_disk_kms_key is not None:
             pulumi.set(__self__, "boot_disk_kms_key", boot_disk_kms_key)
         if confidential_nodes is not None:
@@ -9282,6 +9316,18 @@ class ClusterNodeConfigArgs:
         pulumi.set(self, "advanced_machine_features", value)
 
     @_builtins.property
+    @pulumi.getter(name="bootDisk")
+    def boot_disk(self) -> Optional[pulumi.Input['ClusterNodeConfigBootDiskArgs']]:
+        """
+        Configuration of the node pool boot disk. Structure is documented below
+        """
+        return pulumi.get(self, "boot_disk")
+
+    @boot_disk.setter
+    def boot_disk(self, value: Optional[pulumi.Input['ClusterNodeConfigBootDiskArgs']]):
+        pulumi.set(self, "boot_disk", value)
+
+    @_builtins.property
     @pulumi.getter(name="bootDiskKmsKey")
     def boot_disk_kms_key(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -9322,7 +9368,8 @@ class ClusterNodeConfigArgs:
     def disk_size_gb(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
         Size of the disk attached to each node, specified
-        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB.
+        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated to `boot_disk.size_gb`, and must match if specified in both places.
+        Prefer configuring `boot_disk`.
         """
         return pulumi.get(self, "disk_size_gb")
 
@@ -9335,7 +9382,7 @@ class ClusterNodeConfigArgs:
     def disk_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Type of the disk attached to each node
-        (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced'
+        (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced' This is being migrated to `boot_disk.disk_type`, and must match if specified in both places. Prefer configuring `boot_disk`.
         """
         return pulumi.get(self, "disk_type")
 
@@ -9778,7 +9825,7 @@ class ClusterNodeConfigArgs:
     @pulumi.getter(name="soleTenantConfig")
     def sole_tenant_config(self) -> Optional[pulumi.Input['ClusterNodeConfigSoleTenantConfigArgs']]:
         """
-        Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). `node_affinity` structure is documented below.
+        Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). Structure is documented below.
         """
         return pulumi.get(self, "sole_tenant_config")
 
@@ -9939,6 +9986,104 @@ class ClusterNodeConfigAdvancedMachineFeaturesArgs:
     @performance_monitoring_unit.setter
     def performance_monitoring_unit(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "performance_monitoring_unit", value)
+
+
+if not MYPY:
+    class ClusterNodeConfigBootDiskArgsDict(TypedDict):
+        disk_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Type of the disk attached to each node
+        (e.g. 'pd-standard', 'pd-balanced', 'pd-ssd', 'hyperdisk-balanced'). If unspecified, the default disk type is 'pd-balanced' This is being migrated from `node_config.disk_type`, and must match if specified in both places. Prefer using this field.
+        """
+        provisioned_iops: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Configure disk IOPs. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        """
+        provisioned_throughput: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Configure disk throughput. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        """
+        size_gb: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Size of the disk attached to each node, specified
+        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated from `node_config.disk_size_gb`, and must match if specified in both places. Prefer using this field.
+        """
+elif False:
+    ClusterNodeConfigBootDiskArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ClusterNodeConfigBootDiskArgs:
+    def __init__(__self__, *,
+                 disk_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 provisioned_iops: Optional[pulumi.Input[_builtins.int]] = None,
+                 provisioned_throughput: Optional[pulumi.Input[_builtins.int]] = None,
+                 size_gb: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] disk_type: Type of the disk attached to each node
+               (e.g. 'pd-standard', 'pd-balanced', 'pd-ssd', 'hyperdisk-balanced'). If unspecified, the default disk type is 'pd-balanced' This is being migrated from `node_config.disk_type`, and must match if specified in both places. Prefer using this field.
+        :param pulumi.Input[_builtins.int] provisioned_iops: Configure disk IOPs. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        :param pulumi.Input[_builtins.int] provisioned_throughput: Configure disk throughput. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        :param pulumi.Input[_builtins.int] size_gb: Size of the disk attached to each node, specified
+               in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated from `node_config.disk_size_gb`, and must match if specified in both places. Prefer using this field.
+        """
+        if disk_type is not None:
+            pulumi.set(__self__, "disk_type", disk_type)
+        if provisioned_iops is not None:
+            pulumi.set(__self__, "provisioned_iops", provisioned_iops)
+        if provisioned_throughput is not None:
+            pulumi.set(__self__, "provisioned_throughput", provisioned_throughput)
+        if size_gb is not None:
+            pulumi.set(__self__, "size_gb", size_gb)
+
+    @_builtins.property
+    @pulumi.getter(name="diskType")
+    def disk_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Type of the disk attached to each node
+        (e.g. 'pd-standard', 'pd-balanced', 'pd-ssd', 'hyperdisk-balanced'). If unspecified, the default disk type is 'pd-balanced' This is being migrated from `node_config.disk_type`, and must match if specified in both places. Prefer using this field.
+        """
+        return pulumi.get(self, "disk_type")
+
+    @disk_type.setter
+    def disk_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "disk_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedIops")
+    def provisioned_iops(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Configure disk IOPs. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        """
+        return pulumi.get(self, "provisioned_iops")
+
+    @provisioned_iops.setter
+    def provisioned_iops(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "provisioned_iops", value)
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedThroughput")
+    def provisioned_throughput(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Configure disk throughput. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        """
+        return pulumi.get(self, "provisioned_throughput")
+
+    @provisioned_throughput.setter
+    def provisioned_throughput(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "provisioned_throughput", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sizeGb")
+    def size_gb(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Size of the disk attached to each node, specified
+        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated from `node_config.disk_size_gb`, and must match if specified in both places. Prefer using this field.
+        """
+        return pulumi.get(self, "size_gb")
+
+    @size_gb.setter
+    def size_gb(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "size_gb", value)
 
 
 if not MYPY:
@@ -10693,6 +10838,22 @@ if not MYPY:
         Prior to the 6.4.0 this field was marked as required. The workaround for the required field
         is setting the empty string `""`, which will function identically to not setting this field.
         """
+        eviction_max_pod_grace_period_seconds: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met. The integer must be positive and not exceed 300.
+        """
+        eviction_minimum_reclaim: NotRequired[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict']]
+        """
+        Defines a map of signal names to percentage that defines minimum reclaims. It describes the minimum amount of a given resource the kubelet will reclaim when performing a pod eviction. Structure is documented below.
+        """
+        eviction_soft: NotRequired[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftArgsDict']]
+        """
+        Defines a map of signal names to quantities or percentage that defines soft eviction thresholds. Structure is documented below.
+        """
+        eviction_soft_grace_period: NotRequired[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict']]
+        """
+        Defines a map of signal names to durations that defines grace periods for soft eviction thresholds. Each soft eviction threshold must have a corresponding grace period. Structure is documented below.
+        """
         image_gc_high_threshold_percent: NotRequired[pulumi.Input[_builtins.int]]
         """
         Defines the percent of disk usage after which image garbage collection is always run. The integer must be between 10 and 85, inclusive.
@@ -10713,9 +10874,17 @@ if not MYPY:
         """
         Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to `FALSE`. Possible values: `TRUE`, `FALSE`.
         """
+        max_parallel_image_pulls: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Set the maximum number of image pulls in parallel. The integer must be between 2 and 5, inclusive.
+        """
         pod_pids_limit: NotRequired[pulumi.Input[_builtins.int]]
         """
         Controls the maximum number of processes allowed to run in a pod. The value must be greater than or equal to 1024 and less than 4194304.
+        """
+        single_process_oom_kill: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Defines whether to enable single process OOM killer. If true, the processes in the container will be OOM killed individually instead of as a group.
         """
 elif False:
     ClusterNodeConfigKubeletConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -10729,12 +10898,18 @@ class ClusterNodeConfigKubeletConfigArgs:
                  cpu_cfs_quota: Optional[pulumi.Input[_builtins.bool]] = None,
                  cpu_cfs_quota_period: Optional[pulumi.Input[_builtins.str]] = None,
                  cpu_manager_policy: Optional[pulumi.Input[_builtins.str]] = None,
+                 eviction_max_pod_grace_period_seconds: Optional[pulumi.Input[_builtins.int]] = None,
+                 eviction_minimum_reclaim: Optional[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgs']] = None,
+                 eviction_soft: Optional[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftArgs']] = None,
+                 eviction_soft_grace_period: Optional[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgs']] = None,
                  image_gc_high_threshold_percent: Optional[pulumi.Input[_builtins.int]] = None,
                  image_gc_low_threshold_percent: Optional[pulumi.Input[_builtins.int]] = None,
                  image_maximum_gc_age: Optional[pulumi.Input[_builtins.str]] = None,
                  image_minimum_gc_age: Optional[pulumi.Input[_builtins.str]] = None,
                  insecure_kubelet_readonly_port_enabled: Optional[pulumi.Input[_builtins.str]] = None,
-                 pod_pids_limit: Optional[pulumi.Input[_builtins.int]] = None):
+                 max_parallel_image_pulls: Optional[pulumi.Input[_builtins.int]] = None,
+                 pod_pids_limit: Optional[pulumi.Input[_builtins.int]] = None,
+                 single_process_oom_kill: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. The allowed sysctl groups are `kernel.shm*`, `kernel.msg*`, `kernel.sem`, `fs.mqueue.*`, and `net.*`.
         :param pulumi.Input[_builtins.int] container_log_max_files: Defines the maximum number of container log files that can be present for a container. The integer must be between 2 and 10, inclusive.
@@ -10754,12 +10929,18 @@ class ClusterNodeConfigKubeletConfigArgs:
                One of `"none"` or `"static"`. If unset (or set to the empty string `""`), the API will treat the field as if set to "none".
                Prior to the 6.4.0 this field was marked as required. The workaround for the required field
                is setting the empty string `""`, which will function identically to not setting this field.
+        :param pulumi.Input[_builtins.int] eviction_max_pod_grace_period_seconds: Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met. The integer must be positive and not exceed 300.
+        :param pulumi.Input['ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgs'] eviction_minimum_reclaim: Defines a map of signal names to percentage that defines minimum reclaims. It describes the minimum amount of a given resource the kubelet will reclaim when performing a pod eviction. Structure is documented below.
+        :param pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftArgs'] eviction_soft: Defines a map of signal names to quantities or percentage that defines soft eviction thresholds. Structure is documented below.
+        :param pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgs'] eviction_soft_grace_period: Defines a map of signal names to durations that defines grace periods for soft eviction thresholds. Each soft eviction threshold must have a corresponding grace period. Structure is documented below.
         :param pulumi.Input[_builtins.int] image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. The integer must be between 10 and 85, inclusive.
         :param pulumi.Input[_builtins.int] image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. The integer must be between 10 and 85, inclusive.
         :param pulumi.Input[_builtins.str] image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Specified as a sequence of decimal numbers, each with optional fraction and a unit suffix, such as `"300s"`, `"1.5m"`, and `"2h45m"`. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h". The value must be a positive duration.
         :param pulumi.Input[_builtins.str] image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Specified as a sequence of decimal numbers, each with optional fraction and a unit suffix, such as `"300s"`, `"1.5m"`. The value cannot be greater than "2m".
         :param pulumi.Input[_builtins.str] insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to `FALSE`. Possible values: `TRUE`, `FALSE`.
+        :param pulumi.Input[_builtins.int] max_parallel_image_pulls: Set the maximum number of image pulls in parallel. The integer must be between 2 and 5, inclusive.
         :param pulumi.Input[_builtins.int] pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. The value must be greater than or equal to 1024 and less than 4194304.
+        :param pulumi.Input[_builtins.bool] single_process_oom_kill: Defines whether to enable single process OOM killer. If true, the processes in the container will be OOM killed individually instead of as a group.
         """
         if allowed_unsafe_sysctls is not None:
             pulumi.set(__self__, "allowed_unsafe_sysctls", allowed_unsafe_sysctls)
@@ -10773,6 +10954,14 @@ class ClusterNodeConfigKubeletConfigArgs:
             pulumi.set(__self__, "cpu_cfs_quota_period", cpu_cfs_quota_period)
         if cpu_manager_policy is not None:
             pulumi.set(__self__, "cpu_manager_policy", cpu_manager_policy)
+        if eviction_max_pod_grace_period_seconds is not None:
+            pulumi.set(__self__, "eviction_max_pod_grace_period_seconds", eviction_max_pod_grace_period_seconds)
+        if eviction_minimum_reclaim is not None:
+            pulumi.set(__self__, "eviction_minimum_reclaim", eviction_minimum_reclaim)
+        if eviction_soft is not None:
+            pulumi.set(__self__, "eviction_soft", eviction_soft)
+        if eviction_soft_grace_period is not None:
+            pulumi.set(__self__, "eviction_soft_grace_period", eviction_soft_grace_period)
         if image_gc_high_threshold_percent is not None:
             pulumi.set(__self__, "image_gc_high_threshold_percent", image_gc_high_threshold_percent)
         if image_gc_low_threshold_percent is not None:
@@ -10783,8 +10972,12 @@ class ClusterNodeConfigKubeletConfigArgs:
             pulumi.set(__self__, "image_minimum_gc_age", image_minimum_gc_age)
         if insecure_kubelet_readonly_port_enabled is not None:
             pulumi.set(__self__, "insecure_kubelet_readonly_port_enabled", insecure_kubelet_readonly_port_enabled)
+        if max_parallel_image_pulls is not None:
+            pulumi.set(__self__, "max_parallel_image_pulls", max_parallel_image_pulls)
         if pod_pids_limit is not None:
             pulumi.set(__self__, "pod_pids_limit", pod_pids_limit)
+        if single_process_oom_kill is not None:
+            pulumi.set(__self__, "single_process_oom_kill", single_process_oom_kill)
 
     @_builtins.property
     @pulumi.getter(name="allowedUnsafeSysctls")
@@ -10871,6 +11064,54 @@ class ClusterNodeConfigKubeletConfigArgs:
         pulumi.set(self, "cpu_manager_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="evictionMaxPodGracePeriodSeconds")
+    def eviction_max_pod_grace_period_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met. The integer must be positive and not exceed 300.
+        """
+        return pulumi.get(self, "eviction_max_pod_grace_period_seconds")
+
+    @eviction_max_pod_grace_period_seconds.setter
+    def eviction_max_pod_grace_period_seconds(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "eviction_max_pod_grace_period_seconds", value)
+
+    @_builtins.property
+    @pulumi.getter(name="evictionMinimumReclaim")
+    def eviction_minimum_reclaim(self) -> Optional[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgs']]:
+        """
+        Defines a map of signal names to percentage that defines minimum reclaims. It describes the minimum amount of a given resource the kubelet will reclaim when performing a pod eviction. Structure is documented below.
+        """
+        return pulumi.get(self, "eviction_minimum_reclaim")
+
+    @eviction_minimum_reclaim.setter
+    def eviction_minimum_reclaim(self, value: Optional[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgs']]):
+        pulumi.set(self, "eviction_minimum_reclaim", value)
+
+    @_builtins.property
+    @pulumi.getter(name="evictionSoft")
+    def eviction_soft(self) -> Optional[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftArgs']]:
+        """
+        Defines a map of signal names to quantities or percentage that defines soft eviction thresholds. Structure is documented below.
+        """
+        return pulumi.get(self, "eviction_soft")
+
+    @eviction_soft.setter
+    def eviction_soft(self, value: Optional[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftArgs']]):
+        pulumi.set(self, "eviction_soft", value)
+
+    @_builtins.property
+    @pulumi.getter(name="evictionSoftGracePeriod")
+    def eviction_soft_grace_period(self) -> Optional[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgs']]:
+        """
+        Defines a map of signal names to durations that defines grace periods for soft eviction thresholds. Each soft eviction threshold must have a corresponding grace period. Structure is documented below.
+        """
+        return pulumi.get(self, "eviction_soft_grace_period")
+
+    @eviction_soft_grace_period.setter
+    def eviction_soft_grace_period(self, value: Optional[pulumi.Input['ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgs']]):
+        pulumi.set(self, "eviction_soft_grace_period", value)
+
+    @_builtins.property
     @pulumi.getter(name="imageGcHighThresholdPercent")
     def image_gc_high_threshold_percent(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -10931,6 +11172,18 @@ class ClusterNodeConfigKubeletConfigArgs:
         pulumi.set(self, "insecure_kubelet_readonly_port_enabled", value)
 
     @_builtins.property
+    @pulumi.getter(name="maxParallelImagePulls")
+    def max_parallel_image_pulls(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Set the maximum number of image pulls in parallel. The integer must be between 2 and 5, inclusive.
+        """
+        return pulumi.get(self, "max_parallel_image_pulls")
+
+    @max_parallel_image_pulls.setter
+    def max_parallel_image_pulls(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "max_parallel_image_pulls", value)
+
+    @_builtins.property
     @pulumi.getter(name="podPidsLimit")
     def pod_pids_limit(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -10941,6 +11194,414 @@ class ClusterNodeConfigKubeletConfigArgs:
     @pod_pids_limit.setter
     def pod_pids_limit(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "pod_pids_limit", value)
+
+    @_builtins.property
+    @pulumi.getter(name="singleProcessOomKill")
+    def single_process_oom_kill(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Defines whether to enable single process OOM killer. If true, the processes in the container will be OOM killed individually instead of as a group.
+        """
+        return pulumi.get(self, "single_process_oom_kill")
+
+    @single_process_oom_kill.setter
+    def single_process_oom_kill(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "single_process_oom_kill", value)
+
+
+if not MYPY:
+    class ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict(TypedDict):
+        imagefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for imagefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        imagefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for imagefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        memory_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for memory.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        nodefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for nodefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        nodefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for nodefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        pid_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for pid.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+elif False:
+    ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ClusterNodeConfigKubeletConfigEvictionMinimumReclaimArgs:
+    def __init__(__self__, *,
+                 imagefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 imagefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 memory_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 pid_available: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] imagefs_available: Defines percentage of minimum reclaim for imagefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] imagefs_inodes_free: Defines percentage of minimum reclaim for imagefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] memory_available: Defines percentage of minimum reclaim for memory.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] nodefs_available: Defines percentage of minimum reclaim for nodefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] nodefs_inodes_free: Defines percentage of minimum reclaim for nodefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] pid_available: Defines percentage of minimum reclaim for pid.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        if imagefs_available is not None:
+            pulumi.set(__self__, "imagefs_available", imagefs_available)
+        if imagefs_inodes_free is not None:
+            pulumi.set(__self__, "imagefs_inodes_free", imagefs_inodes_free)
+        if memory_available is not None:
+            pulumi.set(__self__, "memory_available", memory_available)
+        if nodefs_available is not None:
+            pulumi.set(__self__, "nodefs_available", nodefs_available)
+        if nodefs_inodes_free is not None:
+            pulumi.set(__self__, "nodefs_inodes_free", nodefs_inodes_free)
+        if pid_available is not None:
+            pulumi.set(__self__, "pid_available", pid_available)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsAvailable")
+    def imagefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for imagefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "imagefs_available")
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for imagefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "imagefs_inodes_free")
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="memoryAvailable")
+    def memory_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for memory.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "memory_available")
+
+    @memory_available.setter
+    def memory_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "memory_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsAvailable")
+    def nodefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for nodefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "nodefs_available")
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for nodefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "nodefs_inodes_free")
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pidAvailable")
+    def pid_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for pid.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "pid_available")
+
+    @pid_available.setter
+    def pid_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pid_available", value)
+
+
+if not MYPY:
+    class ClusterNodeConfigKubeletConfigEvictionSoftArgsDict(TypedDict):
+        imagefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for imagefs.available. The value must be a percentage between `15%` and `50%`, such as `"20%"`.
+        """
+        imagefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for imagefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        """
+        memory_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines quantity of soft eviction threshold for memory.available. The value must be a quantity, such as `"100Mi"`. The value must be greater than or equal to the GKE default hard eviction threshold of `"100Mi"` and less than 50% of machine memory.
+        """
+        nodefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for nodefs.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+        nodefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for nodefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        """
+        pid_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for pid.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+elif False:
+    ClusterNodeConfigKubeletConfigEvictionSoftArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ClusterNodeConfigKubeletConfigEvictionSoftArgs:
+    def __init__(__self__, *,
+                 imagefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 imagefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 memory_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 pid_available: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] imagefs_available: Defines percentage of soft eviction threshold for imagefs.available. The value must be a percentage between `15%` and `50%`, such as `"20%"`.
+        :param pulumi.Input[_builtins.str] imagefs_inodes_free: Defines percentage of soft eviction threshold for imagefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        :param pulumi.Input[_builtins.str] memory_available: Defines quantity of soft eviction threshold for memory.available. The value must be a quantity, such as `"100Mi"`. The value must be greater than or equal to the GKE default hard eviction threshold of `"100Mi"` and less than 50% of machine memory.
+        :param pulumi.Input[_builtins.str] nodefs_available: Defines percentage of soft eviction threshold for nodefs.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        :param pulumi.Input[_builtins.str] nodefs_inodes_free: Defines percentage of soft eviction threshold for nodefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        :param pulumi.Input[_builtins.str] pid_available: Defines percentage of soft eviction threshold for pid.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+        if imagefs_available is not None:
+            pulumi.set(__self__, "imagefs_available", imagefs_available)
+        if imagefs_inodes_free is not None:
+            pulumi.set(__self__, "imagefs_inodes_free", imagefs_inodes_free)
+        if memory_available is not None:
+            pulumi.set(__self__, "memory_available", memory_available)
+        if nodefs_available is not None:
+            pulumi.set(__self__, "nodefs_available", nodefs_available)
+        if nodefs_inodes_free is not None:
+            pulumi.set(__self__, "nodefs_inodes_free", nodefs_inodes_free)
+        if pid_available is not None:
+            pulumi.set(__self__, "pid_available", pid_available)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsAvailable")
+    def imagefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for imagefs.available. The value must be a percentage between `15%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "imagefs_available")
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for imagefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "imagefs_inodes_free")
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="memoryAvailable")
+    def memory_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines quantity of soft eviction threshold for memory.available. The value must be a quantity, such as `"100Mi"`. The value must be greater than or equal to the GKE default hard eviction threshold of `"100Mi"` and less than 50% of machine memory.
+        """
+        return pulumi.get(self, "memory_available")
+
+    @memory_available.setter
+    def memory_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "memory_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsAvailable")
+    def nodefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for nodefs.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "nodefs_available")
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for nodefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "nodefs_inodes_free")
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pidAvailable")
+    def pid_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for pid.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "pid_available")
+
+    @pid_available.setter
+    def pid_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pid_available", value)
+
+
+if not MYPY:
+    class ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict(TypedDict):
+        imagefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the imagefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        imagefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the imagefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        memory_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the memory.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`, such as `"30s"`, `"1m30s"`, `"2.5m"`. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+        """
+        nodefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the nodefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        nodefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the nodefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        pid_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the pid.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+elif False:
+    ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ClusterNodeConfigKubeletConfigEvictionSoftGracePeriodArgs:
+    def __init__(__self__, *,
+                 imagefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 imagefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 memory_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 pid_available: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] imagefs_available: Defines grace period for the imagefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        :param pulumi.Input[_builtins.str] imagefs_inodes_free: Defines grace period for the imagefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        :param pulumi.Input[_builtins.str] memory_available: Defines grace period for the memory.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`, such as `"30s"`, `"1m30s"`, `"2.5m"`. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+        :param pulumi.Input[_builtins.str] nodefs_available: Defines grace period for the nodefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        :param pulumi.Input[_builtins.str] nodefs_inodes_free: Defines grace period for the nodefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        :param pulumi.Input[_builtins.str] pid_available: Defines grace period for the pid.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        if imagefs_available is not None:
+            pulumi.set(__self__, "imagefs_available", imagefs_available)
+        if imagefs_inodes_free is not None:
+            pulumi.set(__self__, "imagefs_inodes_free", imagefs_inodes_free)
+        if memory_available is not None:
+            pulumi.set(__self__, "memory_available", memory_available)
+        if nodefs_available is not None:
+            pulumi.set(__self__, "nodefs_available", nodefs_available)
+        if nodefs_inodes_free is not None:
+            pulumi.set(__self__, "nodefs_inodes_free", nodefs_inodes_free)
+        if pid_available is not None:
+            pulumi.set(__self__, "pid_available", pid_available)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsAvailable")
+    def imagefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the imagefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "imagefs_available")
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the imagefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "imagefs_inodes_free")
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="memoryAvailable")
+    def memory_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the memory.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`, such as `"30s"`, `"1m30s"`, `"2.5m"`. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+        """
+        return pulumi.get(self, "memory_available")
+
+    @memory_available.setter
+    def memory_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "memory_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsAvailable")
+    def nodefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the nodefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "nodefs_available")
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the nodefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "nodefs_inodes_free")
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pidAvailable")
+    def pid_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the pid.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "pid_available")
+
+    @pid_available.setter
+    def pid_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pid_available", value)
 
 
 if not MYPY:
@@ -10964,6 +11625,14 @@ if not MYPY:
         `net.core.wmem_max`, to a string value. Currently supported attributes can be found [here](https://cloud.google.com/sdk/gcloud/reference/beta/container/node-pools/create#--system-config-from-file).
         Note that validations happen all server side. All attributes are optional.
         """
+        transparent_hugepage_defrag: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Linux kernel transparent hugepage defrag setting.
+        """
+        transparent_hugepage_enabled: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Linux kernel transparent hugepage setting.
+        """
 elif False:
     ClusterNodeConfigLinuxNodeConfigArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -10972,7 +11641,9 @@ class ClusterNodeConfigLinuxNodeConfigArgs:
     def __init__(__self__, *,
                  cgroup_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  hugepages_config: Optional[pulumi.Input['ClusterNodeConfigLinuxNodeConfigHugepagesConfigArgs']] = None,
-                 sysctls: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 sysctls: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 transparent_hugepage_defrag: Optional[pulumi.Input[_builtins.str]] = None,
+                 transparent_hugepage_enabled: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] cgroup_mode: Possible cgroup modes that can be used.
                Accepted values are:
@@ -10984,6 +11655,8 @@ class ClusterNodeConfigLinuxNodeConfigArgs:
                and all pods running on the nodes. Specified as a map from the key, such as
                `net.core.wmem_max`, to a string value. Currently supported attributes can be found [here](https://cloud.google.com/sdk/gcloud/reference/beta/container/node-pools/create#--system-config-from-file).
                Note that validations happen all server side. All attributes are optional.
+        :param pulumi.Input[_builtins.str] transparent_hugepage_defrag: The Linux kernel transparent hugepage defrag setting.
+        :param pulumi.Input[_builtins.str] transparent_hugepage_enabled: The Linux kernel transparent hugepage setting.
         """
         if cgroup_mode is not None:
             pulumi.set(__self__, "cgroup_mode", cgroup_mode)
@@ -10991,6 +11664,10 @@ class ClusterNodeConfigLinuxNodeConfigArgs:
             pulumi.set(__self__, "hugepages_config", hugepages_config)
         if sysctls is not None:
             pulumi.set(__self__, "sysctls", sysctls)
+        if transparent_hugepage_defrag is not None:
+            pulumi.set(__self__, "transparent_hugepage_defrag", transparent_hugepage_defrag)
+        if transparent_hugepage_enabled is not None:
+            pulumi.set(__self__, "transparent_hugepage_enabled", transparent_hugepage_enabled)
 
     @_builtins.property
     @pulumi.getter(name="cgroupMode")
@@ -11034,6 +11711,30 @@ class ClusterNodeConfigLinuxNodeConfigArgs:
     @sysctls.setter
     def sysctls(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "sysctls", value)
+
+    @_builtins.property
+    @pulumi.getter(name="transparentHugepageDefrag")
+    def transparent_hugepage_defrag(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Linux kernel transparent hugepage defrag setting.
+        """
+        return pulumi.get(self, "transparent_hugepage_defrag")
+
+    @transparent_hugepage_defrag.setter
+    def transparent_hugepage_defrag(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "transparent_hugepage_defrag", value)
+
+    @_builtins.property
+    @pulumi.getter(name="transparentHugepageEnabled")
+    def transparent_hugepage_enabled(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Linux kernel transparent hugepage setting.
+        """
+        return pulumi.get(self, "transparent_hugepage_enabled")
+
+    @transparent_hugepage_enabled.setter
+    def transparent_hugepage_enabled(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "transparent_hugepage_enabled", value)
 
 
 if not MYPY:
@@ -11370,7 +12071,11 @@ if not MYPY:
     class ClusterNodeConfigSoleTenantConfigArgsDict(TypedDict):
         node_affinities: pulumi.Input[Sequence[pulumi.Input['ClusterNodeConfigSoleTenantConfigNodeAffinityArgsDict']]]
         """
-        .
+        The node affinity settings for the sole tenant node pool. Structure is documented below.
+        """
+        min_node_cpus: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feeature is disabled. The value should be greater than or equal to half of the machine type's CPU count.
         """
 elif False:
     ClusterNodeConfigSoleTenantConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -11378,23 +12083,39 @@ elif False:
 @pulumi.input_type
 class ClusterNodeConfigSoleTenantConfigArgs:
     def __init__(__self__, *,
-                 node_affinities: pulumi.Input[Sequence[pulumi.Input['ClusterNodeConfigSoleTenantConfigNodeAffinityArgs']]]):
+                 node_affinities: pulumi.Input[Sequence[pulumi.Input['ClusterNodeConfigSoleTenantConfigNodeAffinityArgs']]],
+                 min_node_cpus: Optional[pulumi.Input[_builtins.int]] = None):
         """
-        :param pulumi.Input[Sequence[pulumi.Input['ClusterNodeConfigSoleTenantConfigNodeAffinityArgs']]] node_affinities: .
+        :param pulumi.Input[Sequence[pulumi.Input['ClusterNodeConfigSoleTenantConfigNodeAffinityArgs']]] node_affinities: The node affinity settings for the sole tenant node pool. Structure is documented below.
+        :param pulumi.Input[_builtins.int] min_node_cpus: Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feeature is disabled. The value should be greater than or equal to half of the machine type's CPU count.
         """
         pulumi.set(__self__, "node_affinities", node_affinities)
+        if min_node_cpus is not None:
+            pulumi.set(__self__, "min_node_cpus", min_node_cpus)
 
     @_builtins.property
     @pulumi.getter(name="nodeAffinities")
     def node_affinities(self) -> pulumi.Input[Sequence[pulumi.Input['ClusterNodeConfigSoleTenantConfigNodeAffinityArgs']]]:
         """
-        .
+        The node affinity settings for the sole tenant node pool. Structure is documented below.
         """
         return pulumi.get(self, "node_affinities")
 
     @node_affinities.setter
     def node_affinities(self, value: pulumi.Input[Sequence[pulumi.Input['ClusterNodeConfigSoleTenantConfigNodeAffinityArgs']]]):
         pulumi.set(self, "node_affinities", value)
+
+    @_builtins.property
+    @pulumi.getter(name="minNodeCpus")
+    def min_node_cpus(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feeature is disabled. The value should be greater than or equal to half of the machine type's CPU count.
+        """
+        return pulumi.get(self, "min_node_cpus")
+
+    @min_node_cpus.setter
+    def min_node_cpus(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "min_node_cpus", value)
 
 
 if not MYPY:
@@ -13102,6 +13823,10 @@ if not MYPY:
         Specifies options for controlling
         advanced machine features. Structure is documented below.
         """
+        boot_disk: NotRequired[pulumi.Input['ClusterNodePoolNodeConfigBootDiskArgsDict']]
+        """
+        Configuration of the node pool boot disk. Structure is documented below
+        """
         boot_disk_kms_key: NotRequired[pulumi.Input[_builtins.str]]
         """
         The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. This should be of the form projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKeys/[KEY_NAME]. For more information about protecting resources with Cloud KMS Keys please see: <https://cloud.google.com/compute/docs/disks/customer-managed-encryption>
@@ -13117,12 +13842,13 @@ if not MYPY:
         disk_size_gb: NotRequired[pulumi.Input[_builtins.int]]
         """
         Size of the disk attached to each node, specified
-        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB.
+        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated to `boot_disk.size_gb`, and must match if specified in both places.
+        Prefer configuring `boot_disk`.
         """
         disk_type: NotRequired[pulumi.Input[_builtins.str]]
         """
         Type of the disk attached to each node
-        (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced'
+        (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced' This is being migrated to `boot_disk.disk_type`, and must match if specified in both places. Prefer configuring `boot_disk`.
         """
         effective_taints: NotRequired[pulumi.Input[Sequence[pulumi.Input['ClusterNodePoolNodeConfigEffectiveTaintArgsDict']]]]
         """
@@ -13301,7 +14027,7 @@ if not MYPY:
         """
         sole_tenant_config: NotRequired[pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigArgsDict']]
         """
-        Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). `node_affinity` structure is documented below.
+        Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). Structure is documented below.
         """
         spot: NotRequired[pulumi.Input[_builtins.bool]]
         """
@@ -13345,6 +14071,7 @@ elif False:
 class ClusterNodePoolNodeConfigArgs:
     def __init__(__self__, *,
                  advanced_machine_features: Optional[pulumi.Input['ClusterNodePoolNodeConfigAdvancedMachineFeaturesArgs']] = None,
+                 boot_disk: Optional[pulumi.Input['ClusterNodePoolNodeConfigBootDiskArgs']] = None,
                  boot_disk_kms_key: Optional[pulumi.Input[_builtins.str]] = None,
                  confidential_nodes: Optional[pulumi.Input['ClusterNodePoolNodeConfigConfidentialNodesArgs']] = None,
                  containerd_config: Optional[pulumi.Input['ClusterNodePoolNodeConfigContainerdConfigArgs']] = None,
@@ -13392,13 +14119,15 @@ class ClusterNodePoolNodeConfigArgs:
         """
         :param pulumi.Input['ClusterNodePoolNodeConfigAdvancedMachineFeaturesArgs'] advanced_machine_features: Specifies options for controlling
                advanced machine features. Structure is documented below.
+        :param pulumi.Input['ClusterNodePoolNodeConfigBootDiskArgs'] boot_disk: Configuration of the node pool boot disk. Structure is documented below
         :param pulumi.Input[_builtins.str] boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. This should be of the form projects/[KEY_PROJECT_ID]/locations/[LOCATION]/keyRings/[RING_NAME]/cryptoKeys/[KEY_NAME]. For more information about protecting resources with Cloud KMS Keys please see: <https://cloud.google.com/compute/docs/disks/customer-managed-encryption>
         :param pulumi.Input['ClusterNodePoolNodeConfigConfidentialNodesArgs'] confidential_nodes: Configuration for Confidential Nodes feature. Structure is documented below.
         :param pulumi.Input['ClusterNodePoolNodeConfigContainerdConfigArgs'] containerd_config: Parameters to customize containerd runtime. Structure is documented below.
         :param pulumi.Input[_builtins.int] disk_size_gb: Size of the disk attached to each node, specified
-               in GB. The smallest allowed disk size is 10GB. Defaults to 100GB.
+               in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated to `boot_disk.size_gb`, and must match if specified in both places.
+               Prefer configuring `boot_disk`.
         :param pulumi.Input[_builtins.str] disk_type: Type of the disk attached to each node
-               (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced'
+               (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced' This is being migrated to `boot_disk.disk_type`, and must match if specified in both places. Prefer configuring `boot_disk`.
         :param pulumi.Input[Sequence[pulumi.Input['ClusterNodePoolNodeConfigEffectiveTaintArgs']]] effective_taints: List of kubernetes taints applied to each node. Structure is documented above.
         :param pulumi.Input[_builtins.bool] enable_confidential_storage: Enabling Confidential Storage will create boot disk with confidential mode. It is disabled by default.
         :param pulumi.Input['ClusterNodePoolNodeConfigEphemeralStorageConfigArgs'] ephemeral_storage_config: Parameters for the ephemeral storage filesystem. If unspecified, ephemeral storage is backed by the boot disk. Structure is documented below.
@@ -13478,7 +14207,7 @@ class ClusterNodePoolNodeConfigArgs:
         :param pulumi.Input[_builtins.str] service_account: The service account to be used by the Node VMs.
                If not specified, the "default" service account is used.
         :param pulumi.Input['ClusterNodePoolNodeConfigShieldedInstanceConfigArgs'] shielded_instance_config: Shielded Instance options. Structure is documented below.
-        :param pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigArgs'] sole_tenant_config: Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). `node_affinity` structure is documented below.
+        :param pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigArgs'] sole_tenant_config: Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). Structure is documented below.
         :param pulumi.Input[_builtins.bool] spot: A boolean that represents whether the underlying node VMs are spot.
                See the [official documentation](https://cloud.google.com/kubernetes-engine/docs/concepts/spot-vms)
                for more information. Defaults to false.
@@ -13499,6 +14228,8 @@ class ClusterNodePoolNodeConfigArgs:
         """
         if advanced_machine_features is not None:
             pulumi.set(__self__, "advanced_machine_features", advanced_machine_features)
+        if boot_disk is not None:
+            pulumi.set(__self__, "boot_disk", boot_disk)
         if boot_disk_kms_key is not None:
             pulumi.set(__self__, "boot_disk_kms_key", boot_disk_kms_key)
         if confidential_nodes is not None:
@@ -13602,6 +14333,18 @@ class ClusterNodePoolNodeConfigArgs:
         pulumi.set(self, "advanced_machine_features", value)
 
     @_builtins.property
+    @pulumi.getter(name="bootDisk")
+    def boot_disk(self) -> Optional[pulumi.Input['ClusterNodePoolNodeConfigBootDiskArgs']]:
+        """
+        Configuration of the node pool boot disk. Structure is documented below
+        """
+        return pulumi.get(self, "boot_disk")
+
+    @boot_disk.setter
+    def boot_disk(self, value: Optional[pulumi.Input['ClusterNodePoolNodeConfigBootDiskArgs']]):
+        pulumi.set(self, "boot_disk", value)
+
+    @_builtins.property
     @pulumi.getter(name="bootDiskKmsKey")
     def boot_disk_kms_key(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -13642,7 +14385,8 @@ class ClusterNodePoolNodeConfigArgs:
     def disk_size_gb(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
         Size of the disk attached to each node, specified
-        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB.
+        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated to `boot_disk.size_gb`, and must match if specified in both places.
+        Prefer configuring `boot_disk`.
         """
         return pulumi.get(self, "disk_size_gb")
 
@@ -13655,7 +14399,7 @@ class ClusterNodePoolNodeConfigArgs:
     def disk_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Type of the disk attached to each node
-        (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced'
+        (e.g. 'pd-standard', 'pd-balanced' or 'pd-ssd'). If unspecified, the default disk type is 'pd-balanced' This is being migrated to `boot_disk.disk_type`, and must match if specified in both places. Prefer configuring `boot_disk`.
         """
         return pulumi.get(self, "disk_type")
 
@@ -14098,7 +14842,7 @@ class ClusterNodePoolNodeConfigArgs:
     @pulumi.getter(name="soleTenantConfig")
     def sole_tenant_config(self) -> Optional[pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigArgs']]:
         """
-        Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). `node_affinity` structure is documented below.
+        Allows specifying multiple [node affinities](https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes#node_affinity_and_anti-affinity) useful for running workloads on [sole tenant nodes](https://cloud.google.com/kubernetes-engine/docs/how-to/sole-tenancy). Structure is documented below.
         """
         return pulumi.get(self, "sole_tenant_config")
 
@@ -14259,6 +15003,104 @@ class ClusterNodePoolNodeConfigAdvancedMachineFeaturesArgs:
     @performance_monitoring_unit.setter
     def performance_monitoring_unit(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "performance_monitoring_unit", value)
+
+
+if not MYPY:
+    class ClusterNodePoolNodeConfigBootDiskArgsDict(TypedDict):
+        disk_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Type of the disk attached to each node
+        (e.g. 'pd-standard', 'pd-balanced', 'pd-ssd', 'hyperdisk-balanced'). If unspecified, the default disk type is 'pd-balanced' This is being migrated from `node_config.disk_type`, and must match if specified in both places. Prefer using this field.
+        """
+        provisioned_iops: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Configure disk IOPs. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        """
+        provisioned_throughput: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Configure disk throughput. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        """
+        size_gb: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Size of the disk attached to each node, specified
+        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated from `node_config.disk_size_gb`, and must match if specified in both places. Prefer using this field.
+        """
+elif False:
+    ClusterNodePoolNodeConfigBootDiskArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ClusterNodePoolNodeConfigBootDiskArgs:
+    def __init__(__self__, *,
+                 disk_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 provisioned_iops: Optional[pulumi.Input[_builtins.int]] = None,
+                 provisioned_throughput: Optional[pulumi.Input[_builtins.int]] = None,
+                 size_gb: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] disk_type: Type of the disk attached to each node
+               (e.g. 'pd-standard', 'pd-balanced', 'pd-ssd', 'hyperdisk-balanced'). If unspecified, the default disk type is 'pd-balanced' This is being migrated from `node_config.disk_type`, and must match if specified in both places. Prefer using this field.
+        :param pulumi.Input[_builtins.int] provisioned_iops: Configure disk IOPs. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        :param pulumi.Input[_builtins.int] provisioned_throughput: Configure disk throughput. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        :param pulumi.Input[_builtins.int] size_gb: Size of the disk attached to each node, specified
+               in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated from `node_config.disk_size_gb`, and must match if specified in both places. Prefer using this field.
+        """
+        if disk_type is not None:
+            pulumi.set(__self__, "disk_type", disk_type)
+        if provisioned_iops is not None:
+            pulumi.set(__self__, "provisioned_iops", provisioned_iops)
+        if provisioned_throughput is not None:
+            pulumi.set(__self__, "provisioned_throughput", provisioned_throughput)
+        if size_gb is not None:
+            pulumi.set(__self__, "size_gb", size_gb)
+
+    @_builtins.property
+    @pulumi.getter(name="diskType")
+    def disk_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Type of the disk attached to each node
+        (e.g. 'pd-standard', 'pd-balanced', 'pd-ssd', 'hyperdisk-balanced'). If unspecified, the default disk type is 'pd-balanced' This is being migrated from `node_config.disk_type`, and must match if specified in both places. Prefer using this field.
+        """
+        return pulumi.get(self, "disk_type")
+
+    @disk_type.setter
+    def disk_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "disk_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedIops")
+    def provisioned_iops(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Configure disk IOPs. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        """
+        return pulumi.get(self, "provisioned_iops")
+
+    @provisioned_iops.setter
+    def provisioned_iops(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "provisioned_iops", value)
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedThroughput")
+    def provisioned_throughput(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Configure disk throughput. This is only valid if the `disk_type` is 'hyperdisk-balanced'. See [performance limit documention](https://cloud.google.com/compute/docs/disks/hyperdisk-perf-limits) for more information about valid values.
+        """
+        return pulumi.get(self, "provisioned_throughput")
+
+    @provisioned_throughput.setter
+    def provisioned_throughput(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "provisioned_throughput", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sizeGb")
+    def size_gb(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Size of the disk attached to each node, specified
+        in GB. The smallest allowed disk size is 10GB. Defaults to 100GB. This is being migrated from `node_config.disk_size_gb`, and must match if specified in both places. Prefer using this field.
+        """
+        return pulumi.get(self, "size_gb")
+
+    @size_gb.setter
+    def size_gb(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "size_gb", value)
 
 
 if not MYPY:
@@ -15013,6 +15855,22 @@ if not MYPY:
         Prior to the 6.4.0 this field was marked as required. The workaround for the required field
         is setting the empty string `""`, which will function identically to not setting this field.
         """
+        eviction_max_pod_grace_period_seconds: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met. The integer must be positive and not exceed 300.
+        """
+        eviction_minimum_reclaim: NotRequired[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict']]
+        """
+        Defines a map of signal names to percentage that defines minimum reclaims. It describes the minimum amount of a given resource the kubelet will reclaim when performing a pod eviction. Structure is documented below.
+        """
+        eviction_soft: NotRequired[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgsDict']]
+        """
+        Defines a map of signal names to quantities or percentage that defines soft eviction thresholds. Structure is documented below.
+        """
+        eviction_soft_grace_period: NotRequired[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict']]
+        """
+        Defines a map of signal names to durations that defines grace periods for soft eviction thresholds. Each soft eviction threshold must have a corresponding grace period. Structure is documented below.
+        """
         image_gc_high_threshold_percent: NotRequired[pulumi.Input[_builtins.int]]
         """
         Defines the percent of disk usage after which image garbage collection is always run. The integer must be between 10 and 85, inclusive.
@@ -15033,9 +15891,17 @@ if not MYPY:
         """
         Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to `FALSE`. Possible values: `TRUE`, `FALSE`.
         """
+        max_parallel_image_pulls: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Set the maximum number of image pulls in parallel. The integer must be between 2 and 5, inclusive.
+        """
         pod_pids_limit: NotRequired[pulumi.Input[_builtins.int]]
         """
         Controls the maximum number of processes allowed to run in a pod. The value must be greater than or equal to 1024 and less than 4194304.
+        """
+        single_process_oom_kill: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Defines whether to enable single process OOM killer. If true, the processes in the container will be OOM killed individually instead of as a group.
         """
 elif False:
     ClusterNodePoolNodeConfigKubeletConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -15049,12 +15915,18 @@ class ClusterNodePoolNodeConfigKubeletConfigArgs:
                  cpu_cfs_quota: Optional[pulumi.Input[_builtins.bool]] = None,
                  cpu_cfs_quota_period: Optional[pulumi.Input[_builtins.str]] = None,
                  cpu_manager_policy: Optional[pulumi.Input[_builtins.str]] = None,
+                 eviction_max_pod_grace_period_seconds: Optional[pulumi.Input[_builtins.int]] = None,
+                 eviction_minimum_reclaim: Optional[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs']] = None,
+                 eviction_soft: Optional[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgs']] = None,
+                 eviction_soft_grace_period: Optional[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs']] = None,
                  image_gc_high_threshold_percent: Optional[pulumi.Input[_builtins.int]] = None,
                  image_gc_low_threshold_percent: Optional[pulumi.Input[_builtins.int]] = None,
                  image_maximum_gc_age: Optional[pulumi.Input[_builtins.str]] = None,
                  image_minimum_gc_age: Optional[pulumi.Input[_builtins.str]] = None,
                  insecure_kubelet_readonly_port_enabled: Optional[pulumi.Input[_builtins.str]] = None,
-                 pod_pids_limit: Optional[pulumi.Input[_builtins.int]] = None):
+                 max_parallel_image_pulls: Optional[pulumi.Input[_builtins.int]] = None,
+                 pod_pids_limit: Optional[pulumi.Input[_builtins.int]] = None,
+                 single_process_oom_kill: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. The allowed sysctl groups are `kernel.shm*`, `kernel.msg*`, `kernel.sem`, `fs.mqueue.*`, and `net.*`.
         :param pulumi.Input[_builtins.int] container_log_max_files: Defines the maximum number of container log files that can be present for a container. The integer must be between 2 and 10, inclusive.
@@ -15074,12 +15946,18 @@ class ClusterNodePoolNodeConfigKubeletConfigArgs:
                One of `"none"` or `"static"`. If unset (or set to the empty string `""`), the API will treat the field as if set to "none".
                Prior to the 6.4.0 this field was marked as required. The workaround for the required field
                is setting the empty string `""`, which will function identically to not setting this field.
+        :param pulumi.Input[_builtins.int] eviction_max_pod_grace_period_seconds: Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met. The integer must be positive and not exceed 300.
+        :param pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs'] eviction_minimum_reclaim: Defines a map of signal names to percentage that defines minimum reclaims. It describes the minimum amount of a given resource the kubelet will reclaim when performing a pod eviction. Structure is documented below.
+        :param pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgs'] eviction_soft: Defines a map of signal names to quantities or percentage that defines soft eviction thresholds. Structure is documented below.
+        :param pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs'] eviction_soft_grace_period: Defines a map of signal names to durations that defines grace periods for soft eviction thresholds. Each soft eviction threshold must have a corresponding grace period. Structure is documented below.
         :param pulumi.Input[_builtins.int] image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. The integer must be between 10 and 85, inclusive.
         :param pulumi.Input[_builtins.int] image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. The integer must be between 10 and 85, inclusive.
         :param pulumi.Input[_builtins.str] image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Specified as a sequence of decimal numbers, each with optional fraction and a unit suffix, such as `"300s"`, `"1.5m"`, and `"2h45m"`. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h". The value must be a positive duration.
         :param pulumi.Input[_builtins.str] image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Specified as a sequence of decimal numbers, each with optional fraction and a unit suffix, such as `"300s"`, `"1.5m"`. The value cannot be greater than "2m".
         :param pulumi.Input[_builtins.str] insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to `FALSE`. Possible values: `TRUE`, `FALSE`.
+        :param pulumi.Input[_builtins.int] max_parallel_image_pulls: Set the maximum number of image pulls in parallel. The integer must be between 2 and 5, inclusive.
         :param pulumi.Input[_builtins.int] pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. The value must be greater than or equal to 1024 and less than 4194304.
+        :param pulumi.Input[_builtins.bool] single_process_oom_kill: Defines whether to enable single process OOM killer. If true, the processes in the container will be OOM killed individually instead of as a group.
         """
         if allowed_unsafe_sysctls is not None:
             pulumi.set(__self__, "allowed_unsafe_sysctls", allowed_unsafe_sysctls)
@@ -15093,6 +15971,14 @@ class ClusterNodePoolNodeConfigKubeletConfigArgs:
             pulumi.set(__self__, "cpu_cfs_quota_period", cpu_cfs_quota_period)
         if cpu_manager_policy is not None:
             pulumi.set(__self__, "cpu_manager_policy", cpu_manager_policy)
+        if eviction_max_pod_grace_period_seconds is not None:
+            pulumi.set(__self__, "eviction_max_pod_grace_period_seconds", eviction_max_pod_grace_period_seconds)
+        if eviction_minimum_reclaim is not None:
+            pulumi.set(__self__, "eviction_minimum_reclaim", eviction_minimum_reclaim)
+        if eviction_soft is not None:
+            pulumi.set(__self__, "eviction_soft", eviction_soft)
+        if eviction_soft_grace_period is not None:
+            pulumi.set(__self__, "eviction_soft_grace_period", eviction_soft_grace_period)
         if image_gc_high_threshold_percent is not None:
             pulumi.set(__self__, "image_gc_high_threshold_percent", image_gc_high_threshold_percent)
         if image_gc_low_threshold_percent is not None:
@@ -15103,8 +15989,12 @@ class ClusterNodePoolNodeConfigKubeletConfigArgs:
             pulumi.set(__self__, "image_minimum_gc_age", image_minimum_gc_age)
         if insecure_kubelet_readonly_port_enabled is not None:
             pulumi.set(__self__, "insecure_kubelet_readonly_port_enabled", insecure_kubelet_readonly_port_enabled)
+        if max_parallel_image_pulls is not None:
+            pulumi.set(__self__, "max_parallel_image_pulls", max_parallel_image_pulls)
         if pod_pids_limit is not None:
             pulumi.set(__self__, "pod_pids_limit", pod_pids_limit)
+        if single_process_oom_kill is not None:
+            pulumi.set(__self__, "single_process_oom_kill", single_process_oom_kill)
 
     @_builtins.property
     @pulumi.getter(name="allowedUnsafeSysctls")
@@ -15191,6 +16081,54 @@ class ClusterNodePoolNodeConfigKubeletConfigArgs:
         pulumi.set(self, "cpu_manager_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="evictionMaxPodGracePeriodSeconds")
+    def eviction_max_pod_grace_period_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met. The integer must be positive and not exceed 300.
+        """
+        return pulumi.get(self, "eviction_max_pod_grace_period_seconds")
+
+    @eviction_max_pod_grace_period_seconds.setter
+    def eviction_max_pod_grace_period_seconds(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "eviction_max_pod_grace_period_seconds", value)
+
+    @_builtins.property
+    @pulumi.getter(name="evictionMinimumReclaim")
+    def eviction_minimum_reclaim(self) -> Optional[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs']]:
+        """
+        Defines a map of signal names to percentage that defines minimum reclaims. It describes the minimum amount of a given resource the kubelet will reclaim when performing a pod eviction. Structure is documented below.
+        """
+        return pulumi.get(self, "eviction_minimum_reclaim")
+
+    @eviction_minimum_reclaim.setter
+    def eviction_minimum_reclaim(self, value: Optional[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs']]):
+        pulumi.set(self, "eviction_minimum_reclaim", value)
+
+    @_builtins.property
+    @pulumi.getter(name="evictionSoft")
+    def eviction_soft(self) -> Optional[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgs']]:
+        """
+        Defines a map of signal names to quantities or percentage that defines soft eviction thresholds. Structure is documented below.
+        """
+        return pulumi.get(self, "eviction_soft")
+
+    @eviction_soft.setter
+    def eviction_soft(self, value: Optional[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgs']]):
+        pulumi.set(self, "eviction_soft", value)
+
+    @_builtins.property
+    @pulumi.getter(name="evictionSoftGracePeriod")
+    def eviction_soft_grace_period(self) -> Optional[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs']]:
+        """
+        Defines a map of signal names to durations that defines grace periods for soft eviction thresholds. Each soft eviction threshold must have a corresponding grace period. Structure is documented below.
+        """
+        return pulumi.get(self, "eviction_soft_grace_period")
+
+    @eviction_soft_grace_period.setter
+    def eviction_soft_grace_period(self, value: Optional[pulumi.Input['ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs']]):
+        pulumi.set(self, "eviction_soft_grace_period", value)
+
+    @_builtins.property
     @pulumi.getter(name="imageGcHighThresholdPercent")
     def image_gc_high_threshold_percent(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -15251,6 +16189,18 @@ class ClusterNodePoolNodeConfigKubeletConfigArgs:
         pulumi.set(self, "insecure_kubelet_readonly_port_enabled", value)
 
     @_builtins.property
+    @pulumi.getter(name="maxParallelImagePulls")
+    def max_parallel_image_pulls(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Set the maximum number of image pulls in parallel. The integer must be between 2 and 5, inclusive.
+        """
+        return pulumi.get(self, "max_parallel_image_pulls")
+
+    @max_parallel_image_pulls.setter
+    def max_parallel_image_pulls(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "max_parallel_image_pulls", value)
+
+    @_builtins.property
     @pulumi.getter(name="podPidsLimit")
     def pod_pids_limit(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -15261,6 +16211,414 @@ class ClusterNodePoolNodeConfigKubeletConfigArgs:
     @pod_pids_limit.setter
     def pod_pids_limit(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "pod_pids_limit", value)
+
+    @_builtins.property
+    @pulumi.getter(name="singleProcessOomKill")
+    def single_process_oom_kill(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Defines whether to enable single process OOM killer. If true, the processes in the container will be OOM killed individually instead of as a group.
+        """
+        return pulumi.get(self, "single_process_oom_kill")
+
+    @single_process_oom_kill.setter
+    def single_process_oom_kill(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "single_process_oom_kill", value)
+
+
+if not MYPY:
+    class ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict(TypedDict):
+        imagefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for imagefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        imagefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for imagefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        memory_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for memory.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        nodefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for nodefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        nodefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for nodefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        pid_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for pid.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+elif False:
+    ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs:
+    def __init__(__self__, *,
+                 imagefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 imagefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 memory_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 pid_available: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] imagefs_available: Defines percentage of minimum reclaim for imagefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] imagefs_inodes_free: Defines percentage of minimum reclaim for imagefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] memory_available: Defines percentage of minimum reclaim for memory.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] nodefs_available: Defines percentage of minimum reclaim for nodefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] nodefs_inodes_free: Defines percentage of minimum reclaim for nodefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        :param pulumi.Input[_builtins.str] pid_available: Defines percentage of minimum reclaim for pid.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        if imagefs_available is not None:
+            pulumi.set(__self__, "imagefs_available", imagefs_available)
+        if imagefs_inodes_free is not None:
+            pulumi.set(__self__, "imagefs_inodes_free", imagefs_inodes_free)
+        if memory_available is not None:
+            pulumi.set(__self__, "memory_available", memory_available)
+        if nodefs_available is not None:
+            pulumi.set(__self__, "nodefs_available", nodefs_available)
+        if nodefs_inodes_free is not None:
+            pulumi.set(__self__, "nodefs_inodes_free", nodefs_inodes_free)
+        if pid_available is not None:
+            pulumi.set(__self__, "pid_available", pid_available)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsAvailable")
+    def imagefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for imagefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "imagefs_available")
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for imagefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "imagefs_inodes_free")
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="memoryAvailable")
+    def memory_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for memory.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "memory_available")
+
+    @memory_available.setter
+    def memory_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "memory_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsAvailable")
+    def nodefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for nodefs.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "nodefs_available")
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for nodefs.inodesFree. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "nodefs_inodes_free")
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pidAvailable")
+    def pid_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for pid.available. The value must be a percentage no more than `"10%"`, such as `"5%"`.
+        """
+        return pulumi.get(self, "pid_available")
+
+    @pid_available.setter
+    def pid_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pid_available", value)
+
+
+if not MYPY:
+    class ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgsDict(TypedDict):
+        imagefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for imagefs.available. The value must be a percentage between `15%` and `50%`, such as `"20%"`.
+        """
+        imagefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for imagefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        """
+        memory_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines quantity of soft eviction threshold for memory.available. The value must be a quantity, such as `"100Mi"`. The value must be greater than or equal to the GKE default hard eviction threshold of `"100Mi"` and less than 50% of machine memory.
+        """
+        nodefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for nodefs.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+        nodefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for nodefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        """
+        pid_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for pid.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+elif False:
+    ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ClusterNodePoolNodeConfigKubeletConfigEvictionSoftArgs:
+    def __init__(__self__, *,
+                 imagefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 imagefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 memory_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 pid_available: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] imagefs_available: Defines percentage of soft eviction threshold for imagefs.available. The value must be a percentage between `15%` and `50%`, such as `"20%"`.
+        :param pulumi.Input[_builtins.str] imagefs_inodes_free: Defines percentage of soft eviction threshold for imagefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        :param pulumi.Input[_builtins.str] memory_available: Defines quantity of soft eviction threshold for memory.available. The value must be a quantity, such as `"100Mi"`. The value must be greater than or equal to the GKE default hard eviction threshold of `"100Mi"` and less than 50% of machine memory.
+        :param pulumi.Input[_builtins.str] nodefs_available: Defines percentage of soft eviction threshold for nodefs.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        :param pulumi.Input[_builtins.str] nodefs_inodes_free: Defines percentage of soft eviction threshold for nodefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        :param pulumi.Input[_builtins.str] pid_available: Defines percentage of soft eviction threshold for pid.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+        if imagefs_available is not None:
+            pulumi.set(__self__, "imagefs_available", imagefs_available)
+        if imagefs_inodes_free is not None:
+            pulumi.set(__self__, "imagefs_inodes_free", imagefs_inodes_free)
+        if memory_available is not None:
+            pulumi.set(__self__, "memory_available", memory_available)
+        if nodefs_available is not None:
+            pulumi.set(__self__, "nodefs_available", nodefs_available)
+        if nodefs_inodes_free is not None:
+            pulumi.set(__self__, "nodefs_inodes_free", nodefs_inodes_free)
+        if pid_available is not None:
+            pulumi.set(__self__, "pid_available", pid_available)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsAvailable")
+    def imagefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for imagefs.available. The value must be a percentage between `15%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "imagefs_available")
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for imagefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "imagefs_inodes_free")
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="memoryAvailable")
+    def memory_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines quantity of soft eviction threshold for memory.available. The value must be a quantity, such as `"100Mi"`. The value must be greater than or equal to the GKE default hard eviction threshold of `"100Mi"` and less than 50% of machine memory.
+        """
+        return pulumi.get(self, "memory_available")
+
+    @memory_available.setter
+    def memory_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "memory_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsAvailable")
+    def nodefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for nodefs.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "nodefs_available")
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for nodefs.inodesFree. The value must be a percentage between `5%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "nodefs_inodes_free")
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pidAvailable")
+    def pid_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for pid.available. The value must be a percentage between `10%` and `50%`, such as `"20%"`.
+        """
+        return pulumi.get(self, "pid_available")
+
+    @pid_available.setter
+    def pid_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pid_available", value)
+
+
+if not MYPY:
+    class ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict(TypedDict):
+        imagefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the imagefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        imagefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the imagefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        memory_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the memory.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`, such as `"30s"`, `"1m30s"`, `"2.5m"`. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+        """
+        nodefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the nodefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        nodefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the nodefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        pid_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the pid.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+elif False:
+    ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs:
+    def __init__(__self__, *,
+                 imagefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 imagefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 memory_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 pid_available: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] imagefs_available: Defines grace period for the imagefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        :param pulumi.Input[_builtins.str] imagefs_inodes_free: Defines grace period for the imagefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        :param pulumi.Input[_builtins.str] memory_available: Defines grace period for the memory.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`, such as `"30s"`, `"1m30s"`, `"2.5m"`. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+        :param pulumi.Input[_builtins.str] nodefs_available: Defines grace period for the nodefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        :param pulumi.Input[_builtins.str] nodefs_inodes_free: Defines grace period for the nodefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        :param pulumi.Input[_builtins.str] pid_available: Defines grace period for the pid.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        if imagefs_available is not None:
+            pulumi.set(__self__, "imagefs_available", imagefs_available)
+        if imagefs_inodes_free is not None:
+            pulumi.set(__self__, "imagefs_inodes_free", imagefs_inodes_free)
+        if memory_available is not None:
+            pulumi.set(__self__, "memory_available", memory_available)
+        if nodefs_available is not None:
+            pulumi.set(__self__, "nodefs_available", nodefs_available)
+        if nodefs_inodes_free is not None:
+            pulumi.set(__self__, "nodefs_inodes_free", nodefs_inodes_free)
+        if pid_available is not None:
+            pulumi.set(__self__, "pid_available", pid_available)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsAvailable")
+    def imagefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the imagefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "imagefs_available")
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the imagefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "imagefs_inodes_free")
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="memoryAvailable")
+    def memory_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the memory.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`, such as `"30s"`, `"1m30s"`, `"2.5m"`. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+        """
+        return pulumi.get(self, "memory_available")
+
+    @memory_available.setter
+    def memory_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "memory_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsAvailable")
+    def nodefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the nodefs.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "nodefs_available")
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the nodefs.inodesFree soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "nodefs_inodes_free")
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pidAvailable")
+    def pid_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the pid.available soft eviction threshold. The value must be a positive duration string no more than `"5m"`.
+        """
+        return pulumi.get(self, "pid_available")
+
+    @pid_available.setter
+    def pid_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pid_available", value)
 
 
 if not MYPY:
@@ -15284,6 +16642,14 @@ if not MYPY:
         `net.core.wmem_max`, to a string value. Currently supported attributes can be found [here](https://cloud.google.com/sdk/gcloud/reference/beta/container/node-pools/create#--system-config-from-file).
         Note that validations happen all server side. All attributes are optional.
         """
+        transparent_hugepage_defrag: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Linux kernel transparent hugepage defrag setting.
+        """
+        transparent_hugepage_enabled: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Linux kernel transparent hugepage setting.
+        """
 elif False:
     ClusterNodePoolNodeConfigLinuxNodeConfigArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -15292,7 +16658,9 @@ class ClusterNodePoolNodeConfigLinuxNodeConfigArgs:
     def __init__(__self__, *,
                  cgroup_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  hugepages_config: Optional[pulumi.Input['ClusterNodePoolNodeConfigLinuxNodeConfigHugepagesConfigArgs']] = None,
-                 sysctls: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 sysctls: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 transparent_hugepage_defrag: Optional[pulumi.Input[_builtins.str]] = None,
+                 transparent_hugepage_enabled: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] cgroup_mode: Possible cgroup modes that can be used.
                Accepted values are:
@@ -15304,6 +16672,8 @@ class ClusterNodePoolNodeConfigLinuxNodeConfigArgs:
                and all pods running on the nodes. Specified as a map from the key, such as
                `net.core.wmem_max`, to a string value. Currently supported attributes can be found [here](https://cloud.google.com/sdk/gcloud/reference/beta/container/node-pools/create#--system-config-from-file).
                Note that validations happen all server side. All attributes are optional.
+        :param pulumi.Input[_builtins.str] transparent_hugepage_defrag: The Linux kernel transparent hugepage defrag setting.
+        :param pulumi.Input[_builtins.str] transparent_hugepage_enabled: The Linux kernel transparent hugepage setting.
         """
         if cgroup_mode is not None:
             pulumi.set(__self__, "cgroup_mode", cgroup_mode)
@@ -15311,6 +16681,10 @@ class ClusterNodePoolNodeConfigLinuxNodeConfigArgs:
             pulumi.set(__self__, "hugepages_config", hugepages_config)
         if sysctls is not None:
             pulumi.set(__self__, "sysctls", sysctls)
+        if transparent_hugepage_defrag is not None:
+            pulumi.set(__self__, "transparent_hugepage_defrag", transparent_hugepage_defrag)
+        if transparent_hugepage_enabled is not None:
+            pulumi.set(__self__, "transparent_hugepage_enabled", transparent_hugepage_enabled)
 
     @_builtins.property
     @pulumi.getter(name="cgroupMode")
@@ -15354,6 +16728,30 @@ class ClusterNodePoolNodeConfigLinuxNodeConfigArgs:
     @sysctls.setter
     def sysctls(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "sysctls", value)
+
+    @_builtins.property
+    @pulumi.getter(name="transparentHugepageDefrag")
+    def transparent_hugepage_defrag(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Linux kernel transparent hugepage defrag setting.
+        """
+        return pulumi.get(self, "transparent_hugepage_defrag")
+
+    @transparent_hugepage_defrag.setter
+    def transparent_hugepage_defrag(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "transparent_hugepage_defrag", value)
+
+    @_builtins.property
+    @pulumi.getter(name="transparentHugepageEnabled")
+    def transparent_hugepage_enabled(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Linux kernel transparent hugepage setting.
+        """
+        return pulumi.get(self, "transparent_hugepage_enabled")
+
+    @transparent_hugepage_enabled.setter
+    def transparent_hugepage_enabled(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "transparent_hugepage_enabled", value)
 
 
 if not MYPY:
@@ -15690,7 +17088,11 @@ if not MYPY:
     class ClusterNodePoolNodeConfigSoleTenantConfigArgsDict(TypedDict):
         node_affinities: pulumi.Input[Sequence[pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigNodeAffinityArgsDict']]]
         """
-        .
+        The node affinity settings for the sole tenant node pool. Structure is documented below.
+        """
+        min_node_cpus: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feeature is disabled. The value should be greater than or equal to half of the machine type's CPU count.
         """
 elif False:
     ClusterNodePoolNodeConfigSoleTenantConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -15698,23 +17100,39 @@ elif False:
 @pulumi.input_type
 class ClusterNodePoolNodeConfigSoleTenantConfigArgs:
     def __init__(__self__, *,
-                 node_affinities: pulumi.Input[Sequence[pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]]):
+                 node_affinities: pulumi.Input[Sequence[pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]],
+                 min_node_cpus: Optional[pulumi.Input[_builtins.int]] = None):
         """
-        :param pulumi.Input[Sequence[pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]] node_affinities: .
+        :param pulumi.Input[Sequence[pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]] node_affinities: The node affinity settings for the sole tenant node pool. Structure is documented below.
+        :param pulumi.Input[_builtins.int] min_node_cpus: Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feeature is disabled. The value should be greater than or equal to half of the machine type's CPU count.
         """
         pulumi.set(__self__, "node_affinities", node_affinities)
+        if min_node_cpus is not None:
+            pulumi.set(__self__, "min_node_cpus", min_node_cpus)
 
     @_builtins.property
     @pulumi.getter(name="nodeAffinities")
     def node_affinities(self) -> pulumi.Input[Sequence[pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]]:
         """
-        .
+        The node affinity settings for the sole tenant node pool. Structure is documented below.
         """
         return pulumi.get(self, "node_affinities")
 
     @node_affinities.setter
     def node_affinities(self, value: pulumi.Input[Sequence[pulumi.Input['ClusterNodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]]):
         pulumi.set(self, "node_affinities", value)
+
+    @_builtins.property
+    @pulumi.getter(name="minNodeCpus")
+    def min_node_cpus(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feeature is disabled. The value should be greater than or equal to half of the machine type's CPU count.
+        """
+        return pulumi.get(self, "min_node_cpus")
+
+    @min_node_cpus.setter
+    def min_node_cpus(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "min_node_cpus", value)
 
 
 if not MYPY:
@@ -18133,6 +19551,10 @@ if not MYPY:
         """
         Specifies options for controlling advanced machine features.
         """
+        boot_disk: NotRequired[pulumi.Input['NodePoolNodeConfigBootDiskArgsDict']]
+        """
+        Boot disk configuration for node pools nodes.
+        """
         boot_disk_kms_key: NotRequired[pulumi.Input[_builtins.str]]
         """
         The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool.
@@ -18316,6 +19738,7 @@ elif False:
 class NodePoolNodeConfigArgs:
     def __init__(__self__, *,
                  advanced_machine_features: Optional[pulumi.Input['NodePoolNodeConfigAdvancedMachineFeaturesArgs']] = None,
+                 boot_disk: Optional[pulumi.Input['NodePoolNodeConfigBootDiskArgs']] = None,
                  boot_disk_kms_key: Optional[pulumi.Input[_builtins.str]] = None,
                  confidential_nodes: Optional[pulumi.Input['NodePoolNodeConfigConfidentialNodesArgs']] = None,
                  containerd_config: Optional[pulumi.Input['NodePoolNodeConfigContainerdConfigArgs']] = None,
@@ -18362,6 +19785,7 @@ class NodePoolNodeConfigArgs:
                  workload_metadata_config: Optional[pulumi.Input['NodePoolNodeConfigWorkloadMetadataConfigArgs']] = None):
         """
         :param pulumi.Input['NodePoolNodeConfigAdvancedMachineFeaturesArgs'] advanced_machine_features: Specifies options for controlling advanced machine features.
+        :param pulumi.Input['NodePoolNodeConfigBootDiskArgs'] boot_disk: Boot disk configuration for node pools nodes.
         :param pulumi.Input[_builtins.str] boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool.
         :param pulumi.Input['NodePoolNodeConfigConfidentialNodesArgs'] confidential_nodes: Configuration for the confidential nodes feature, which makes nodes run on confidential VMs.
         :param pulumi.Input['NodePoolNodeConfigContainerdConfigArgs'] containerd_config: Parameters for containerd configuration.
@@ -18409,6 +19833,8 @@ class NodePoolNodeConfigArgs:
         """
         if advanced_machine_features is not None:
             pulumi.set(__self__, "advanced_machine_features", advanced_machine_features)
+        if boot_disk is not None:
+            pulumi.set(__self__, "boot_disk", boot_disk)
         if boot_disk_kms_key is not None:
             pulumi.set(__self__, "boot_disk_kms_key", boot_disk_kms_key)
         if confidential_nodes is not None:
@@ -18509,6 +19935,18 @@ class NodePoolNodeConfigArgs:
     @advanced_machine_features.setter
     def advanced_machine_features(self, value: Optional[pulumi.Input['NodePoolNodeConfigAdvancedMachineFeaturesArgs']]):
         pulumi.set(self, "advanced_machine_features", value)
+
+    @_builtins.property
+    @pulumi.getter(name="bootDisk")
+    def boot_disk(self) -> Optional[pulumi.Input['NodePoolNodeConfigBootDiskArgs']]:
+        """
+        Boot disk configuration for node pools nodes.
+        """
+        return pulumi.get(self, "boot_disk")
+
+    @boot_disk.setter
+    def boot_disk(self, value: Optional[pulumi.Input['NodePoolNodeConfigBootDiskArgs']]):
+        pulumi.set(self, "boot_disk", value)
 
     @_builtins.property
     @pulumi.getter(name="bootDiskKmsKey")
@@ -19108,6 +20546,98 @@ class NodePoolNodeConfigAdvancedMachineFeaturesArgs:
     @performance_monitoring_unit.setter
     def performance_monitoring_unit(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "performance_monitoring_unit", value)
+
+
+if not MYPY:
+    class NodePoolNodeConfigBootDiskArgsDict(TypedDict):
+        disk_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd
+        """
+        provisioned_iops: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Configured IOPs provisioning. Only valid with disk type hyperdisk-balanced.
+        """
+        provisioned_throughput: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Configured throughput provisioning. Only valid with disk type hyperdisk-balanced.
+        """
+        size_gb: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB.
+        """
+elif False:
+    NodePoolNodeConfigBootDiskArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class NodePoolNodeConfigBootDiskArgs:
+    def __init__(__self__, *,
+                 disk_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 provisioned_iops: Optional[pulumi.Input[_builtins.int]] = None,
+                 provisioned_throughput: Optional[pulumi.Input[_builtins.int]] = None,
+                 size_gb: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd
+        :param pulumi.Input[_builtins.int] provisioned_iops: Configured IOPs provisioning. Only valid with disk type hyperdisk-balanced.
+        :param pulumi.Input[_builtins.int] provisioned_throughput: Configured throughput provisioning. Only valid with disk type hyperdisk-balanced.
+        :param pulumi.Input[_builtins.int] size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB.
+        """
+        if disk_type is not None:
+            pulumi.set(__self__, "disk_type", disk_type)
+        if provisioned_iops is not None:
+            pulumi.set(__self__, "provisioned_iops", provisioned_iops)
+        if provisioned_throughput is not None:
+            pulumi.set(__self__, "provisioned_throughput", provisioned_throughput)
+        if size_gb is not None:
+            pulumi.set(__self__, "size_gb", size_gb)
+
+    @_builtins.property
+    @pulumi.getter(name="diskType")
+    def disk_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd
+        """
+        return pulumi.get(self, "disk_type")
+
+    @disk_type.setter
+    def disk_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "disk_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedIops")
+    def provisioned_iops(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Configured IOPs provisioning. Only valid with disk type hyperdisk-balanced.
+        """
+        return pulumi.get(self, "provisioned_iops")
+
+    @provisioned_iops.setter
+    def provisioned_iops(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "provisioned_iops", value)
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedThroughput")
+    def provisioned_throughput(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Configured throughput provisioning. Only valid with disk type hyperdisk-balanced.
+        """
+        return pulumi.get(self, "provisioned_throughput")
+
+    @provisioned_throughput.setter
+    def provisioned_throughput(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "provisioned_throughput", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sizeGb")
+    def size_gb(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB.
+        """
+        return pulumi.get(self, "size_gb")
+
+    @size_gb.setter
+    def size_gb(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "size_gb", value)
 
 
 if not MYPY:
@@ -19820,6 +21350,22 @@ if not MYPY:
         """
         Control the CPU management policy on the node.
         """
+        eviction_max_pod_grace_period_seconds: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met.
+        """
+        eviction_minimum_reclaim: NotRequired[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict']]
+        """
+        Defines a map of signal names to percentage that defines minimum reclaims. It describes the minimum amount of a given resource the kubelet will reclaim when performing a pod eviction.
+        """
+        eviction_soft: NotRequired[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftArgsDict']]
+        """
+        Defines a map of signal names to quantities or percentage that defines soft eviction thresholds.
+        """
+        eviction_soft_grace_period: NotRequired[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict']]
+        """
+        Defines a map of signal names to durations that defines grace periods for soft eviction thresholds. Each soft eviction threshold must have a corresponding grace period.
+        """
         image_gc_high_threshold_percent: NotRequired[pulumi.Input[_builtins.int]]
         """
         Defines the percent of disk usage after which image garbage collection is always run.
@@ -19840,9 +21386,17 @@ if not MYPY:
         """
         Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to `FALSE`. Possible values: `TRUE`, `FALSE`.
         """
+        max_parallel_image_pulls: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Set the maximum number of image pulls in parallel.
+        """
         pod_pids_limit: NotRequired[pulumi.Input[_builtins.int]]
         """
         Controls the maximum number of processes allowed to run in a pod.
+        """
+        single_process_oom_kill: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Defines whether to enable single process OOM killer.
         """
 elif False:
     NodePoolNodeConfigKubeletConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -19856,12 +21410,18 @@ class NodePoolNodeConfigKubeletConfigArgs:
                  cpu_cfs_quota: Optional[pulumi.Input[_builtins.bool]] = None,
                  cpu_cfs_quota_period: Optional[pulumi.Input[_builtins.str]] = None,
                  cpu_manager_policy: Optional[pulumi.Input[_builtins.str]] = None,
+                 eviction_max_pod_grace_period_seconds: Optional[pulumi.Input[_builtins.int]] = None,
+                 eviction_minimum_reclaim: Optional[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs']] = None,
+                 eviction_soft: Optional[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftArgs']] = None,
+                 eviction_soft_grace_period: Optional[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs']] = None,
                  image_gc_high_threshold_percent: Optional[pulumi.Input[_builtins.int]] = None,
                  image_gc_low_threshold_percent: Optional[pulumi.Input[_builtins.int]] = None,
                  image_maximum_gc_age: Optional[pulumi.Input[_builtins.str]] = None,
                  image_minimum_gc_age: Optional[pulumi.Input[_builtins.str]] = None,
                  insecure_kubelet_readonly_port_enabled: Optional[pulumi.Input[_builtins.str]] = None,
-                 pod_pids_limit: Optional[pulumi.Input[_builtins.int]] = None):
+                 max_parallel_image_pulls: Optional[pulumi.Input[_builtins.int]] = None,
+                 pod_pids_limit: Optional[pulumi.Input[_builtins.int]] = None,
+                 single_process_oom_kill: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods.
         :param pulumi.Input[_builtins.int] container_log_max_files: Defines the maximum number of container log files that can be present for a container.
@@ -19869,12 +21429,18 @@ class NodePoolNodeConfigKubeletConfigArgs:
         :param pulumi.Input[_builtins.bool] cpu_cfs_quota: Enable CPU CFS quota enforcement for containers that specify CPU limits.
         :param pulumi.Input[_builtins.str] cpu_cfs_quota_period: Set the CPU CFS quota period value 'cpu.cfs_period_us'.
         :param pulumi.Input[_builtins.str] cpu_manager_policy: Control the CPU management policy on the node.
+        :param pulumi.Input[_builtins.int] eviction_max_pod_grace_period_seconds: Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met.
+        :param pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs'] eviction_minimum_reclaim: Defines a map of signal names to percentage that defines minimum reclaims. It describes the minimum amount of a given resource the kubelet will reclaim when performing a pod eviction.
+        :param pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftArgs'] eviction_soft: Defines a map of signal names to quantities or percentage that defines soft eviction thresholds.
+        :param pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs'] eviction_soft_grace_period: Defines a map of signal names to durations that defines grace periods for soft eviction thresholds. Each soft eviction threshold must have a corresponding grace period.
         :param pulumi.Input[_builtins.int] image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run.
         :param pulumi.Input[_builtins.int] image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to.
         :param pulumi.Input[_builtins.str] image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected.
         :param pulumi.Input[_builtins.str] image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected.
         :param pulumi.Input[_builtins.str] insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to `FALSE`. Possible values: `TRUE`, `FALSE`.
+        :param pulumi.Input[_builtins.int] max_parallel_image_pulls: Set the maximum number of image pulls in parallel.
         :param pulumi.Input[_builtins.int] pod_pids_limit: Controls the maximum number of processes allowed to run in a pod.
+        :param pulumi.Input[_builtins.bool] single_process_oom_kill: Defines whether to enable single process OOM killer.
         """
         if allowed_unsafe_sysctls is not None:
             pulumi.set(__self__, "allowed_unsafe_sysctls", allowed_unsafe_sysctls)
@@ -19888,6 +21454,14 @@ class NodePoolNodeConfigKubeletConfigArgs:
             pulumi.set(__self__, "cpu_cfs_quota_period", cpu_cfs_quota_period)
         if cpu_manager_policy is not None:
             pulumi.set(__self__, "cpu_manager_policy", cpu_manager_policy)
+        if eviction_max_pod_grace_period_seconds is not None:
+            pulumi.set(__self__, "eviction_max_pod_grace_period_seconds", eviction_max_pod_grace_period_seconds)
+        if eviction_minimum_reclaim is not None:
+            pulumi.set(__self__, "eviction_minimum_reclaim", eviction_minimum_reclaim)
+        if eviction_soft is not None:
+            pulumi.set(__self__, "eviction_soft", eviction_soft)
+        if eviction_soft_grace_period is not None:
+            pulumi.set(__self__, "eviction_soft_grace_period", eviction_soft_grace_period)
         if image_gc_high_threshold_percent is not None:
             pulumi.set(__self__, "image_gc_high_threshold_percent", image_gc_high_threshold_percent)
         if image_gc_low_threshold_percent is not None:
@@ -19898,8 +21472,12 @@ class NodePoolNodeConfigKubeletConfigArgs:
             pulumi.set(__self__, "image_minimum_gc_age", image_minimum_gc_age)
         if insecure_kubelet_readonly_port_enabled is not None:
             pulumi.set(__self__, "insecure_kubelet_readonly_port_enabled", insecure_kubelet_readonly_port_enabled)
+        if max_parallel_image_pulls is not None:
+            pulumi.set(__self__, "max_parallel_image_pulls", max_parallel_image_pulls)
         if pod_pids_limit is not None:
             pulumi.set(__self__, "pod_pids_limit", pod_pids_limit)
+        if single_process_oom_kill is not None:
+            pulumi.set(__self__, "single_process_oom_kill", single_process_oom_kill)
 
     @_builtins.property
     @pulumi.getter(name="allowedUnsafeSysctls")
@@ -19974,6 +21552,54 @@ class NodePoolNodeConfigKubeletConfigArgs:
         pulumi.set(self, "cpu_manager_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="evictionMaxPodGracePeriodSeconds")
+    def eviction_max_pod_grace_period_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met.
+        """
+        return pulumi.get(self, "eviction_max_pod_grace_period_seconds")
+
+    @eviction_max_pod_grace_period_seconds.setter
+    def eviction_max_pod_grace_period_seconds(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "eviction_max_pod_grace_period_seconds", value)
+
+    @_builtins.property
+    @pulumi.getter(name="evictionMinimumReclaim")
+    def eviction_minimum_reclaim(self) -> Optional[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs']]:
+        """
+        Defines a map of signal names to percentage that defines minimum reclaims. It describes the minimum amount of a given resource the kubelet will reclaim when performing a pod eviction.
+        """
+        return pulumi.get(self, "eviction_minimum_reclaim")
+
+    @eviction_minimum_reclaim.setter
+    def eviction_minimum_reclaim(self, value: Optional[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs']]):
+        pulumi.set(self, "eviction_minimum_reclaim", value)
+
+    @_builtins.property
+    @pulumi.getter(name="evictionSoft")
+    def eviction_soft(self) -> Optional[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftArgs']]:
+        """
+        Defines a map of signal names to quantities or percentage that defines soft eviction thresholds.
+        """
+        return pulumi.get(self, "eviction_soft")
+
+    @eviction_soft.setter
+    def eviction_soft(self, value: Optional[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftArgs']]):
+        pulumi.set(self, "eviction_soft", value)
+
+    @_builtins.property
+    @pulumi.getter(name="evictionSoftGracePeriod")
+    def eviction_soft_grace_period(self) -> Optional[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs']]:
+        """
+        Defines a map of signal names to durations that defines grace periods for soft eviction thresholds. Each soft eviction threshold must have a corresponding grace period.
+        """
+        return pulumi.get(self, "eviction_soft_grace_period")
+
+    @eviction_soft_grace_period.setter
+    def eviction_soft_grace_period(self, value: Optional[pulumi.Input['NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs']]):
+        pulumi.set(self, "eviction_soft_grace_period", value)
+
+    @_builtins.property
     @pulumi.getter(name="imageGcHighThresholdPercent")
     def image_gc_high_threshold_percent(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -20034,6 +21660,18 @@ class NodePoolNodeConfigKubeletConfigArgs:
         pulumi.set(self, "insecure_kubelet_readonly_port_enabled", value)
 
     @_builtins.property
+    @pulumi.getter(name="maxParallelImagePulls")
+    def max_parallel_image_pulls(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Set the maximum number of image pulls in parallel.
+        """
+        return pulumi.get(self, "max_parallel_image_pulls")
+
+    @max_parallel_image_pulls.setter
+    def max_parallel_image_pulls(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "max_parallel_image_pulls", value)
+
+    @_builtins.property
     @pulumi.getter(name="podPidsLimit")
     def pod_pids_limit(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -20044,6 +21682,414 @@ class NodePoolNodeConfigKubeletConfigArgs:
     @pod_pids_limit.setter
     def pod_pids_limit(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "pod_pids_limit", value)
+
+    @_builtins.property
+    @pulumi.getter(name="singleProcessOomKill")
+    def single_process_oom_kill(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Defines whether to enable single process OOM killer.
+        """
+        return pulumi.get(self, "single_process_oom_kill")
+
+    @single_process_oom_kill.setter
+    def single_process_oom_kill(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "single_process_oom_kill", value)
+
+
+if not MYPY:
+    class NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict(TypedDict):
+        imagefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for imagefs.available.
+        """
+        imagefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for imagefs.inodesFree.
+        """
+        memory_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for memory.available.
+        """
+        nodefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for nodefs.available.
+        """
+        nodefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for nodefs.inodesFree.
+        """
+        pid_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of minimum reclaim for pid.available.
+        """
+elif False:
+    NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class NodePoolNodeConfigKubeletConfigEvictionMinimumReclaimArgs:
+    def __init__(__self__, *,
+                 imagefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 imagefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 memory_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 pid_available: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] imagefs_available: Defines percentage of minimum reclaim for imagefs.available.
+        :param pulumi.Input[_builtins.str] imagefs_inodes_free: Defines percentage of minimum reclaim for imagefs.inodesFree.
+        :param pulumi.Input[_builtins.str] memory_available: Defines percentage of minimum reclaim for memory.available.
+        :param pulumi.Input[_builtins.str] nodefs_available: Defines percentage of minimum reclaim for nodefs.available.
+        :param pulumi.Input[_builtins.str] nodefs_inodes_free: Defines percentage of minimum reclaim for nodefs.inodesFree.
+        :param pulumi.Input[_builtins.str] pid_available: Defines percentage of minimum reclaim for pid.available.
+        """
+        if imagefs_available is not None:
+            pulumi.set(__self__, "imagefs_available", imagefs_available)
+        if imagefs_inodes_free is not None:
+            pulumi.set(__self__, "imagefs_inodes_free", imagefs_inodes_free)
+        if memory_available is not None:
+            pulumi.set(__self__, "memory_available", memory_available)
+        if nodefs_available is not None:
+            pulumi.set(__self__, "nodefs_available", nodefs_available)
+        if nodefs_inodes_free is not None:
+            pulumi.set(__self__, "nodefs_inodes_free", nodefs_inodes_free)
+        if pid_available is not None:
+            pulumi.set(__self__, "pid_available", pid_available)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsAvailable")
+    def imagefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for imagefs.available.
+        """
+        return pulumi.get(self, "imagefs_available")
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for imagefs.inodesFree.
+        """
+        return pulumi.get(self, "imagefs_inodes_free")
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="memoryAvailable")
+    def memory_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for memory.available.
+        """
+        return pulumi.get(self, "memory_available")
+
+    @memory_available.setter
+    def memory_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "memory_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsAvailable")
+    def nodefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for nodefs.available.
+        """
+        return pulumi.get(self, "nodefs_available")
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for nodefs.inodesFree.
+        """
+        return pulumi.get(self, "nodefs_inodes_free")
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pidAvailable")
+    def pid_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of minimum reclaim for pid.available.
+        """
+        return pulumi.get(self, "pid_available")
+
+    @pid_available.setter
+    def pid_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pid_available", value)
+
+
+if not MYPY:
+    class NodePoolNodeConfigKubeletConfigEvictionSoftArgsDict(TypedDict):
+        imagefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for imagefs.available.
+        """
+        imagefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for imagefs.inodesFree.
+        """
+        memory_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines quantity of soft eviction threshold for memory.available.
+        """
+        nodefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for nodefs.available.
+        """
+        nodefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for nodefs.inodesFree.
+        """
+        pid_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines percentage of soft eviction threshold for pid.available.
+        """
+elif False:
+    NodePoolNodeConfigKubeletConfigEvictionSoftArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class NodePoolNodeConfigKubeletConfigEvictionSoftArgs:
+    def __init__(__self__, *,
+                 imagefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 imagefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 memory_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 pid_available: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] imagefs_available: Defines percentage of soft eviction threshold for imagefs.available.
+        :param pulumi.Input[_builtins.str] imagefs_inodes_free: Defines percentage of soft eviction threshold for imagefs.inodesFree.
+        :param pulumi.Input[_builtins.str] memory_available: Defines quantity of soft eviction threshold for memory.available.
+        :param pulumi.Input[_builtins.str] nodefs_available: Defines percentage of soft eviction threshold for nodefs.available.
+        :param pulumi.Input[_builtins.str] nodefs_inodes_free: Defines percentage of soft eviction threshold for nodefs.inodesFree.
+        :param pulumi.Input[_builtins.str] pid_available: Defines percentage of soft eviction threshold for pid.available.
+        """
+        if imagefs_available is not None:
+            pulumi.set(__self__, "imagefs_available", imagefs_available)
+        if imagefs_inodes_free is not None:
+            pulumi.set(__self__, "imagefs_inodes_free", imagefs_inodes_free)
+        if memory_available is not None:
+            pulumi.set(__self__, "memory_available", memory_available)
+        if nodefs_available is not None:
+            pulumi.set(__self__, "nodefs_available", nodefs_available)
+        if nodefs_inodes_free is not None:
+            pulumi.set(__self__, "nodefs_inodes_free", nodefs_inodes_free)
+        if pid_available is not None:
+            pulumi.set(__self__, "pid_available", pid_available)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsAvailable")
+    def imagefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for imagefs.available.
+        """
+        return pulumi.get(self, "imagefs_available")
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for imagefs.inodesFree.
+        """
+        return pulumi.get(self, "imagefs_inodes_free")
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="memoryAvailable")
+    def memory_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines quantity of soft eviction threshold for memory.available.
+        """
+        return pulumi.get(self, "memory_available")
+
+    @memory_available.setter
+    def memory_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "memory_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsAvailable")
+    def nodefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for nodefs.available.
+        """
+        return pulumi.get(self, "nodefs_available")
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for nodefs.inodesFree.
+        """
+        return pulumi.get(self, "nodefs_inodes_free")
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pidAvailable")
+    def pid_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines percentage of soft eviction threshold for pid.available.
+        """
+        return pulumi.get(self, "pid_available")
+
+    @pid_available.setter
+    def pid_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pid_available", value)
+
+
+if not MYPY:
+    class NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict(TypedDict):
+        imagefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the imagefs.available soft eviction threshold
+        """
+        imagefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the imagefs.inodesFree soft eviction threshold.
+        """
+        memory_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the memory.available soft eviction threshold.
+        """
+        nodefs_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the nodefs.available soft eviction threshold.
+        """
+        nodefs_inodes_free: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the nodefs.inodesFree soft eviction threshold.
+        """
+        pid_available: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines grace period for the pid.available soft eviction threshold.
+        """
+elif False:
+    NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class NodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodArgs:
+    def __init__(__self__, *,
+                 imagefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 imagefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 memory_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_available: Optional[pulumi.Input[_builtins.str]] = None,
+                 nodefs_inodes_free: Optional[pulumi.Input[_builtins.str]] = None,
+                 pid_available: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] imagefs_available: Defines grace period for the imagefs.available soft eviction threshold
+        :param pulumi.Input[_builtins.str] imagefs_inodes_free: Defines grace period for the imagefs.inodesFree soft eviction threshold.
+        :param pulumi.Input[_builtins.str] memory_available: Defines grace period for the memory.available soft eviction threshold.
+        :param pulumi.Input[_builtins.str] nodefs_available: Defines grace period for the nodefs.available soft eviction threshold.
+        :param pulumi.Input[_builtins.str] nodefs_inodes_free: Defines grace period for the nodefs.inodesFree soft eviction threshold.
+        :param pulumi.Input[_builtins.str] pid_available: Defines grace period for the pid.available soft eviction threshold.
+        """
+        if imagefs_available is not None:
+            pulumi.set(__self__, "imagefs_available", imagefs_available)
+        if imagefs_inodes_free is not None:
+            pulumi.set(__self__, "imagefs_inodes_free", imagefs_inodes_free)
+        if memory_available is not None:
+            pulumi.set(__self__, "memory_available", memory_available)
+        if nodefs_available is not None:
+            pulumi.set(__self__, "nodefs_available", nodefs_available)
+        if nodefs_inodes_free is not None:
+            pulumi.set(__self__, "nodefs_inodes_free", nodefs_inodes_free)
+        if pid_available is not None:
+            pulumi.set(__self__, "pid_available", pid_available)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsAvailable")
+    def imagefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the imagefs.available soft eviction threshold
+        """
+        return pulumi.get(self, "imagefs_available")
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the imagefs.inodesFree soft eviction threshold.
+        """
+        return pulumi.get(self, "imagefs_inodes_free")
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "imagefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="memoryAvailable")
+    def memory_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the memory.available soft eviction threshold.
+        """
+        return pulumi.get(self, "memory_available")
+
+    @memory_available.setter
+    def memory_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "memory_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsAvailable")
+    def nodefs_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the nodefs.available soft eviction threshold.
+        """
+        return pulumi.get(self, "nodefs_available")
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_available", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the nodefs.inodesFree soft eviction threshold.
+        """
+        return pulumi.get(self, "nodefs_inodes_free")
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "nodefs_inodes_free", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pidAvailable")
+    def pid_available(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines grace period for the pid.available soft eviction threshold.
+        """
+        return pulumi.get(self, "pid_available")
+
+    @pid_available.setter
+    def pid_available(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pid_available", value)
 
 
 if not MYPY:
@@ -20060,6 +22106,14 @@ if not MYPY:
         """
         The Linux kernel parameters to be applied to the nodes and all pods running on the nodes.
         """
+        transparent_hugepage_defrag: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Linux kernel transparent hugepage defrag setting.
+        """
+        transparent_hugepage_enabled: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Linux kernel transparent hugepage setting.
+        """
 elif False:
     NodePoolNodeConfigLinuxNodeConfigArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -20068,11 +22122,15 @@ class NodePoolNodeConfigLinuxNodeConfigArgs:
     def __init__(__self__, *,
                  cgroup_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  hugepages_config: Optional[pulumi.Input['NodePoolNodeConfigLinuxNodeConfigHugepagesConfigArgs']] = None,
-                 sysctls: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 sysctls: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 transparent_hugepage_defrag: Optional[pulumi.Input[_builtins.str]] = None,
+                 transparent_hugepage_enabled: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] cgroup_mode: cgroupMode specifies the cgroup mode to be used on the node.
         :param pulumi.Input['NodePoolNodeConfigLinuxNodeConfigHugepagesConfigArgs'] hugepages_config: Amounts for 2M and 1G hugepages.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] sysctls: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes.
+        :param pulumi.Input[_builtins.str] transparent_hugepage_defrag: The Linux kernel transparent hugepage defrag setting.
+        :param pulumi.Input[_builtins.str] transparent_hugepage_enabled: The Linux kernel transparent hugepage setting.
         """
         if cgroup_mode is not None:
             pulumi.set(__self__, "cgroup_mode", cgroup_mode)
@@ -20080,6 +22138,10 @@ class NodePoolNodeConfigLinuxNodeConfigArgs:
             pulumi.set(__self__, "hugepages_config", hugepages_config)
         if sysctls is not None:
             pulumi.set(__self__, "sysctls", sysctls)
+        if transparent_hugepage_defrag is not None:
+            pulumi.set(__self__, "transparent_hugepage_defrag", transparent_hugepage_defrag)
+        if transparent_hugepage_enabled is not None:
+            pulumi.set(__self__, "transparent_hugepage_enabled", transparent_hugepage_enabled)
 
     @_builtins.property
     @pulumi.getter(name="cgroupMode")
@@ -20116,6 +22178,30 @@ class NodePoolNodeConfigLinuxNodeConfigArgs:
     @sysctls.setter
     def sysctls(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "sysctls", value)
+
+    @_builtins.property
+    @pulumi.getter(name="transparentHugepageDefrag")
+    def transparent_hugepage_defrag(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Linux kernel transparent hugepage defrag setting.
+        """
+        return pulumi.get(self, "transparent_hugepage_defrag")
+
+    @transparent_hugepage_defrag.setter
+    def transparent_hugepage_defrag(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "transparent_hugepage_defrag", value)
+
+    @_builtins.property
+    @pulumi.getter(name="transparentHugepageEnabled")
+    def transparent_hugepage_enabled(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Linux kernel transparent hugepage setting.
+        """
+        return pulumi.get(self, "transparent_hugepage_enabled")
+
+    @transparent_hugepage_enabled.setter
+    def transparent_hugepage_enabled(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "transparent_hugepage_enabled", value)
 
 
 if not MYPY:
@@ -20430,17 +22516,25 @@ if not MYPY:
         """
         .
         """
+        min_node_cpus: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feature is disabled.
+        """
 elif False:
     NodePoolNodeConfigSoleTenantConfigArgsDict: TypeAlias = Mapping[str, Any]
 
 @pulumi.input_type
 class NodePoolNodeConfigSoleTenantConfigArgs:
     def __init__(__self__, *,
-                 node_affinities: pulumi.Input[Sequence[pulumi.Input['NodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]]):
+                 node_affinities: pulumi.Input[Sequence[pulumi.Input['NodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]],
+                 min_node_cpus: Optional[pulumi.Input[_builtins.int]] = None):
         """
         :param pulumi.Input[Sequence[pulumi.Input['NodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]] node_affinities: .
+        :param pulumi.Input[_builtins.int] min_node_cpus: Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feature is disabled.
         """
         pulumi.set(__self__, "node_affinities", node_affinities)
+        if min_node_cpus is not None:
+            pulumi.set(__self__, "min_node_cpus", min_node_cpus)
 
     @_builtins.property
     @pulumi.getter(name="nodeAffinities")
@@ -20453,6 +22547,18 @@ class NodePoolNodeConfigSoleTenantConfigArgs:
     @node_affinities.setter
     def node_affinities(self, value: pulumi.Input[Sequence[pulumi.Input['NodePoolNodeConfigSoleTenantConfigNodeAffinityArgs']]]):
         pulumi.set(self, "node_affinities", value)
+
+    @_builtins.property
+    @pulumi.getter(name="minNodeCpus")
+    def min_node_cpus(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feature is disabled.
+        """
+        return pulumi.get(self, "min_node_cpus")
+
+    @min_node_cpus.setter
+    def min_node_cpus(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "min_node_cpus", value)
 
 
 if not MYPY:

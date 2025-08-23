@@ -376,6 +376,63 @@ impl Solver {
         (vs, t)
     }
 
+    /// Partially instantiate a generic function using the first argument.
+    /// Mainly, we use this to create a function type from a bound function,
+    /// but also for calling the staticmethod `__new__`.
+    ///
+    /// Unlike fresh_quantified, which creates vars for every tparam, we only
+    /// instantiate the tparams that appear in the first parameter.
+    ///
+    /// Returns a callable with the first parameter removed, substituted with
+    /// instantiations provided by applying the first argument.
+    pub fn instantiate_callable_self<Ans: LookupAnswer>(
+        &self,
+        tparams: &TParams,
+        self_obj: &Type,
+        self_param: &Type,
+        mut callable: Callable,
+        uniques: &UniqueFactory,
+        type_order: TypeOrder<Ans>,
+    ) -> Callable {
+        // Collect tparams that appear in the first parameter.
+        let mut qs = Vec::new();
+        self_param.for_each_quantified(&mut |q| {
+            if tparams.iter().any(|tparam| tparam.quantified == *q) {
+                qs.push(q.clone());
+            }
+        });
+
+        if qs.is_empty() {
+            return callable;
+        }
+
+        // Substitute fresh vars for the quantifieds in the self param.
+        let vs = qs.map(|_| Var::new(uniques));
+        let ts = vs.map(|v| v.to_type());
+        let mp = qs.iter().zip(&ts).collect();
+        let self_param = self_param.clone().subst(&mp);
+        callable.visit_mut(&mut |t| t.subst_mut(&mp));
+        drop(mp);
+
+        let mut lock = self.variables.write();
+        for (v, q) in vs.iter().zip(qs.into_iter()) {
+            lock.insert(*v, Variable::Quantified(q));
+        }
+        drop(lock);
+
+        // Solve for the vars created above. If this errors, then the definition
+        // is invalid, and we should have raised an error at the definition site.
+        self.is_subset_eq(self_obj, &self_param, type_order);
+
+        // Either we have solutions, or we fall back to Any. We don't use finish_quantified
+        // because we don't want Variable::Contained.
+        for v in vs {
+            self.force_var(v);
+        }
+
+        callable
+    }
+
     /// Called after a quantified function has been called. Given `def f[T](x: int): list[T]`,
     /// after the generic has completed.
     /// If `replace_quantified_with_contained` is true, the variable `T` will be have like an
@@ -506,8 +563,8 @@ impl Solver {
     /// Generate an error message that `got <: want` failed.
     pub fn error(
         &self,
-        want: &Type,
         got: &Type,
+        want: &Type,
         errors: &ErrorCollector,
         loc: TextRange,
         tcc: &dyn Fn() -> TypeCheckContext,
@@ -614,7 +671,7 @@ impl Solver {
                 // is more restrictive (so the `forced` is an over-approximation).
                 if !self.is_subset_eq(&t, &forced, type_order) {
                     // Poor error message, but overall, this is a terrible experience for users.
-                    self.error(&forced, &t, errors, loc, &|| {
+                    self.error(&t, &forced, errors, loc, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::CycleBreaking)
                     });
                 }
@@ -650,14 +707,32 @@ impl Solver {
         type_order: TypeOrder<Ans>,
         union: bool,
     ) -> bool {
-        let mut subset = Subset {
+        let mut subset = self.subset(type_order, union);
+        subset.is_subset_eq(got, want)
+    }
+
+    pub fn is_equal<Ans: LookupAnswer>(
+        &self,
+        got: &Type,
+        want: &Type,
+        type_order: TypeOrder<Ans>,
+    ) -> bool {
+        let mut subset = self.subset(type_order, false);
+        subset.is_equal(got, want)
+    }
+
+    fn subset<'a, Ans: LookupAnswer>(
+        &'a self,
+        type_order: TypeOrder<'a, Ans>,
+        union: bool,
+    ) -> Subset<'a, Ans> {
+        Subset {
             solver: self,
             type_order,
             union,
             gas: INITIAL_GAS,
             recursive_assumptions: SmallSet::new(),
-        };
-        subset.is_subset_eq(got, want)
+        }
     }
 }
 

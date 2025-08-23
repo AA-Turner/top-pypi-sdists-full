@@ -881,26 +881,12 @@ async def entrada_de_notas_7139(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
 
         except Exception as error:
             nf_imported = await check_nota_importada(nota.get("nfe"))
-            if nf_imported.sucesso == True:
-                console.print("\nVerifica se a nota ja foi lançada...")
-                status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
-                if status_nf_emsys.get("status") == "Lançada":
-                    console.print(
-                        "\nNota lançada com sucesso, processo finalizado...",
-                        style="bold green",
-                    )
-                    return RpaRetornoProcessoDTO(
-                        sucesso=True,
-                        retorno="Nota Lançada com sucesso!",
-                        status=RpaHistoricoStatusEnum.Sucesso,
-                    )
-            else:
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=f"Erro inesperado: {str(error)}",
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                )
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Erro inesperado: {str(error)}",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+            )
 
     except Exception as ex:
         observacao = f"Erro Processo Entrada de Notas: {str(ex)}"

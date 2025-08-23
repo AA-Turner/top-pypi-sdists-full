@@ -14,6 +14,8 @@ use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
+use pyrefly_types::class::ClassType;
+use pyrefly_types::types::BoundMethod;
 use pyrefly_types::types::TParam;
 use pyrefly_types::types::TParams;
 use pyrefly_types::types::TParamsSource;
@@ -268,8 +270,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // are also Var. If a default value of type T is provided, it will resolve to Any | T.
                     // Otherwise, it will be forced to Any
                     if let Some(ty) = &self_type {
-                        self.solver()
-                            .is_subset_eq(&var.to_type(), ty, self.type_order());
+                        self.is_subset_eq(&var.to_type(), ty);
                     } else if let Required::Optional(Some(default_ty)) = &required {
                         self.solver().is_subset_eq(
                             &self.union(Type::any_implicit(), default_ty.clone()),
@@ -730,8 +731,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
                     if let Type::BoundMethod(m) = call_attr {
-                        let func = m.as_function();
-                        Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
+                        Some(self.bind_boundmethod(&m).unwrap_or(m.func.as_type()))
                     } else {
                         None
                     }
@@ -993,8 +993,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // to the return type of the implementation. (Note that the two assignability checks
             // are in opposite directions.)
             self.check_type(
-                &Type::Callable(Box::new(sig_for_input_check(&overload_func.signature))),
                 &Type::Callable(Box::new(sig_for_input_check(&impl_func.signature))),
+                &Type::Callable(Box::new(sig_for_input_check(&overload_func.signature))),
                 *range,
                 errors,
                 &|| {
@@ -1005,12 +1005,110 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 },
             );
             self.check_type(
-                &impl_func.signature.ret,
                 &overload_func.signature.ret,
+                &impl_func.signature.ret,
                 *range,
                 errors,
                 &|| TypeCheckContext::of_kind(TypeCheckKind::OverloadReturn),
             );
         }
+    }
+
+    pub fn bind_boundmethod(&self, m: &BoundMethod) -> Option<Type> {
+        self.bind_function(&m.func.clone().as_type(), &m.obj)
+    }
+
+    pub fn bind_dunder_new(&self, t: &Type, cls: ClassType) -> Option<Type> {
+        self.bind_function(t, &Type::Type(Box::new(Type::SelfType(cls))))
+    }
+
+    /// If this is an unbound callable (i.e., a callable that is not BoundMethod), strip the first parameter.
+    /// If it is generic, we use the bound object to instantiate type variables in the first argument.
+    fn bind_function(&self, t: &Type, obj: &Type) -> Option<Type> {
+        match t {
+            Type::Forall(forall) => match &forall.body {
+                Forallable::Callable(c) => c.split_first_param().map(|(param, c)| {
+                    let c = self.instantiate_callable_self(&forall.tparams, obj, param, c);
+                    Type::Forall(Box::new(Forall {
+                        tparams: forall.tparams.clone(),
+                        body: Forallable::Callable(c),
+                    }))
+                }),
+                Forallable::Function(f) => f.signature.split_first_param().map(|(param, c)| {
+                    let c = self.instantiate_callable_self(&forall.tparams, obj, param, c);
+                    Type::Forall(Box::new(Forall {
+                        tparams: forall.tparams.clone(),
+                        body: Forallable::Function(Function {
+                            signature: c,
+                            metadata: f.metadata.clone(),
+                        }),
+                    }))
+                }),
+                Forallable::TypeAlias(_) => None,
+            },
+            Type::Callable(callable) => callable
+                .split_first_param()
+                .map(|(_, c)| Type::Callable(Box::new(c))),
+            Type::Function(func) => func.signature.split_first_param().map(|(_, c)| {
+                Type::Function(Box::new(Function {
+                    signature: c,
+                    metadata: func.metadata.clone(),
+                }))
+            }),
+            Type::Overload(overload) => overload
+                .signatures
+                .try_mapped_ref(|x| match x {
+                    OverloadType::Function(f) => f
+                        .signature
+                        .split_first_param()
+                        .map(|(_, c)| {
+                            OverloadType::Function(Function {
+                                signature: c,
+                                metadata: f.metadata.clone(),
+                            })
+                        })
+                        .ok_or(()),
+                    OverloadType::Forall(forall) => forall
+                        .body
+                        .signature
+                        .split_first_param()
+                        .map(|(param, c)| {
+                            let c = self.instantiate_callable_self(&forall.tparams, obj, param, c);
+                            OverloadType::Forall(Forall {
+                                tparams: forall.tparams.clone(),
+                                body: Function {
+                                    signature: c,
+                                    metadata: forall.body.metadata.clone(),
+                                },
+                            })
+                        })
+                        .ok_or(()),
+                })
+                .ok()
+                .map(|signatures| {
+                    Type::Overload(Overload {
+                        signatures,
+                        metadata: overload.metadata.clone(),
+                    })
+                }),
+            _ => None,
+        }
+    }
+
+    fn instantiate_callable_self(
+        &self,
+        tparams: &TParams,
+        self_obj: &Type,
+        self_param: &Type,
+        callable: Callable,
+    ) -> Callable {
+        self.solver().instantiate_callable_self(
+            tparams,
+            self_obj,
+            self_param,
+            callable,
+            self.uniques,
+            self.type_order(),
+        )
     }
 }

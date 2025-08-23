@@ -22,6 +22,7 @@ use starlark_map::smallmap;
 
 use crate::callable::Function;
 use crate::class::Class;
+use crate::literal::Lit;
 use crate::qname::QName;
 use crate::tuple::Tuple;
 use crate::types::AnyStyle;
@@ -188,6 +189,16 @@ impl<'a> TypeDisplayContext<'a> {
         }
     }
 
+    fn fmt_lit(&self, lit: &Lit, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match lit {
+            Lit::Enum(e) => {
+                self.fmt_qname(e.class.qname(), f)?;
+                write!(f, ".{}", e.member)
+            }
+            _ => write!(f, "{lit}"),
+        }
+    }
+
     fn fmt<'b>(&self, t: &'b Type, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_helper(t, f, true)
     }
@@ -254,7 +265,11 @@ impl<'a> TypeDisplayContext<'a> {
             }
 
             // Other things
-            Type::Literal(lit) => write!(f, "Literal[{lit}]"),
+            Type::Literal(lit) => {
+                write!(f, "Literal[")?;
+                self.fmt_lit(lit, f)?;
+                write!(f, "]")
+            }
             Type::LiteralString => write!(f, "LiteralString"),
             Type::Callable(box c)
             | Type::Function(box Function {
@@ -446,6 +461,7 @@ pub mod tests {
     use crate::class::ClassDefIndex;
     use crate::class::ClassType;
     use crate::literal::Lit;
+    use crate::literal::LitEnum;
     use crate::quantified::Quantified;
     use crate::quantified::QuantifiedKind;
     use crate::tuple::Tuple;
@@ -685,11 +701,26 @@ pub mod tests {
 
     #[test]
     fn test_display_literal() {
+        // Simple literals
         assert_eq!(Type::Literal(Lit::Bool(true)).to_string(), "Literal[True]");
         assert_eq!(
             Type::Literal(Lit::Bool(false)).to_string(),
             "Literal[False]"
         );
+
+        // Enum literals (not all of these types make sense, we're only providing what's relevant)
+        let my_enum = ClassType::new(fake_class("MyEnum", "mod.ule", 5), TArgs::default());
+        let t = Type::Literal(Lit::Enum(Box::new(LitEnum {
+            class: my_enum,
+            member: Name::new_static("X"),
+            ty: Type::any_implicit(),
+        })));
+
+        let mut ctx = TypeDisplayContext::new(&[&t]);
+        assert_eq!(ctx.display(&t).to_string(), "Literal[MyEnum.X]");
+
+        ctx.always_display_module_name();
+        assert_eq!(ctx.display(&t).to_string(), "Literal[mod.ule.MyEnum.X]");
     }
 
     #[test]

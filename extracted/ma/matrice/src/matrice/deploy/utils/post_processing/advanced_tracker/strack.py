@@ -144,6 +144,10 @@ class STrack(BaseTrack):
         self.cls = new_track.cls
         self.angle = new_track.angle
         self.idx = new_track.idx
+        
+        # CRITICAL FIX: Preserve original detection data for face recognition fields
+        if hasattr(new_track, 'original_detection'):
+            self.original_detection = new_track.original_detection
 
     def update(self, new_track: "STrack", frame_id: int):
         """
@@ -167,6 +171,10 @@ class STrack(BaseTrack):
         self.cls = new_track.cls
         self.angle = new_track.angle
         self.idx = new_track.idx
+        
+        # CRITICAL FIX: Preserve original detection data for face recognition fields
+        if hasattr(new_track, 'original_detection'):
+            self.original_detection = new_track.original_detection
 
     def convert_coords(self, tlwh: np.ndarray) -> np.ndarray:
         """Convert a bounding box's top-left-width-height format to its x-y-aspect-height equivalent."""

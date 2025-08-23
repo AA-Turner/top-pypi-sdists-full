@@ -5,6 +5,7 @@ import concurrent.futures
 import contextlib
 import dataclasses
 import functools
+import io
 import json
 import os
 import queue
@@ -17,6 +18,7 @@ import packaging.version
 import pyarrow
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.parquet as pq
 
 from chalk.clogging import chalk_logger
 from chalk.features import Feature
@@ -287,6 +289,38 @@ class SnowflakeSourceImpl(BaseSQLSource):
             v = orjson.loads(v)
         return converter.from_rich_to_primitive(v, missing_value_strategy="default_or_allow")
 
+    def _create_storage_client_from_bucket_url(self, bucket_url: str):
+        """Create a storage client from a bucket URL (gs://bucket or s3://bucket)."""
+        from chalk.utils.storage_client import GCSStorageClient, S3StorageClient
+
+        if os.getenv("CLOUD_PROVIDER") == "GCP" and not bucket_url.startswith("gs://"):
+            bucket_url = "gs://" + bucket_url
+
+        if os.getenv("CLOUD_PROVIDER") == "AWS" and not bucket_url.startswith("s3://"):
+            bucket_url = "s3://" + bucket_url
+
+        if bucket_url.startswith("gs://"):
+            bucket_name = bucket_url[5:]
+
+            try:
+                import google.cloud.storage
+
+                gcs_client = google.cloud.storage.Client()
+                return GCSStorageClient(gcs_client=gcs_client, gcs_executor=self.executor, bucket=bucket_name)
+            except ImportError:
+                raise missing_dependency_exception("chalkpy[runtime]")
+        elif bucket_url.startswith("s3://"):
+            bucket_name = bucket_url[5:]
+            try:
+                import boto3
+
+                s3_client = boto3.client("s3")
+                return S3StorageClient(bucket=bucket_name, s3_client=s3_client, executor=self.executor)
+            except ImportError:
+                raise missing_dependency_exception("chalkpy[runtime]")
+        else:
+            raise ValueError(f"Unsupported bucket URL format: {bucket_url}. Must start with gs:// or s3://")
+
     @contextlib.contextmanager
     def _create_temp_table(
         self,
@@ -299,8 +333,40 @@ class SnowflakeSourceImpl(BaseSQLSource):
         from snowflake.connector import pandas_tools
 
         snowflake_cnx = cast("SnowflakeConnection", connection.connection.dbapi_connection)
+
+        # Dual write to cloud storage if configured (read env var directly as this is a temp debugging param)
+        storage_bucket = os.getenv("PARQUET_PLAN_STAGES_STORAGE_BUCKET")
+
+        if storage_bucket and env_var_bool("CHALK_RETAIN_SNOWFLAKE_TEMPTABLES"):
+            try:
+                storage_client = self._create_storage_client_from_bucket_url(storage_bucket)
+                # Generate a unique filename for the temp table data
+                temp_table_filename = f"snowflake_temp_tables/{temp_table.name}_{uuid.uuid4()}.parquet"
+
+                # Write the table to parquet format
+                parquet_buffer = io.BytesIO()
+                pq.write_table(temp_value, parquet_buffer)
+                parquet_buffer.seek(0)
+
+                # Upload to cloud storage
+                chalk_logger.info(
+                    f"Uploading temp table {temp_table.name} to cloud storage: {storage_bucket}/{temp_table_filename}"
+                )
+                storage_client.upload_object(
+                    filename=temp_table_filename,
+                    content_type="application/octet-stream",
+                    data=parquet_buffer,
+                    metadata={"table_name": str(temp_table.name), "num_rows": str(temp_value.num_rows)},
+                )
+                chalk_logger.info(f"Successfully uploaded temp table to cloud storage")
+            except Exception as e:
+                chalk_logger.error(f"Failed to dual-write temp table to cloud storage: {e}", exc_info=True)
+                # Continue even if cloud storage write fails
+
         with snowflake_cnx.cursor() as cursor:
-            chalk_logger.info(f"Creating temporary table {temp_table.name} in Snowflake with {temp_value.num_rows} rows.")
+            chalk_logger.info(
+                f"Creating temporary table {temp_table.name} in Snowflake with {temp_value.num_rows} rows."
+            )
             cursor.execute(create_temp_table.compile(dialect=self.get_sqlalchemy_dialect()).string)
             try:
                 pandas_tools.write_pandas(
@@ -311,9 +377,11 @@ class SnowflakeSourceImpl(BaseSQLSource):
                 yield
             finally:
                 # "temp table", to snowflake, means that it belongs to the session. However, we keep using the same Snowflake session
-                chalk_logger.info(f"Dropping temporary table {temp_table.name} in Snowflake.")
                 if not env_var_bool("CHALK_RETAIN_SNOWFLAKE_TEMPTABLES", default=False):
+                    chalk_logger.info(f"Dropping temporary table {temp_table.name} in Snowflake.")
                     cursor.execute(drop_temp_table.compile(dialect=self.get_sqlalchemy_dialect()).string)
+                else:
+                    chalk_logger.warning(f"Skipping dropping temporary table {temp_table.name} in Snowflake.")
 
     def _postprocess_table(self, features: Mapping[str, Feature], tbl: pa.Table):
         columns: list[pa.Array] = []
@@ -452,7 +520,11 @@ class SnowflakeSourceImpl(BaseSQLSource):
                     cancellable_query = SnowflakeCancellableQuery()
                     QUERY_REGISTRY.register_query(cancellable_query)
                     res = cursor.execute(sql, named_params)
-                    chalk_logger.info("Executed Snowflake query. Fetching results.")
+                    query_id = cursor.sfqid if hasattr(cursor, "sfqid") else None
+                    if query_id:
+                        chalk_logger.info(f"Executed Snowflake query. Query ID: {query_id}. Fetching results.")
+                    else:
+                        chalk_logger.info("Executed Snowflake query. Fetching results.")
                     QUERY_REGISTRY.unregister_query(cancellable_query)
 
                     assert res is not None
@@ -465,6 +537,9 @@ class SnowflakeSourceImpl(BaseSQLSource):
                             query_execution_parameters.snowflake.snowflake_unload_stage,
                         )
                         stage_list_cursor = cursor.execute(f"LIST {prefix}")
+                        list_query_id = cursor.sfqid if hasattr(cursor, "sfqid") else None
+                        if list_query_id:
+                            chalk_logger.info(f"Executed LIST query. Query ID: {list_query_id}")
                         if stage_list_cursor is None:
                             chalk_logger.error("Failed to enumerate unloaded files in Snowflake stage")
                             raise ValueError("Failed to enumerate unloaded files in Snowflake stage")
@@ -477,9 +552,15 @@ class SnowflakeSourceImpl(BaseSQLSource):
                             )
                         if cursor.rowcount == 0:
                             cursor.execute(original_sql, named_params)
-                            chalk_logger.info(
-                                "Executed Snowflake query to get empty batch with schema. Fetching results."
-                            )
+                            schema_query_id = cursor.sfqid if hasattr(cursor, "sfqid") else None
+                            if schema_query_id:
+                                chalk_logger.info(
+                                    f"Executed Snowflake query to get empty batch with schema. Query ID: {schema_query_id}. Fetching results."
+                                )
+                            else:
+                                chalk_logger.info(
+                                    "Executed Snowflake query to get empty batch with schema. Fetching results."
+                                )
                             empty_batch_with_schema = (
                                 cursor.fetch_arrow_all(True) if _has_new_fetch_arrow_all() else None
                             )

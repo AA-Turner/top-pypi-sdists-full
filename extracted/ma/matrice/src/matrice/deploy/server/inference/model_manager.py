@@ -1,7 +1,6 @@
 import logging
 import gc
-from typing import Tuple
-
+from typing import Tuple, Dict, Any, Optional, List
 
 class ModelManager:
     """Minimal ModelManager that focuses on model lifecycle and prediction calls."""
@@ -12,25 +11,24 @@ class ModelManager:
         internal_server_type: str,
         internal_port: int,
         internal_host: str,
-        load_model=None,
-        predict=None,
-        batch_predict=None,
-        action_tracker=None,
+        action_tracker: Any,
         num_model_instances: int = 1,
+        load_model: Optional[callable] = None,
+        predict: Optional[callable] = None,
+        batch_predict: Optional[callable] = None,
     ):
         """Initialize the ModelManager
 
         Args:
-            model_id: ID of the model
-            internal_server_type: Type of internal server
-            internal_port: Internal port number
-            internal_host: Internal host address
-            load_model: Function to load the model
-            predict: Function to run predictions
-            batch_predict: Function to run batch predictions
-            action_tracker: Tracker for monitoring actions
-            num_model_instances: Number of model instances to create
-            
+            model_id: ID of the model.
+            internal_server_type: Type of internal server.
+            internal_port: Internal port number.
+            internal_host: Internal host address.
+            action_tracker: Tracker for monitoring actions.
+            num_model_instances: Number of model instances to create.
+            load_model: Function to load the model.
+            predict: Function to run predictions.
+            batch_predict: Function to run batch predictions.
         """
         try:
             self.model_id = model_id
@@ -79,6 +77,7 @@ class ModelManager:
     def get_model(self):
         """Get the model instance in round-robin fashion"""
         if not self.model_instances:
+            logging.warning("No model instances available")
             return None
 
         # Initialize round-robin counter if it doesn't exist

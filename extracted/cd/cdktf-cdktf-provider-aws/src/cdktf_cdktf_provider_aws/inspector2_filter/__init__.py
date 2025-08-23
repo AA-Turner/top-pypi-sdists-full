@@ -1,7 +1,7 @@
 r'''
 # `aws_inspector2_filter`
 
-Refer to the Terraform Registry for docs: [`aws_inspector2_filter`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter).
+Refer to the Terraform Registry for docs: [`aws_inspector2_filter`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Inspector2Filter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.inspector2Filter.Inspector2Filter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter aws_inspector2_filter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter aws_inspector2_filter}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class Inspector2Filter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter aws_inspector2_filter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter aws_inspector2_filter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#action Inspector2Filter#action}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#name Inspector2Filter#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#description Inspector2Filter#description}.
-        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#filter_criteria Inspector2Filter#filter_criteria}
-        :param reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#reason Inspector2Filter#reason}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#region Inspector2Filter#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#tags Inspector2Filter#tags}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#action Inspector2Filter#action}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#name Inspector2Filter#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#description Inspector2Filter#description}.
+        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#filter_criteria Inspector2Filter#filter_criteria}
+        :param reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#reason Inspector2Filter#reason}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#region Inspector2Filter#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#tags Inspector2Filter#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class Inspector2Filter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Inspector2Filter to import.
-        :param import_from_id: The id of the existing Inspector2Filter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Inspector2Filter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Inspector2Filter to import is found.
         '''
         if __debug__:
@@ -350,13 +350,13 @@ class Inspector2FilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#action Inspector2Filter#action}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#name Inspector2Filter#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#description Inspector2Filter#description}.
-        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#filter_criteria Inspector2Filter#filter_criteria}
-        :param reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#reason Inspector2Filter#reason}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#region Inspector2Filter#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#tags Inspector2Filter#tags}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#action Inspector2Filter#action}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#name Inspector2Filter#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#description Inspector2Filter#description}.
+        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#filter_criteria Inspector2Filter#filter_criteria}
+        :param reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#reason Inspector2Filter#reason}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#region Inspector2Filter#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#tags Inspector2Filter#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -471,21 +471,21 @@ class Inspector2FilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#action Inspector2Filter#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#action Inspector2Filter#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#name Inspector2Filter#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#name Inspector2Filter#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#description Inspector2Filter#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#description Inspector2Filter#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -495,14 +495,14 @@ class Inspector2FilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteria"]]]:
         '''filter_criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#filter_criteria Inspector2Filter#filter_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#filter_criteria Inspector2Filter#filter_criteria}
         '''
         result = self._values.get("filter_criteria")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteria"]]], result)
 
     @builtins.property
     def reason(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#reason Inspector2Filter#reason}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#reason Inspector2Filter#reason}.'''
         result = self._values.get("reason")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -510,14 +510,14 @@ class Inspector2FilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#region Inspector2Filter#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#region Inspector2Filter#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#tags Inspector2Filter#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#tags Inspector2Filter#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -629,48 +629,48 @@ class Inspector2FilterFilterCriteria:
         vulnerable_packages: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Inspector2FilterFilterCriteriaVulnerablePackages", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aws_account_id: aws_account_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#aws_account_id Inspector2Filter#aws_account_id}
-        :param code_vulnerability_detector_name: code_vulnerability_detector_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#code_vulnerability_detector_name Inspector2Filter#code_vulnerability_detector_name}
-        :param code_vulnerability_detector_tags: code_vulnerability_detector_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#code_vulnerability_detector_tags Inspector2Filter#code_vulnerability_detector_tags}
-        :param code_vulnerability_file_path: code_vulnerability_file_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#code_vulnerability_file_path Inspector2Filter#code_vulnerability_file_path}
-        :param component_id: component_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#component_id Inspector2Filter#component_id}
-        :param component_type: component_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#component_type Inspector2Filter#component_type}
-        :param ec2_instance_image_id: ec2_instance_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ec2_instance_image_id Inspector2Filter#ec2_instance_image_id}
-        :param ec2_instance_subnet_id: ec2_instance_subnet_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ec2_instance_subnet_id Inspector2Filter#ec2_instance_subnet_id}
-        :param ec2_instance_vpc_id: ec2_instance_vpc_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ec2_instance_vpc_id Inspector2Filter#ec2_instance_vpc_id}
-        :param ecr_image_architecture: ecr_image_architecture block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_architecture Inspector2Filter#ecr_image_architecture}
-        :param ecr_image_hash: ecr_image_hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_hash Inspector2Filter#ecr_image_hash}
-        :param ecr_image_pushed_at: ecr_image_pushed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_pushed_at Inspector2Filter#ecr_image_pushed_at}
-        :param ecr_image_registry: ecr_image_registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_registry Inspector2Filter#ecr_image_registry}
-        :param ecr_image_repository_name: ecr_image_repository_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_repository_name Inspector2Filter#ecr_image_repository_name}
-        :param ecr_image_tags: ecr_image_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_tags Inspector2Filter#ecr_image_tags}
-        :param epss_score: epss_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#epss_score Inspector2Filter#epss_score}
-        :param exploit_available: exploit_available block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#exploit_available Inspector2Filter#exploit_available}
-        :param finding_arn: finding_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#finding_arn Inspector2Filter#finding_arn}
-        :param finding_status: finding_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#finding_status Inspector2Filter#finding_status}
-        :param finding_type: finding_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#finding_type Inspector2Filter#finding_type}
-        :param first_observed_at: first_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#first_observed_at Inspector2Filter#first_observed_at}
-        :param fix_available: fix_available block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#fix_available Inspector2Filter#fix_available}
-        :param inspector_score: inspector_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#inspector_score Inspector2Filter#inspector_score}
-        :param lambda_function_execution_role_arn: lambda_function_execution_role_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_execution_role_arn Inspector2Filter#lambda_function_execution_role_arn}
-        :param lambda_function_last_modified_at: lambda_function_last_modified_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_last_modified_at Inspector2Filter#lambda_function_last_modified_at}
-        :param lambda_function_layers: lambda_function_layers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_layers Inspector2Filter#lambda_function_layers}
-        :param lambda_function_name: lambda_function_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_name Inspector2Filter#lambda_function_name}
-        :param lambda_function_runtime: lambda_function_runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_runtime Inspector2Filter#lambda_function_runtime}
-        :param last_observed_at: last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#last_observed_at Inspector2Filter#last_observed_at}
-        :param network_protocol: network_protocol block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#network_protocol Inspector2Filter#network_protocol}
-        :param port_range: port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#port_range Inspector2Filter#port_range}
-        :param related_vulnerabilities: related_vulnerabilities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#related_vulnerabilities Inspector2Filter#related_vulnerabilities}
-        :param resource_id: resource_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#resource_id Inspector2Filter#resource_id}
-        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#resource_tags Inspector2Filter#resource_tags}
-        :param resource_type: resource_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#resource_type Inspector2Filter#resource_type}
-        :param severity: severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#severity Inspector2Filter#severity}
-        :param title: title block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#title Inspector2Filter#title}
-        :param updated_at: updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#updated_at Inspector2Filter#updated_at}
-        :param vendor_severity: vendor_severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#vendor_severity Inspector2Filter#vendor_severity}
-        :param vulnerability_id: vulnerability_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#vulnerability_id Inspector2Filter#vulnerability_id}
-        :param vulnerability_source: vulnerability_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#vulnerability_source Inspector2Filter#vulnerability_source}
-        :param vulnerable_packages: vulnerable_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#vulnerable_packages Inspector2Filter#vulnerable_packages}
+        :param aws_account_id: aws_account_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#aws_account_id Inspector2Filter#aws_account_id}
+        :param code_vulnerability_detector_name: code_vulnerability_detector_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#code_vulnerability_detector_name Inspector2Filter#code_vulnerability_detector_name}
+        :param code_vulnerability_detector_tags: code_vulnerability_detector_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#code_vulnerability_detector_tags Inspector2Filter#code_vulnerability_detector_tags}
+        :param code_vulnerability_file_path: code_vulnerability_file_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#code_vulnerability_file_path Inspector2Filter#code_vulnerability_file_path}
+        :param component_id: component_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#component_id Inspector2Filter#component_id}
+        :param component_type: component_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#component_type Inspector2Filter#component_type}
+        :param ec2_instance_image_id: ec2_instance_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ec2_instance_image_id Inspector2Filter#ec2_instance_image_id}
+        :param ec2_instance_subnet_id: ec2_instance_subnet_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ec2_instance_subnet_id Inspector2Filter#ec2_instance_subnet_id}
+        :param ec2_instance_vpc_id: ec2_instance_vpc_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ec2_instance_vpc_id Inspector2Filter#ec2_instance_vpc_id}
+        :param ecr_image_architecture: ecr_image_architecture block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_architecture Inspector2Filter#ecr_image_architecture}
+        :param ecr_image_hash: ecr_image_hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_hash Inspector2Filter#ecr_image_hash}
+        :param ecr_image_pushed_at: ecr_image_pushed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_pushed_at Inspector2Filter#ecr_image_pushed_at}
+        :param ecr_image_registry: ecr_image_registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_registry Inspector2Filter#ecr_image_registry}
+        :param ecr_image_repository_name: ecr_image_repository_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_repository_name Inspector2Filter#ecr_image_repository_name}
+        :param ecr_image_tags: ecr_image_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_tags Inspector2Filter#ecr_image_tags}
+        :param epss_score: epss_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#epss_score Inspector2Filter#epss_score}
+        :param exploit_available: exploit_available block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#exploit_available Inspector2Filter#exploit_available}
+        :param finding_arn: finding_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#finding_arn Inspector2Filter#finding_arn}
+        :param finding_status: finding_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#finding_status Inspector2Filter#finding_status}
+        :param finding_type: finding_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#finding_type Inspector2Filter#finding_type}
+        :param first_observed_at: first_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#first_observed_at Inspector2Filter#first_observed_at}
+        :param fix_available: fix_available block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#fix_available Inspector2Filter#fix_available}
+        :param inspector_score: inspector_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#inspector_score Inspector2Filter#inspector_score}
+        :param lambda_function_execution_role_arn: lambda_function_execution_role_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_execution_role_arn Inspector2Filter#lambda_function_execution_role_arn}
+        :param lambda_function_last_modified_at: lambda_function_last_modified_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_last_modified_at Inspector2Filter#lambda_function_last_modified_at}
+        :param lambda_function_layers: lambda_function_layers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_layers Inspector2Filter#lambda_function_layers}
+        :param lambda_function_name: lambda_function_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_name Inspector2Filter#lambda_function_name}
+        :param lambda_function_runtime: lambda_function_runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_runtime Inspector2Filter#lambda_function_runtime}
+        :param last_observed_at: last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#last_observed_at Inspector2Filter#last_observed_at}
+        :param network_protocol: network_protocol block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#network_protocol Inspector2Filter#network_protocol}
+        :param port_range: port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#port_range Inspector2Filter#port_range}
+        :param related_vulnerabilities: related_vulnerabilities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#related_vulnerabilities Inspector2Filter#related_vulnerabilities}
+        :param resource_id: resource_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#resource_id Inspector2Filter#resource_id}
+        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#resource_tags Inspector2Filter#resource_tags}
+        :param resource_type: resource_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#resource_type Inspector2Filter#resource_type}
+        :param severity: severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#severity Inspector2Filter#severity}
+        :param title: title block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#title Inspector2Filter#title}
+        :param updated_at: updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#updated_at Inspector2Filter#updated_at}
+        :param vendor_severity: vendor_severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#vendor_severity Inspector2Filter#vendor_severity}
+        :param vulnerability_id: vulnerability_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#vulnerability_id Inspector2Filter#vulnerability_id}
+        :param vulnerability_source: vulnerability_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#vulnerability_source Inspector2Filter#vulnerability_source}
+        :param vulnerable_packages: vulnerable_packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#vulnerable_packages Inspector2Filter#vulnerable_packages}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5666efa08acb27a7c5ce4cba127a939042c48c874ff2b464223a132d02a45e37)
@@ -808,7 +808,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaAwsAccountId"]]]:
         '''aws_account_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#aws_account_id Inspector2Filter#aws_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#aws_account_id Inspector2Filter#aws_account_id}
         '''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaAwsAccountId"]]], result)
@@ -819,7 +819,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorName"]]]:
         '''code_vulnerability_detector_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#code_vulnerability_detector_name Inspector2Filter#code_vulnerability_detector_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#code_vulnerability_detector_name Inspector2Filter#code_vulnerability_detector_name}
         '''
         result = self._values.get("code_vulnerability_detector_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorName"]]], result)
@@ -830,7 +830,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorTags"]]]:
         '''code_vulnerability_detector_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#code_vulnerability_detector_tags Inspector2Filter#code_vulnerability_detector_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#code_vulnerability_detector_tags Inspector2Filter#code_vulnerability_detector_tags}
         '''
         result = self._values.get("code_vulnerability_detector_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorTags"]]], result)
@@ -841,7 +841,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaCodeVulnerabilityFilePath"]]]:
         '''code_vulnerability_file_path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#code_vulnerability_file_path Inspector2Filter#code_vulnerability_file_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#code_vulnerability_file_path Inspector2Filter#code_vulnerability_file_path}
         '''
         result = self._values.get("code_vulnerability_file_path")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaCodeVulnerabilityFilePath"]]], result)
@@ -852,7 +852,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaComponentId"]]]:
         '''component_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#component_id Inspector2Filter#component_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#component_id Inspector2Filter#component_id}
         '''
         result = self._values.get("component_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaComponentId"]]], result)
@@ -863,7 +863,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaComponentType"]]]:
         '''component_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#component_type Inspector2Filter#component_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#component_type Inspector2Filter#component_type}
         '''
         result = self._values.get("component_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaComponentType"]]], result)
@@ -874,7 +874,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEc2InstanceImageId"]]]:
         '''ec2_instance_image_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ec2_instance_image_id Inspector2Filter#ec2_instance_image_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ec2_instance_image_id Inspector2Filter#ec2_instance_image_id}
         '''
         result = self._values.get("ec2_instance_image_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEc2InstanceImageId"]]], result)
@@ -885,7 +885,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEc2InstanceSubnetId"]]]:
         '''ec2_instance_subnet_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ec2_instance_subnet_id Inspector2Filter#ec2_instance_subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ec2_instance_subnet_id Inspector2Filter#ec2_instance_subnet_id}
         '''
         result = self._values.get("ec2_instance_subnet_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEc2InstanceSubnetId"]]], result)
@@ -896,7 +896,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEc2InstanceVpcId"]]]:
         '''ec2_instance_vpc_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ec2_instance_vpc_id Inspector2Filter#ec2_instance_vpc_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ec2_instance_vpc_id Inspector2Filter#ec2_instance_vpc_id}
         '''
         result = self._values.get("ec2_instance_vpc_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEc2InstanceVpcId"]]], result)
@@ -907,7 +907,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageArchitecture"]]]:
         '''ecr_image_architecture block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_architecture Inspector2Filter#ecr_image_architecture}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_architecture Inspector2Filter#ecr_image_architecture}
         '''
         result = self._values.get("ecr_image_architecture")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageArchitecture"]]], result)
@@ -918,7 +918,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageHash"]]]:
         '''ecr_image_hash block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_hash Inspector2Filter#ecr_image_hash}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_hash Inspector2Filter#ecr_image_hash}
         '''
         result = self._values.get("ecr_image_hash")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageHash"]]], result)
@@ -929,7 +929,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImagePushedAt"]]]:
         '''ecr_image_pushed_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_pushed_at Inspector2Filter#ecr_image_pushed_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_pushed_at Inspector2Filter#ecr_image_pushed_at}
         '''
         result = self._values.get("ecr_image_pushed_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImagePushedAt"]]], result)
@@ -940,7 +940,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageRegistry"]]]:
         '''ecr_image_registry block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_registry Inspector2Filter#ecr_image_registry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_registry Inspector2Filter#ecr_image_registry}
         '''
         result = self._values.get("ecr_image_registry")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageRegistry"]]], result)
@@ -951,7 +951,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageRepositoryName"]]]:
         '''ecr_image_repository_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_repository_name Inspector2Filter#ecr_image_repository_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_repository_name Inspector2Filter#ecr_image_repository_name}
         '''
         result = self._values.get("ecr_image_repository_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageRepositoryName"]]], result)
@@ -962,7 +962,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageTags"]]]:
         '''ecr_image_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#ecr_image_tags Inspector2Filter#ecr_image_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#ecr_image_tags Inspector2Filter#ecr_image_tags}
         '''
         result = self._values.get("ecr_image_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEcrImageTags"]]], result)
@@ -973,7 +973,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEpssScore"]]]:
         '''epss_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#epss_score Inspector2Filter#epss_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#epss_score Inspector2Filter#epss_score}
         '''
         result = self._values.get("epss_score")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaEpssScore"]]], result)
@@ -984,7 +984,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaExploitAvailable"]]]:
         '''exploit_available block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#exploit_available Inspector2Filter#exploit_available}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#exploit_available Inspector2Filter#exploit_available}
         '''
         result = self._values.get("exploit_available")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaExploitAvailable"]]], result)
@@ -995,7 +995,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFindingArn"]]]:
         '''finding_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#finding_arn Inspector2Filter#finding_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#finding_arn Inspector2Filter#finding_arn}
         '''
         result = self._values.get("finding_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFindingArn"]]], result)
@@ -1006,7 +1006,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFindingStatus"]]]:
         '''finding_status block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#finding_status Inspector2Filter#finding_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#finding_status Inspector2Filter#finding_status}
         '''
         result = self._values.get("finding_status")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFindingStatus"]]], result)
@@ -1017,7 +1017,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFindingType"]]]:
         '''finding_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#finding_type Inspector2Filter#finding_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#finding_type Inspector2Filter#finding_type}
         '''
         result = self._values.get("finding_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFindingType"]]], result)
@@ -1028,7 +1028,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFirstObservedAt"]]]:
         '''first_observed_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#first_observed_at Inspector2Filter#first_observed_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#first_observed_at Inspector2Filter#first_observed_at}
         '''
         result = self._values.get("first_observed_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFirstObservedAt"]]], result)
@@ -1039,7 +1039,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFixAvailable"]]]:
         '''fix_available block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#fix_available Inspector2Filter#fix_available}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#fix_available Inspector2Filter#fix_available}
         '''
         result = self._values.get("fix_available")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaFixAvailable"]]], result)
@@ -1050,7 +1050,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaInspectorScore"]]]:
         '''inspector_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#inspector_score Inspector2Filter#inspector_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#inspector_score Inspector2Filter#inspector_score}
         '''
         result = self._values.get("inspector_score")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaInspectorScore"]]], result)
@@ -1061,7 +1061,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionExecutionRoleArn"]]]:
         '''lambda_function_execution_role_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_execution_role_arn Inspector2Filter#lambda_function_execution_role_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_execution_role_arn Inspector2Filter#lambda_function_execution_role_arn}
         '''
         result = self._values.get("lambda_function_execution_role_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionExecutionRoleArn"]]], result)
@@ -1072,7 +1072,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionLastModifiedAt"]]]:
         '''lambda_function_last_modified_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_last_modified_at Inspector2Filter#lambda_function_last_modified_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_last_modified_at Inspector2Filter#lambda_function_last_modified_at}
         '''
         result = self._values.get("lambda_function_last_modified_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionLastModifiedAt"]]], result)
@@ -1083,7 +1083,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionLayers"]]]:
         '''lambda_function_layers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_layers Inspector2Filter#lambda_function_layers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_layers Inspector2Filter#lambda_function_layers}
         '''
         result = self._values.get("lambda_function_layers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionLayers"]]], result)
@@ -1094,7 +1094,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionName"]]]:
         '''lambda_function_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_name Inspector2Filter#lambda_function_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_name Inspector2Filter#lambda_function_name}
         '''
         result = self._values.get("lambda_function_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionName"]]], result)
@@ -1105,7 +1105,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionRuntime"]]]:
         '''lambda_function_runtime block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lambda_function_runtime Inspector2Filter#lambda_function_runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lambda_function_runtime Inspector2Filter#lambda_function_runtime}
         '''
         result = self._values.get("lambda_function_runtime")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLambdaFunctionRuntime"]]], result)
@@ -1116,7 +1116,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLastObservedAt"]]]:
         '''last_observed_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#last_observed_at Inspector2Filter#last_observed_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#last_observed_at Inspector2Filter#last_observed_at}
         '''
         result = self._values.get("last_observed_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaLastObservedAt"]]], result)
@@ -1127,7 +1127,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaNetworkProtocol"]]]:
         '''network_protocol block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#network_protocol Inspector2Filter#network_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#network_protocol Inspector2Filter#network_protocol}
         '''
         result = self._values.get("network_protocol")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaNetworkProtocol"]]], result)
@@ -1138,7 +1138,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaPortRange"]]]:
         '''port_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#port_range Inspector2Filter#port_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#port_range Inspector2Filter#port_range}
         '''
         result = self._values.get("port_range")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaPortRange"]]], result)
@@ -1149,7 +1149,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaRelatedVulnerabilities"]]]:
         '''related_vulnerabilities block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#related_vulnerabilities Inspector2Filter#related_vulnerabilities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#related_vulnerabilities Inspector2Filter#related_vulnerabilities}
         '''
         result = self._values.get("related_vulnerabilities")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaRelatedVulnerabilities"]]], result)
@@ -1160,7 +1160,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaResourceId"]]]:
         '''resource_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#resource_id Inspector2Filter#resource_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#resource_id Inspector2Filter#resource_id}
         '''
         result = self._values.get("resource_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaResourceId"]]], result)
@@ -1171,7 +1171,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaResourceTags"]]]:
         '''resource_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#resource_tags Inspector2Filter#resource_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#resource_tags Inspector2Filter#resource_tags}
         '''
         result = self._values.get("resource_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaResourceTags"]]], result)
@@ -1182,7 +1182,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaResourceType"]]]:
         '''resource_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#resource_type Inspector2Filter#resource_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#resource_type Inspector2Filter#resource_type}
         '''
         result = self._values.get("resource_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaResourceType"]]], result)
@@ -1193,7 +1193,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaSeverity"]]]:
         '''severity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#severity Inspector2Filter#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#severity Inspector2Filter#severity}
         '''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaSeverity"]]], result)
@@ -1204,7 +1204,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaTitle"]]]:
         '''title block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#title Inspector2Filter#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#title Inspector2Filter#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaTitle"]]], result)
@@ -1215,7 +1215,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaUpdatedAt"]]]:
         '''updated_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#updated_at Inspector2Filter#updated_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#updated_at Inspector2Filter#updated_at}
         '''
         result = self._values.get("updated_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaUpdatedAt"]]], result)
@@ -1226,7 +1226,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVendorSeverity"]]]:
         '''vendor_severity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#vendor_severity Inspector2Filter#vendor_severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#vendor_severity Inspector2Filter#vendor_severity}
         '''
         result = self._values.get("vendor_severity")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVendorSeverity"]]], result)
@@ -1237,7 +1237,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerabilityId"]]]:
         '''vulnerability_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#vulnerability_id Inspector2Filter#vulnerability_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#vulnerability_id Inspector2Filter#vulnerability_id}
         '''
         result = self._values.get("vulnerability_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerabilityId"]]], result)
@@ -1248,7 +1248,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerabilitySource"]]]:
         '''vulnerability_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#vulnerability_source Inspector2Filter#vulnerability_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#vulnerability_source Inspector2Filter#vulnerability_source}
         '''
         result = self._values.get("vulnerability_source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerabilitySource"]]], result)
@@ -1259,7 +1259,7 @@ class Inspector2FilterFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackages"]]]:
         '''vulnerable_packages block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#vulnerable_packages Inspector2Filter#vulnerable_packages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#vulnerable_packages Inspector2Filter#vulnerable_packages}
         '''
         result = self._values.get("vulnerable_packages")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackages"]]], result)
@@ -1284,8 +1284,8 @@ class Inspector2FilterFilterCriteria:
 class Inspector2FilterFilterCriteriaAwsAccountId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__684dfded7d52490ec9a7661e631e287325268d79d62d6dc86dede198105d489d)
@@ -1298,14 +1298,14 @@ class Inspector2FilterFilterCriteriaAwsAccountId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1501,8 +1501,8 @@ class Inspector2FilterFilterCriteriaAwsAccountIdOutputReference(
 class Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac1f1da779b6f5238ac2eb7f85f9b976f1233af80c70696290d8c426645aa240)
@@ -1515,14 +1515,14 @@ class Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1718,8 +1718,8 @@ class Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorNameOutputReference
 class Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorTags:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93685c6a3faf6188c97ae56c23266e63fd9fdc5887b25eaed4a6acdfbed516c1)
@@ -1732,14 +1732,14 @@ class Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorTags:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1935,8 +1935,8 @@ class Inspector2FilterFilterCriteriaCodeVulnerabilityDetectorTagsOutputReference
 class Inspector2FilterFilterCriteriaCodeVulnerabilityFilePath:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92e9e39a4c3165b6cf5088ff752ccb584ad41efd54df5540c6d79225c19aa4d1)
@@ -1949,14 +1949,14 @@ class Inspector2FilterFilterCriteriaCodeVulnerabilityFilePath:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2152,8 +2152,8 @@ class Inspector2FilterFilterCriteriaCodeVulnerabilityFilePathOutputReference(
 class Inspector2FilterFilterCriteriaComponentId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e90edf61e4d9f3ae2b985ed5f83a891faa717678fb103bd37eb1a61a4e93a7a3)
@@ -2166,14 +2166,14 @@ class Inspector2FilterFilterCriteriaComponentId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2369,8 +2369,8 @@ class Inspector2FilterFilterCriteriaComponentIdOutputReference(
 class Inspector2FilterFilterCriteriaComponentType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37a08facf77d9ff8ca17db907ea952bb54eb9c27ad521ed5c99f3f865192b0cc)
@@ -2383,14 +2383,14 @@ class Inspector2FilterFilterCriteriaComponentType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2586,8 +2586,8 @@ class Inspector2FilterFilterCriteriaComponentTypeOutputReference(
 class Inspector2FilterFilterCriteriaEc2InstanceImageId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__085adc136afbeb8f4e50999546a777fffa2f93428a9528b336c6c0612f43e13f)
@@ -2600,14 +2600,14 @@ class Inspector2FilterFilterCriteriaEc2InstanceImageId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2803,8 +2803,8 @@ class Inspector2FilterFilterCriteriaEc2InstanceImageIdOutputReference(
 class Inspector2FilterFilterCriteriaEc2InstanceSubnetId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__453f25bcd6711820eefcb6c68216b1b75573e5571aeeba7a9efd3f3420dd2b1e)
@@ -2817,14 +2817,14 @@ class Inspector2FilterFilterCriteriaEc2InstanceSubnetId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3020,8 +3020,8 @@ class Inspector2FilterFilterCriteriaEc2InstanceSubnetIdOutputReference(
 class Inspector2FilterFilterCriteriaEc2InstanceVpcId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__435382e0f0624d7d5eb022e1275e5f25dc131553871aaf65774d1aa8e3cd3e77)
@@ -3034,14 +3034,14 @@ class Inspector2FilterFilterCriteriaEc2InstanceVpcId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3237,8 +3237,8 @@ class Inspector2FilterFilterCriteriaEc2InstanceVpcIdOutputReference(
 class Inspector2FilterFilterCriteriaEcrImageArchitecture:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__286f8224a8dbaa125364b4ee1b728cfcc00e3ee672028525229c1818f2dd31d3)
@@ -3251,14 +3251,14 @@ class Inspector2FilterFilterCriteriaEcrImageArchitecture:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3454,8 +3454,8 @@ class Inspector2FilterFilterCriteriaEcrImageArchitectureOutputReference(
 class Inspector2FilterFilterCriteriaEcrImageHash:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c68a36e6ea94efd3b4a42ac102f6111cef1a044149c95a069f89877b6d03bf04)
@@ -3468,14 +3468,14 @@ class Inspector2FilterFilterCriteriaEcrImageHash:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3679,8 +3679,8 @@ class Inspector2FilterFilterCriteriaEcrImagePushedAt:
         start_inclusive: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
-        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
+        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
+        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ae918abcfb94235586825fa306d60db85b7cc098381d2646687958bd261d3d2)
@@ -3694,13 +3694,13 @@ class Inspector2FilterFilterCriteriaEcrImagePushedAt:
 
     @builtins.property
     def end_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
         result = self._values.get("end_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
         result = self._values.get("start_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3903,8 +3903,8 @@ class Inspector2FilterFilterCriteriaEcrImagePushedAtOutputReference(
 class Inspector2FilterFilterCriteriaEcrImageRegistry:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c133ad0996c79aa0bac51e0d50bbf534ca2093f48121169b9f9835857db3d228)
@@ -3917,14 +3917,14 @@ class Inspector2FilterFilterCriteriaEcrImageRegistry:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4120,8 +4120,8 @@ class Inspector2FilterFilterCriteriaEcrImageRegistryOutputReference(
 class Inspector2FilterFilterCriteriaEcrImageRepositoryName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a84a9ac435d0db33698e0a7b2dc9a6725126b5e524260734d26da861dd111a03)
@@ -4134,14 +4134,14 @@ class Inspector2FilterFilterCriteriaEcrImageRepositoryName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4337,8 +4337,8 @@ class Inspector2FilterFilterCriteriaEcrImageRepositoryNameOutputReference(
 class Inspector2FilterFilterCriteriaEcrImageTags:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c61d94b7eb4d0674ace3b0894bf11f94b4c685c617d973452265637534950021)
@@ -4351,14 +4351,14 @@ class Inspector2FilterFilterCriteriaEcrImageTags:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4562,8 +4562,8 @@ class Inspector2FilterFilterCriteriaEpssScore:
         upper_inclusive: jsii.Number,
     ) -> None:
         '''
-        :param lower_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.
-        :param upper_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.
+        :param lower_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.
+        :param upper_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6966a6563c978a9b316c92e10a78998509b4eafcfd7f8823c96857e27485472f)
@@ -4576,14 +4576,14 @@ class Inspector2FilterFilterCriteriaEpssScore:
 
     @builtins.property
     def lower_inclusive(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.'''
         result = self._values.get("lower_inclusive")
         assert result is not None, "Required property 'lower_inclusive' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def upper_inclusive(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.'''
         result = self._values.get("upper_inclusive")
         assert result is not None, "Required property 'upper_inclusive' is missing"
         return typing.cast(jsii.Number, result)
@@ -4779,8 +4779,8 @@ class Inspector2FilterFilterCriteriaEpssScoreOutputReference(
 class Inspector2FilterFilterCriteriaExploitAvailable:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9d5a08d1d34e7683a3bd47ef5e9726179b550916a1190b02b0e368eb6264d29)
@@ -4793,14 +4793,14 @@ class Inspector2FilterFilterCriteriaExploitAvailable:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4996,8 +4996,8 @@ class Inspector2FilterFilterCriteriaExploitAvailableOutputReference(
 class Inspector2FilterFilterCriteriaFindingArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a882a788d71a0f7df030da827ab6c88a60b8517549686e94be7505bcc6bd4152)
@@ -5010,14 +5010,14 @@ class Inspector2FilterFilterCriteriaFindingArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5213,8 +5213,8 @@ class Inspector2FilterFilterCriteriaFindingArnOutputReference(
 class Inspector2FilterFilterCriteriaFindingStatus:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2eaa96ed9e66810e864fe97abb85eb8f016d9d3bd4c86d0e29427b6946c5c49)
@@ -5227,14 +5227,14 @@ class Inspector2FilterFilterCriteriaFindingStatus:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5430,8 +5430,8 @@ class Inspector2FilterFilterCriteriaFindingStatusOutputReference(
 class Inspector2FilterFilterCriteriaFindingType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f3dce94a74cb95671c9653778caf535fe2fb6b71a2bbb92fe55d47531eb6a61)
@@ -5444,14 +5444,14 @@ class Inspector2FilterFilterCriteriaFindingType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5655,8 +5655,8 @@ class Inspector2FilterFilterCriteriaFirstObservedAt:
         start_inclusive: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
-        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
+        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
+        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43808e850b7bc32384fed5f021d6719767cccedd16afdc852aac4972286e6305)
@@ -5670,13 +5670,13 @@ class Inspector2FilterFilterCriteriaFirstObservedAt:
 
     @builtins.property
     def end_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
         result = self._values.get("end_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
         result = self._values.get("start_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5879,8 +5879,8 @@ class Inspector2FilterFilterCriteriaFirstObservedAtOutputReference(
 class Inspector2FilterFilterCriteriaFixAvailable:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f727f80d4bf7531b182eab82bfb773e1bcdd4340d7d8620749b5b1350fcd07c2)
@@ -5893,14 +5893,14 @@ class Inspector2FilterFilterCriteriaFixAvailable:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6104,8 +6104,8 @@ class Inspector2FilterFilterCriteriaInspectorScore:
         upper_inclusive: jsii.Number,
     ) -> None:
         '''
-        :param lower_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.
-        :param upper_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.
+        :param lower_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.
+        :param upper_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0fa5e6b38b56de31c2f38400db0ebb99c5dbddb347faacd25c8460763e4138e8)
@@ -6118,14 +6118,14 @@ class Inspector2FilterFilterCriteriaInspectorScore:
 
     @builtins.property
     def lower_inclusive(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.'''
         result = self._values.get("lower_inclusive")
         assert result is not None, "Required property 'lower_inclusive' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def upper_inclusive(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.'''
         result = self._values.get("upper_inclusive")
         assert result is not None, "Required property 'upper_inclusive' is missing"
         return typing.cast(jsii.Number, result)
@@ -6321,8 +6321,8 @@ class Inspector2FilterFilterCriteriaInspectorScoreOutputReference(
 class Inspector2FilterFilterCriteriaLambdaFunctionExecutionRoleArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__783640538ddeb31296c93e5478c8492d4459f09aec3efb4aefec23bb407065e1)
@@ -6335,14 +6335,14 @@ class Inspector2FilterFilterCriteriaLambdaFunctionExecutionRoleArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6546,8 +6546,8 @@ class Inspector2FilterFilterCriteriaLambdaFunctionLastModifiedAt:
         start_inclusive: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
-        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
+        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
+        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58c4df5bb88096f2496460b9fa72499240b1015bd1ca2aac6020aa3f31108395)
@@ -6561,13 +6561,13 @@ class Inspector2FilterFilterCriteriaLambdaFunctionLastModifiedAt:
 
     @builtins.property
     def end_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
         result = self._values.get("end_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
         result = self._values.get("start_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6770,8 +6770,8 @@ class Inspector2FilterFilterCriteriaLambdaFunctionLastModifiedAtOutputReference(
 class Inspector2FilterFilterCriteriaLambdaFunctionLayers:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e083efaae191cf5dfda479897a7c5a3254ab0e21c2b3d7813b0d97a900bd65b)
@@ -6784,14 +6784,14 @@ class Inspector2FilterFilterCriteriaLambdaFunctionLayers:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6987,8 +6987,8 @@ class Inspector2FilterFilterCriteriaLambdaFunctionLayersOutputReference(
 class Inspector2FilterFilterCriteriaLambdaFunctionName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d44a43cc784eda685a74802344b557151c430e4a0ffee18e7a4063c405572751)
@@ -7001,14 +7001,14 @@ class Inspector2FilterFilterCriteriaLambdaFunctionName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -7204,8 +7204,8 @@ class Inspector2FilterFilterCriteriaLambdaFunctionNameOutputReference(
 class Inspector2FilterFilterCriteriaLambdaFunctionRuntime:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed488d3b9ff2c187b8428101894acb712c2effb4128a34869c83d2a40b573c1d)
@@ -7218,14 +7218,14 @@ class Inspector2FilterFilterCriteriaLambdaFunctionRuntime:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -7429,8 +7429,8 @@ class Inspector2FilterFilterCriteriaLastObservedAt:
         start_inclusive: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
-        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
+        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
+        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45e231423457ec6b0b91b64bd5353264b1092d5075fc30d7fe9286042981aa3d)
@@ -7444,13 +7444,13 @@ class Inspector2FilterFilterCriteriaLastObservedAt:
 
     @builtins.property
     def end_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
         result = self._values.get("end_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
         result = self._values.get("start_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7746,8 +7746,8 @@ class Inspector2FilterFilterCriteriaList(
 class Inspector2FilterFilterCriteriaNetworkProtocol:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acfba0f3037c61903014dbfd77f2d2ab0405369ca90a0aadb5da7a3f1b1960e6)
@@ -7760,14 +7760,14 @@ class Inspector2FilterFilterCriteriaNetworkProtocol:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9263,8 +9263,8 @@ class Inspector2FilterFilterCriteriaPortRange:
         end_inclusive: jsii.Number,
     ) -> None:
         '''
-        :param begin_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#begin_inclusive Inspector2Filter#begin_inclusive}.
-        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
+        :param begin_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#begin_inclusive Inspector2Filter#begin_inclusive}.
+        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2ea0da29f62f9a272c5ab7c6feebd98e7eb6c57357c3d6417b9d834a26fb975)
@@ -9277,14 +9277,14 @@ class Inspector2FilterFilterCriteriaPortRange:
 
     @builtins.property
     def begin_inclusive(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#begin_inclusive Inspector2Filter#begin_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#begin_inclusive Inspector2Filter#begin_inclusive}.'''
         result = self._values.get("begin_inclusive")
         assert result is not None, "Required property 'begin_inclusive' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def end_inclusive(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
         result = self._values.get("end_inclusive")
         assert result is not None, "Required property 'end_inclusive' is missing"
         return typing.cast(jsii.Number, result)
@@ -9480,8 +9480,8 @@ class Inspector2FilterFilterCriteriaPortRangeOutputReference(
 class Inspector2FilterFilterCriteriaRelatedVulnerabilities:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32674a053b7b3e1c95ce9bb686b5ba9790d24e83d748c859563da8c251cf941a)
@@ -9494,14 +9494,14 @@ class Inspector2FilterFilterCriteriaRelatedVulnerabilities:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9697,8 +9697,8 @@ class Inspector2FilterFilterCriteriaRelatedVulnerabilitiesOutputReference(
 class Inspector2FilterFilterCriteriaResourceId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f212663fbde53528980e7fd9bf575bd2bbd5230174d7183d71deae1376d2dd52)
@@ -9711,14 +9711,14 @@ class Inspector2FilterFilterCriteriaResourceId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9920,9 +9920,9 @@ class Inspector2FilterFilterCriteriaResourceTags:
         value: builtins.str,
     ) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#key Inspector2Filter#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#key Inspector2Filter#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9ea363897a0eea94e195a712c665cc6d3b135762754f66ec3f46fe2d4a9eddf)
@@ -9937,21 +9937,21 @@ class Inspector2FilterFilterCriteriaResourceTags:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#key Inspector2Filter#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#key Inspector2Filter#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10164,8 +10164,8 @@ class Inspector2FilterFilterCriteriaResourceTagsOutputReference(
 class Inspector2FilterFilterCriteriaResourceType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6065fe82dbc58c76435574139be75bcc78ef57fadee8f816aea6e1c326772f4)
@@ -10178,14 +10178,14 @@ class Inspector2FilterFilterCriteriaResourceType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10381,8 +10381,8 @@ class Inspector2FilterFilterCriteriaResourceTypeOutputReference(
 class Inspector2FilterFilterCriteriaSeverity:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__069a2b904d84fd25f09a78c273bb7f20c0711e13d84bab9644623a95ed7868dd)
@@ -10395,14 +10395,14 @@ class Inspector2FilterFilterCriteriaSeverity:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10598,8 +10598,8 @@ class Inspector2FilterFilterCriteriaSeverityOutputReference(
 class Inspector2FilterFilterCriteriaTitle:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a41587e2b6ec8044f6e9d51c2f05a2791b5116228cf21b215ce7b971934b097)
@@ -10612,14 +10612,14 @@ class Inspector2FilterFilterCriteriaTitle:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10823,8 +10823,8 @@ class Inspector2FilterFilterCriteriaUpdatedAt:
         start_inclusive: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
-        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
+        :param end_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.
+        :param start_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eba7b01bc76f9bb3cebb24c42c2f4b2ea1241906bc7ddb1f612c1053e6e0006d)
@@ -10838,13 +10838,13 @@ class Inspector2FilterFilterCriteriaUpdatedAt:
 
     @builtins.property
     def end_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#end_inclusive Inspector2Filter#end_inclusive}.'''
         result = self._values.get("end_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_inclusive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#start_inclusive Inspector2Filter#start_inclusive}.'''
         result = self._values.get("start_inclusive")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11047,8 +11047,8 @@ class Inspector2FilterFilterCriteriaUpdatedAtOutputReference(
 class Inspector2FilterFilterCriteriaVendorSeverity:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07f399548e07aeb9999f888cad53a3d44e5bdaac61da4d6af07737244344acfd)
@@ -11061,14 +11061,14 @@ class Inspector2FilterFilterCriteriaVendorSeverity:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -11264,8 +11264,8 @@ class Inspector2FilterFilterCriteriaVendorSeverityOutputReference(
 class Inspector2FilterFilterCriteriaVulnerabilityId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a785c066f2dba5d2389e7256be144168cdb97d1598da2716afcf3e5cc3dbd83)
@@ -11278,14 +11278,14 @@ class Inspector2FilterFilterCriteriaVulnerabilityId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -11481,8 +11481,8 @@ class Inspector2FilterFilterCriteriaVulnerabilityIdOutputReference(
 class Inspector2FilterFilterCriteriaVulnerabilitySource:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4f13f2bae6fca62cb01fab2205c30fcc7a74dc5baffff6fa91e000b8378438d)
@@ -11495,14 +11495,14 @@ class Inspector2FilterFilterCriteriaVulnerabilitySource:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -11718,14 +11718,14 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
         version: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Inspector2FilterFilterCriteriaVulnerablePackagesVersion", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param architecture: architecture block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#architecture Inspector2Filter#architecture}
-        :param epoch: epoch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#epoch Inspector2Filter#epoch}
-        :param file_path: file_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#file_path Inspector2Filter#file_path}
-        :param name: name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#name Inspector2Filter#name}
-        :param release: release block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#release Inspector2Filter#release}
-        :param source_lambda_layer_arn: source_lambda_layer_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#source_lambda_layer_arn Inspector2Filter#source_lambda_layer_arn}
-        :param source_layer_hash: source_layer_hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#source_layer_hash Inspector2Filter#source_layer_hash}
-        :param version: version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#version Inspector2Filter#version}
+        :param architecture: architecture block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#architecture Inspector2Filter#architecture}
+        :param epoch: epoch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#epoch Inspector2Filter#epoch}
+        :param file_path: file_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#file_path Inspector2Filter#file_path}
+        :param name: name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#name Inspector2Filter#name}
+        :param release: release block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#release Inspector2Filter#release}
+        :param source_lambda_layer_arn: source_lambda_layer_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#source_lambda_layer_arn Inspector2Filter#source_lambda_layer_arn}
+        :param source_layer_hash: source_layer_hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#source_layer_hash Inspector2Filter#source_layer_hash}
+        :param version: version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#version Inspector2Filter#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58d7a7ab0c55e18864fea08272bf8f5a28a403b2060f7ec7c6f7a5d23aed35b9)
@@ -11761,7 +11761,7 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesArchitecture"]]]:
         '''architecture block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#architecture Inspector2Filter#architecture}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#architecture Inspector2Filter#architecture}
         '''
         result = self._values.get("architecture")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesArchitecture"]]], result)
@@ -11772,7 +11772,7 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesEpoch"]]]:
         '''epoch block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#epoch Inspector2Filter#epoch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#epoch Inspector2Filter#epoch}
         '''
         result = self._values.get("epoch")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesEpoch"]]], result)
@@ -11783,7 +11783,7 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesFilePath"]]]:
         '''file_path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#file_path Inspector2Filter#file_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#file_path Inspector2Filter#file_path}
         '''
         result = self._values.get("file_path")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesFilePath"]]], result)
@@ -11794,7 +11794,7 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesName"]]]:
         '''name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#name Inspector2Filter#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#name Inspector2Filter#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesName"]]], result)
@@ -11805,7 +11805,7 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesRelease"]]]:
         '''release block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#release Inspector2Filter#release}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#release Inspector2Filter#release}
         '''
         result = self._values.get("release")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesRelease"]]], result)
@@ -11816,7 +11816,7 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesSourceLambdaLayerArn"]]]:
         '''source_lambda_layer_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#source_lambda_layer_arn Inspector2Filter#source_lambda_layer_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#source_lambda_layer_arn Inspector2Filter#source_lambda_layer_arn}
         '''
         result = self._values.get("source_lambda_layer_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesSourceLambdaLayerArn"]]], result)
@@ -11827,7 +11827,7 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesSourceLayerHash"]]]:
         '''source_layer_hash block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#source_layer_hash Inspector2Filter#source_layer_hash}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#source_layer_hash Inspector2Filter#source_layer_hash}
         '''
         result = self._values.get("source_layer_hash")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesSourceLayerHash"]]], result)
@@ -11838,7 +11838,7 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesVersion"]]]:
         '''version block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#version Inspector2Filter#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#version Inspector2Filter#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Inspector2FilterFilterCriteriaVulnerablePackagesVersion"]]], result)
@@ -11863,8 +11863,8 @@ class Inspector2FilterFilterCriteriaVulnerablePackages:
 class Inspector2FilterFilterCriteriaVulnerablePackagesArchitecture:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__585e458c895676725bfa6d9d11c0624da0864df91b02f5548e6fca058296efd5)
@@ -11877,14 +11877,14 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesArchitecture:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12088,8 +12088,8 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesEpoch:
         upper_inclusive: jsii.Number,
     ) -> None:
         '''
-        :param lower_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.
-        :param upper_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.
+        :param lower_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.
+        :param upper_inclusive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b91237babcd694171e0d3304fb406abf83ee0562bc1d58bb4f140484bd8d1036)
@@ -12102,14 +12102,14 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesEpoch:
 
     @builtins.property
     def lower_inclusive(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#lower_inclusive Inspector2Filter#lower_inclusive}.'''
         result = self._values.get("lower_inclusive")
         assert result is not None, "Required property 'lower_inclusive' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def upper_inclusive(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#upper_inclusive Inspector2Filter#upper_inclusive}.'''
         result = self._values.get("upper_inclusive")
         assert result is not None, "Required property 'upper_inclusive' is missing"
         return typing.cast(jsii.Number, result)
@@ -12305,8 +12305,8 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesEpochOutputReference(
 class Inspector2FilterFilterCriteriaVulnerablePackagesFilePath:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__412fa57d060ea55b5fc6810891eaad2ddd9d603cff93bb5d348b71c0caece9c3)
@@ -12319,14 +12319,14 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesFilePath:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12615,8 +12615,8 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesList(
 class Inspector2FilterFilterCriteriaVulnerablePackagesName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab719a3dc65dc1f651e590d2202f3b6efa85cd8e09be298b15099bb402e97c48)
@@ -12629,14 +12629,14 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13114,8 +13114,8 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesOutputReference(
 class Inspector2FilterFilterCriteriaVulnerablePackagesRelease:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c20a078d390ff5218ae49a6eb0d023f606f590565e0f90254f52edb6ddd765e7)
@@ -13128,14 +13128,14 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesRelease:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13331,8 +13331,8 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesReleaseOutputReference(
 class Inspector2FilterFilterCriteriaVulnerablePackagesSourceLambdaLayerArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b947e50169caead10e23f4ba48e070f86afd94c388bade0c262e915a2c83261c)
@@ -13345,14 +13345,14 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesSourceLambdaLayerArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13548,8 +13548,8 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesSourceLambdaLayerArnOutput
 class Inspector2FilterFilterCriteriaVulnerablePackagesSourceLayerHash:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93b286d86a5bebfb6b5765ae7e6269e22c3560d2c2731ae6ca62536cefbe52e6)
@@ -13562,14 +13562,14 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesSourceLayerHash:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13765,8 +13765,8 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesSourceLayerHashOutputRefer
 class Inspector2FilterFilterCriteriaVulnerablePackagesVersion:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2be4f0cba5bed9692f3ac87df79d09391ec157f015bb4b6e378ebbafd766ac3)
@@ -13779,14 +13779,14 @@ class Inspector2FilterFilterCriteriaVulnerablePackagesVersion:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#comparison Inspector2Filter#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/inspector2_filter#value Inspector2Filter#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

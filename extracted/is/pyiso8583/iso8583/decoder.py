@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping, Set, Tuple, Type, Union, Literal
+from typing import Any, Dict, Mapping, Set, Tuple, Type, Union
 
 __all__ = ["decode", "DecodeError"]
 
@@ -106,39 +106,32 @@ def decode(
 
     doc_dec: DecodedDict = {}
     doc_enc: EncodedDict = {}
-    primary_fields: Set[int] = set()
-    secondary_fields: Set[int] = set()
-    tertiary_fields: Set[int] = set()
+    fields: Set[int] = set()
     idx = 0
 
     idx = _decode_header(s, doc_dec, doc_enc, idx, spec)
     idx = _decode_type(s, doc_dec, doc_enc, idx, spec)
-    idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "p", spec, primary_fields)
+    idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "p", spec, fields)
 
-    # `field` can be used to throw an exception after the loop.
+    # No need to produce secondary bitmap if it's not required
+    if 1 in fields:
+        idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "1", spec, fields)
+
+    # `field_key` can be used to throw an exception after the loop.
     # So, create it here in case the `fields` set is empty
     # and never enters the loop to create the variable.
-    # Set `field` to the last mandatory one: primary bitmap.
-    field = "p"
+    # Set `field_key` to the last mandatory one: primary bitmap.
+    field_key = "p"
 
-    for field in [str(i) for i in sorted(primary_fields)]:
-        if field == "1":
-            idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "1", spec, secondary_fields)
-        else:
-            idx = _decode_field(s, doc_dec, doc_enc, idx, field, spec[field])
-
-    for field in [str(i) for i in sorted(secondary_fields)]:
-        if field == "65":
-            idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "65", spec, tertiary_fields)
-        else:
-            idx = _decode_field(s, doc_dec, doc_enc, idx, field, spec[field])
-
-    for field in [str(i) for i in sorted(tertiary_fields)]:
-        idx = _decode_field(s, doc_dec, doc_enc, idx, field, spec[field])
+    for field_key in [str(i) for i in sorted(fields)]:
+        # Secondary bitmap is already decoded
+        if field_key == "1":
+            continue
+        idx = _decode_field(s, doc_dec, doc_enc, idx, field_key, spec[field_key])
 
     if idx != len(s):
         raise DecodeError(
-            "Extra data after last field", s, doc_dec, doc_enc, idx, field
+            "Extra data after last field", s, doc_dec, doc_enc, idx, field_key
         )
 
     return doc_dec, doc_enc
@@ -266,7 +259,7 @@ def _decode_bitmap(
     doc_dec: DecodedDict,
     doc_enc: EncodedDict,
     idx: int,
-    field_key: Literal["p", "1", "65"],
+    field_key: str,
     spec: SpecDict,
     fields: Set[int],
 ) -> int:
@@ -307,12 +300,7 @@ def _decode_bitmap(
     else:
         expected_field_len = 16
 
-    if field_key == "p":
-        offset = 0  # primary
-    elif field_key == "1":
-        offset = 64  # secondary
-    else:
-        offset = 128  # tertiary
+    offset = 0 if field_key == "p" else 64
 
     doc_dec[field_key] = ""
     doc_enc[field_key] = {"len": b"", "data": bytes(s[idx : idx + expected_field_len])}

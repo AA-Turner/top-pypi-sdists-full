@@ -86,7 +86,7 @@ class Catch(ICatch):
         # If a kernel is provided, render the exception details to the CLI
         if isinstance(kernel, KernelCLI):
             return self.__exception_handler.renderCLI(
-                args=request,
+                request=request,
                 exception=e,
                 log=self.__logger,
                 console=self.__console

@@ -1,11 +1,3 @@
-"""
-Color Detection Use Case for Post-Processing Framework
-
-This module provides color detection capabilities for objects in video streams.
-It analyzes the dominant colors of detected objects and provides insights about
-color distribution patterns.
-"""
-
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -17,21 +9,27 @@ import numpy as np
 from collections import defaultdict
 import time
 from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol
-from ..core.config import BaseConfig, AlertConfig
+from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 from ..utils import (
     filter_by_confidence, 
     filter_by_categories, 
     apply_category_mapping, 
     match_results_structure,
-    extract_major_colors
+    extract_major_colors,
+    count_objects_by_category,
+    calculate_counting_summary,
+    match_results_structure,
+    count_objects_in_zones,
+    bbox_smoothing,
+    BBoxSmoothingConfig,
+    BBoxSmoothingTracker
 )
+from ..utils.geometry_utils import get_bbox_center, point_in_polygon, get_bbox_bottom25_center
 
 
 @dataclass
 class ColorDetectionConfig(BaseConfig):
     """Configuration for color detection use case."""
-    
-    # Existing fields...
     confidence_threshold: float = 0.9
     top_k_colors: int = 3
     frame_skip: int = 1
@@ -47,45 +45,32 @@ class ColorDetectionConfig(BaseConfig):
     )
     fps: Optional[float] = None
     bbox_format: str = "auto"
-    index_to_category: Optional[Dict[int, str]] = None
+    index_to_category: Optional[Dict[int, str]] = field(
+        default_factory=lambda: {
+            0: "ambulance", 1: "army vehicle", 2: "car", 3: "bicycle", 4: "bus",
+            5: "auto rickshaw", 6: "garbagevan", 7: "truck", 8: "minibus", 9: "minivan",
+            10: "motorbike", 11: "pickup", 12: "policecar", 13: "rickshaw", 14: "scooter",
+            15: "suv", 16: "taxi", 17: "three wheelers -CNG-", 18: "human hauler",
+            19: "van", 20: "wheelbarrow"
+        }
+    )
     alert_config: Optional[AlertConfig] = None
     time_window_minutes: int = 60
     enable_unique_counting: bool = True
-
-    # New tracking and smoothing fields
     enable_smoothing: bool = True
-    smoothing_algorithm: str = "observability"  # "window" or "observability"
+    smoothing_algorithm: str = "observability"
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    zone: Optional[List[List[int]]] = field(default_factory=lambda: None)
-    index_to_category: Optional[Dict[int, str]] = field(
-        default_factory=lambda: {
-                0: "ambulance",
-                1: "army vehicle",
-                2: "car",
-                3: "bicycle",
-                4: "bus",
-                5: "auto rickshaw",
-                6: "garbagevan",
-                7: "truck",
-                8: "minibus",
-                9: "minivan",
-                10: "motorbike",
-                11: "pickup",
-                12: "policecar",
-                13: "rickshaw",
-                14: "scooter",
-                15: "suv",
-                16: "taxi",
-                17: "three wheelers -CNG-",
-                18: "human hauler",
-                19: "van",
-                20: "wheelbarrow"
-            })
+    zone_config: Optional[Dict[str, List[List[float]]]] = field(
+    default_factory=lambda: {
+        "zones": {
+            "Entrance": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
+        }
+    }
+)
 
     def validate(self) -> List[str]:
-        """Validate configuration parameters."""
         errors = super().validate()
         if self.confidence_threshold < 0 or self.confidence_threshold > 1:
             errors.append("confidence_threshold must be between 0 and 1")
@@ -139,11 +124,16 @@ class ColorDetectionUseCase(BaseProcessor):
         self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 →
         self._track_merge_time_window: float = 7.0  # seconds within which to merge
 
-        self._ascending_alert_list: List[int] = []
+        self._ascending_alert_list: List[int] = []  
         self.current_incident_end_timestamp: str = "N/A"
         self.color_det_dict = {}
         self.start_timer = None
-        self.zone = None
+        # Zone-based tracking storage
+        self._zone_current_track_ids = {}  # zone_name -> set of current track IDs in zone
+        self._zone_total_track_ids = {}  # zone_name -> set of all track IDs that have been in zone
+        self._zone_current_counts = {}  # zone_name -> current count in zone
+        self._zone_total_counts = {}  # zone_name -> total count that have been in zone
+        self.logger.info("Initialized ColorDetectionUseCase with zone tracking")
 
     def reset_tracker(self) -> None:
         """Reset the advanced tracker instance."""
@@ -165,28 +155,20 @@ class ColorDetectionUseCase(BaseProcessor):
         self.reset_color_tracking()
         self.logger.info("All color tracking state reset")
 
-    
-    def _is_in_zone(self,bbox : Dict[str, Any], bbox_format : str) -> bool:
-        if self.zone is None or not isinstance(bbox, dict):
-            return True
-        
+    def _is_in_zone(self, bbox: Dict[str, Any], zone_polygon: List[List[int]]) -> bool:
+        """Check if the bottom 25% center point of a bounding box lies within the given zone polygon."""
+        if not zone_polygon or not isinstance(bbox, dict):
+            return True  # No zone defined, or invalid bbox, process all detections
         try:
-            if bbox_format == "xmin_ymin_xmax_ymax":
-                x1, y1, x2, y2 = bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]
-
-            elif bbox_format == "x_y_width_height" :
-                x1, y1 = bbox["x"], bbox["y"]
-                x2, y2 = x1 + bbox["width"], y1 + bbox["height"]
-
-            else:
-                return False
-            
-            cx = (x1+x2)/2
-            cy = (y1+y2)/2
-            in_zone = cv2.pointPolygonTest(self.zone, (cx, cy), False) >= 0
-            self.logger.debug(f"BBox center ({cx}, {cy}) in zone: {in_zone}")
+            # Get bottom 25% center point
+            center_point = get_bbox_bottom25_center(bbox)
+            # Convert zone polygon to list of tuples
+            polygon_points = [(point[0], point[1]) for point in zone_polygon]
+            # Check if point is inside polygon
+            in_zone = point_in_polygon(center_point, polygon_points)
+            self.logger.debug(f"BBox center {center_point} in zone: {in_zone}")
             return in_zone
-        except Exception as e:
+        except (KeyError, TypeError) as e:
             self.logger.warning(f"Failed to check zone for bbox {bbox}: {e}")
             return False
 
@@ -291,9 +273,6 @@ class ColorDetectionUseCase(BaseProcessor):
             color = det.get('main_color')
             track_id = det.get('track_id')
             if cat and track_id is not None:
-                # if track_id not in self.color_det_dict:
-                #     self.color_det_dict[track_id] = color  
-                    # If color not yet computed at this stage, fall back to category-only key
                 key = f"{cat}:{color}" if color else cat
                 self._color_total_track_ids[key].add(track_id)
                 self._color_current_frame_track_ids[key].add(track_id)
@@ -353,7 +332,7 @@ class ColorDetectionUseCase(BaseProcessor):
         context: Optional[ProcessingContext] = None,
         stream_info: Optional[Dict[str, Any]] = None
     ) -> ProcessingResult:
-        start_time = time.time()
+        processing_start = time.time()
         
         try:
             if not isinstance(config, ColorDetectionConfig):
@@ -369,28 +348,11 @@ class ColorDetectionUseCase(BaseProcessor):
             
             if not input_bytes:
                 print("input_bytes is required for color detection")
-                # return self.create_error_result(
-                #     "input_bytes (video/image) is required for color detection",
-                #     usecase=self.name,
-                #     category=self.category,
-                #     context=context
-                # )
             
             if not data:
-                print("data",data)
+                #print("data",data)
                 print("Detection data is required for color detection")
-                # return self.create_error_result(
-                #     "Detection data is required for color detection",
-                #     usecase=self.name,
-                #     category=self.category,
-                #     context=context
-                # )
 
-            # Initialize zone if provided
-            if config.zone and self.zone is None:
-                self.zone = np.array(config.zone, dtype=np.float32)
-                self.logger.info(f"Initialized zone with coordinates: {self.zone.tolist()}")
-            
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
@@ -409,9 +371,9 @@ class ColorDetectionUseCase(BaseProcessor):
             if config.target_categories:
                 color_processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
                 self.logger.debug("Applied category filtering")
-                print("-------------------COLOR_PROCESSED_DATA-------------------")
-                print(color_processed_data)
-                print("-------------------COLOR_PROCESSED_DATA-------------------")
+                # print("-------------------COLOR_PROCESSED_DATA-------------------")
+                # print(color_processed_data)
+                # print("-------------------COLOR_PROCESSED_DATA-------------------")
             
             # Step 2.5: Filter to only include target categories
             # color_processed_data = filter_by_categories(processed_data.copy(), config.target_categories)
@@ -419,18 +381,18 @@ class ColorDetectionUseCase(BaseProcessor):
             
             raw_processed_data = [copy.deepcopy(det) for det in color_processed_data]
             # Step 3: Apply bounding box smoothing if enabled
-            # if config.enable_smoothing:
-            #     if self.smoothing_tracker is None:
-            #         smoothing_config = BBoxSmoothingConfig(
-            #             smoothing_algorithm=config.smoothing_algorithm,
-            #             window_size=config.smoothing_window_size,
-            #             cooldown_frames=config.smoothing_cooldown_frames,
-            #             confidence_threshold=config.confidence_threshold,
-            #             confidence_range_factor=config.smoothing_confidence_range_factor,
-            #             enable_smoothing=True
-            #         )
-            #         self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            #     color_processed_data = bbox_smoothing(color_processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+            if config.enable_smoothing:
+                if self.smoothing_tracker is None:
+                    smoothing_config = BBoxSmoothingConfig(
+                        smoothing_algorithm=config.smoothing_algorithm,
+                        window_size=config.smoothing_window_size,
+                        cooldown_frames=config.smoothing_cooldown_frames,
+                        confidence_threshold=config.confidence_threshold,
+                        confidence_range_factor=config.smoothing_confidence_range_factor,
+                        enable_smoothing=True
+                    )
+                    self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+                color_processed_data = bbox_smoothing(color_processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
             
             # Step 4: Apply advanced tracking
             try:
@@ -452,7 +414,7 @@ class ColorDetectionUseCase(BaseProcessor):
             
             # Step 6: Update tracking state (will be done after color analysis)
             # self._update_color_tracking_state(color_processed_data)  # Removed - colors not available yet
-            print("--------------------tracking state will be updated after color analysis-------------------")
+            #print("--------------------tracking state will be updated after color analysis-------------------")
             color_processed_data = self._attach_masks_to_detections(color_processed_data, raw_processed_data)
             self._total_frame_counter += 1
             
@@ -471,15 +433,15 @@ class ColorDetectionUseCase(BaseProcessor):
                 input_bytes, 
                 config
             )
-            print("-------------------COLOR_ANALYSIS-------------------")
-            print(color_analysis)
-            print("-------------------COLOR_ANALYSIS-------------------")
+            # print("-------------------COLOR_ANALYSIS-------------------")
+            # print(color_analysis)
+            # print("-------------------COLOR_ANALYSIS-------------------")
             
-            # Step 8: Calculate summaries
-            # After color extraction, update cumulative color-aware tracking totals
+            # Step 8: Update color tracking state
             self._update_color_tracking_state_from_analysis(color_analysis)
+            
+            # Step 9: Calculate summaries
             color_summary = self._calculate_color_summary(color_analysis, config)
-            # Ensure total_color_counts is populated even on first frame/session
             totals = self.get_total_color_counts()
             if not totals:
                 tmp = defaultdict(set)
@@ -489,59 +451,55 @@ class ColorDetectionUseCase(BaseProcessor):
                     if color and tid is not None:
                         tmp[color].add(tid)
                 totals = {color: len(ids) for color, ids in tmp.items()}
-            # Also compute total per-category counts
             total_category_counts = self.get_total_category_counts()
-            
-            general_summary = self._calculate_general_summary(processed_data, config)
             color_summary['total_color_counts'] = totals
             color_summary['total_category_counts'] = total_category_counts
-            print("-------------------COLOR_SUMMARY-------------------")
-            print(color_summary)
-            print("-------------------COLOR_SUMMARY-------------------")
-            # Step 9: Generate insights and alerts
-            # insights = self._generate_insights(color_summary, config)
+            # print("-------------------COLOR_SUMMARY-------------------")
+            # print(color_summary)
+            # print("-------------------COLOR_SUMMARY-------------------")
+            general_summary = self._calculate_general_summary(processed_data, config)
             
-            # Step 10: Calculate metrics
-            metrics = self._calculate_metrics(color_analysis, color_summary, config, context)
+            # Step 10: Zone analysis
+            zone_analysis = {}
+            if config.zone_config and config.zone_config['zones']:
+                frame_data = color_processed_data
+                zone_analysis = count_objects_in_zones(frame_data, config.zone_config['zones'])
+                if zone_analysis and config.enable_unique_counting:
+                    enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, color_processed_data, config)
+                    for zone_name, enhanced_data in enhanced_zone_analysis.items():
+                        zone_analysis[zone_name] = enhanced_data
             
-            # Step 11: Extract predictions
-            predictions = self._extract_predictions(color_analysis, config)
-            
-            # Step 12: Generate human-readable summary
-            
-            
-            # Step 13: Generate structured events and tracking stats
-            # frame_number = None  # Extract from input_bytes or data if available
-            alerts = self._check_alerts(color_summary,frame_number, config)
-            print("-------------------ALERTS-------------------")
-            print(alerts)
-            print("-------------------ALERTS-------------------")
+            # Step 11: Generate alerts, incidents, tracking stats, and summary
+            alerts = self._check_alerts(color_summary, frame_number, config)
+            # print("-------------------ALERTS-------------------")
+            # print(alerts)
+            # print("-------------------ALERTS-------------------")
             incidents_list = self._generate_incidents(color_summary, alerts, config, frame_number, stream_info)
-            print("-------------------INCIDENTS_LIST-------------------")
-            print(incidents_list)
-            print("-------------------INCIDENTS_LIST-------------------")
-            # events_list = self._generate_events(color_summary, alerts, config, frame_number)
-            tracking_stats_list = self._generate_tracking_stats(color_summary, alerts, config, frame_number,stream_info)
-            print("-------------------TRACKING_STATS_LIST-------------------")
-            print(tracking_stats_list)
-            print("-------------------TRACKING_STATS_LIST-------------------")
+            # print("-------------------INCIDENTS_LIST-------------------")
+            # print(incidents_list)
+            # print("-------------------INCIDENTS_LIST-------------------")
+            tracking_stats_list = self._generate_tracking_stats(color_summary, alerts, config, frame_number, stream_info)
+            # print("-------------------TRACKING_STATS_LIST-------------------")
+            # print(tracking_stats_list)
+            # print("-------------------TRACKING_STATS_LIST-------------------")
             business_analytics_list = []
             summary_list = self._generate_summary(color_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
-            print("-------------------SUMMARY_LIST-------------------")
-            print(summary_list)
-            print("-------------------SUMMARY_LIST-------------------")
+            # print("-------------------SUMMARY_LIST-------------------")
+            # print(summary_list)
+            # print("-------------------SUMMARY_LIST-------------------")
             
             incidents = incidents_list[0] if incidents_list else {}
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
             business_analytics = business_analytics_list[0] if business_analytics_list else {}
             summary = summary_list[0] if summary_list else {}
             agg_summary = {str(frame_number): {
-                            "incidents": incidents,
-                            "tracking_stats": tracking_stats,
-                            "business_analytics": business_analytics,
-                            "alerts": alerts,
-                            "human_text": summary}
-                        }
+                "incidents": incidents,
+                "tracking_stats": tracking_stats,
+                "business_analytics": business_analytics,
+                "alerts": alerts,
+                "zone_analysis": zone_analysis,
+                "human_text": summary}
+            }
         
             context.mark_completed()
 
@@ -553,7 +511,11 @@ class ColorDetectionUseCase(BaseProcessor):
                 category=self.category,
                 context=context
             )
-            
+            proc_time = time.time() - processing_start
+            processing_latency_ms = proc_time * 1000.0
+            processing_fps = (1.0 / proc_time) if proc_time > 0 else None
+            # Log the performance metrics using the module-level logger
+            print("latency in ms:",processing_latency_ms,"| Throughput fps:",processing_fps,"| Frame_Number:",self._total_frame_counter)
             return result
             
         except Exception as e:
@@ -567,7 +529,7 @@ class ColorDetectionUseCase(BaseProcessor):
                 category=self.category,
                 context=context
             )
-            
+
     def _analyze_colors_in_media(
         self, 
         data: Any, 
@@ -674,11 +636,6 @@ class ColorDetectionUseCase(BaseProcessor):
             fps = config.fps or cap.get(cv2.CAP_PROP_FPS)
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            # Validate zone coordinates
-            if self.zone is not None:
-                for x, y in self.zone:
-                    if x < 0 or x >= width or y < 0 or y >= height:
-                        self.logger.warning(f"Zone coordinate ({x}, {y}) is outside video frame ({width}x{height})")
 
             color_analysis = []
             frame_id = 0
@@ -709,9 +666,17 @@ class ColorDetectionUseCase(BaseProcessor):
                     if not bbox:
                         continue
 
-                    # Filter detections by zone
-                    if not self._is_in_zone(bbox, config.bbox_format):
-                        continue
+                    # Check all zones
+                    zones = config.zone_config['zones'] if config.zone_config else {}
+                    in_any_zone = not zones  # Process all if no zones
+                    zone_name = None
+                    for z_name, zone_polygon in zones.items():
+                        if self._is_in_zone(bbox, zone_polygon):
+                            in_any_zone = True
+                            zone_name = z_name
+                            break
+                    if not in_any_zone:
+                        continue  # Skip detections outside zones
 
                     crop = self._crop_bbox(rgb_frame, bbox, config.bbox_format)
                     if crop.size == 0:
@@ -729,7 +694,8 @@ class ColorDetectionUseCase(BaseProcessor):
                         "major_colors": major_colors,
                         "bbox": bbox,
                         "detection_id": detection.get("id", f"det_{len(color_analysis)}"),
-                        "track_id": detection.get("track_id")
+                        "track_id": detection.get("track_id"),
+                        "zone_name": zone_name
                     }
                     color_analysis.append(color_record)
 
@@ -741,7 +707,7 @@ class ColorDetectionUseCase(BaseProcessor):
         finally:
             if os.path.exists(video_path):
                 os.unlink(video_path)
-    
+
     def _analyze_colors_in_image(
         self, 
         data: Any, 
@@ -755,13 +721,6 @@ class ColorDetectionUseCase(BaseProcessor):
             raise RuntimeError("Failed to decode image from bytes")
         
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # Validate zone coordinates
-        height, width = rgb_image.shape[:2]
-        if self.zone is not None:
-            for x, y in self.zone:
-                if x < 0 or x >= width or y < 0 or y >= height:
-                    self.logger.warning(f"Zone coordinate ({x}, {y}) is outside image frame ({width}x{height})")
-
         color_analysis = []
         detections = self._get_frame_detections(data, "0")
         
@@ -773,9 +732,17 @@ class ColorDetectionUseCase(BaseProcessor):
             if not bbox:
                 continue
 
-            # Filter detections by zone
-            if not self._is_in_zone(bbox, config.bbox_format):
-                continue
+            # Check all zones
+            zones = config.zone_config['zones'] if config.zone_config else {}
+            in_any_zone = not zones
+            zone_name = None
+            for z_name, zone_polygon in zones.items():
+                if self._is_in_zone(bbox, zone_polygon):
+                    in_any_zone = True
+                    zone_name = z_name
+                    break
+            if not in_any_zone:
+                continue  # Skip detections outside zones
 
             crop = self._crop_bbox(rgb_image, bbox, config.bbox_format)
             if crop.size == 0:
@@ -793,12 +760,13 @@ class ColorDetectionUseCase(BaseProcessor):
                 "major_colors": major_colors,
                 "bbox": bbox,
                 "detection_id": detection.get("id", f"det_{len(color_analysis)}"),
-                "track_id": detection.get("track_id")
+                "track_id": detection.get("track_id"),
+                "zone_name": zone_name
             }
             color_analysis.append(color_record)
         
         return color_analysis
-    
+        
     
     def _get_frame_detections(self, data: Any, frame_key: str) -> List[Dict[str, Any]]:
         """Extract detections for a specific frame from data."""
@@ -858,9 +826,9 @@ class ColorDetectionUseCase(BaseProcessor):
                 "frame_id": record["frame_id"],
                 "main_color": record["main_color"]
             })
-        print("-------------------category_colors-------------------")
-        print(category_colors)
-        print("-------------------category_colors-------------------")
+        # print("-------------------category_colors-------------------")
+        # print(category_colors)
+        # print("-------------------category_colors-------------------")
             
         self.logger.debug(f"Valid detections after filtering: {len(detections)}")
         summary = {
@@ -868,19 +836,20 @@ class ColorDetectionUseCase(BaseProcessor):
             "per_category_count": counts,
             "detections": detections,
             "dominant_colors": {},
+            "zone_counts": self._zone_current_counts if config.zone_config and config.zone_config['zones'] else {}
         }
-        print("-------------------summary-------------------")
-        print(summary)
-        print("-------------------summary-------------------")
+        # print("-------------------summary-------------------")
+        # print(summary)
+        # print("-------------------summary-------------------")
 
         all_colors = defaultdict(int)
         for category_data in category_colors.values():
             for color, count in category_data.items():
                 all_colors[color] += count
         summary["color_distribution"] = dict(all_colors)
-        print("-------------------summary1-------------------")
-        print(summary)
-        print("-------------------summary1-------------------")
+        # print("-------------------summary1-------------------")
+        # print(summary)
+        # print("-------------------summary1-------------------")
 
         for category, colors in category_colors.items():
             if colors:
@@ -893,9 +862,9 @@ class ColorDetectionUseCase(BaseProcessor):
                         "count": dominant_color[1],
                         "percentage": round((dominant_color[1] / sum(colors.values())) * 100, 1)
                     }
-        print("-------------------summary2-------------------")
-        print(summary)
-        print("-------------------summary2-------------------")
+        # print("-------------------summary2-------------------")
+        # print(summary)
+        # print("-------------------summary2-------------------")
 
         return summary
         
@@ -928,8 +897,6 @@ class ColorDetectionUseCase(BaseProcessor):
             "category_counts": dict(category_counts),
             "categories_detected": list(category_counts.keys())
         }
-        
-        
         
     def _calculate_metrics(self, color_analysis: List[Dict], color_summary: Dict, config: ColorDetectionConfig, context: ProcessingContext) -> Dict[str, Any]:
         """Calculate detailed metrics for analytics."""
@@ -1003,20 +970,20 @@ class ColorDetectionUseCase(BaseProcessor):
         """
         Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
         """
-        lines = {}
-        lines["Application Name"] = self.CASE_TYPE
-        lines["Application Version"] = self.CASE_VERSION
+        lines = []
+        lines.append("Application Name: "+self.CASE_TYPE)
+        lines.append("Application Version: "+self.CASE_VERSION)
         if len(incidents) > 0:
-            lines["Incidents:"]=f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+            lines.append("Incidents: "+f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
         if len(tracking_stats) > 0:
-            lines["Tracking Statistics:"]=f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+            lines.append("Tracking Statistics: "+f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}")
         if len(business_analytics) > 0:
-            lines["Business Analytics:"]=f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+            lines.append("Business Analytics: "+f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}")
 
         if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
-            lines["Summary"] = "No Summary Data"
+            lines.append("Summary: "+"No Summary Data")
 
-        return [lines]
+        return ["\n".join(lines)]
     
     def _generate_events(self, color_summary: Dict, alerts: List, config: ColorDetectionConfig, frame_number: Optional[int] = None) -> List[Dict]:
         """Generate structured events with frame-based keys."""
@@ -1119,9 +1086,9 @@ class ColorDetectionUseCase(BaseProcessor):
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         camera_info = self.get_camera_info_from_stream(stream_info)
-        print("----------------COLOR_DICT----------------")
-        print(self.color_det_dict)
-        print("----------------COLOR_DICT----------------")
+        # print("----------------COLOR_DICT----------------")
+        # print(self.color_det_dict)
+        # print("----------------COLOR_DICT----------------")
         human_text_lines = []
 
         # CURRENT FRAME section
@@ -1350,8 +1317,7 @@ class ColorDetectionUseCase(BaseProcessor):
             return processed_detections
         
     def _generate_incidents(self, counting_summary: Dict, alerts: List, config: ColorDetectionConfig,
-                        frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[
-        Dict]:
+                        frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate structured events for the output format with frame-based keys."""
 
         # Use frame number as key, fallback to 'current_frame' if not available
@@ -1603,6 +1569,115 @@ class ColorDetectionUseCase(BaseProcessor):
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
     
+    def _format_timestamp(self, timestamp: Any) -> str:
+        """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
+
+        The input can be either:
+        1. A numeric Unix timestamp (``float`` / ``int``) – it will first be converted to a
+           string in the format ``YYYY-MM-DD-HH:MM:SS.ffffff UTC``.
+        2. A string already following the same layout.
+
+        The returned value preserves the overall format of the input but truncates or pads
+        the fractional seconds portion to **exactly two digits**.
+
+        Example
+        -------
+        >>> self._format_timestamp("2025-08-19-04:22:47.187574 UTC")
+        '2025-08-19-04:22:47.18 UTC'
+        """
+
+        # Convert numeric timestamps to the expected string representation first
+        if isinstance(timestamp, (int, float)):
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                '%Y-%m-%d-%H:%M:%S.%f UTC'
+            )
+
+        # Ensure we are working with a string from here on
+        if not isinstance(timestamp, str):
+            return str(timestamp)
+
+        # If there is no fractional component, simply return the original string
+        if '.' not in timestamp:
+            return timestamp
+
+        # Split out the main portion (up to the decimal point)
+        main_part, fractional_and_suffix = timestamp.split('.', 1)
+
+        # Separate fractional digits from the suffix (typically ' UTC')
+        if ' ' in fractional_and_suffix:
+            fractional_part, suffix = fractional_and_suffix.split(' ', 1)
+            suffix = ' ' + suffix  # Re-attach the space removed by split
+        else:
+            fractional_part, suffix = fractional_and_suffix, ''
+
+        # Guarantee exactly two digits for the fractional part
+        fractional_part = (fractional_part + '00')[:2]
+
+        return f"{main_part}.{fractional_part}{suffix}"
+
+    def _get_tracking_start_time(self) -> str:
+        """Get the tracking start time, formatted as a string."""
+        if self._tracking_start_time is None:
+            return "N/A"
+        return self._format_timestamp(self._tracking_start_time)
+
+    def _set_tracking_start_time(self) -> None:
+        """Set the tracking start time to the current time."""
+        self._tracking_start_time = time.time()
+
+    def _update_zone_tracking(self, zone_analysis: Dict[str, Dict[str, int]], detections: List[Dict], config: ColorDetectionConfig) -> Dict[str, Dict[str, Any]]:
+        """Update zone tracking with current frame data."""
+        if not zone_analysis or not config.zone_config or not config.zone_config['zones']:
+            return {}
+        
+        enhanced_zone_analysis = {}
+        zones = config.zone_config['zones']
+        
+        # Initialize current frame zone tracks
+        current_frame_zone_tracks = {zone_name: set() for zone_name in zones.keys()}
+        
+        # Initialize zone tracking storage
+        for zone_name in zones.keys():
+            if zone_name not in self._zone_current_track_ids:
+                self._zone_current_track_ids[zone_name] = set()
+            if zone_name not in self._zone_total_track_ids:
+                self._zone_total_track_ids[zone_name] = set()
+        
+        # Check each detection against each zone
+        for detection in detections:
+            track_id = detection.get("track_id")
+            if track_id is None:
+                continue
+            
+            bbox = detection.get("bounding_box", detection.get("bbox"))
+            if not bbox:
+                continue
+            
+            # Check which zone this detection is in
+            for zone_name, zone_polygon in zones.items():
+                if self._is_in_zone(bbox, zone_polygon):
+                    current_frame_zone_tracks[zone_name].add(track_id)
+                    if track_id not in self.color_det_dict:  # Use color_det_dict for consistency
+                        self.color_det_dict[track_id] = [detection.get("main_color", "unknown"), detection.get("confidence", 0.0)]
+        
+        # Update zone tracking for each zone
+        for zone_name, zone_counts in zone_analysis.items():
+            current_tracks = current_frame_zone_tracks.get(zone_name, set())
+            self._zone_current_track_ids[zone_name] = current_tracks
+            self._zone_total_track_ids[zone_name].update(current_tracks)
+            self._zone_current_counts[zone_name] = len(current_tracks)
+            self._zone_total_counts[zone_name] = len(self._zone_total_track_ids[zone_name])
+            
+            enhanced_zone_analysis[zone_name] = {
+                "current_count": self._zone_current_counts[zone_name],
+                "total_count": self._zone_total_counts[zone_name],
+                "current_track_ids": list(current_tracks),
+                "total_track_ids": list(self._zone_total_track_ids[zone_name]),
+                "original_counts": zone_counts
+            }
+        
+        return enhanced_zone_analysis
+
     def _compute_iou(self, box1: Any, box2: Any) -> float:
         """Compute IoU between two bounding boxes which may be dicts or lists.
         Falls back to 0 when insufficient data is available."""
@@ -1694,59 +1769,3 @@ class ColorDetectionUseCase(BaseProcessor):
             "raw_ids": {raw_id},
         }
         return canonical_id
-
-    def _format_timestamp(self, timestamp: Any) -> str:
-        """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
-
-        The input can be either:
-        1. A numeric Unix timestamp (``float`` / ``int``) – it will first be converted to a
-           string in the format ``YYYY-MM-DD-HH:MM:SS.ffffff UTC``.
-        2. A string already following the same layout.
-
-        The returned value preserves the overall format of the input but truncates or pads
-        the fractional seconds portion to **exactly two digits**.
-
-        Example
-        -------
-        >>> self._format_timestamp("2025-08-19-04:22:47.187574 UTC")
-        '2025-08-19-04:22:47.18 UTC'
-        """
-
-        # Convert numeric timestamps to the expected string representation first
-        if isinstance(timestamp, (int, float)):
-            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
-                '%Y-%m-%d-%H:%M:%S.%f UTC'
-            )
-
-        # Ensure we are working with a string from here on
-        if not isinstance(timestamp, str):
-            return str(timestamp)
-
-        # If there is no fractional component, simply return the original string
-        if '.' not in timestamp:
-            return timestamp
-
-        # Split out the main portion (up to the decimal point)
-        main_part, fractional_and_suffix = timestamp.split('.', 1)
-
-        # Separate fractional digits from the suffix (typically ' UTC')
-        if ' ' in fractional_and_suffix:
-            fractional_part, suffix = fractional_and_suffix.split(' ', 1)
-            suffix = ' ' + suffix  # Re-attach the space removed by split
-        else:
-            fractional_part, suffix = fractional_and_suffix, ''
-
-        # Guarantee exactly two digits for the fractional part
-        fractional_part = (fractional_part + '00')[:2]
-
-        return f"{main_part}.{fractional_part}{suffix}"
-
-    def _get_tracking_start_time(self) -> str:
-        """Get the tracking start time, formatted as a string."""
-        if self._tracking_start_time is None:
-            return "N/A"
-        return self._format_timestamp(self._tracking_start_time)
-
-    def _set_tracking_start_time(self) -> None:
-        """Set the tracking start time to the current time."""
-        self._tracking_start_time = time.time()

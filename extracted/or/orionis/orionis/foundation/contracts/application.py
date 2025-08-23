@@ -567,11 +567,11 @@ class IApplication(IContainer):
     def setPaths(
         self,
         *,
-        console_scheduler: str | Path = (Path.cwd() / 'app' / 'console' / 'kernel.py').resolve(),
-        console_commands: str | Path = (Path.cwd() / 'app' / 'console' / 'commands').resolve(),
-        http_controllers: str | Path = (Path.cwd() / 'app' / 'http' / 'controllers').resolve(),
-        http_middleware: str | Path = (Path.cwd() / 'app' / 'http' / 'middleware').resolve(),
-        http_requests: str | Path = (Path.cwd() / 'app' / 'http' / 'requests').resolve(),
+        root: str | Path = Path.cwd().resolve(),
+        commands: str | Path = (Path.cwd() / 'app' / 'console' / 'commands').resolve(),
+        controllers: str | Path = (Path.cwd() / 'app' / 'http' / 'controllers').resolve(),
+        middleware: str | Path = (Path.cwd() / 'app' / 'http' / 'middleware').resolve(),
+        requests: str | Path = (Path.cwd() / 'app' / 'http' / 'requests').resolve(),
         models: str | Path = (Path.cwd() / 'app' / 'models').resolve(),
         providers: str | Path = (Path.cwd() / 'app' / 'providers').resolve(),
         events: str | Path = (Path.cwd() / 'app' / 'events').resolve(),
@@ -584,95 +584,90 @@ class IApplication(IContainer):
         views: str | Path = (Path.cwd() / 'resources' / 'views').resolve(),
         lang: str | Path = (Path.cwd() / 'resources' / 'lang').resolve(),
         assets: str | Path = (Path.cwd() / 'resources' / 'assets').resolve(),
-        routes_web: str | Path = (Path.cwd() / 'routes' / 'web.py').resolve(),
-        routes_api: str | Path = (Path.cwd() / 'routes' / 'api.py').resolve(),
-        routes_console: str | Path = (Path.cwd() / 'routes' / 'console.py').resolve(),
-        routes_channels: str | Path = (Path.cwd() / 'routes' / 'channels.py').resolve(),
+        routes: str | Path = (Path.cwd() / 'routes').resolve(),
         config: str | Path = (Path.cwd() / 'config').resolve(),
         migrations: str | Path = (Path.cwd() / 'database' / 'migrations').resolve(),
         seeders: str | Path = (Path.cwd() / 'database' / 'seeders').resolve(),
         factories: str | Path = (Path.cwd() / 'database' / 'factories').resolve(),
-        storage_logs: str | Path = (Path.cwd() / 'storage' / 'logs').resolve(),
-        storage_framework: str | Path = (Path.cwd() / 'storage' / 'framework').resolve(),
-        storage_sessions: str | Path = (Path.cwd() / 'storage' / 'framework' / 'sessions').resolve(),
-        storage_cache: str | Path = (Path.cwd() / 'storage' / 'framework' / 'cache').resolve(),
-        storage_views: str | Path = (Path.cwd() / 'storage' / 'framework' / 'views').resolve(),
+        logs: str | Path = (Path.cwd() / 'storage' / 'logs').resolve(),
+        sessions: str | Path = (Path.cwd() / 'storage' / 'framework' / 'sessions').resolve(),
+        cache: str | Path = (Path.cwd() / 'storage' / 'framework' / 'cache').resolve(),
+        testing: str | Path = (Path.cwd() / 'storage' / 'framework' / 'testing').resolve(),
+        storage: str | Path = (Path.cwd() / 'storage').resolve()
     ) -> 'IApplication':
         """
-        Configure application directory paths using keyword arguments.
+        Set and resolve application directory paths using keyword arguments.
 
-        This method allows setting custom paths for various application directories
-        including controllers, models, views, storage locations, and other framework
-        components. All parameters are keyword-only and have sensible defaults based
-        on common MVC framework conventions.
+        This method allows customization of all major application directory paths, such as
+        console components, HTTP components, application layers, resources, routes,
+        database files, and storage locations. All provided paths are resolved to absolute
+        paths and stored as strings in the configuration dictionary.
 
         Parameters
         ----------
-        console_scheduler : str | Path, optional
-            Path to the console kernel scheduler file.
-        console_commands : str | Path, optional
-            Directory path for console command classes.
-        http_controllers : str | Path, optional
-            Directory path for HTTP controller classes.
-        http_middleware : str | Path, optional
-            Directory path for HTTP middleware classes.
-        http_requests : str | Path, optional
-            Directory path for HTTP request classes.
-        models : str | Path, optional
-            Directory path for model classes.
-        providers : str | Path, optional
-            Directory path for service provider classes.
-        events : str | Path, optional
-            Directory path for event classes.
-        listeners : str | Path, optional
-            Directory path for event listener classes.
-        notifications : str | Path, optional
-            Directory path for notification classes.
-        jobs : str | Path, optional
-            Directory path for job classes.
-        policies : str | Path, optional
-            Directory path for authorization policy classes.
-        exceptions : str | Path, optional
-            Directory path for custom exception classes.
-        services : str | Path, optional
-            Directory path for service classes.
-        views : str | Path, optional
-            Directory path for view templates.
-        lang : str | Path, optional
-            Directory path for language localization files.
-        assets : str | Path, optional
-            Directory path for static assets.
-        routes_web : str | Path, optional
-            File path for web routes definition.
-        routes_api : str | Path, optional
-            File path for API routes definition.
-        routes_console : str | Path, optional
-            File path for console routes definition.
-        routes_channels : str | Path, optional
-            File path for channel routes definition.
-        config : str | Path, optional
-            Directory path for configuration files.
-        migrations : str | Path, optional
-            Directory path for database migration files.
-        seeders : str | Path, optional
-            Directory path for database seeder files.
-        factories : str | Path, optional
-            Directory path for model factory files.
-        storage_logs : str | Path, optional
-            Directory path for log files.
-        storage_framework : str | Path, optional
-            Directory path for framework storage files.
-        storage_sessions : str | Path, optional
-            Directory path for session storage files.
-        storage_cache : str | Path, optional
-            Directory path for cache storage files.
-        storage_views : str | Path, optional
-            Directory path for compiled view cache files.
+        root : str or Path, optional
+            Root directory of the application. Defaults to the current working directory.
+        commands : str or Path, optional
+            Directory for console command classes. Defaults to 'app/console/commands'.
+        controllers : str or Path, optional
+            Directory for HTTP controller classes. Defaults to 'app/http/controllers'.
+        middleware : str or Path, optional
+            Directory for HTTP middleware classes. Defaults to 'app/http/middleware'.
+        requests : str or Path, optional
+            Directory for HTTP request classes. Defaults to 'app/http/requests'.
+        models : str or Path, optional
+            Directory for data model classes. Defaults to 'app/models'.
+        providers : str or Path, optional
+            Directory for service provider classes. Defaults to 'app/providers'.
+        events : str or Path, optional
+            Directory for event classes. Defaults to 'app/events'.
+        listeners : str or Path, optional
+            Directory for event listener classes. Defaults to 'app/listeners'.
+        notifications : str or Path, optional
+            Directory for notification classes. Defaults to 'app/notifications'.
+        jobs : str or Path, optional
+            Directory for queue job classes. Defaults to 'app/jobs'.
+        policies : str or Path, optional
+            Directory for authorization policy classes. Defaults to 'app/policies'.
+        exceptions : str or Path, optional
+            Directory for custom exception classes. Defaults to 'app/exceptions'.
+        services : str or Path, optional
+            Directory for application service classes. Defaults to 'app/services'.
+        views : str or Path, optional
+            Directory for view templates. Defaults to 'resources/views'.
+        lang : str or Path, optional
+            Directory for language files. Defaults to 'resources/lang'.
+        assets : str or Path, optional
+            Directory for asset files. Defaults to 'resources/assets'.
+        routes : str or Path, optional
+            Directory for route definitions. Defaults to 'routes'.
+        config : str or Path, optional
+            Directory for configuration files. Defaults to 'config'.
+        migrations : str or Path, optional
+            Directory for database migration files. Defaults to 'database/migrations'.
+        seeders : str or Path, optional
+            Directory for database seeder files. Defaults to 'database/seeders'.
+        factories : str or Path, optional
+            Directory for model factory files. Defaults to 'database/factories'.
+        logs : str or Path, optional
+            Directory for log file storage. Defaults to 'storage/logs'.
+        sessions : str or Path, optional
+            Directory for session file storage. Defaults to 'storage/framework/sessions'.
+        cache : str or Path, optional
+            Directory for cache file storage. Defaults to 'storage/framework/cache'.
+        testing : str or Path, optional
+            Directory for testing file storage. Defaults to 'storage/framework/testing'.
 
         Returns
         -------
-        IApplication
-            The application instance to enable method chaining.
+        Application
+            Returns the current Application instance to enable method chaining.
+
+        Notes
+        -----
+        All path parameters accept either string or Path objects and are automatically
+        resolved to absolute paths relative to the current working directory. The
+        resolved paths are stored as strings in the internal configuration dictionary.
         """
         pass
 
@@ -691,6 +686,47 @@ class IApplication(IContainer):
         -------
         IApplication
             The application instance to enable method chaining.
+        """
+        pass
+
+    @abstractmethod
+    def setBasePath(
+        self,
+        basePath: str | Path
+    ) -> 'IApplication':
+        """
+        Set the base path for the application.
+
+        This method allows setting the base path of the application, which is
+        used as the root directory for all relative paths in the application.
+        The provided basePath is resolved to an absolute path.
+
+        Parameters
+        ----------
+        basePath : str or Path
+            The base path to set for the application. It can be a string or a Path object.
+
+        Returns
+        -------
+        Application
+            The current application instance to enable method chaining.
+        """
+        pass
+
+    @abstractmethod
+    def getBasePath(
+        self
+    ) -> str | Path:
+        """
+        Get the base path of the application.
+
+        This method returns the base path that was previously set using setBasePath().
+        If no base path has been set, it returns None.
+
+        Returns
+        -------
+        str or Path
+            The base path of the application as a string or Path object, or None if not set.
         """
         pass
 

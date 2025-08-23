@@ -286,3 +286,22 @@ class B(A):
         self.d = "ok"
     "#,
 );
+
+// Regression test: at one point we were checking the raw class fields to
+// see if something is a descriptor, which missed inherited behavior.
+testcase!(
+    test_descriptors_that_inherit,
+    r#"
+class DBase:
+    def __get__(self, obj, classobj) -> int: ...
+    def __set__(self, obj, value: str) -> None: ...
+class D(DBase):
+    pass
+class A:
+    d = D()
+    def f(self):
+        self.d = "ok"
+    def g(self) -> int:
+        return self.d
+    "#,
+);

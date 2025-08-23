@@ -56,6 +56,14 @@ pub struct PartialSourceRowMetadata {
     pub key_aux_info: serde_json::Value,
 
     pub ordinal: Option<Ordinal>,
+
+    /// A content version fingerprint can be anything that changes when the content of the row changes.
+    /// Note that it's acceptable if sometimes the fingerprint differs even though the content is the same,
+    /// which will lead to less optimization opportunities but won't break correctness.
+    ///
+    /// It's optional. The source shouldn't use generic way to compute it, e.g. computing a hash of the content.
+    /// The framework will do so. If there's no fast way to get it from the source, leave it as `None`.
+    pub content_version_fp: Option<Vec<u8>>,
 }
 
 #[derive(Debug)]
@@ -84,11 +92,6 @@ impl SourceValue {
     }
 }
 
-pub struct SourceData {
-    pub value: SourceValue,
-    pub ordinal: Ordinal,
-}
-
 pub struct SourceChange {
     pub key: KeyValue,
     /// Auxiliary information for the source row, to be used when reading the content.
@@ -96,7 +99,7 @@ pub struct SourceChange {
     pub key_aux_info: serde_json::Value,
 
     /// If None, the engine will poll to get the latest existence state and value.
-    pub data: Option<SourceData>,
+    pub data: PartialSourceRowData,
 }
 
 pub struct SourceChangeMessage {
@@ -107,34 +110,23 @@ pub struct SourceChangeMessage {
 #[derive(Debug, Default)]
 pub struct SourceExecutorListOptions {
     pub include_ordinal: bool,
+    pub include_content_version_fp: bool,
 }
 
 #[derive(Debug, Default)]
 pub struct SourceExecutorGetOptions {
     pub include_ordinal: bool,
     pub include_value: bool,
+    pub include_content_version_fp: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PartialSourceRowData {
     pub value: Option<SourceValue>,
     pub ordinal: Option<Ordinal>,
+    pub content_version_fp: Option<Vec<u8>>,
 }
 
-impl TryFrom<PartialSourceRowData> for SourceData {
-    type Error = anyhow::Error;
-
-    fn try_from(data: PartialSourceRowData) -> Result<Self, Self::Error> {
-        Ok(Self {
-            value: data
-                .value
-                .ok_or_else(|| anyhow::anyhow!("value is missing"))?,
-            ordinal: data
-                .ordinal
-                .ok_or_else(|| anyhow::anyhow!("ordinal is missing"))?,
-        })
-    }
-}
 #[async_trait]
 pub trait SourceExecutor: Send + Sync {
     /// Get the list of keys for the source.
@@ -232,7 +224,7 @@ pub struct ExportTargetMutationWithContext<'ctx, T: ?Sized + Send + Sync> {
 
 pub struct ResourceSetupChangeItem<'a> {
     pub key: &'a serde_json::Value,
-    pub setup_status: &'a dyn setup::ResourceSetupStatus,
+    pub setup_change: &'a dyn setup::ResourceSetupChange,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -263,7 +255,7 @@ pub struct ExportDataCollectionSpec {
 }
 
 #[async_trait]
-pub trait ExportTargetFactory: Send + Sync {
+pub trait TargetFactory: Send + Sync {
     async fn build(
         self: Arc<Self>,
         data_collections: Vec<ExportDataCollectionSpec>,
@@ -276,13 +268,13 @@ pub trait ExportTargetFactory: Send + Sync {
 
     /// Will not be called if it's setup by user.
     /// It returns an error if the target only supports setup by user.
-    async fn check_setup_status(
+    async fn diff_setup_states(
         &self,
         key: &serde_json::Value,
         desired_state: Option<serde_json::Value>,
         existing_states: setup::CombinedState<serde_json::Value>,
         context: Arc<interface::FlowInstanceContext>,
-    ) -> Result<Box<dyn setup::ResourceSetupStatus>>;
+    ) -> Result<Box<dyn setup::ResourceSetupChange>>;
 
     /// Normalize the key. e.g. the JSON format may change (after code change, e.g. new optional field or field ordering), even if the underlying value is not changed.
     /// This should always return the canonical serialized form.
@@ -310,7 +302,7 @@ pub trait ExportTargetFactory: Send + Sync {
 
     async fn apply_setup_changes(
         &self,
-        setup_status: Vec<ResourceSetupChangeItem<'async_trait>>,
+        setup_change: Vec<ResourceSetupChangeItem<'async_trait>>,
         context: Arc<FlowInstanceContext>,
     ) -> Result<()>;
 }
@@ -319,5 +311,5 @@ pub trait ExportTargetFactory: Send + Sync {
 pub enum ExecutorFactory {
     Source(Arc<dyn SourceFactory + Send + Sync>),
     SimpleFunction(Arc<dyn SimpleFunctionFactory + Send + Sync>),
-    ExportTarget(Arc<dyn ExportTargetFactory + Send + Sync>),
+    ExportTarget(Arc<dyn TargetFactory + Send + Sync>),
 }

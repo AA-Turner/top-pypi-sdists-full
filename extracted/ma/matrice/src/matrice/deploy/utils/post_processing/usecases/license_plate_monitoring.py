@@ -53,7 +53,7 @@ class LicensePlateMonitorConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.565
     frame_skip: int = 1
     fps: Optional[float] = None
     bbox_format: str = "auto"
@@ -88,7 +88,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
     # Shared resources (initialised once per process)
     # --------------------------------------------------------------
     _ocr_model: Optional[LicensePlateRecognizer] = None  # Fast plate OCR
-    _non_alnum_regex = re.compile(r"[^A-Za-z0-9]+")
+    
 
     
     def __init__(self):
@@ -132,6 +132,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self._min_plate_len = 5
         # number of consecutive frames a plate must appear to be considered "stable"
         self._stable_frames_required = 3
+        self._non_alnum_regex = re.compile(r"[^A-Za-z0-9]+")
+        self._ocr_mode = "numeric" # "alphanumeric" or "numeric" or "alphabetic"
 
     def reset_tracker(self) -> None:
         """Reset the advanced tracker instance."""
@@ -302,12 +304,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             processing_latency_ms = proc_time * 1000.0
             processing_fps = (1.0 / proc_time) if proc_time > 0 else None
             # Log the performance metrics using the module-level logger
-            print(
-                "Processing completed in ms, fps for fps:",
-                processing_latency_ms,
-                processing_fps,
-                self._total_frame_counter
-            )
+            print("latency in ms:",processing_latency_ms,"| Throughput fps:",processing_fps,"| Frame_Number:",self._total_frame_counter)
+
             return result
             
         except Exception as e:
@@ -338,12 +336,12 @@ class LicensePlateMonitorUseCase(BaseProcessor):
     def _analyze_ocr_in_image(self, data: Any, image_bytes: bytes, config: LicensePlateMonitorConfig) -> List[Dict[str, Any]]:
         """Analyze OCR in a single image."""
         image_array = np.frombuffer(image_bytes, np.uint8)
-        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        image = cv2.imdecode(image_array, cv2.IMREAD_UNCHANGED)
         
         if image is None:
             raise RuntimeError("Failed to decode image from bytes")
         
-        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        rgb_image = image #cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         ocr_analysis = []
         detections = self._get_frame_detections(data, "0")
 
@@ -371,7 +369,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             ocr_record = {
                 "frame_id": "0",
                 "timestamp": 0.0,
-                "category": detection.get("category", "License_Plate"),
+                "category": detection.get("category", ""),
                 "confidence": round(detection.get("confidence", 0.0), 3),
                 "plate_text": plate_text,
                 "bbox": bbox,
@@ -416,7 +414,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         """Sanitise OCR output to keep only alphanumerics and uppercase."""
         if not text:
             return ""
-        return LicensePlateMonitorUseCase._non_alnum_regex.sub('', text).upper()
+        return self._non_alnum_regex.sub('', text).upper()
 
     def _run_ocr(self, crop: np.ndarray) -> str:
         """Run OCR on a cropped plate image and return cleaned text or empty string."""
@@ -431,8 +429,19 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             res = self.ocr_model.run(crop)
             if isinstance(res, list):
                 res = res[0] if res else ""
-            cleaned = self._clean_text(str(res))
-            return cleaned if len(cleaned) >= self._min_plate_len else ""
+            cleaned_text = self._clean_text(str(res))
+            if cleaned_text and len(cleaned_text) >= self._min_plate_len:
+                if self._ocr_mode == "numeric":
+                    response = all(ch.isdigit() for ch in cleaned_text) 
+                elif self._ocr_mode == "alphabetic":
+                    response = all(ch.isalpha() for ch in cleaned_text)
+                elif self._ocr_mode == "alphanumeric":
+                    response = True
+                
+                if response:
+                    return cleaned_text
+            else:
+                return ""
         except Exception as exc:
             self.logger.warning(f"OCR failed: {exc}")
             return ""
@@ -448,6 +457,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
     def _update_detections_with_ocr(self, detections: List[Dict[str, Any]], ocr_analysis: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Update detections with OCR results using track_id or bounding box for matching."""
+        #print("---------UPDATE DETECTIONS WITH OCR",ocr_analysis)
         ocr_dict = {}
         for rec in ocr_analysis:
             if rec.get("plate_text"):
@@ -460,8 +470,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     bbox_key = tuple(sorted(rec["bbox"].items())) if rec.get("bbox") else None
                     if bbox_key:
                         ocr_dict[bbox_key] = rec["plate_text"]
-                self.logger.info(f"OCR record: track_id={track_id}, plate_text={rec.get('plate_text')}, bbox={rec.get('bbox')}")
+                #self.logger.info(f"OCR record: track_id={track_id}, plate_text={rec.get('plate_text')}, bbox={rec.get('bbox')}")
         
+        #print("---------UPDATE DETECTIONS WITH OCR -II",ocr_dict)
         for det in detections:
             track_id = det.get("track_id")
             bbox_key = tuple(sorted(det.get("bounding_box", det.get("bbox", {})).items())) if det.get("bounding_box") or det.get("bbox") else None
@@ -471,7 +482,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             elif bbox_key and bbox_key in ocr_dict:
                 plate_text = ocr_dict[bbox_key]
             det["plate_text"] = plate_text
-            self.logger.info(f"Detection track_id={track_id}, bbox={det.get('bounding_box')}: Assigned plate_text={plate_text}")
+            #self.logger.info(f"Detection track_id={track_id}, bbox={det.get('bounding_box')}: Assigned plate_text={plate_text}")
         return detections
 
     def _count_categories(self, detections: List[Dict], config: LicensePlateMonitorConfig) -> Dict[str, Any]:
@@ -484,11 +495,11 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if not all(k in det for k in ['category', 'confidence', 'bounding_box']):
                 continue
 
-            cat = det.get('category', 'license_plate')
+            cat = det.get('category', '')
             plate_text_raw = det.get('plate_text', '')
             #print("---------SUMMARY COUNT CATEGORIES PLATE TEXT RAW",plate_text_raw)
             #print("---------SUMMARY COUNT CATEGORIES PLATE TEXT RAW",det)
-            cleaned_text = self._clean_text(plate_text_raw)
+            cleaned_text = plate_text_raw #self._clean_text(plate_text_raw)
 
             # Consider as unique only if meets criteria
             if cleaned_text and len(cleaned_text) >= self._min_plate_len:
@@ -537,7 +548,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
             detection_text = category_counts[0] + " detected" if len(category_counts) == 1 else f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
             human_text_lines.append(f"\t- {detection_text}")
-            # Deduplicate plate texts for the current frame while preserving order
+            # Deduplicate plate texts for the current frame while preserving order -
             seen_cleaned = set()
             display_texts = []
             for det in counting_summary.get("detections", []):

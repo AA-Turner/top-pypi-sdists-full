@@ -9,6 +9,12 @@ from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_0 import (
+        ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0,
+    )
+    from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_1 import (
+        ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1,
+    )
     from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_approvers_item import (
         ListJobsResponse200ItemType1FlowStatusPreprocessorModuleApproversItem,
     )
@@ -43,6 +49,10 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
         approvers (Union[Unset, List['ListJobsResponse200ItemType1FlowStatusPreprocessorModuleApproversItem']]):
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
+        agent_actions (Union[Unset,
+            List[Union['ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0',
+            'ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1']]]):
+        agent_actions_success (Union[Unset, List[bool]]):
     """
 
     type: ListJobsResponse200ItemType1FlowStatusPreprocessorModuleType
@@ -58,9 +68,23 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
     approvers: Union[Unset, List["ListJobsResponse200ItemType1FlowStatusPreprocessorModuleApproversItem"]] = UNSET
     failed_retries: Union[Unset, List[str]] = UNSET
     skipped: Union[Unset, bool] = UNSET
+    agent_actions: Union[
+        Unset,
+        List[
+            Union[
+                "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0",
+                "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1",
+            ]
+        ],
+    ] = UNSET
+    agent_actions_success: Union[Unset, List[bool]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_0 import (
+            ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0,
+        )
+
         type = self.type.value
 
         id = self.id
@@ -100,6 +124,26 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
             failed_retries = self.failed_retries
 
         skipped = self.skipped
+        agent_actions: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.agent_actions, Unset):
+            agent_actions = []
+            for agent_actions_item_data in self.agent_actions:
+                agent_actions_item: Dict[str, Any]
+
+                if isinstance(
+                    agent_actions_item_data,
+                    ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0,
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                else:
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                agent_actions.append(agent_actions_item)
+
+        agent_actions_success: Union[Unset, List[bool]] = UNSET
+        if not isinstance(self.agent_actions_success, Unset):
+            agent_actions_success = self.agent_actions_success
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -132,11 +176,21 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
             field_dict["failed_retries"] = failed_retries
         if skipped is not UNSET:
             field_dict["skipped"] = skipped
+        if agent_actions is not UNSET:
+            field_dict["agent_actions"] = agent_actions
+        if agent_actions_success is not UNSET:
+            field_dict["agent_actions_success"] = agent_actions_success
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_0 import (
+            ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0,
+        )
+        from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_1 import (
+            ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1,
+        )
         from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_approvers_item import (
             ListJobsResponse200ItemType1FlowStatusPreprocessorModuleApproversItem,
         )
@@ -201,6 +255,40 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
 
         skipped = d.pop("skipped", UNSET)
 
+        agent_actions = []
+        _agent_actions = d.pop("agent_actions", UNSET)
+        for agent_actions_item_data in _agent_actions or []:
+
+            def _parse_agent_actions_item(
+                data: object,
+            ) -> Union[
+                "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0",
+                "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1",
+            ]:
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_0 = (
+                        ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_0
+                except:  # noqa: E722
+                    pass
+                if not isinstance(data, dict):
+                    raise TypeError()
+                agent_actions_item_type_1 = (
+                    ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1.from_dict(data)
+                )
+
+                return agent_actions_item_type_1
+
+            agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
+
+            agent_actions.append(agent_actions_item)
+
+        agent_actions_success = cast(List[bool], d.pop("agent_actions_success", UNSET))
+
         list_jobs_response_200_item_type_1_flow_status_preprocessor_module = cls(
             type=type,
             id=id,
@@ -215,6 +303,8 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
             approvers=approvers,
             failed_retries=failed_retries,
             skipped=skipped,
+            agent_actions=agent_actions,
+            agent_actions_success=agent_actions_success,
         )
 
         list_jobs_response_200_item_type_1_flow_status_preprocessor_module.additional_properties = d

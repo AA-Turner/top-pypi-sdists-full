@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_cx_generator`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_cx_generator`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator).
+Refer to the Terraform Registry for docs: [`google_dialogflow_cx_generator`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowCxGenerator(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowCxGenerator.DialogflowCxGenerator",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator google_dialogflow_cx_generator}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator google_dialogflow_cx_generator}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class DialogflowCxGenerator(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator google_dialogflow_cx_generator} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator google_dialogflow_cx_generator} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The human-readable name of the generator, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#display_name DialogflowCxGenerator#display_name}
-        :param prompt_text: prompt_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language_code: The language to create generators for the following fields: * Generator.prompt_text.text If not specified, the agent's default language is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#language_code DialogflowCxGenerator#language_code}
-        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#llm_model_settings DialogflowCxGenerator#llm_model_settings}
-        :param model_parameter: model_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#model_parameter DialogflowCxGenerator#model_parameter}
-        :param parent: The agent to create a Generator for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#parent DialogflowCxGenerator#parent}
-        :param placeholders: placeholders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#placeholders DialogflowCxGenerator#placeholders}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#timeouts DialogflowCxGenerator#timeouts}
+        :param display_name: The human-readable name of the generator, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#display_name DialogflowCxGenerator#display_name}
+        :param prompt_text: prompt_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language_code: The language to create generators for the following fields: * Generator.prompt_text.text If not specified, the agent's default language is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#language_code DialogflowCxGenerator#language_code}
+        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#llm_model_settings DialogflowCxGenerator#llm_model_settings}
+        :param model_parameter: model_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#model_parameter DialogflowCxGenerator#model_parameter}
+        :param parent: The agent to create a Generator for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#parent DialogflowCxGenerator#parent}
+        :param placeholders: placeholders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#placeholders DialogflowCxGenerator#placeholders}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#timeouts DialogflowCxGenerator#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class DialogflowCxGenerator(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowCxGenerator to import.
-        :param import_from_id: The id of the existing DialogflowCxGenerator that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowCxGenerator that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowCxGenerator to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class DialogflowCxGenerator(
         prompt_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#model DialogflowCxGenerator#model}
-        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
+        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#model DialogflowCxGenerator#model}
+        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
         '''
         value = DialogflowCxGeneratorLlmModelSettings(
             model=model, prompt_text=prompt_text
@@ -165,10 +165,10 @@ class DialogflowCxGenerator(
         top_p: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_decode_steps: The maximum number of tokens to generate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#max_decode_steps DialogflowCxGenerator#max_decode_steps}
-        :param temperature: The temperature used for sampling. Temperature sampling occurs after both topP and topK have been applied. Valid range: [0.0, 1.0] Low temperature = less random. High temperature = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#temperature DialogflowCxGenerator#temperature}
-        :param top_k: If set, the sampling process in each step is limited to the topK tokens with highest probabilities. Valid range: [1, 40] or 1000+. Small topK = less random. Large topK = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#top_k DialogflowCxGenerator#top_k}
-        :param top_p: If set, only the tokens comprising the top topP probability mass are considered. If both topP and topK are set, topP will be used for further refining candidates selected with topK. Valid range: (0.0, 1.0]. Small topP = less random. Large topP = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#top_p DialogflowCxGenerator#top_p}
+        :param max_decode_steps: The maximum number of tokens to generate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#max_decode_steps DialogflowCxGenerator#max_decode_steps}
+        :param temperature: The temperature used for sampling. Temperature sampling occurs after both topP and topK have been applied. Valid range: [0.0, 1.0] Low temperature = less random. High temperature = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#temperature DialogflowCxGenerator#temperature}
+        :param top_k: If set, the sampling process in each step is limited to the topK tokens with highest probabilities. Valid range: [1, 40] or 1000+. Small topK = less random. Large topK = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#top_k DialogflowCxGenerator#top_k}
+        :param top_p: If set, only the tokens comprising the top topP probability mass are considered. If both topP and topK are set, topP will be used for further refining candidates selected with topK. Valid range: (0.0, 1.0]. Small topP = less random. Large topP = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#top_p DialogflowCxGenerator#top_p}
         '''
         value = DialogflowCxGeneratorModelParameter(
             max_decode_steps=max_decode_steps,
@@ -195,7 +195,7 @@ class DialogflowCxGenerator(
     @jsii.member(jsii_name="putPromptText")
     def put_prompt_text(self, *, text: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param text: Text input which can be used for prompt or banned phrases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#text DialogflowCxGenerator#text}
+        :param text: Text input which can be used for prompt or banned phrases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#text DialogflowCxGenerator#text}
         '''
         value = DialogflowCxGeneratorPromptText(text=text)
 
@@ -210,9 +210,9 @@ class DialogflowCxGenerator(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#create DialogflowCxGenerator#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#delete DialogflowCxGenerator#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#update DialogflowCxGenerator#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#create DialogflowCxGenerator#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#delete DialogflowCxGenerator#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#update DialogflowCxGenerator#update}.
         '''
         value = DialogflowCxGeneratorTimeouts(
             create=create, delete=delete, update=update
@@ -446,15 +446,15 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The human-readable name of the generator, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#display_name DialogflowCxGenerator#display_name}
-        :param prompt_text: prompt_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language_code: The language to create generators for the following fields: * Generator.prompt_text.text If not specified, the agent's default language is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#language_code DialogflowCxGenerator#language_code}
-        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#llm_model_settings DialogflowCxGenerator#llm_model_settings}
-        :param model_parameter: model_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#model_parameter DialogflowCxGenerator#model_parameter}
-        :param parent: The agent to create a Generator for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#parent DialogflowCxGenerator#parent}
-        :param placeholders: placeholders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#placeholders DialogflowCxGenerator#placeholders}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#timeouts DialogflowCxGenerator#timeouts}
+        :param display_name: The human-readable name of the generator, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#display_name DialogflowCxGenerator#display_name}
+        :param prompt_text: prompt_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language_code: The language to create generators for the following fields: * Generator.prompt_text.text If not specified, the agent's default language is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#language_code DialogflowCxGenerator#language_code}
+        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#llm_model_settings DialogflowCxGenerator#llm_model_settings}
+        :param model_parameter: model_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#model_parameter DialogflowCxGenerator#model_parameter}
+        :param parent: The agent to create a Generator for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#parent DialogflowCxGenerator#parent}
+        :param placeholders: placeholders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#placeholders DialogflowCxGenerator#placeholders}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#timeouts DialogflowCxGenerator#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -585,7 +585,7 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The human-readable name of the generator, unique within the agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#display_name DialogflowCxGenerator#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#display_name DialogflowCxGenerator#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -595,7 +595,7 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def prompt_text(self) -> "DialogflowCxGeneratorPromptText":
         '''prompt_text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
         '''
         result = self._values.get("prompt_text")
         assert result is not None, "Required property 'prompt_text' is missing"
@@ -603,7 +603,7 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -615,7 +615,7 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def language_code(self) -> typing.Optional[builtins.str]:
         '''The language to create generators for the following fields: * Generator.prompt_text.text If not specified, the agent's default language is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#language_code DialogflowCxGenerator#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#language_code DialogflowCxGenerator#language_code}
         '''
         result = self._values.get("language_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -626,7 +626,7 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DialogflowCxGeneratorLlmModelSettings"]:
         '''llm_model_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#llm_model_settings DialogflowCxGenerator#llm_model_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#llm_model_settings DialogflowCxGenerator#llm_model_settings}
         '''
         result = self._values.get("llm_model_settings")
         return typing.cast(typing.Optional["DialogflowCxGeneratorLlmModelSettings"], result)
@@ -635,7 +635,7 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def model_parameter(self) -> typing.Optional["DialogflowCxGeneratorModelParameter"]:
         '''model_parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#model_parameter DialogflowCxGenerator#model_parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#model_parameter DialogflowCxGenerator#model_parameter}
         '''
         result = self._values.get("model_parameter")
         return typing.cast(typing.Optional["DialogflowCxGeneratorModelParameter"], result)
@@ -644,7 +644,7 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The agent to create a Generator for. Format: projects//locations//agents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#parent DialogflowCxGenerator#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#parent DialogflowCxGenerator#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -655,7 +655,7 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxGeneratorPlaceholders"]]]:
         '''placeholders block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#placeholders DialogflowCxGenerator#placeholders}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#placeholders DialogflowCxGenerator#placeholders}
         '''
         result = self._values.get("placeholders")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxGeneratorPlaceholders"]]], result)
@@ -664,7 +664,7 @@ class DialogflowCxGeneratorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DialogflowCxGeneratorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#timeouts DialogflowCxGenerator#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#timeouts DialogflowCxGenerator#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowCxGeneratorTimeouts"], result)
@@ -694,8 +694,8 @@ class DialogflowCxGeneratorLlmModelSettings:
         prompt_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#model DialogflowCxGenerator#model}
-        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
+        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#model DialogflowCxGenerator#model}
+        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c981ce346c4d35f46b9c1b3a3bc61c1ce9c69f06b250cc556d0c53427329d02)
@@ -711,7 +711,7 @@ class DialogflowCxGeneratorLlmModelSettings:
     def model(self) -> typing.Optional[builtins.str]:
         '''The selected LLM model.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#model DialogflowCxGenerator#model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#model DialogflowCxGenerator#model}
         '''
         result = self._values.get("model")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -720,7 +720,7 @@ class DialogflowCxGeneratorLlmModelSettings:
     def prompt_text(self) -> typing.Optional[builtins.str]:
         '''The custom prompt to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#prompt_text DialogflowCxGenerator#prompt_text}
         '''
         result = self._values.get("prompt_text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -835,10 +835,10 @@ class DialogflowCxGeneratorModelParameter:
         top_p: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_decode_steps: The maximum number of tokens to generate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#max_decode_steps DialogflowCxGenerator#max_decode_steps}
-        :param temperature: The temperature used for sampling. Temperature sampling occurs after both topP and topK have been applied. Valid range: [0.0, 1.0] Low temperature = less random. High temperature = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#temperature DialogflowCxGenerator#temperature}
-        :param top_k: If set, the sampling process in each step is limited to the topK tokens with highest probabilities. Valid range: [1, 40] or 1000+. Small topK = less random. Large topK = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#top_k DialogflowCxGenerator#top_k}
-        :param top_p: If set, only the tokens comprising the top topP probability mass are considered. If both topP and topK are set, topP will be used for further refining candidates selected with topK. Valid range: (0.0, 1.0]. Small topP = less random. Large topP = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#top_p DialogflowCxGenerator#top_p}
+        :param max_decode_steps: The maximum number of tokens to generate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#max_decode_steps DialogflowCxGenerator#max_decode_steps}
+        :param temperature: The temperature used for sampling. Temperature sampling occurs after both topP and topK have been applied. Valid range: [0.0, 1.0] Low temperature = less random. High temperature = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#temperature DialogflowCxGenerator#temperature}
+        :param top_k: If set, the sampling process in each step is limited to the topK tokens with highest probabilities. Valid range: [1, 40] or 1000+. Small topK = less random. Large topK = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#top_k DialogflowCxGenerator#top_k}
+        :param top_p: If set, only the tokens comprising the top topP probability mass are considered. If both topP and topK are set, topP will be used for further refining candidates selected with topK. Valid range: (0.0, 1.0]. Small topP = less random. Large topP = more random. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#top_p DialogflowCxGenerator#top_p}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69796093af44e42135297bd4b89260fa9d97195a6d60fe0c7e9a8ebb2ea560b7)
@@ -860,7 +860,7 @@ class DialogflowCxGeneratorModelParameter:
     def max_decode_steps(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of tokens to generate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#max_decode_steps DialogflowCxGenerator#max_decode_steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#max_decode_steps DialogflowCxGenerator#max_decode_steps}
         '''
         result = self._values.get("max_decode_steps")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -872,7 +872,7 @@ class DialogflowCxGeneratorModelParameter:
         Temperature sampling occurs after both topP and topK have been applied.
         Valid range: [0.0, 1.0] Low temperature = less random. High temperature = more random.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#temperature DialogflowCxGenerator#temperature}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#temperature DialogflowCxGenerator#temperature}
         '''
         result = self._values.get("temperature")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -883,7 +883,7 @@ class DialogflowCxGeneratorModelParameter:
 
         Valid range: [1, 40] or 1000+. Small topK = less random. Large topK = more random.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#top_k DialogflowCxGenerator#top_k}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#top_k DialogflowCxGenerator#top_k}
         '''
         result = self._values.get("top_k")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -895,7 +895,7 @@ class DialogflowCxGeneratorModelParameter:
         If both topP and topK are set, topP will be used for further refining candidates selected with topK.
         Valid range: (0.0, 1.0]. Small topP = less random. Large topP = more random.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#top_p DialogflowCxGenerator#top_p}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#top_p DialogflowCxGenerator#top_p}
         '''
         result = self._values.get("top_p")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1045,8 +1045,8 @@ class DialogflowCxGeneratorPlaceholders:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Unique ID used to map custom placeholder to parameters in fulfillment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Custom placeholder value in the prompt text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#name DialogflowCxGenerator#name}
+        :param id: Unique ID used to map custom placeholder to parameters in fulfillment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Custom placeholder value in the prompt text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#name DialogflowCxGenerator#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e3ee39984a3cbd5d3a8632c2d827ba84422e16a859ae464df1f5ffacc2efcb2)
@@ -1062,7 +1062,7 @@ class DialogflowCxGeneratorPlaceholders:
     def id(self) -> typing.Optional[builtins.str]:
         '''Unique ID used to map custom placeholder to parameters in fulfillment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#id DialogflowCxGenerator#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1074,7 +1074,7 @@ class DialogflowCxGeneratorPlaceholders:
     def name(self) -> typing.Optional[builtins.str]:
         '''Custom placeholder value in the prompt text.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#name DialogflowCxGenerator#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#name DialogflowCxGenerator#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1278,7 +1278,7 @@ class DialogflowCxGeneratorPlaceholdersOutputReference(
 class DialogflowCxGeneratorPromptText:
     def __init__(self, *, text: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param text: Text input which can be used for prompt or banned phrases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#text DialogflowCxGenerator#text}
+        :param text: Text input which can be used for prompt or banned phrases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#text DialogflowCxGenerator#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7b08ef39d9c43ac82033e12c6b51e95b56d714663df307bc53ca6cb967aba62)
@@ -1291,7 +1291,7 @@ class DialogflowCxGeneratorPromptText:
     def text(self) -> typing.Optional[builtins.str]:
         '''Text input which can be used for prompt or banned phrases.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#text DialogflowCxGenerator#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#text DialogflowCxGenerator#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1379,9 +1379,9 @@ class DialogflowCxGeneratorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#create DialogflowCxGenerator#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#delete DialogflowCxGenerator#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#update DialogflowCxGenerator#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#create DialogflowCxGenerator#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#delete DialogflowCxGenerator#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#update DialogflowCxGenerator#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14dbc29b7d4cb0dd422160bc74f3b725fd19cfef10566b302ae637d25042f393)
@@ -1398,19 +1398,19 @@ class DialogflowCxGeneratorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#create DialogflowCxGenerator#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#create DialogflowCxGenerator#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#delete DialogflowCxGenerator#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#delete DialogflowCxGenerator#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_cx_generator#update DialogflowCxGenerator#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_generator#update DialogflowCxGenerator#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

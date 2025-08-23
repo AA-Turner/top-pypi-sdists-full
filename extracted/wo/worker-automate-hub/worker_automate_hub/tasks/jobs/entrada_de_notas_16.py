@@ -771,19 +771,14 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 if information_pop_up["IsOpened"] == True:
                     break
                 else:
-                    console.print(f"Aguardando confirmação de nota incluida...\n")
-                    await worker_sleep(5)
-                    i += 1
-                    console.print("\Consultando se a nota ja foi lançada...")
                     try:
-                        status_nf_emsys = await get_status_nf_emsys(nota.get("nfe"))
-                        if status_nf_emsys.get("status") == "Lançada":
-                            console.print("\nNota lançada com sucesso, processo finalizado...", style="bold green")
-                            return RpaRetornoProcessoDTO(
-                                    sucesso=True,
-                                    retorno="Nota Lançada com sucesso!",
-                                    status=RpaHistoricoStatusEnum.Sucesso,
-                                )
+                        console.print(f"Aguardando confirmação de nota incluida...\n")
+                        await worker_sleep(5)
+                        i += 1
+                        nf_imported = await check_nota_importada(nota.get("nfe"))
+                        if nf_imported.sucesso:
+                            return nf_imported
+                        console.print("\Consultando se a nota ja foi lançada...")    
                     except: pass
 
             information_pop_up = await is_window_open("Information")
@@ -855,9 +850,10 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             )
         console.print("\nVerifica se a nota ja foi lançada...")
         nf_chave_acesso = int(nota.get("nfe"))
-        status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
-        nf_imported = await check_nota_importada(nota.get("nfe"))
-        if nf_imported.sucesso == True:
+        try:
+            nf_imported = await check_nota_importada(nota.get("nfe"))
+        except:
+            pass
             await worker_sleep(12)
             console.print("\nVerifica se a nota ja foi lançada...")
             status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
@@ -876,15 +872,6 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                     status=RpaHistoricoStatusEnum.Falha,
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
                 )
-        else:
-            console.print("Erro ao lançar nota", style="bold red")
-            return RpaRetornoProcessoDTO(
-                sucesso=False,
-                retorno=f"Erro ao lançar nota, erro: {nf_imported.retorno}",
-                status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
-            )
-                
     except Exception as ex:
         observacao = f"Erro Processo Entrada de Notas: {str(ex)}"
         logger.error(observacao)

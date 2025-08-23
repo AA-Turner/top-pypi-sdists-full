@@ -9,13 +9,16 @@ from matrice.deploy.stream.kafka_stream import MatriceKafkaDeployment
 
 class ResultsPublisher:
     """
-    Streams final aggregated results from inference pipeline to Kafka.
-    Handles result collection, queuing, and distribution with proper error handling
-    for the enhanced aggregated result structure.
+    Optimized streaming of final aggregated results from inference pipeline to Kafka.
+    Processes results immediately for low latency.
     """
 
     def __init__(
-        self, inference_pipeline_id: str, session: Session, final_results_queue: Queue, analytics_summarizer: Optional[Any] = None
+        self, 
+        inference_pipeline_id: str, 
+        session: Session, 
+        final_results_queue: Queue, 
+        analytics_summarizer: Optional[Any] = None
     ):
         """
         Initialize the final results streamer.
@@ -24,10 +27,12 @@ class ResultsPublisher:
             inference_pipeline_id: ID of the inference pipeline
             session: Session object for authentication
             final_results_queue: Queue containing final aggregated results
+            analytics_summarizer: Optional analytics summarizer for forwarding results
         """
         self.inference_pipeline_id = inference_pipeline_id
         self.session = session
         self.final_results_queue = final_results_queue
+        
         self.kafka_handler = MatriceKafkaDeployment(
             session, inference_pipeline_id, type="server"
         )
@@ -38,6 +43,7 @@ class ResultsPublisher:
         self._stop_streaming = threading.Event()
         self._streaming_thread: Optional[threading.Thread] = None
         self._is_running = False
+        self._stats_lock = threading.Lock()
         
         # Statistics
         self.stats = {
@@ -47,7 +53,7 @@ class ResultsPublisher:
             "kafka_errors": 0,
             "errors": 0,
             "last_error": None,
-            "last_error_time": None
+            "last_error_time": None,
         }
 
     def start_streaming(self) -> bool:
@@ -83,8 +89,10 @@ class ResultsPublisher:
             return False
 
     def _stream_results_to_kafka(self):
-        """Stream final results from queue to Kafka."""
+        """Stream final results from queue to Kafka immediately."""
         logging.info("Starting final results streaming thread")
+        last_log_time = time.time()
+        log_interval = 30.0  # Log every 30 seconds
         
         while not self._stop_streaming.is_set():
             try:
@@ -94,35 +102,53 @@ class ResultsPublisher:
                 except Empty:
                     continue
                 
-                # Validate result
-                # if not self._validate_aggregated_result(aggregated_result):
-                #     logging.warning("Invalid aggregated result format, skipping")
-                #     self.stats["validation_errors"] += 1
-                #     continue
-                
-                # # Enhance result for publishing
-                # enhanced_result = self._enhance_result_for_publishing(aggregated_result)
-                
-                # Produce message to Kafka
+                # Process single result immediately
                 try:
-                    self.kafka_handler.produce_message(message=aggregated_result, key=aggregated_result.get("aggregation_metadata", {}).get("stream_key"))
-                    self.stats["messages_produced"] += 1
-                    # Extract stream key from camera_info for logging (new structure)
-                    camera_info = aggregated_result.get('camera_info', {})
-                    stream_key = camera_info.get('camera_name', 'unknown')
-                    logging.debug(f"Successfully published camera_results for stream: {stream_key}")
+                    # Extract stream key efficiently
+                    stream_key = None
+                    aggregation_metadata = aggregated_result.get("aggregation_metadata", {})
+                    if aggregation_metadata:
+                        stream_key = aggregation_metadata.get("stream_key")
+                    if not stream_key:
+                        # Fallback to camera_info
+                        camera_info = aggregated_result.get('camera_info', {})
+                        stream_key = camera_info.get('camera_name')
+                    
+                    # Produce message to Kafka immediately
+                    self.kafka_handler.produce_message(
+                        message=aggregated_result, 
+                        key=stream_key
+                    )
+                    
+                    with self._stats_lock:
+                        self.stats["messages_produced"] += 1
+                    
                     # Forward to analytics summarizer after successful publish
-                    try:
-                        if self.analytics_summarizer is not None and hasattr(self.analytics_summarizer, 'ingest_result'):
+                    if self.analytics_summarizer is not None and hasattr(self.analytics_summarizer, 'ingest_result'):
+                        try:
                             self.analytics_summarizer.ingest_result(aggregated_result)
-                    except Exception as exc_inner:
-                        logging.warning(f"Failed to forward to analytics summarizer: {exc_inner}")
+                        except Exception as exc_inner:
+                            if self.stats["messages_produced"] % 100 == 1:  # Log occasionally
+                                logging.warning(f"Failed to forward to analytics summarizer: {exc_inner}")
+                    
                 except Exception as exc:
-                    self.stats["kafka_errors"] += 1
-                    self._record_error(f"Failed to produce aggregated result to Kafka: {str(exc)}")
+                    with self._stats_lock:
+                        self.stats["kafka_errors"] += 1
+                    if self.stats["kafka_errors"] % 10 == 1:  # Log every 10th error
+                        self._record_error(f"Failed to produce aggregated result to Kafka: {str(exc)}")
                 
                 # Mark task as done
                 self.final_results_queue.task_done()
+                
+                # Reduced frequency logging
+                current_time = time.time()
+                if (current_time - last_log_time) > log_interval:
+                    with self._stats_lock:
+                        messages_produced = self.stats["messages_produced"]
+                        kafka_errors = self.stats["kafka_errors"]
+                    if messages_produced > 0 or kafka_errors > 0:
+                        logging.debug(f"Publisher: produced={messages_produced} messages, kafka_errors={kafka_errors}")
+                    last_log_time = current_time
                 
             except Exception as exc:
                 if not self._stop_streaming.is_set():
@@ -265,10 +291,13 @@ class ResultsPublisher:
 
     def _record_error(self, error_message: str):
         """Record error in statistics."""
-        self.stats["errors"] += 1
-        self.stats["last_error"] = error_message
-        self.stats["last_error_time"] = time.time()
-        logging.error(f"Publisher error: {error_message}")
+        with self._stats_lock:
+            self.stats["errors"] += 1
+            self.stats["last_error"] = error_message
+            self.stats["last_error_time"] = time.time()
+        # Reduce logging frequency for performance
+        if self.stats["errors"] % 10 == 1:  # Log every 10th error
+            logging.error(f"Publisher error (#{self.stats['errors']}): {error_message}")
 
     def stop_streaming(self):
         """Stop streaming final results."""
@@ -307,18 +336,20 @@ class ResultsPublisher:
         Returns:
             Dict containing statistics
         """
-        stats = self.stats.copy()
+        with self._stats_lock:
+            stats = self.stats.copy()
+            
         stats["is_running"] = self._is_running
         stats["queue_size"] = self.final_results_queue.qsize()
-        stats["success_rate"] = (
-            self.stats["messages_produced"] / 
-            max(self.stats["messages_produced"] + self.stats["validation_errors"] + self.stats["kafka_errors"], 1)
-        )
+        
+        # Calculate success rate
+        total_attempts = stats["messages_produced"] + stats["validation_errors"] + stats["kafka_errors"]
+        stats["success_rate"] = stats["messages_produced"] / max(total_attempts, 1)
         
         if stats["start_time"]:
             stats["uptime"] = time.time() - stats["start_time"]
             if stats["uptime"] > 0:
-                stats["messages_per_second"] = self.stats["messages_produced"] / stats["uptime"]
+                stats["messages_per_second"] = stats["messages_produced"] / stats["uptime"]
         
         return stats
 

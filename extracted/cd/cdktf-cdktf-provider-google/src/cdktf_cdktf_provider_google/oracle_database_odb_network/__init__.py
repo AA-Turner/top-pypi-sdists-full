@@ -1,7 +1,7 @@
 r'''
 # `google_oracle_database_odb_network`
 
-Refer to the Terraform Registry for docs: [`google_oracle_database_odb_network`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network).
+Refer to the Terraform Registry for docs: [`google_oracle_database_odb_network`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OracleDatabaseOdbNetwork(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.oracleDatabaseOdbNetwork.OracleDatabaseOdbNetwork",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network google_oracle_database_odb_network}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network google_oracle_database_odb_network}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class OracleDatabaseOdbNetwork(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network google_oracle_database_odb_network} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network google_oracle_database_odb_network} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#location OracleDatabaseOdbNetwork#location}
-        :param network: The name of the VPC network in the following format: projects/{project}/global/networks/{network}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#network OracleDatabaseOdbNetwork#network}
-        :param odb_network_id: The ID of the OdbNetwork to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#odb_network_id OracleDatabaseOdbNetwork#odb_network_id}
-        :param deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#deletion_protection OracleDatabaseOdbNetwork#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#id OracleDatabaseOdbNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels or tags associated with the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#labels OracleDatabaseOdbNetwork#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#project OracleDatabaseOdbNetwork#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#timeouts OracleDatabaseOdbNetwork#timeouts}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#location OracleDatabaseOdbNetwork#location}
+        :param network: The name of the VPC network in the following format: projects/{project}/global/networks/{network}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#network OracleDatabaseOdbNetwork#network}
+        :param odb_network_id: The ID of the OdbNetwork to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#odb_network_id OracleDatabaseOdbNetwork#odb_network_id}
+        :param deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#deletion_protection OracleDatabaseOdbNetwork#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#id OracleDatabaseOdbNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels or tags associated with the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#labels OracleDatabaseOdbNetwork#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#project OracleDatabaseOdbNetwork#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#timeouts OracleDatabaseOdbNetwork#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class OracleDatabaseOdbNetwork(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OracleDatabaseOdbNetwork to import.
-        :param import_from_id: The id of the existing OracleDatabaseOdbNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OracleDatabaseOdbNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OracleDatabaseOdbNetwork to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class OracleDatabaseOdbNetwork(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#create OracleDatabaseOdbNetwork#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#delete OracleDatabaseOdbNetwork#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#update OracleDatabaseOdbNetwork#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#create OracleDatabaseOdbNetwork#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#delete OracleDatabaseOdbNetwork#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#update OracleDatabaseOdbNetwork#update}.
         '''
         value = OracleDatabaseOdbNetworkTimeouts(
             create=create, delete=delete, update=update
@@ -407,14 +407,14 @@ class OracleDatabaseOdbNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#location OracleDatabaseOdbNetwork#location}
-        :param network: The name of the VPC network in the following format: projects/{project}/global/networks/{network}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#network OracleDatabaseOdbNetwork#network}
-        :param odb_network_id: The ID of the OdbNetwork to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#odb_network_id OracleDatabaseOdbNetwork#odb_network_id}
-        :param deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#deletion_protection OracleDatabaseOdbNetwork#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#id OracleDatabaseOdbNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels or tags associated with the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#labels OracleDatabaseOdbNetwork#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#project OracleDatabaseOdbNetwork#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#timeouts OracleDatabaseOdbNetwork#timeouts}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#location OracleDatabaseOdbNetwork#location}
+        :param network: The name of the VPC network in the following format: projects/{project}/global/networks/{network}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#network OracleDatabaseOdbNetwork#network}
+        :param odb_network_id: The ID of the OdbNetwork to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#odb_network_id OracleDatabaseOdbNetwork#odb_network_id}
+        :param deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#deletion_protection OracleDatabaseOdbNetwork#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#id OracleDatabaseOdbNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels or tags associated with the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#labels OracleDatabaseOdbNetwork#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#project OracleDatabaseOdbNetwork#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#timeouts OracleDatabaseOdbNetwork#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -535,7 +535,7 @@ class OracleDatabaseOdbNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#location OracleDatabaseOdbNetwork#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#location OracleDatabaseOdbNetwork#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -545,7 +545,7 @@ class OracleDatabaseOdbNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network(self) -> builtins.str:
         '''The name of the VPC network in the following format: projects/{project}/global/networks/{network}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#network OracleDatabaseOdbNetwork#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#network OracleDatabaseOdbNetwork#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -560,7 +560,7 @@ class OracleDatabaseOdbNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters in length. The value must start with a letter and end with
         a letter or a number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#odb_network_id OracleDatabaseOdbNetwork#odb_network_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#odb_network_id OracleDatabaseOdbNetwork#odb_network_id}
         '''
         result = self._values.get("odb_network_id")
         assert result is not None, "Required property 'odb_network_id' is missing"
@@ -574,14 +574,14 @@ class OracleDatabaseOdbNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#deletion_protection OracleDatabaseOdbNetwork#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#deletion_protection OracleDatabaseOdbNetwork#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#id OracleDatabaseOdbNetwork#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#id OracleDatabaseOdbNetwork#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -596,14 +596,14 @@ class OracleDatabaseOdbNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#labels OracleDatabaseOdbNetwork#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#labels OracleDatabaseOdbNetwork#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#project OracleDatabaseOdbNetwork#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#project OracleDatabaseOdbNetwork#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -611,7 +611,7 @@ class OracleDatabaseOdbNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OracleDatabaseOdbNetworkTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#timeouts OracleDatabaseOdbNetwork#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#timeouts OracleDatabaseOdbNetwork#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OracleDatabaseOdbNetworkTimeouts"], result)
@@ -642,9 +642,9 @@ class OracleDatabaseOdbNetworkTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#create OracleDatabaseOdbNetwork#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#delete OracleDatabaseOdbNetwork#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#update OracleDatabaseOdbNetwork#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#create OracleDatabaseOdbNetwork#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#delete OracleDatabaseOdbNetwork#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#update OracleDatabaseOdbNetwork#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b13539e6473779374aabe2c1ca39514f32a32f608781df881418d8b4d7da3d15)
@@ -661,19 +661,19 @@ class OracleDatabaseOdbNetworkTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#create OracleDatabaseOdbNetwork#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#create OracleDatabaseOdbNetwork#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#delete OracleDatabaseOdbNetwork#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#delete OracleDatabaseOdbNetwork#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_network#update OracleDatabaseOdbNetwork#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/oracle_database_odb_network#update OracleDatabaseOdbNetwork#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

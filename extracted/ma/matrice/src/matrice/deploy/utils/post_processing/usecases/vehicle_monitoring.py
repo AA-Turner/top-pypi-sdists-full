@@ -29,7 +29,13 @@ class VehicleMonitoringConfig(BaseConfig):
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
     confidence_threshold: float = 0.6
-    zone_config: Optional[ZoneConfig] = None
+    zone_config: Optional[Dict[str, List[List[float]]]] = field(
+    default_factory=lambda: {
+        "zones": {
+            "Entrance": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
+        }
+    }
+)
     usecase_categories: List[str] = field(
         default_factory=lambda: [
             "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
@@ -106,6 +112,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
         self._current_frame_track_ids = set()  # Store track IDs from current frame
         self._total_count = 0  # Cached total count
         self._last_update_time = time.time()  # Track when last updated
+        self._total_count_list = []
         
         # Zone-based tracking storage
         self._zone_current_track_ids = {}  # zone_name -> set of current track IDs in zone
@@ -115,7 +122,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
 
     def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
                 stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
-        start_time = time.time()
+        processing_start = time.time()
         if not isinstance(config, VehicleMonitoringConfig):
             return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
         if context is None:
@@ -187,31 +194,36 @@ class VehicleMonitoringUseCase(BaseProcessor):
             category = detection.get("category", "unknown")
             counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
         
+        # print("---------------------PROCESSEDD-----------------------")
+        # print(processed_data)
+        # print("---------------------PROCESSEDD-----------------------")
         zone_analysis = {}
         if config.zone_config and config.zone_config['zones']:
             # Convert single frame to format expected by count_objects_in_zones
             frame_data = processed_data #[frame_detections]
             zone_analysis = count_objects_in_zones(frame_data, config.zone_config['zones'])
-            
-            # Update zone tracking with current frame data
-            if zone_analysis and config.enable_tracking:
+            # print("-----------------------------ZONEEEE1-----------------------------------")
+            # print(zone_analysis)
+            # print("-----------------------------ZONEEEE1-----------------------------------")
+            # Update zone tracking with current frame data (always enhance to keep cumulative totals)
+            if zone_analysis:
                 enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, processed_data, config)
                 # Merge enhanced zone analysis with original zone analysis
                 for zone_name, enhanced_data in enhanced_zone_analysis.items():
                     zone_analysis[zone_name] = enhanced_data
                     
-        print("-----------------------------ZONEEEE-----------------------------------")
-        print(zone_analysis)
-        print("-----------------------------ZONEEEE-----------------------------------")
+        # print("-----------------------------ZONEEEE-----------------------------------")
+        # print(zone_analysis)
+        # print("-----------------------------ZONEEEE-----------------------------------")
 
         alerts = self._check_alerts(counting_summary,zone_analysis, frame_number, config)
         predictions = self._extract_predictions(processed_data)
 
         incidents_list = self._generate_incidents(counting_summary,zone_analysis, alerts, config, frame_number, stream_info)
         tracking_stats_list = self._generate_tracking_stats(counting_summary,zone_analysis, alerts, config, frame_number, stream_info)
-        print("---------------------------TS--------------------------------------")
-        print(tracking_stats_list)
-        print("---------------------------TS--------------------------------------")
+        # print("---------------------------TS--------------------------------------")
+        # print(tracking_stats_list)
+        # print("---------------------------TS--------------------------------------")
         business_analytics_list = self._generate_business_analytics(counting_summary,zone_analysis, alerts, config, stream_info, is_empty=True)
         summary_list = self._generate_summary(counting_summary,zone_analysis, incidents_list, tracking_stats_list, business_analytics_list, alerts)
 
@@ -235,6 +247,11 @@ class VehicleMonitoringUseCase(BaseProcessor):
             category=self.category,
             context=context
         )
+        proc_time = time.time() - processing_start
+        processing_latency_ms = proc_time * 1000.0
+        processing_fps = (1.0 / proc_time) if proc_time > 0 else None
+        # Log the performance metrics using the module-level logger
+        print("latency in ms:",processing_latency_ms,"| Throughput fps:",processing_fps,"| Frame_Number:",self._total_frame_counter)
         return result
 
     def _update_zone_tracking(self, zone_analysis: Dict[str, Dict[str, int]], detections: List[Dict], config: VehicleMonitoringConfig) -> Dict[str, Dict[str, Any]]:
@@ -288,7 +305,11 @@ class VehicleMonitoringUseCase(BaseProcessor):
                 # Check if detection center is inside the zone polygon using ray casting algorithm
                 if point_in_polygon(center_point, polygon_points):
                     current_frame_zone_tracks[zone_name].add(track_id)
-        
+                    if track_id not in self._total_count_list:
+                        self._total_count_list.append(track_id)
+        # print("------------------------asd----------------------------------")
+        # print(zone_analysis)
+        # print("------------------------asd----------------------------------")
         # Update zone tracking for each zone
         for zone_name, zone_counts in zone_analysis.items():
             # Get current frame tracks for this zone
@@ -303,7 +324,11 @@ class VehicleMonitoringUseCase(BaseProcessor):
             # Update counts
             self._zone_current_counts[zone_name] = len(current_tracks)
             self._zone_total_counts[zone_name] = len(self._zone_total_track_ids[zone_name])
-            
+            # print("------------------------asd1----------------------------------")
+            # print(self._zone_current_counts)
+            # print("------------------------asd1----------------------------------")
+            # print(self._zone_total_counts)
+            # print("------------------------asd1----------------------------------")
             # Create enhanced zone analysis
             enhanced_zone_analysis[zone_name] = {
                 "current_count": self._zone_current_counts[zone_name],
@@ -567,8 +592,6 @@ class VehicleMonitoringUseCase(BaseProcessor):
 
         human_text_lines = [f"Tracking Statistics:"]
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}")
-        for cat, count in per_category_count.items():
-            human_text_lines.append(f"\t{cat}: {count}")
         # Append zone-wise current counts if available
         if zone_analysis:
             human_text_lines.append("\tZones (current):")
@@ -584,25 +607,31 @@ class VehicleMonitoringUseCase(BaseProcessor):
                             sum(v for v in counts_dict.values() if isinstance(v, (int, float)))
                         )
                 human_text_lines.append(f"\t{zone_name}: {int(current_count)}")
-        human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
-        for cat, count in total_counts_dict.items():
-            if count > 0:
+        else:
+            for cat, count in per_category_count.items():
                 human_text_lines.append(f"\t{cat}: {count}")
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
         # Append zone-wise total counts if available
         if zone_analysis:
             human_text_lines.append("\tZones (total):")
             for zone_name, zone_data in zone_analysis.items():
                 total_count = 0
                 if isinstance(zone_data, dict):
-                    if "total_count" in zone_data:
+                    # Prefer the numeric cumulative total if available
+                    if "total_count" in zone_data and isinstance(zone_data.get("total_count"), (int, float)):
                         total_count = zone_data.get("total_count", 0)
+                    # Fallback: compute from list of total_track_ids if present
+                    elif "total_track_ids" in zone_data and isinstance(zone_data.get("total_track_ids"), list):
+                        total_count = len(zone_data.get("total_track_ids", []))
                     else:
-                        counts_dict = zone_data.get("original_counts") if isinstance(zone_data.get("original_counts"), dict) else zone_data
-                        total_count = counts_dict.get(
-                            "total",
-                            sum(v for v in counts_dict.values() if isinstance(v, (int, float)))
-                        )
+                        # Last resort: try to sum numeric values present
+                        counts_dict = zone_data if isinstance(zone_data, dict) else {}
+                        total_count = sum(v for v in counts_dict.values() if isinstance(v, (int, float)))
                 human_text_lines.append(f"\t{zone_name}: {int(total_count)}")
+        else:
+            for cat, count in total_counts_dict.items():
+                if count > 0:
+                    human_text_lines.append(f"\t{cat}: {count}")
         if alerts:
             for alert in alerts:
                 human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")

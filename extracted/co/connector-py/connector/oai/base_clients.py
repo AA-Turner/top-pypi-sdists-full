@@ -1,3 +1,4 @@
+import json
 import logging
 import typing as t
 from abc import abstractmethod
@@ -9,7 +10,7 @@ from connector_sdk_types.generated import ErrorCode
 from gql import Client
 from gql.client import AsyncClientSession
 from gql.dsl import DSLSchema
-from graphql import GraphQLSchema, build_schema
+from graphql import GraphQLSchema, build_client_schema, build_schema
 from httpx import Response
 from typing_extensions import Self
 
@@ -233,9 +234,16 @@ class BaseGraphQLSession(AsyncClientSession):
 
     @classmethod
     def load_schema(cls, schema_file_path: str | Path) -> GraphQLSchema:
-        """Load the GraphQL schema from a file."""
+        """Load the GraphQL schema from a .gql file."""
         with open(schema_file_path) as f:
             return build_schema(f.read())
+
+    @classmethod
+    def load_client_schema(cls, schema_file_path: str | Path) -> GraphQLSchema:
+        """Load the GraphQL schema from a .json file."""
+        with open(schema_file_path) as f:
+            introspection = json.load(f)
+            return build_client_schema(introspection.get("data", introspection))
 
     @property
     def schema(self) -> DSLSchema:

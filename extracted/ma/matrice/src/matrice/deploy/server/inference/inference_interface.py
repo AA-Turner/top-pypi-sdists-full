@@ -122,10 +122,17 @@ class InferenceInterface:
         try:
             if not config and not app_name:
                 return None
-            if not config and app_name:
-                config = self._load_config_from_app_name(app_name)
-                if config:
-                    return config
+            if app_name:
+                app_config = self._load_config_from_app_name(app_name)
+                if app_config:
+                    # If we have both app config and original config dict, merge them
+                    if config and isinstance(config, dict):
+                        # Apply the original config parameters to the app config
+                        for key, value in config.items():
+                            if hasattr(app_config, key) and value is not None:
+                                setattr(app_config, key, value)
+                                self.logger.debug(f"Applied config parameter {key}={value} to app config")
+                    return app_config
                 else:
                     self.logger.warning(f"No config found for app: {app_name}")
             if isinstance(config, BaseConfig):
@@ -432,7 +439,7 @@ class InferenceInterface:
                 }
 
             # Apply post-processing using the unified processor
-            result = self.post_processor.process(raw_results, config_to_use, input1, stream_key=stream_key, stream_info=stream_info)
+            result = await self.post_processor.process(raw_results, config_to_use, input1, stream_key=stream_key, stream_info=stream_info)
 
             if result.is_success():
                 # Extract agg_summary directly from result.data

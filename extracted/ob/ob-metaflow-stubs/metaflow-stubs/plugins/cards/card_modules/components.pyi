@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-21T23:31:59.715709                                                            #
+# Generated on 2025-08-22T06:36:31.472085                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
     import typing
-    import metaflow.plugins.cards.card_modules.components
     import metaflow.plugins.cards.card_modules.card
+    import metaflow.plugins.cards.card_modules.components
 
 from .basic import LogComponent as LogComponent
 from .basic import ErrorComponent as ErrorComponent

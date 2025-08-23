@@ -21455,19 +21455,37 @@ scout_asset_api_Asset.__qualname__ = "Asset"
 scout_asset_api_Asset.__module__ = "nominal_api.scout_asset_api"
 
 
+class scout_asset_api_AssetSortField(ConjureEnumType):
+
+    NAME = 'NAME'
+    '''NAME'''
+    CREATED_AT = 'CREATED_AT'
+    '''CREATED_AT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_asset_api_AssetSortField.__name__ = "AssetSortField"
+scout_asset_api_AssetSortField.__qualname__ = "AssetSortField"
+scout_asset_api_AssetSortField.__module__ = "nominal_api.scout_asset_api"
+
+
 class scout_asset_api_AssetSortOptions(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'is_descending': ConjureFieldDefinition('isDescending', bool),
-            'field': ConjureFieldDefinition('field', OptionalTypeWrapper[scout_asset_api_SortField]),
+            'field': ConjureFieldDefinition('field', OptionalTypeWrapper[scout_asset_api_AssetSortField]),
             'sort_key': ConjureFieldDefinition('sortKey', OptionalTypeWrapper[scout_asset_api_SortKey])
         }
 
     __slots__: List[str] = ['_is_descending', '_field', '_sort_key']
 
-    def __init__(self, is_descending: bool, field: Optional["scout_asset_api_SortField"] = None, sort_key: Optional["scout_asset_api_SortKey"] = None) -> None:
+    def __init__(self, is_descending: bool, field: Optional["scout_asset_api_AssetSortField"] = None, sort_key: Optional["scout_asset_api_SortKey"] = None) -> None:
         self._is_descending = is_descending
         self._field = field
         self._sort_key = sort_key
@@ -21477,7 +21495,7 @@ class scout_asset_api_AssetSortOptions(ConjureBeanType):
         return self._is_descending
 
     @builtins.property
-    def field(self) -> Optional["scout_asset_api_SortField"]:
+    def field(self) -> Optional["scout_asset_api_AssetSortField"]:
         return self._field
 
     @builtins.property
@@ -22476,36 +22494,20 @@ scout_asset_api_SearchTypesResponse.__qualname__ = "SearchTypesResponse"
 scout_asset_api_SearchTypesResponse.__module__ = "nominal_api.scout_asset_api"
 
 
-class scout_asset_api_SortField(ConjureEnumType):
-
-    CREATED_AT = 'CREATED_AT'
-    '''CREATED_AT'''
-    UNKNOWN = 'UNKNOWN'
-    '''UNKNOWN'''
-
-    def __reduce_ex__(self, proto):
-        return self.__class__, (self.name,)
-
-
-scout_asset_api_SortField.__name__ = "SortField"
-scout_asset_api_SortField.__qualname__ = "SortField"
-scout_asset_api_SortField.__module__ = "nominal_api.scout_asset_api"
-
-
 class scout_asset_api_SortKey(ConjureUnionType):
-    _field: Optional["scout_asset_api_SortField"] = None
+    _field: Optional["scout_asset_api_AssetSortField"] = None
     _property: Optional["scout_asset_api_SortProperty"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'field': ConjureFieldDefinition('field', scout_asset_api_SortField),
+            'field': ConjureFieldDefinition('field', scout_asset_api_AssetSortField),
             'property': ConjureFieldDefinition('property', scout_asset_api_SortProperty)
         }
 
     def __init__(
             self,
-            field: Optional["scout_asset_api_SortField"] = None,
+            field: Optional["scout_asset_api_AssetSortField"] = None,
             property: Optional["scout_asset_api_SortProperty"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
@@ -22532,7 +22534,7 @@ class scout_asset_api_SortKey(ConjureUnionType):
             self._type = 'property'
 
     @builtins.property
-    def field(self) -> Optional["scout_asset_api_SortField"]:
+    def field(self) -> Optional["scout_asset_api_AssetSortField"]:
         return self._field
 
     @builtins.property
@@ -22556,7 +22558,7 @@ scout_asset_api_SortKey.__module__ = "nominal_api.scout_asset_api"
 class scout_asset_api_SortKeyVisitor:
 
     @abstractmethod
-    def _field(self, field: "scout_asset_api_SortField") -> Any:
+    def _field(self, field: "scout_asset_api_AssetSortField") -> Any:
         pass
 
     @abstractmethod
@@ -22712,18 +22714,34 @@ scout_asset_api_Type.__qualname__ = "Type"
 scout_asset_api_Type.__module__ = "nominal_api.scout_asset_api"
 
 
+class scout_asset_api_TypeSortField(ConjureEnumType):
+
+    CREATED_AT = 'CREATED_AT'
+    '''CREATED_AT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_asset_api_TypeSortField.__name__ = "TypeSortField"
+scout_asset_api_TypeSortField.__qualname__ = "TypeSortField"
+scout_asset_api_TypeSortField.__module__ = "nominal_api.scout_asset_api"
+
+
 class scout_asset_api_TypeSortOptions(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'is_descending': ConjureFieldDefinition('isDescending', bool),
-            'field': ConjureFieldDefinition('field', scout_asset_api_SortField)
+            'field': ConjureFieldDefinition('field', scout_asset_api_TypeSortField)
         }
 
     __slots__: List[str] = ['_is_descending', '_field']
 
-    def __init__(self, field: "scout_asset_api_SortField", is_descending: bool) -> None:
+    def __init__(self, field: "scout_asset_api_TypeSortField", is_descending: bool) -> None:
         self._is_descending = is_descending
         self._field = field
 
@@ -22732,7 +22750,7 @@ class scout_asset_api_TypeSortOptions(ConjureBeanType):
         return self._is_descending
 
     @builtins.property
-    def field(self) -> "scout_asset_api_SortField":
+    def field(self) -> "scout_asset_api_TypeSortField":
         return self._field
 
 
@@ -44971,41 +44989,58 @@ class scout_compute_api_DerivedSeries(ConjureUnionType):
 This is a series that is derived from a function within a module.
     """
     _module_application: Optional["scout_compute_api_ModuleApplicationDerivedSeries"] = None
+    _function: Optional["scout_compute_api_FunctionDerivedSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'module_application': ConjureFieldDefinition('moduleApplication', scout_compute_api_ModuleApplicationDerivedSeries)
+            'module_application': ConjureFieldDefinition('moduleApplication', scout_compute_api_ModuleApplicationDerivedSeries),
+            'function': ConjureFieldDefinition('function', scout_compute_api_FunctionDerivedSeries)
         }
 
     def __init__(
             self,
             module_application: Optional["scout_compute_api_ModuleApplicationDerivedSeries"] = None,
+            function: Optional["scout_compute_api_FunctionDerivedSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (module_application is not None) != 1:
+            if (module_application is not None) + (function is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if module_application is not None:
                 self._module_application = module_application
                 self._type = 'moduleApplication'
+            if function is not None:
+                self._function = function
+                self._type = 'function'
 
         elif type_of_union == 'moduleApplication':
             if module_application is None:
                 raise ValueError('a union value must not be None')
             self._module_application = module_application
             self._type = 'moduleApplication'
+        elif type_of_union == 'function':
+            if function is None:
+                raise ValueError('a union value must not be None')
+            self._function = function
+            self._type = 'function'
 
     @builtins.property
     def module_application(self) -> Optional["scout_compute_api_ModuleApplicationDerivedSeries"]:
         return self._module_application
+
+    @builtins.property
+    def function(self) -> Optional["scout_compute_api_FunctionDerivedSeries"]:
+        return self._function
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_DerivedSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_DerivedSeriesVisitor'.format(visitor.__class__.__name__))
         if self._type == 'moduleApplication' and self.module_application is not None:
             return visitor._module_application(self.module_application)
+        if self._type == 'function' and self.function is not None:
+            return visitor._function(self.function)
 
 
 scout_compute_api_DerivedSeries.__name__ = "DerivedSeries"
@@ -45017,6 +45052,10 @@ class scout_compute_api_DerivedSeriesVisitor:
 
     @abstractmethod
     def _module_application(self, module_application: "scout_compute_api_ModuleApplicationDerivedSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _function(self, function: "scout_compute_api_FunctionDerivedSeries") -> Any:
         pass
 
 
@@ -46585,6 +46624,129 @@ class scout_compute_api_FrequencyDomainPlot(ConjureBeanType):
 scout_compute_api_FrequencyDomainPlot.__name__ = "FrequencyDomainPlot"
 scout_compute_api_FrequencyDomainPlot.__qualname__ = "FrequencyDomainPlot"
 scout_compute_api_FrequencyDomainPlot.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FunctionDerivedSeries(ConjureBeanType):
+    """A reference to a derived series resulting from applying a function to a set of arguments.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_name': ConjureFieldDefinition('moduleName', scout_compute_api_StringConstant),
+            'function_name': ConjureFieldDefinition('functionName', scout_compute_api_StringConstant),
+            'version_reference': ConjureFieldDefinition('versionReference', scout_compute_api_ModuleVersionReference),
+            'function_args': ConjureFieldDefinition('functionArgs', Dict[scout_compute_api_FunctionParameterName, scout_compute_api_FunctionParameterValue])
+        }
+
+    __slots__: List[str] = ['_module_name', '_function_name', '_version_reference', '_function_args']
+
+    def __init__(self, function_args: Dict[str, "scout_compute_api_FunctionParameterValue"], function_name: "scout_compute_api_StringConstant", module_name: "scout_compute_api_StringConstant", version_reference: "scout_compute_api_ModuleVersionReference") -> None:
+        self._module_name = module_name
+        self._function_name = function_name
+        self._version_reference = version_reference
+        self._function_args = function_args
+
+    @builtins.property
+    def module_name(self) -> "scout_compute_api_StringConstant":
+        return self._module_name
+
+    @builtins.property
+    def function_name(self) -> "scout_compute_api_StringConstant":
+        return self._function_name
+
+    @builtins.property
+    def version_reference(self) -> "scout_compute_api_ModuleVersionReference":
+        return self._version_reference
+
+    @builtins.property
+    def function_args(self) -> Dict[str, "scout_compute_api_FunctionParameterValue"]:
+        """Map of function input names to their values. The function inputs must match the function's parameter
+names and types. An input must be specified for each of the referenced function's parameters.
+        """
+        return self._function_args
+
+
+scout_compute_api_FunctionDerivedSeries.__name__ = "FunctionDerivedSeries"
+scout_compute_api_FunctionDerivedSeries.__qualname__ = "FunctionDerivedSeries"
+scout_compute_api_FunctionDerivedSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FunctionParameterValue(ConjureUnionType):
+    _variable: Optional[str] = None
+    _value: Optional["scout_compute_api_VariableValue"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'variable': ConjureFieldDefinition('variable', scout_compute_api_VariableName),
+            'value': ConjureFieldDefinition('value', scout_compute_api_VariableValue)
+        }
+
+    def __init__(
+            self,
+            variable: Optional[str] = None,
+            value: Optional["scout_compute_api_VariableValue"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (variable is not None) + (value is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if variable is not None:
+                self._variable = variable
+                self._type = 'variable'
+            if value is not None:
+                self._value = value
+                self._type = 'value'
+
+        elif type_of_union == 'variable':
+            if variable is None:
+                raise ValueError('a union value must not be None')
+            self._variable = variable
+            self._type = 'variable'
+        elif type_of_union == 'value':
+            if value is None:
+                raise ValueError('a union value must not be None')
+            self._value = value
+            self._type = 'value'
+
+    @builtins.property
+    def variable(self) -> Optional[str]:
+        return self._variable
+
+    @builtins.property
+    def value(self) -> Optional["scout_compute_api_VariableValue"]:
+        return self._value
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_FunctionParameterValueVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_FunctionParameterValueVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'variable' and self.variable is not None:
+            return visitor._variable(self.variable)
+        if self._type == 'value' and self.value is not None:
+            return visitor._value(self.value)
+
+
+scout_compute_api_FunctionParameterValue.__name__ = "FunctionParameterValue"
+scout_compute_api_FunctionParameterValue.__qualname__ = "FunctionParameterValue"
+scout_compute_api_FunctionParameterValue.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FunctionParameterValueVisitor:
+
+    @abstractmethod
+    def _variable(self, variable: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _value(self, value: "scout_compute_api_VariableValue") -> Any:
+        pass
+
+
+scout_compute_api_FunctionParameterValueVisitor.__name__ = "FunctionParameterValueVisitor"
+scout_compute_api_FunctionParameterValueVisitor.__qualname__ = "FunctionParameterValueVisitor"
+scout_compute_api_FunctionParameterValueVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_FunctionVariables(ConjureBeanType):
@@ -48271,12 +48433,12 @@ The referenced module must be applied to the referenced asset.
         return {
             'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', scout_compute_api_StringConstant),
             'function_name': ConjureFieldDefinition('functionName', scout_compute_api_StringConstant),
-            'function_args': ConjureFieldDefinition('functionArgs', Dict[scout_compute_api_VariableName, scout_compute_api_VariableValue])
+            'function_args': ConjureFieldDefinition('functionArgs', Dict[scout_compute_api_FunctionParameterName, scout_compute_api_FunctionParameterValue])
         }
 
     __slots__: List[str] = ['_module_application_rid', '_function_name', '_function_args']
 
-    def __init__(self, function_args: Dict[str, "scout_compute_api_VariableValue"], function_name: "scout_compute_api_StringConstant", module_application_rid: "scout_compute_api_StringConstant") -> None:
+    def __init__(self, function_args: Dict[str, "scout_compute_api_FunctionParameterValue"], function_name: "scout_compute_api_StringConstant", module_application_rid: "scout_compute_api_StringConstant") -> None:
         self._module_application_rid = module_application_rid
         self._function_name = function_name
         self._function_args = function_args
@@ -48292,7 +48454,7 @@ The referenced module must be applied to the referenced asset.
         return self._function_name
 
     @builtins.property
-    def function_args(self) -> Dict[str, "scout_compute_api_VariableValue"]:
+    def function_args(self) -> Dict[str, "scout_compute_api_FunctionParameterValue"]:
         """Map of function input names to their values. The function inputs must match the function's parameter
 names and types. Because all function parameters have default values when the module is applied to the asset, this can be empty.
         """
@@ -48302,6 +48464,62 @@ names and types. Because all function parameters have default values when the mo
 scout_compute_api_ModuleApplicationDerivedSeries.__name__ = "ModuleApplicationDerivedSeries"
 scout_compute_api_ModuleApplicationDerivedSeries.__qualname__ = "ModuleApplicationDerivedSeries"
 scout_compute_api_ModuleApplicationDerivedSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ModuleVersionReference(ConjureUnionType):
+    _pinned: Optional["scout_compute_api_PinnedModuleVersionReference"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'pinned': ConjureFieldDefinition('pinned', scout_compute_api_PinnedModuleVersionReference)
+        }
+
+    def __init__(
+            self,
+            pinned: Optional["scout_compute_api_PinnedModuleVersionReference"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (pinned is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if pinned is not None:
+                self._pinned = pinned
+                self._type = 'pinned'
+
+        elif type_of_union == 'pinned':
+            if pinned is None:
+                raise ValueError('a union value must not be None')
+            self._pinned = pinned
+            self._type = 'pinned'
+
+    @builtins.property
+    def pinned(self) -> Optional["scout_compute_api_PinnedModuleVersionReference"]:
+        return self._pinned
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_ModuleVersionReferenceVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_ModuleVersionReferenceVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'pinned' and self.pinned is not None:
+            return visitor._pinned(self.pinned)
+
+
+scout_compute_api_ModuleVersionReference.__name__ = "ModuleVersionReference"
+scout_compute_api_ModuleVersionReference.__qualname__ = "ModuleVersionReference"
+scout_compute_api_ModuleVersionReference.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ModuleVersionReferenceVisitor:
+
+    @abstractmethod
+    def _pinned(self, pinned: "scout_compute_api_PinnedModuleVersionReference") -> Any:
+        pass
+
+
+scout_compute_api_ModuleVersionReferenceVisitor.__name__ = "ModuleVersionReferenceVisitor"
+scout_compute_api_ModuleVersionReferenceVisitor.__qualname__ = "ModuleVersionReferenceVisitor"
+scout_compute_api_ModuleVersionReferenceVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_NegativeValueConfiguration(ConjureUnionType):
@@ -50708,6 +50926,29 @@ output. Must be non-negative. If not present, will default to 1 nanosecond.
 scout_compute_api_PersistenceWindowConfiguration.__name__ = "PersistenceWindowConfiguration"
 scout_compute_api_PersistenceWindowConfiguration.__qualname__ = "PersistenceWindowConfiguration"
 scout_compute_api_PersistenceWindowConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_PinnedModuleVersionReference(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'version': ConjureFieldDefinition('version', scout_compute_api_StringConstant)
+        }
+
+    __slots__: List[str] = ['_version']
+
+    def __init__(self, version: "scout_compute_api_StringConstant") -> None:
+        self._version = version
+
+    @builtins.property
+    def version(self) -> "scout_compute_api_StringConstant":
+        return self._version
+
+
+scout_compute_api_PinnedModuleVersionReference.__name__ = "PinnedModuleVersionReference"
+scout_compute_api_PinnedModuleVersionReference.__qualname__ = "PinnedModuleVersionReference"
+scout_compute_api_PinnedModuleVersionReference.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Point3d(ConjureBeanType):
@@ -79000,14 +79241,13 @@ Throws NOT_FOUND if the view doesn't exist and INVALID_ARGUMENT if it is archive
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_savedviews_api_UpdateSavedViewResponse, self._return_none_for_unknown_union_types)
 
-    def archive_saved_views(self, auth_header: str, request: "scout_savedviews_api_ArchiveSavedViewsRequest") -> None:
-        """Archives the specified saved views. Archived views are hidden from search.
+    def archive_saved_view(self, auth_header: str, saved_view_rid: str) -> None:
+        """Archives the specified saved view. Archived views are hidden from search.
         """
         _conjure_encoder = ConjureEncoder()
 
         _headers: Dict[str, Any] = {
             'Accept': 'application/json',
-            'Content-Type': 'application/json',
             'Authorization': auth_header,
         }
 
@@ -79015,11 +79255,12 @@ Throws NOT_FOUND if the view doesn't exist and INVALID_ARGUMENT if it is archive
         }
 
         _path_params: Dict[str, str] = {
+            'savedViewRid': quote(str(_conjure_encoder.default(saved_view_rid)), safe=''),
         }
 
-        _json: Any = _conjure_encoder.default(request)
+        _json: Any = None
 
-        _path = '/scout/saved-views/v1/archive-batch'
+        _path = '/scout/saved-views/v1/{savedViewRid}/archive'
         _path = _path.format(**_path_params)
 
         _response: Response = self._request(
@@ -79031,14 +79272,13 @@ Throws NOT_FOUND if the view doesn't exist and INVALID_ARGUMENT if it is archive
 
         return
 
-    def unarchive_saved_views(self, auth_header: str, request: "scout_savedviews_api_UnarchiveSavedViewsRequest") -> None:
-        """Restores archived saved views, making them discoverable in search again.
+    def unarchive_saved_view(self, auth_header: str, saved_view_rid: str) -> None:
+        """Restores archived saved view, making them discoverable in search again.
         """
         _conjure_encoder = ConjureEncoder()
 
         _headers: Dict[str, Any] = {
             'Accept': 'application/json',
-            'Content-Type': 'application/json',
             'Authorization': auth_header,
         }
 
@@ -79046,11 +79286,12 @@ Throws NOT_FOUND if the view doesn't exist and INVALID_ARGUMENT if it is archive
         }
 
         _path_params: Dict[str, str] = {
+            'savedViewRid': quote(str(_conjure_encoder.default(saved_view_rid)), safe=''),
         }
 
-        _json: Any = _conjure_encoder.default(request)
+        _json: Any = None
 
-        _path = '/scout/saved-views/v1/unarchive-batch'
+        _path = '/scout/saved-views/v1/{savedViewRid}/unarchive'
         _path = _path.format(**_path_params)
 
         _response: Response = self._request(
@@ -79066,29 +79307,6 @@ Throws NOT_FOUND if the view doesn't exist and INVALID_ARGUMENT if it is archive
 scout_savedviews_SavedViewService.__name__ = "SavedViewService"
 scout_savedviews_SavedViewService.__qualname__ = "SavedViewService"
 scout_savedviews_SavedViewService.__module__ = "nominal_api.scout_savedviews"
-
-
-class scout_savedviews_api_ArchiveSavedViewsRequest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'saved_view_rids': ConjureFieldDefinition('savedViewRids', List[scout_rids_api_SavedViewRid])
-        }
-
-    __slots__: List[str] = ['_saved_view_rids']
-
-    def __init__(self, saved_view_rids: List[str]) -> None:
-        self._saved_view_rids = saved_view_rids
-
-    @builtins.property
-    def saved_view_rids(self) -> List[str]:
-        return self._saved_view_rids
-
-
-scout_savedviews_api_ArchiveSavedViewsRequest.__name__ = "ArchiveSavedViewsRequest"
-scout_savedviews_api_ArchiveSavedViewsRequest.__qualname__ = "ArchiveSavedViewsRequest"
-scout_savedviews_api_ArchiveSavedViewsRequest.__module__ = "nominal_api.scout_savedviews_api"
 
 
 class scout_savedviews_api_AssetSearchState(ConjureBeanType):
@@ -79949,6 +80167,8 @@ class scout_savedviews_api_SortField(ConjureEnumType):
     '''TITLE'''
     CREATED_AT = 'CREATED_AT'
     '''CREATED_AT'''
+    USER_DEFINED = 'USER_DEFINED'
+    '''USER_DEFINED'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -80087,29 +80307,6 @@ scout_savedviews_api_TemplateSearchState.__qualname__ = "TemplateSearchState"
 scout_savedviews_api_TemplateSearchState.__module__ = "nominal_api.scout_savedviews_api"
 
 
-class scout_savedviews_api_UnarchiveSavedViewsRequest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'saved_view_rids': ConjureFieldDefinition('savedViewRids', List[scout_rids_api_SavedViewRid])
-        }
-
-    __slots__: List[str] = ['_saved_view_rids']
-
-    def __init__(self, saved_view_rids: List[str]) -> None:
-        self._saved_view_rids = saved_view_rids
-
-    @builtins.property
-    def saved_view_rids(self) -> List[str]:
-        return self._saved_view_rids
-
-
-scout_savedviews_api_UnarchiveSavedViewsRequest.__name__ = "UnarchiveSavedViewsRequest"
-scout_savedviews_api_UnarchiveSavedViewsRequest.__qualname__ = "UnarchiveSavedViewsRequest"
-scout_savedviews_api_UnarchiveSavedViewsRequest.__module__ = "nominal_api.scout_savedviews_api"
-
-
 class scout_savedviews_api_UpdateColor(ConjureUnionType):
     _color: Optional["scout_api_Color"] = None
     _clear_color: Optional["api_Empty"] = None
@@ -80196,17 +80393,19 @@ class scout_savedviews_api_UpdateSavedViewRequest(ConjureBeanType):
             'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[scout_savedviews_api_UpdateSymbol]),
             'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_savedviews_api_UpdateColor]),
             'search_state': ConjureFieldDefinition('searchState', OptionalTypeWrapper[scout_savedviews_api_SearchState]),
-            'display_state': ConjureFieldDefinition('displayState', OptionalTypeWrapper[scout_savedviews_api_DisplayState])
+            'display_state': ConjureFieldDefinition('displayState', OptionalTypeWrapper[scout_savedviews_api_DisplayState]),
+            'index': ConjureFieldDefinition('index', OptionalTypeWrapper[int])
         }
 
-    __slots__: List[str] = ['_title', '_symbol', '_color', '_search_state', '_display_state']
+    __slots__: List[str] = ['_title', '_symbol', '_color', '_search_state', '_display_state', '_index']
 
-    def __init__(self, color: Optional["scout_savedviews_api_UpdateColor"] = None, display_state: Optional["scout_savedviews_api_DisplayState"] = None, search_state: Optional["scout_savedviews_api_SearchState"] = None, symbol: Optional["scout_savedviews_api_UpdateSymbol"] = None, title: Optional[str] = None) -> None:
+    def __init__(self, color: Optional["scout_savedviews_api_UpdateColor"] = None, display_state: Optional["scout_savedviews_api_DisplayState"] = None, index: Optional[int] = None, search_state: Optional["scout_savedviews_api_SearchState"] = None, symbol: Optional["scout_savedviews_api_UpdateSymbol"] = None, title: Optional[str] = None) -> None:
         self._title = title
         self._symbol = symbol
         self._color = color
         self._search_state = search_state
         self._display_state = display_state
+        self._index = index
 
     @builtins.property
     def title(self) -> Optional[str]:
@@ -80227,6 +80426,10 @@ class scout_savedviews_api_UpdateSavedViewRequest(ConjureBeanType):
     @builtins.property
     def display_state(self) -> Optional["scout_savedviews_api_DisplayState"]:
         return self._display_state
+
+    @builtins.property
+    def index(self) -> Optional[int]:
+        return self._index
 
 
 scout_savedviews_api_UpdateSavedViewRequest.__name__ = "UpdateSavedViewRequest"
@@ -89228,14 +89431,16 @@ class themes_api_ChartThemeContentV1(ConjureBeanType):
             'legend_font_size': ConjureFieldDefinition('legendFontSize', int),
             'legend_font_color': ConjureFieldDefinition('legendFontColor', themes_api_HexColor),
             'legend_placement': ConjureFieldDefinition('legendPlacement', themes_api_LegendPlacement),
+            'row_gap_enabled': ConjureFieldDefinition('rowGapEnabled', bool),
+            'row_gap_size': ConjureFieldDefinition('rowGapSize', OptionalTypeWrapper[int]),
             'aspect_ratio_width': ConjureFieldDefinition('aspectRatioWidth', int),
             'aspect_ratio_height': ConjureFieldDefinition('aspectRatioHeight', int),
             'chart_type_themes': ConjureFieldDefinition('chartTypeThemes', themes_api_ChartTypeThemes)
         }
 
-    __slots__: List[str] = ['_title_enabled', '_title_alignment', '_title_font_size', '_title_font_color', '_caption_enabled', '_caption_alignment', '_caption_font_size', '_caption_font_color', '_background_enabled', '_legend_enabled', '_legend_position', '_legend_font_size', '_legend_font_color', '_legend_placement', '_aspect_ratio_width', '_aspect_ratio_height', '_chart_type_themes']
+    __slots__: List[str] = ['_title_enabled', '_title_alignment', '_title_font_size', '_title_font_color', '_caption_enabled', '_caption_alignment', '_caption_font_size', '_caption_font_color', '_background_enabled', '_legend_enabled', '_legend_position', '_legend_font_size', '_legend_font_color', '_legend_placement', '_row_gap_enabled', '_row_gap_size', '_aspect_ratio_width', '_aspect_ratio_height', '_chart_type_themes']
 
-    def __init__(self, aspect_ratio_height: int, aspect_ratio_width: int, background_enabled: bool, caption_alignment: "themes_api_TextAlignment", caption_enabled: bool, caption_font_color: str, caption_font_size: int, chart_type_themes: "themes_api_ChartTypeThemes", legend_enabled: bool, legend_font_color: str, legend_font_size: int, legend_placement: "themes_api_LegendPlacement", legend_position: "themes_api_LegendPosition", title_alignment: "themes_api_TextAlignment", title_enabled: bool, title_font_color: str, title_font_size: int) -> None:
+    def __init__(self, aspect_ratio_height: int, aspect_ratio_width: int, background_enabled: bool, caption_alignment: "themes_api_TextAlignment", caption_enabled: bool, caption_font_color: str, caption_font_size: int, chart_type_themes: "themes_api_ChartTypeThemes", legend_enabled: bool, legend_font_color: str, legend_font_size: int, legend_placement: "themes_api_LegendPlacement", legend_position: "themes_api_LegendPosition", row_gap_enabled: bool, title_alignment: "themes_api_TextAlignment", title_enabled: bool, title_font_color: str, title_font_size: int, row_gap_size: Optional[int] = None) -> None:
         self._title_enabled = title_enabled
         self._title_alignment = title_alignment
         self._title_font_size = title_font_size
@@ -89250,6 +89455,8 @@ class themes_api_ChartThemeContentV1(ConjureBeanType):
         self._legend_font_size = legend_font_size
         self._legend_font_color = legend_font_color
         self._legend_placement = legend_placement
+        self._row_gap_enabled = row_gap_enabled
+        self._row_gap_size = row_gap_size
         self._aspect_ratio_width = aspect_ratio_width
         self._aspect_ratio_height = aspect_ratio_height
         self._chart_type_themes = chart_type_themes
@@ -89338,6 +89545,18 @@ class themes_api_ChartThemeContentV1(ConjureBeanType):
         """Where on the chart the legend should be placed.
         """
         return self._legend_placement
+
+    @builtins.property
+    def row_gap_enabled(self) -> bool:
+        """Whether rows will be separated.
+        """
+        return self._row_gap_enabled
+
+    @builtins.property
+    def row_gap_size(self) -> Optional[int]:
+        """The size of the row gap.
+        """
+        return self._row_gap_size
 
     @builtins.property
     def aspect_ratio_width(self) -> int:
@@ -93857,6 +94076,8 @@ modules_api_ModuleApplicationRid = str
 scout_compute_api_VariableName = str
 
 scout_datasource_connection_api_MeasurementName = str
+
+scout_compute_api_FunctionParameterName = str
 
 scout_compute_api_LocalVariableName = str
 

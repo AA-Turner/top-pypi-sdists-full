@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudwatch_log_stream`
 
-Refer to the Terraform Registry for docs: [`aws_cloudwatch_log_stream`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream).
+Refer to the Terraform Registry for docs: [`aws_cloudwatch_log_stream`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudwatchLogStream(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudwatchLogStream.CloudwatchLogStream",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream aws_cloudwatch_log_stream}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream aws_cloudwatch_log_stream}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class CloudwatchLogStream(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream aws_cloudwatch_log_stream} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream aws_cloudwatch_log_stream} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#log_group_name CloudwatchLogStream#log_group_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#name CloudwatchLogStream#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#id CloudwatchLogStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#region CloudwatchLogStream#region}
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#log_group_name CloudwatchLogStream#log_group_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#name CloudwatchLogStream#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#id CloudwatchLogStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#region CloudwatchLogStream#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class CloudwatchLogStream(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudwatchLogStream to import.
-        :param import_from_id: The id of the existing CloudwatchLogStream that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudwatchLogStream that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudwatchLogStream to import is found.
         '''
         if __debug__:
@@ -259,10 +259,10 @@ class CloudwatchLogStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#log_group_name CloudwatchLogStream#log_group_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#name CloudwatchLogStream#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#id CloudwatchLogStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#region CloudwatchLogStream#region}
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#log_group_name CloudwatchLogStream#log_group_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#name CloudwatchLogStream#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#id CloudwatchLogStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#region CloudwatchLogStream#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -368,21 +368,21 @@ class CloudwatchLogStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def log_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#log_group_name CloudwatchLogStream#log_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#log_group_name CloudwatchLogStream#log_group_name}.'''
         result = self._values.get("log_group_name")
         assert result is not None, "Required property 'log_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#name CloudwatchLogStream#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#name CloudwatchLogStream#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#id CloudwatchLogStream#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#id CloudwatchLogStream#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -394,7 +394,7 @@ class CloudwatchLogStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/cloudwatch_log_stream#region CloudwatchLogStream#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/cloudwatch_log_stream#region CloudwatchLogStream#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -99,6 +99,13 @@ class AutoStreamingUtils:
                     )
                     continue
 
+                # Get camera location from camera group
+                camera_location = "Unknown Location"
+                if camera_group and hasattr(camera_group, 'location'):
+                    camera_location = camera_group.location or "Unknown Location"
+                elif camera_config and hasattr(camera_config, 'location'):
+                    camera_location = camera_config.location or "Unknown Location"
+
                 input_config = InputConfig(
                     type=InputType.AUTO,
                     source=camera_config.stream_url,
@@ -116,6 +123,7 @@ class AutoStreamingUtils:
                     video_duration=self.default_video_chunk_duration,
                     video_format=self.default_video_format,
                     simulate_video_file_stream=self.simulate_video_file_stream,
+                    camera_location=camera_location,
                 )
 
                 input_configs.append(input_config)

@@ -11,7 +11,6 @@ from orionis.console.exceptions import CLIOrionisValueError
 from orionis.console.exceptions.cli_runtime_error import CLIOrionisRuntimeError
 from orionis.console.output.contracts.console import IConsole
 from orionis.console.output.contracts.executor import IExecutor
-from orionis.container.exceptions.exception import OrionisContainerException
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.introspection.modules.reflection import ReflectionModule
 from orionis.services.log.contracts.log_service import ILogger
@@ -401,10 +400,13 @@ class Reactor(IReactor):
 
         # Create an ArgumentParser instance to handle the command arguments
         arg_parser = argparse.ArgumentParser(
-            description=f"{obj.signature} - {obj.description}",
-            formatter_class=argparse.RawDescriptionHelpFormatter,
+            usage=f"python -B reactor {obj.signature} [options]",
+            description=f"Command [{obj.signature}] : {obj.description}",
+            formatter_class=argparse.RawTextHelpFormatter,
             add_help=True,
-            allow_abbrev=False
+            allow_abbrev=False,
+            exit_on_error=True,
+            prog=obj.signature
         )
         for arg in required_args:
             arg.addToParser(arg_parser)
@@ -455,8 +457,12 @@ class Reactor(IReactor):
                 # Parse the provided arguments using the command's ArgumentParser
                 parsed_args = command.args.parse_args(args)
             except SystemExit:
-                # Allow argparse to handle help/error messages and exit
-                raise
+                # Raise a CLIOrionisRuntimeError with the help message included in the exception
+                raise CLIOrionisRuntimeError(
+                    f"Failed to parse arguments for command '{command.signature}'.\n"
+                    f"{command.args.format_help()}\n"
+                    "Please check the command syntax and available options."
+                )
 
         # Convert the parsed arguments to a dictionary and return
         if isinstance(parsed_args, argparse.Namespace):
@@ -583,12 +589,6 @@ class Reactor(IReactor):
 
         except Exception as e:
 
-            # Display the error message in the console (without timestamp)
-            if isinstance(e, OrionisContainerException):
-                pass
-            elif isinstance(e, CLIOrionisRuntimeError):
-                self.__console.error(f"An error occurred while executing command '{signature}': {e}", timestamp=False)
-
             # Log the error in the logger service
             self.__logger.error(f"Command '{signature}' execution failed: {e}")
 
@@ -676,9 +676,6 @@ class Reactor(IReactor):
             return output
 
         except Exception as e:
-
-            # Display the error message in the console (without timestamp)
-            self.__console.error(f"An error occurred while executing command '{signature}': {e}", timestamp=False)
 
             # Log the error in the logger service
             self.__logger.error(f"Command '{signature}' execution failed: {e}")

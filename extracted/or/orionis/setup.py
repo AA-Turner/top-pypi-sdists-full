@@ -54,14 +54,18 @@ setup(
     license='MIT',
     packages=find_packages(
         exclude=[
-            # Add package patterns to exclude from distribution here
+            'app',
+            'bootstrap',
+            'config',
+            'database'
+            'storage',
+            'tests'
         ]
     ),
     include_package_data=True,
     classifiers=CLASSIFIERS,
     python_requires=PYTHON_REQUIRES,
     install_requires=REQUIRES,
-    test_suite="tests",
     keywords=KEYWORDS,
     zip_safe=True
 )

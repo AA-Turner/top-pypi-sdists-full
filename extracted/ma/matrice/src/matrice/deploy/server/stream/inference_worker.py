@@ -22,9 +22,9 @@ class InferenceWorker:
         self,
         worker_id: str,
         inference_interface: InferenceInterface,
-        input_queue,  # Simple queue wrapper
-        output_queue,  # Simple queue wrapper
-        process_timeout: float = 30.0,
+        input_queue,  # inference input queue wrapper
+        output_queue,  # post processing queue wrapper
+        process_timeout: float = 180.0,
         enable_video_buffering: bool = True,
         ssim_threshold: float = 0.95,
         cache_size: int = 100
@@ -57,6 +57,7 @@ class InferenceWorker:
         self.ssim_comparator = SSIMComparator(threshold=ssim_threshold)
         self.cache_manager = CacheManager(max_cache_size=cache_size)
         self.frame_cache = {}  # stream_key -> last_frame for SSIM comparison
+        self.last_inference_results = {}  # stream_key -> last_inference_result for similar frame reuse
         self.txh = ServerTransmissionHandler(ssim_threshold=ssim_threshold)
         
         # Worker state
@@ -77,6 +78,7 @@ class InferenceWorker:
         self.video_chunks_processed = 0
         self.cache_hits = 0
         self.cache_misses = 0
+        self.global_counter = 0
         
         self.logger = logging.getLogger(f"{__name__}.{worker_id}")
         self.logger.info(f"Initialized InferenceWorker: {worker_id} (video_buffering={enable_video_buffering}, ssim_threshold={ssim_threshold})")
@@ -146,7 +148,7 @@ class InferenceWorker:
                     )
                 
                 try:
-                    message = await self.input_queue.get()
+                    priority, message = await self.input_queue.get()
                 except asyncio.TimeoutError:
                     # Log periodically when no messages available
                     if loop_count % 50 == 1:
@@ -175,8 +177,7 @@ class InferenceWorker:
                     if action == "cached":
                         await self._handle_cached_result(message, cached_data)
                     elif action == "similar":
-                        self.logger.debug(f"Skipping similar frame for stream {message.get('message_key', 'default')}")
-                        continue
+                        await self._handle_similar_frame(message)
                     elif action == "buffer":
                         await self._process_buffered_message(message)
                     elif action == "process_difference":
@@ -226,8 +227,9 @@ class InferenceWorker:
                     "stream_unit": input_stream.get("stream_unit"),
                     "input_order": input_stream.get("input_order"),
                     "original_fps": input_stream.get("original_fps", 31),
-                    "stream_time": input_stream.get("stream_info", {}).get("stream_time",""),
-                }
+                },
+                "camera_location": message.get("stream_info", {}).get("camera_location", "Unknown Location"),
+                "stream_time": input_stream.get("stream_info", {}).get("stream_time",""),
             }
             camera_info = message.get("camera_info")
             input_content = message.get("input_content")  # May be empty for skip
@@ -240,6 +242,7 @@ class InferenceWorker:
                     input_content = buf.tobytes()
                 except Exception:
                     input_content = None
+            # TODO: Enable sending the the past frame it will used cached frame and no new input
 
             # Support caches that might store either the raw dict or a wrapper
             model_result = (
@@ -248,29 +251,20 @@ class InferenceWorker:
                 else cached_result
             )
 
-            # Apply post-processing for the current message context
-            processed_result, post_processing_result = await self.inference_interface._apply_post_processing(
-                model_result,
-                input_content,
-                None,
-                stream_key,
-                stream_info,
-                camera_info,
-            )
-
-            # Create result message using recomputed post-processing
-            result_message = self._create_result_message(
-                message,
-                processed_result,
-                post_processing_result,
-            )
+            # Store result for similar frame reuse
+            stream_key = message.get("message_key")
+            if stream_key:
+                self.last_inference_results[stream_key] = model_result
+            
+            # Create result message with only model result (no post-processing)
+            result_message = self._create_result_message(message, model_result)
             
             # Add to output queue
             try:
-                await self.output_queue.put(result_message)
+                await self.output_queue.put((result_message["global_counter"], result_message))
                 self.messages_output += 1
                 self.logger.debug(
-                    f"Emitted cached result for key={message.get('message_key')} post_proc={'yes' if post_processing_result else 'no'} out_q={self.output_queue.qsize()}"
+                    f"Emitted cached inference result for key={message.get('message_key')} out_q={self.output_queue.qsize()}"
                 )
             except asyncio.QueueFull:
                 self.messages_dropped_output += 1
@@ -283,6 +277,59 @@ class InferenceWorker:
             
         except Exception as exc:
             self.logger.error(f"Error handling cached result in worker {self.worker_id}: {str(exc)}")
+    
+    async def _handle_similar_frame(self, message: Dict[str, Any]) -> None:
+        """Handle similar frame by reusing last cached result."""
+        try:
+            stream_key = message.get("message_key", "default")
+            self.logger.debug(f"Handling similar frame for stream {stream_key}")
+            
+            # Try to get the last cached result for this stream
+            # First check if we have a cached result in the cache_manager
+            input_hash = message.get("input_hash")
+            cached_result = None
+            
+            if input_hash:
+                cached_result = self.cache_manager.get_cached_result(input_hash, stream_key)
+            
+            # If no cached result found, try to get the most recent result from the last inference results
+            if not cached_result:
+                cached_result = self.last_inference_results.get(stream_key)
+            
+            # If still no result, create a simple placeholder result
+            if not cached_result:
+                self.logger.warning(f"No cached result available for similar frame in stream {stream_key}, using placeholder")
+                cached_result = {
+                    "predictions": [],
+                    "confidence": 0.0,
+                    "metadata": {"similarity_reuse": True, "timestamp": datetime.now(timezone.utc).isoformat()}
+                }
+            
+            # Create result message with the cached/placeholder result
+            result_message = self._create_result_message(message, cached_result)
+            
+            # Add similarity metadata
+            result_message["similarity_reuse"] = True
+            result_message["processing_type"] = "similar_frame_reuse"
+            
+            # Add to output queue
+            try:
+                await self.output_queue.put((result_message["global_counter"], result_message))
+                self.messages_output += 1
+                self.logger.debug(
+                    f"Emitted similar frame result for key={stream_key} out_q={self.output_queue.qsize()}"
+                )
+            except asyncio.QueueFull:
+                self.messages_dropped_output += 1
+                self.logger.warning(f"Dropped similar frame result from inference worker {self.worker_id} - output queue full")
+            except Exception as put_exc:
+                self.messages_dropped_output += 1
+                self.logger.error(f"Failed to put similar frame result to output queue in worker {self.worker_id}: {str(put_exc)}")
+            
+            self.messages_processed += 1
+            
+        except Exception as exc:
+            self.logger.error(f"Error handling similar frame in worker {self.worker_id}: {str(exc)}")
     
     async def _process_single_inference_with_caching(self, message: Dict[str, Any]) -> None:
         """Process single inference and cache the result."""
@@ -303,20 +350,22 @@ class InferenceWorker:
                     "stream_unit": input_stream.get("stream_unit"),
                     "input_order": input_stream.get("input_order"),
                     "original_fps": input_stream.get("original_fps", 31),
-                    "stream_time": input_stream.get("stream_info", {}).get("stream_time",""),
-                }
+                },
+                "camera_location": message.get("stream_info", {}).get("camera_location", "Unknown Location"),
+                "stream_time": input_stream.get("stream_info", {}).get("stream_time",""),
             }
             camera_info = message.get("camera_info")
             input_hash = message.get("input_hash")
             message_key = message.get("message_key")
             self.logger.debug(
-                f"Starting inference key={message_key} hash={'set' if input_hash else 'none'} bytes={len(input_content) if input_content is not None else 0} apply_pp=True"
+                f"Starting inference key={message_key} hash={'set' if input_hash else 'none'} bytes={len(input_content) if input_content is not None else 0} apply_pp=False"
             )
             
-            model_result, post_processing_result = await asyncio.wait_for(
+            # Only perform model inference, no post-processing
+            model_result, _ = await asyncio.wait_for(
                 self.inference_interface.inference(
                     input_content,
-                    apply_post_processing=True,
+                    apply_post_processing=False,
                     stream_key=message_key,
                     stream_info=stream_info,
                     camera_info=camera_info,
@@ -325,7 +374,7 @@ class InferenceWorker:
                 timeout=self.process_timeout
             )
             
-            # Cache MODEL result only if we have input_hash (post-processing is recomputed per message)
+            # Cache MODEL result only if we have input_hash
             if input_hash:
                 cache_data = {
                     "model_result": model_result,
@@ -337,14 +386,15 @@ class InferenceWorker:
                     f"Cached model result for key={message_key} hash={input_hash}"
                 )
             
-            # Create result message
-            result_message = self._create_result_message(
-                message, model_result, post_processing_result
-            )
+            # Store result for similar frame reuse
+            self.last_inference_results[message_key] = model_result
+            
+            # Create result message with only model result
+            result_message = self._create_result_message(message, model_result)
             
             # Add to output queue
             try:
-                await self.output_queue.put(result_message)
+                await self.output_queue.put((result_message["global_counter"], result_message))
                 self.messages_output += 1
                 self.logger.debug(
                     f"Emitted inference result for key={message_key} out_q={self.output_queue.qsize()}"
@@ -362,7 +412,7 @@ class InferenceWorker:
             self.messages_processed += 1
             self.last_inference_time = datetime.now(timezone.utc)
             self.logger.debug(
-                f"Inference done key={message_key} time_ms={int(inference_time*1000)} pp={'yes' if post_processing_result else 'no'}"
+                f"Inference done key={message_key} time_ms={int(inference_time*1000)}"
             )
             
         except asyncio.TimeoutError:
@@ -443,8 +493,9 @@ class InferenceWorker:
                 self.cache_hits += 1
                 return "cached", cached_result
         
-        if action == "process" and await self._is_similar_to_cached_frame(message):
-            return "similar", None
+        # TODO: Enable this after testing and hanlding async and optimal threshold
+        # if action == "process" and await self._is_similar_to_cached_frame(message):
+        #     return "similar", None
         
         if await self._should_buffer_message(message):
             return "buffer", None
@@ -581,14 +632,16 @@ class InferenceWorker:
                     "stream_unit": "segment",
                     "input_order": chunk_metadata.get("input_order"),
                     "original_fps": chunk_metadata.get("fps", 31),
-                }
+                },
+                "camera_location": original_message.get("stream_info", {}).get("camera_location", "Unknown Location"),
+                "stream_time": original_message.get("stream_info", {}).get("stream_time",""),
             }
 
-            # Perform inference on video chunk
-            model_result, post_processing_result = await asyncio.wait_for(
+            # Perform inference on video chunk (no post-processing)
+            model_result, _ = await asyncio.wait_for(
                 self.inference_interface.inference(
                     video_data,
-                    apply_post_processing=True,
+                    apply_post_processing=False,
                     stream_key=original_message.get("message_key"),
                     stream_info=stream_info,
                     camera_info=original_message.get("camera_info"),
@@ -597,14 +650,14 @@ class InferenceWorker:
                 timeout=self.process_timeout
             )
             
-            # Create result message for video chunk
+            # Create result message for video chunk (only model result)
             result_message = self._create_video_chunk_result_message(
-                video_chunk, original_message, model_result, post_processing_result
+                video_chunk, original_message, model_result
             )
             
             # Add to output queue
             try:
-                await self.output_queue.put(result_message)
+                await self.output_queue.put((result_message["global_counter"], result_message))
                 self.messages_output += 1
                 self.video_chunks_processed += 1
                 self.logger.debug(
@@ -635,19 +688,22 @@ class InferenceWorker:
         self,
         original_message: Dict[str, Any],
         model_result: Any,
-        post_processing_result: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Create a result message from inference results."""
+        self.global_counter += 1
         return {
             "message_key": original_message.get("message_key"),
             "input_stream": original_message.get("input_stream"),
             "camera_info": original_message.get("camera_info"),
             "model_result": model_result,
-            "post_processing_result": post_processing_result,
             "inference_timestamp": datetime.now(timezone.utc),
             "inference_worker_id": self.worker_id,
             "original_timestamp": original_message.get("timestamp"),
             "consumer_worker_id": original_message.get("consumer_worker_id"),
+            "stream_info": original_message.get("stream_info"),
+            "input_content": original_message.get("input_content"),
+            "input_hash": original_message.get("input_hash"), # self.global_counter fallback
+            "global_counter": original_message.get("global_counter", self.global_counter),
         }
 
     def _create_video_chunk_result_message(
@@ -655,7 +711,6 @@ class InferenceWorker:
         video_chunk: Dict[str, Any],
         original_message: Dict[str, Any],
         model_result: Any,
-        post_processing_result: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Create a result message for a video chunk."""
         # Create modified input stream to reflect video chunk
@@ -672,11 +727,13 @@ class InferenceWorker:
             "input_stream": input_stream,
             "camera_info": original_message.get("camera_info"),
             "model_result": model_result,
-            "post_processing_result": post_processing_result,
             "inference_timestamp": datetime.now(timezone.utc),
             "inference_worker_id": self.worker_id,
             "original_timestamp": original_message.get("timestamp"),
             "consumer_worker_id": original_message.get("consumer_worker_id"),
+            "stream_info": original_message.get("stream_info"),
+            "input_content": original_message.get("input_content"),
+            "input_hash": original_message.get("input_hash"),
             "video_chunk_info": {
                 "frame_count": video_chunk.get("frame_count"),
                 "duration_seconds": video_chunk.get("duration_seconds"),
@@ -737,8 +794,9 @@ class InferenceWorker:
         self.cache_hits = 0
         self.cache_misses = 0
         
-        # Clear frame cache
+        # Clear frame cache and last inference results
         self.frame_cache.clear()
+        self.last_inference_results.clear()
         
         # Reset video buffer metrics if available
         if self.video_buffer_manager:

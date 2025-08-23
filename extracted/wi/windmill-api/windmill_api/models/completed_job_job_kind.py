@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class CompletedJobJobKind(str, Enum):
+    AIAGENT = "aiagent"
     APPDEPENDENCIES = "appdependencies"
     APPSCRIPT = "appscript"
     DEPENDENCIES = "dependencies"

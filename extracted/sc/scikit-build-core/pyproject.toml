@@ -149,6 +149,7 @@ filterwarnings = [
     "ignore::scikit_build_core._vendor.pyproject_metadata.errors.ConfigurationWarning",
     "ignore:'_UnionGenericAlias' is deprecated and slated for removal in Python 3.17:DeprecationWarning",  # From cattrs 24.1.2 and other?
     "ignore:The 'wheel.metadata' package has been made private:DeprecationWarning",
+    "ignore:version of cmake-example already set:UserWarning",  # Caused by setuptoools-scm 9+ being installed
 ]
 log_cli_level = "INFO"
 pythonpath = ["tests/utils"]
@@ -177,7 +178,7 @@ exclude = [
     '^tests/packages/extensionlib/*',
 ]
 mypy_path = ["$MYPY_CONFIG_FILE_DIR/src", "$MYPY_CONFIG_FILE_DIR/tests/utils"]
-python_version = "3.8"
+python_version = "3.9"
 warn_unused_configs = true
 warn_unreachable = false
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
@@ -315,7 +316,6 @@ known-local-folder = ["pathutils"]
 "importlib.resources".msg = "Use scikit_build_core._compat.importlib.resources instead."
 "importlib_resources".msg = "Use scikit_build_core._compat.importlib.resources instead."
 "pyproject_metadata".msg = "Use scikit_build_core._vendor.pyproject_metadata instead."
-"argparse.ArgumentParser".msg = "Use scikit_build_core._compat.argparse instead."
 
 
 [tool.ruff.lint.per-file-ignores]
@@ -323,6 +323,7 @@ known-local-folder = ["pathutils"]
 "noxfile.py" = ["T20", "TID251"]
 "src/scikit_build_core/resources/*.py" = ["PTH", "ARG002", "FBT", "TID251"]
 "src/scikit_build_core/_compat/**.py" = ["TID251"]
+"src/scikit_build_core/settings/**.py" = ["FBT001"]
 "tests/conftest.py" = ["TID251"]
 "tests/packages/**.py" = ["TID251"]
 "docs/conf.py" = ["TID251"]

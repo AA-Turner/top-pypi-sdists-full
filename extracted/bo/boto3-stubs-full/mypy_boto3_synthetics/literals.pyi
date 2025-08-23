@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_synthetics.literals import CanaryRunStateReasonCodeType
+    from mypy_boto3_synthetics.literals import BrowserTypeType
 
-    data: CanaryRunStateReasonCodeType = "CANARY_FAILURE"
+    data: BrowserTypeType = "CHROME"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "BrowserTypeType",
     "CanaryRunStateReasonCodeType",
     "CanaryRunStateType",
     "CanaryRunTestResultType",
@@ -38,6 +39,7 @@ __all__ = (
     "SyntheticsServiceName",
 )
 
+BrowserTypeType = Literal["CHROME", "FIREFOX"]
 CanaryRunStateReasonCodeType = Literal["CANARY_FAILURE", "EXECUTION_FAILURE"]
 CanaryRunStateType = Literal["FAILED", "PASSED", "RUNNING"]
 CanaryRunTestResultType = Literal["FAILED", "PASSED", "UNKNOWN"]

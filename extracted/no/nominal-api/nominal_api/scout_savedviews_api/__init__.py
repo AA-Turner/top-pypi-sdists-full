@@ -1,6 +1,5 @@
 # coding=utf-8
 from .._impl import (
-    scout_savedviews_api_ArchiveSavedViewsRequest as ArchiveSavedViewsRequest,
     scout_savedviews_api_AssetSearchState as AssetSearchState,
     scout_savedviews_api_BatchGetSavedViewsResponse as BatchGetSavedViewsResponse,
     scout_savedviews_api_ChecklistSearchState as ChecklistSearchState,
@@ -27,7 +26,6 @@ from .._impl import (
     scout_savedviews_api_SortKeyVisitor as SortKeyVisitor,
     scout_savedviews_api_TableState as TableState,
     scout_savedviews_api_TemplateSearchState as TemplateSearchState,
-    scout_savedviews_api_UnarchiveSavedViewsRequest as UnarchiveSavedViewsRequest,
     scout_savedviews_api_UpdateColor as UpdateColor,
     scout_savedviews_api_UpdateColorVisitor as UpdateColorVisitor,
     scout_savedviews_api_UpdateSavedViewRequest as UpdateSavedViewRequest,
@@ -38,7 +36,6 @@ from .._impl import (
 )
 
 __all__ = [
-    'ArchiveSavedViewsRequest',
     'AssetSearchState',
     'BatchGetSavedViewsResponse',
     'ChecklistSearchState',
@@ -65,7 +62,6 @@ __all__ = [
     'SortKeyVisitor',
     'TableState',
     'TemplateSearchState',
-    'UnarchiveSavedViewsRequest',
     'UpdateColor',
     'UpdateColorVisitor',
     'UpdateSavedViewRequest',

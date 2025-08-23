@@ -456,7 +456,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().for_display(t)
     }
 
-    pub fn type_order(&self) -> TypeOrder<Ans> {
+    pub fn type_order(&self) -> TypeOrder<'_, Ans> {
         TypeOrder::new(self)
     }
 
@@ -699,43 +699,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .record_recursive::<Ans>(recursive, answer, self.type_order(), errors, loc);
     }
 
-    /// Check if `want` matches `got` returning `want` if the check fails.
+    /// Check if `got` matches `want`, returning `want` if the check fails.
     pub fn check_and_return_type_info(
         &self,
-        want: &Type,
         got: TypeInfo,
+        want: &Type,
         loc: TextRange,
         errors: &ErrorCollector,
         tcc: &dyn Fn() -> TypeCheckContext,
     ) -> TypeInfo {
-        if self.check_type(want, got.ty(), loc, errors, tcc) {
+        if self.check_type(got.ty(), want, loc, errors, tcc) {
             got
         } else {
             got.with_ty(want.clone())
         }
     }
 
-    /// Check if `want` matches `got` returning `want` if the check fails.
+    /// Check if `got` matches `want`, returning `want` if the check fails.
     pub fn check_and_return_type(
         &self,
-        want: &Type,
         got: Type,
+        want: &Type,
         loc: TextRange,
         errors: &ErrorCollector,
         tcc: &dyn Fn() -> TypeCheckContext,
     ) -> Type {
-        if self.check_type(want, &got, loc, errors, tcc) {
+        if self.check_type(&got, want, loc, errors, tcc) {
             got
         } else {
             want.clone()
         }
     }
 
-    /// Check if `want` matches `got`, returning `true` on success and `false` on failure.
+    /// Check if `got` matches `want`, returning `true` on success and `false` on failure.
     pub fn check_type(
         &self,
-        want: &Type,
         got: &Type,
+        want: &Type,
         loc: TextRange,
         errors: &ErrorCollector,
         tcc: &dyn Fn() -> TypeCheckContext,
@@ -743,7 +743,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if got.is_error() || self.is_subset_eq(got, want) {
             true
         } else {
-            self.solver().error(want, got, errors, loc, tcc);
+            self.solver().error(got, want, errors, loc, tcc);
             false
         }
     }

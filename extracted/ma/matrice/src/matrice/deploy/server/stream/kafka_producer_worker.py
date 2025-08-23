@@ -20,7 +20,7 @@ class KafkaProducerWorker:
         output_queue,  # Simple queue wrapper
         app_name: str = "",
         app_version: str = "",
-        produce_timeout: float = 10.0,
+        produce_timeout: float = 60.0,
         inference_pipeline_id: str = ""
     ):
         """Initialize Kafka producer worker.
@@ -167,7 +167,7 @@ class KafkaProducerWorker:
                 
                 # Single-message produce
                 try:
-                    message = await self.output_queue.get()
+                    priority, message = await self.output_queue.get()
                 except asyncio.TimeoutError:
                     # Log periodically when queue is empty
                     if loop_count % 50 == 1:
@@ -290,6 +290,7 @@ class KafkaProducerWorker:
             "camera_info": camera_info,
             "input_streams": [{"input_stream": input_stream}], # TODO: Update in the aggregator and FE to use input_streams directly
             "output_streams": [output_stream],
+            "input_hash": message.get("input_hash"),
             "model_streams": [
                 {
                     "model_name": "detection_0",

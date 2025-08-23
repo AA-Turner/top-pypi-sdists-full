@@ -1,7 +1,7 @@
 r'''
 # `data_google_artifact_registry_version`
 
-Refer to the Terraform Registry for docs: [`data_google_artifact_registry_version`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version).
+Refer to the Terraform Registry for docs: [`data_google_artifact_registry_version`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleArtifactRegistryVersion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleArtifactRegistryVersion.DataGoogleArtifactRegistryVersion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version google_artifact_registry_version}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version google_artifact_registry_version}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DataGoogleArtifactRegistryVersion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version google_artifact_registry_version} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version google_artifact_registry_version} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#location DataGoogleArtifactRegistryVersion#location}.
-        :param package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#package_name DataGoogleArtifactRegistryVersion#package_name}.
-        :param repository_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#repository_id DataGoogleArtifactRegistryVersion#repository_id}.
-        :param version_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#version_name DataGoogleArtifactRegistryVersion#version_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#id DataGoogleArtifactRegistryVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#project DataGoogleArtifactRegistryVersion#project}.
-        :param view: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#view DataGoogleArtifactRegistryVersion#view}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#location DataGoogleArtifactRegistryVersion#location}.
+        :param package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#package_name DataGoogleArtifactRegistryVersion#package_name}.
+        :param repository_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#repository_id DataGoogleArtifactRegistryVersion#repository_id}.
+        :param version_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#version_name DataGoogleArtifactRegistryVersion#version_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#id DataGoogleArtifactRegistryVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#project DataGoogleArtifactRegistryVersion#project}.
+        :param view: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#view DataGoogleArtifactRegistryVersion#view}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DataGoogleArtifactRegistryVersion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleArtifactRegistryVersion to import.
-        :param import_from_id: The id of the existing DataGoogleArtifactRegistryVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleArtifactRegistryVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleArtifactRegistryVersion to import is found.
         '''
         if __debug__:
@@ -354,13 +354,13 @@ class DataGoogleArtifactRegistryVersionConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#location DataGoogleArtifactRegistryVersion#location}.
-        :param package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#package_name DataGoogleArtifactRegistryVersion#package_name}.
-        :param repository_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#repository_id DataGoogleArtifactRegistryVersion#repository_id}.
-        :param version_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#version_name DataGoogleArtifactRegistryVersion#version_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#id DataGoogleArtifactRegistryVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#project DataGoogleArtifactRegistryVersion#project}.
-        :param view: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#view DataGoogleArtifactRegistryVersion#view}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#location DataGoogleArtifactRegistryVersion#location}.
+        :param package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#package_name DataGoogleArtifactRegistryVersion#package_name}.
+        :param repository_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#repository_id DataGoogleArtifactRegistryVersion#repository_id}.
+        :param version_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#version_name DataGoogleArtifactRegistryVersion#version_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#id DataGoogleArtifactRegistryVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#project DataGoogleArtifactRegistryVersion#project}.
+        :param view: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#view DataGoogleArtifactRegistryVersion#view}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -473,35 +473,35 @@ class DataGoogleArtifactRegistryVersionConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#location DataGoogleArtifactRegistryVersion#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#location DataGoogleArtifactRegistryVersion#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def package_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#package_name DataGoogleArtifactRegistryVersion#package_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#package_name DataGoogleArtifactRegistryVersion#package_name}.'''
         result = self._values.get("package_name")
         assert result is not None, "Required property 'package_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def repository_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#repository_id DataGoogleArtifactRegistryVersion#repository_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#repository_id DataGoogleArtifactRegistryVersion#repository_id}.'''
         result = self._values.get("repository_id")
         assert result is not None, "Required property 'repository_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#version_name DataGoogleArtifactRegistryVersion#version_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#version_name DataGoogleArtifactRegistryVersion#version_name}.'''
         result = self._values.get("version_name")
         assert result is not None, "Required property 'version_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#id DataGoogleArtifactRegistryVersion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#id DataGoogleArtifactRegistryVersion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -511,13 +511,13 @@ class DataGoogleArtifactRegistryVersionConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#project DataGoogleArtifactRegistryVersion#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#project DataGoogleArtifactRegistryVersion#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def view(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_version#view DataGoogleArtifactRegistryVersion#view}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_version#view DataGoogleArtifactRegistryVersion#view}.'''
         result = self._values.get("view")
         return typing.cast(typing.Optional[builtins.str], result)
 

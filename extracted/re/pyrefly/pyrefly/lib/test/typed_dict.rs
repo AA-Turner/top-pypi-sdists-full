@@ -1213,3 +1213,317 @@ class Bad2(TypedDict, closed=f()):  # E: Expected literal True or False
     pass
     "#,
 );
+
+testcase!(
+    test_closed_items_and_values,
+    r#"
+from typing import assert_type, TypedDict
+class TD(TypedDict, closed=True):
+    x: int
+def f(td: TD):
+    assert_type(list(td.items()), list[tuple[str, int]])
+    assert_type(list(td.values()), list[int])
+    "#,
+);
+
+testcase!(
+    test_extra_items_and_values,
+    r#"
+from typing import assert_type, TypedDict
+class TD(TypedDict, extra_items=int):
+    x: str
+def f(td: TD):
+    assert_type(list(td.items()), list[tuple[str, int | str]])
+    assert_type(list(td.values()), list[int | str])
+    "#,
+);
+
+testcase!(
+    test_cannot_unclose,
+    r#"
+from typing import TypedDict
+
+class ClosedParent(TypedDict, closed=True):
+    pass
+class BadOpenChild1(ClosedParent, closed=False):  # E: Non-closed TypedDict cannot inherit from closed TypedDict `ClosedParent`
+    pass
+
+class ExtraItemsParent(TypedDict, extra_items=int):
+    pass
+class BadOpenChild2(ExtraItemsParent, closed=False):  # E: Non-closed TypedDict cannot inherit from TypedDict `ExtraItemsParent` with extra items
+    pass
+    "#,
+);
+
+testcase!(
+    test_inherit_closed,
+    r#"
+from typing import assert_type, TypedDict
+class Parent(TypedDict, closed=True):
+    x: int
+class Child(Parent):
+    pass
+def f(child: Child):
+    assert_type(list(child.values()), list[int])
+    "#,
+);
+
+testcase!(
+    test_inherit_extra_items,
+    r#"
+from typing import TypedDict
+class Parent(TypedDict, extra_items=int):
+    x: str
+class Child(Parent):
+    pass
+Child(x='ok', y=42)
+    "#,
+);
+
+testcase!(
+    test_can_close_if_readonly_extra,
+    r#"
+from typing import ReadOnly, TypedDict
+class Parent1(TypedDict, extra_items=int):
+    pass
+class BadChild(Parent1, closed=True):  # E: Closed TypedDict cannot inherit from TypedDict `Parent1` with non-read-only extra items
+    pass
+class Parent2(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class GoodChild1(Parent2, closed=True):
+    pass
+# A closed=False TypedDict (the default) is considered to have extra items of type `ReadOnly[object]`.
+class Parent3(TypedDict):
+    pass
+class GoodChild2(Parent3, closed=True):
+    pass
+class Parent4(TypedDict, closed=False):
+    pass
+class GoodChild3(Parent4, closed=True):
+    pass
+    "#,
+);
+
+testcase!(
+    test_change_extra_items,
+    r#"
+from typing import ReadOnly, TypedDict
+class Parent1(TypedDict, extra_items=int):
+    pass
+class BadChild(Parent1, extra_items=bool):  # E: Cannot change the non-read-only extra items type of TypedDict `Parent1`
+    pass
+class Parent2(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class GoodChild1(Parent2, extra_items=bool):  # ok because Parent2's extra_items is read-only
+    pass
+class Parent3(TypedDict):
+    pass
+class GoodChild2(Parent3, extra_items=bool):  # ok because Parent3 has extra items of type `ReadOnly[object]` by default
+    pass
+    "#,
+);
+
+testcase!(
+    bug = "You shouldn't be able to add items to a closed TypedDict",
+    test_no_add_items_if_closed,
+    r#"
+from typing import TypedDict
+class Parent(TypedDict, closed=True):
+    x: int
+class Child(Parent):
+    y: str  # E: Cannot extend closed TypedDict `Parent` with extra item `y`
+    "#,
+);
+
+testcase!(
+    test_add_items_with_readonly_extra_items,
+    r#"
+from typing import NotRequired, ReadOnly, Required, TypedDict
+class Parent(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class GoodChild(Parent):
+    x: int
+    y: Required[int]
+    z: NotRequired[bool]
+class BadChild(Parent):
+    x: str  # E: `str` is not assignable to `extra_items` type `int` of TypedDict `Parent`
+    "#,
+);
+
+testcase!(
+    test_add_items_with_readwrite_extra_items,
+    r#"
+from typing import NotRequired, Required, TypedDict
+class Parent(TypedDict, extra_items=int):
+    pass
+class GoodChild(Parent):
+    x: NotRequired[int]
+class BadChild1(Parent):
+    x: Required[int]  # E: cannot be extended with required extra item `x`
+class BadChild2(Parent):
+    x: NotRequired[bool]  # E: `bool` is not consistent with `extra_items` type `int`
+    "#,
+);
+
+testcase!(
+    test_extra_items_assignability,
+    r#"
+from typing import ReadOnly, TypedDict
+class A(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class B(TypedDict, extra_items=bool):
+    pass
+class C(TypedDict):
+    pass
+a1: A = B()
+# Not allowed because `C` implicitly has extra_items `ReadOnly[object]`, and `object` is not
+# assignable to `int`.
+a2: A = C()  # E: `TypedDict[C]` is not assignable to `TypedDict[A]`
+    "#,
+);
+
+testcase!(
+    test_extra_items_field_assignability,
+    r#"
+from typing import NotRequired, ReadOnly, TypedDict
+class TDReadWrite(TypedDict, extra_items=int):
+    pass
+class TDReadOnly(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class A(TypedDict, extra_items=int):
+    x: NotRequired[int]
+class B(TypedDict, extra_items=int):
+    x: int
+class C(TypedDict, extra_items=int):
+    x: NotRequired[bool]
+
+td1: TDReadWrite = A(x=0)
+# not ok because `x` is required
+td2: TDReadWrite = B(x=0)  # E: `TypedDict[B]` is not assignable to `TypedDict[TDReadWrite]`
+# not ok because `bool` is not consistent with `int`
+td3: TDReadWrite = C(x=True)  # E: `TypedDict[C]` is not assignable to `TypedDict[TDReadWrite]`
+
+td4: TDReadOnly = A(x=0)
+td5: TDReadOnly = B(x=0)
+td6: TDReadOnly = C(x=True)
+    "#,
+);
+
+testcase!(
+    test_use_extra_items_for_readonly_missing_field,
+    r#"
+from typing import NotRequired, ReadOnly, TypedDict
+class A(TypedDict):
+    x: NotRequired[ReadOnly[int]]
+class B(TypedDict, extra_items=bool):
+    pass
+class C(TypedDict, extra_items=str):
+    pass
+a1: A = B()
+# Not ok because `str` is not assignable to `int`
+a2: A = C()  # E: `TypedDict[C]` is not assignable to `TypedDict[A]`
+    "#,
+);
+
+testcase!(
+    test_use_extra_items_for_readwrite_missing_field,
+    r#"
+from typing import NotRequired, TypedDict
+class A(TypedDict):
+    x: NotRequired[int]
+class B(TypedDict, extra_items=int):
+    pass
+class C(TypedDict, extra_items=bool):
+    pass
+a1: A = B()
+# Not ok because `bool` is not consistent with `int`
+a2: A = C()  # E: `TypedDict[C]` is not assignable to `TypedDict[A]`
+    "#,
+);
+
+testcase!(
+    test_update_with_extra_items,
+    r#"
+from typing import TypedDict
+class A(TypedDict, extra_items=str):
+    pass
+class B(TypedDict, extra_items=str):
+    pass
+class C(TypedDict, extra_items=int):
+    pass
+def f(a: A, b: B, c: C):
+    a.update(b)
+    a.update(c)  # E: No matching overload
+    "#,
+);
+
+testcase!(
+    test_use_extra_items_for_update_missing_item,
+    r#"
+from typing import TypedDict
+class A(TypedDict):
+    x: int
+class B(TypedDict, extra_items=int):
+    pass
+class C(TypedDict, extra_items=str):
+    pass
+def f(a: A, b: B, c: C):
+    a.update(b)
+    a.update(c)  # E: No matching overload
+    "#,
+);
+
+testcase!(
+    test_functional_form_unexpected_keyword,
+    r#"
+from typing import TypedDict
+X = TypedDict('X', {}, nonsense=True)  # E: Unrecognized argument `nonsense` for typed dictionary definition
+def f(kwargs):
+    Y = TypedDict('Y', {}, **kwargs)  # E: Unrecognized argument for typed dictionary definition
+    "#,
+);
+
+testcase!(
+    test_functional_extra_items,
+    r#"
+from typing import TypedDict
+X = TypedDict('X', {}, extra_items=int)
+x: X = {'x': 1}
+y: X = {'y': 'oops'}  # E: `Literal['oops']` is not assignable to TypedDict `extra_items` type `int`
+    "#,
+);
+
+testcase!(
+    test_functional_closed,
+    r#"
+from typing import assert_type, TypedDict
+X = TypedDict('X', {'x': int}, closed=True)
+def f(x: X):
+    assert_type(list(x.values()), list[int])
+    "#,
+);
+
+testcase!(
+    test_get_extra_item,
+    r#"
+from typing import assert_type, TypedDict
+class A(TypedDict, extra_items=bool):
+    pass
+def f(a: A, k: str):
+    assert_type(a['x'], bool)
+    assert_type(a[k], bool)
+    "#,
+);
+
+testcase!(
+    test_set_extra_item,
+    r#"
+from typing import TypedDict
+class A(TypedDict, extra_items=bool):
+    pass
+def f(a: A, k: str):
+    a['x'] = True
+    a['y'] = 'oops'  # E: `Literal['oops']` is not assignable to TypedDict key `y` with type `bool`
+    a[k] = False
+    "#,
+);

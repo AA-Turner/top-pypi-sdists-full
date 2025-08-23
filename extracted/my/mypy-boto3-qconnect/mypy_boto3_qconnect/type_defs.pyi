@@ -1804,6 +1804,7 @@ class UpdateAIPromptRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     templateConfiguration: NotRequired[AIPromptTemplateConfigurationTypeDef]
     description: NotRequired[str]
+    modelId: NotRequired[str]
 
 class ContentAssociationDataTypeDef(TypedDict):
     knowledgeBaseId: str

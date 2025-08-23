@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_api_product`
 
-Refer to the Terraform Registry for docs: [`google_apigee_api_product`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product).
+Refer to the Terraform Registry for docs: [`google_apigee_api_product`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApigeeApiProduct(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apigeeApiProduct.ApigeeApiProduct",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product google_apigee_api_product}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product google_apigee_api_product}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class ApigeeApiProduct(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product google_apigee_api_product} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product google_apigee_api_product} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Name displayed in the UI or developer portal to developers registering for API access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#display_name ApigeeApiProduct#display_name}
-        :param name: Internal name of the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
-        :param org_id: The Apigee Organization associated with the Apigee API product, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#org_id ApigeeApiProduct#org_id}
-        :param api_resources: Comma-separated list of API resources to be bundled in the API product. By default, the resource paths are mapped from the proxy.pathsuffix variable. The proxy path suffix is defined as the URI fragment following the ProxyEndpoint base path. For example, if the apiResources element is defined to be /forecastrss and the base path defined for the API proxy is /weather, then only requests to /weather/forecastrss are permitted by the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#api_resources ApigeeApiProduct#api_resources}
-        :param approval_type: Flag that specifies how API keys are approved to access the APIs defined by the API product. Valid values are 'auto' or 'manual'. Possible values: ["auto", "manual"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#approval_type ApigeeApiProduct#approval_type}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
-        :param description: Description of the API product. Include key information about the API product that is not captured by other fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#description ApigeeApiProduct#description}
-        :param environments: Comma-separated list of environment names to which the API product is bound. Requests to environments that are not listed are rejected. By specifying one or more environments, you can bind the resources listed in the API product to a specific environment, preventing developers from accessing those resources through API proxies deployed in another environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#environments ApigeeApiProduct#environments}
-        :param graphql_operation_group: graphql_operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#graphql_operation_group ApigeeApiProduct#graphql_operation_group}
-        :param grpc_operation_group: grpc_operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#grpc_operation_group ApigeeApiProduct#grpc_operation_group}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#id ApigeeApiProduct#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param operation_group: operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_group ApigeeApiProduct#operation_group}
-        :param proxies: Comma-separated list of API proxy names to which this API product is bound. By specifying API proxies, you can associate resources in the API product with specific API proxies, preventing developers from accessing those resources through other API proxies. Apigee rejects requests to API proxies that are not listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#proxies ApigeeApiProduct#proxies}
-        :param quota: Number of request messages permitted per app by this API product for the specified quotaInterval and quotaTimeUnit. For example, a quota of 50, for a quotaInterval of 12 and a quotaTimeUnit of hours means 50 requests are allowed every 12 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
-        :param quota_counter_scope: Scope of the quota decides how the quota counter gets applied and evaluate for quota violation. If the Scope is set as PROXY, then all the operations defined for the APIproduct that are associated with the same proxy will share the same quota counter set at the APIproduct level, making it a global counter at a proxy level. If the Scope is set as OPERATION, then each operations get the counter set at the API product dedicated, making it a local counter. Note that, the QuotaCounterScope applies only when an operation does not have dedicated quota set for itself. Possible values: ["QUOTA_COUNTER_SCOPE_UNSPECIFIED", "PROXY", "OPERATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota_counter_scope ApigeeApiProduct#quota_counter_scope}
-        :param quota_interval: Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota_interval ApigeeApiProduct#quota_interval}
-        :param quota_time_unit: Time unit defined for the quotaInterval. Valid values include second, minute, hour, day, month or year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota_time_unit ApigeeApiProduct#quota_time_unit}
-        :param scopes: Comma-separated list of OAuth scopes that are validated at runtime. Apigee validates that the scopes in any access token presented match the scopes defined in the OAuth policy associated with the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#scopes ApigeeApiProduct#scopes}
-        :param space: Optional. The resource ID of the parent Space. If not set, the parent resource will be the Organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#space ApigeeApiProduct#space}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#timeouts ApigeeApiProduct#timeouts}
+        :param display_name: Name displayed in the UI or developer portal to developers registering for API access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#display_name ApigeeApiProduct#display_name}
+        :param name: Internal name of the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        :param org_id: The Apigee Organization associated with the Apigee API product, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#org_id ApigeeApiProduct#org_id}
+        :param api_resources: Comma-separated list of API resources to be bundled in the API product. By default, the resource paths are mapped from the proxy.pathsuffix variable. The proxy path suffix is defined as the URI fragment following the ProxyEndpoint base path. For example, if the apiResources element is defined to be /forecastrss and the base path defined for the API proxy is /weather, then only requests to /weather/forecastrss are permitted by the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#api_resources ApigeeApiProduct#api_resources}
+        :param approval_type: Flag that specifies how API keys are approved to access the APIs defined by the API product. Valid values are 'auto' or 'manual'. Possible values: ["auto", "manual"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#approval_type ApigeeApiProduct#approval_type}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
+        :param description: Description of the API product. Include key information about the API product that is not captured by other fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#description ApigeeApiProduct#description}
+        :param environments: Comma-separated list of environment names to which the API product is bound. Requests to environments that are not listed are rejected. By specifying one or more environments, you can bind the resources listed in the API product to a specific environment, preventing developers from accessing those resources through API proxies deployed in another environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#environments ApigeeApiProduct#environments}
+        :param graphql_operation_group: graphql_operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#graphql_operation_group ApigeeApiProduct#graphql_operation_group}
+        :param grpc_operation_group: grpc_operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#grpc_operation_group ApigeeApiProduct#grpc_operation_group}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#id ApigeeApiProduct#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param operation_group: operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_group ApigeeApiProduct#operation_group}
+        :param proxies: Comma-separated list of API proxy names to which this API product is bound. By specifying API proxies, you can associate resources in the API product with specific API proxies, preventing developers from accessing those resources through other API proxies. Apigee rejects requests to API proxies that are not listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#proxies ApigeeApiProduct#proxies}
+        :param quota: Number of request messages permitted per app by this API product for the specified quotaInterval and quotaTimeUnit. For example, a quota of 50, for a quotaInterval of 12 and a quotaTimeUnit of hours means 50 requests are allowed every 12 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
+        :param quota_counter_scope: Scope of the quota decides how the quota counter gets applied and evaluate for quota violation. If the Scope is set as PROXY, then all the operations defined for the APIproduct that are associated with the same proxy will share the same quota counter set at the APIproduct level, making it a global counter at a proxy level. If the Scope is set as OPERATION, then each operations get the counter set at the API product dedicated, making it a local counter. Note that, the QuotaCounterScope applies only when an operation does not have dedicated quota set for itself. Possible values: ["QUOTA_COUNTER_SCOPE_UNSPECIFIED", "PROXY", "OPERATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota_counter_scope ApigeeApiProduct#quota_counter_scope}
+        :param quota_interval: Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota_interval ApigeeApiProduct#quota_interval}
+        :param quota_time_unit: Time unit defined for the quotaInterval. Valid values include second, minute, hour, day, month or year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota_time_unit ApigeeApiProduct#quota_time_unit}
+        :param scopes: Comma-separated list of OAuth scopes that are validated at runtime. Apigee validates that the scopes in any access token presented match the scopes defined in the OAuth policy associated with the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#scopes ApigeeApiProduct#scopes}
+        :param space: Optional. The resource ID of the parent Space. If not set, the parent resource will be the Organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#space ApigeeApiProduct#space}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#timeouts ApigeeApiProduct#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class ApigeeApiProduct(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApigeeApiProduct to import.
-        :param import_from_id: The id of the existing ApigeeApiProduct that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApigeeApiProduct that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApigeeApiProduct to import is found.
         '''
         if __debug__:
@@ -192,8 +192,8 @@ class ApigeeApiProduct(
         operation_config_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
-        :param operation_config_type: Flag that specifes whether the configuration is for Apigee API proxy or a remote service. Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
+        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
+        :param operation_config_type: Flag that specifes whether the configuration is for Apigee API proxy or a remote service. Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
         '''
         value = ApigeeApiProductGraphqlOperationGroup(
             operation_configs=operation_configs,
@@ -209,7 +209,7 @@ class ApigeeApiProduct(
         operation_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApigeeApiProductGrpcOperationGroupOperationConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
+        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
         '''
         value = ApigeeApiProductGrpcOperationGroup(operation_configs=operation_configs)
 
@@ -223,8 +223,8 @@ class ApigeeApiProduct(
         operation_config_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
-        :param operation_config_type: Flag that specifes whether the configuration is for Apigee API proxy or a remote service. Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
+        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
+        :param operation_config_type: Flag that specifes whether the configuration is for Apigee API proxy or a remote service. Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
         '''
         value = ApigeeApiProductOperationGroup(
             operation_configs=operation_configs,
@@ -242,9 +242,9 @@ class ApigeeApiProduct(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#create ApigeeApiProduct#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#delete ApigeeApiProduct#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#update ApigeeApiProduct#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#create ApigeeApiProduct#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#delete ApigeeApiProduct#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#update ApigeeApiProduct#update}.
         '''
         value = ApigeeApiProductTimeouts(create=create, delete=delete, update=update)
 
@@ -674,8 +674,8 @@ class ApigeeApiProductAttributes:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
-        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
+        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__467c0062a6e51f011a34630f9cbc45299cb006d4d0f748ce4497cb5403750213)
@@ -691,7 +691,7 @@ class ApigeeApiProductAttributes:
     def name(self) -> typing.Optional[builtins.str]:
         '''Key of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -700,7 +700,7 @@ class ApigeeApiProductAttributes:
     def value(self) -> typing.Optional[builtins.str]:
         '''Value of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -966,26 +966,26 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Name displayed in the UI or developer portal to developers registering for API access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#display_name ApigeeApiProduct#display_name}
-        :param name: Internal name of the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
-        :param org_id: The Apigee Organization associated with the Apigee API product, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#org_id ApigeeApiProduct#org_id}
-        :param api_resources: Comma-separated list of API resources to be bundled in the API product. By default, the resource paths are mapped from the proxy.pathsuffix variable. The proxy path suffix is defined as the URI fragment following the ProxyEndpoint base path. For example, if the apiResources element is defined to be /forecastrss and the base path defined for the API proxy is /weather, then only requests to /weather/forecastrss are permitted by the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#api_resources ApigeeApiProduct#api_resources}
-        :param approval_type: Flag that specifies how API keys are approved to access the APIs defined by the API product. Valid values are 'auto' or 'manual'. Possible values: ["auto", "manual"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#approval_type ApigeeApiProduct#approval_type}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
-        :param description: Description of the API product. Include key information about the API product that is not captured by other fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#description ApigeeApiProduct#description}
-        :param environments: Comma-separated list of environment names to which the API product is bound. Requests to environments that are not listed are rejected. By specifying one or more environments, you can bind the resources listed in the API product to a specific environment, preventing developers from accessing those resources through API proxies deployed in another environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#environments ApigeeApiProduct#environments}
-        :param graphql_operation_group: graphql_operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#graphql_operation_group ApigeeApiProduct#graphql_operation_group}
-        :param grpc_operation_group: grpc_operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#grpc_operation_group ApigeeApiProduct#grpc_operation_group}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#id ApigeeApiProduct#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param operation_group: operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_group ApigeeApiProduct#operation_group}
-        :param proxies: Comma-separated list of API proxy names to which this API product is bound. By specifying API proxies, you can associate resources in the API product with specific API proxies, preventing developers from accessing those resources through other API proxies. Apigee rejects requests to API proxies that are not listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#proxies ApigeeApiProduct#proxies}
-        :param quota: Number of request messages permitted per app by this API product for the specified quotaInterval and quotaTimeUnit. For example, a quota of 50, for a quotaInterval of 12 and a quotaTimeUnit of hours means 50 requests are allowed every 12 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
-        :param quota_counter_scope: Scope of the quota decides how the quota counter gets applied and evaluate for quota violation. If the Scope is set as PROXY, then all the operations defined for the APIproduct that are associated with the same proxy will share the same quota counter set at the APIproduct level, making it a global counter at a proxy level. If the Scope is set as OPERATION, then each operations get the counter set at the API product dedicated, making it a local counter. Note that, the QuotaCounterScope applies only when an operation does not have dedicated quota set for itself. Possible values: ["QUOTA_COUNTER_SCOPE_UNSPECIFIED", "PROXY", "OPERATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota_counter_scope ApigeeApiProduct#quota_counter_scope}
-        :param quota_interval: Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota_interval ApigeeApiProduct#quota_interval}
-        :param quota_time_unit: Time unit defined for the quotaInterval. Valid values include second, minute, hour, day, month or year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota_time_unit ApigeeApiProduct#quota_time_unit}
-        :param scopes: Comma-separated list of OAuth scopes that are validated at runtime. Apigee validates that the scopes in any access token presented match the scopes defined in the OAuth policy associated with the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#scopes ApigeeApiProduct#scopes}
-        :param space: Optional. The resource ID of the parent Space. If not set, the parent resource will be the Organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#space ApigeeApiProduct#space}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#timeouts ApigeeApiProduct#timeouts}
+        :param display_name: Name displayed in the UI or developer portal to developers registering for API access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#display_name ApigeeApiProduct#display_name}
+        :param name: Internal name of the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        :param org_id: The Apigee Organization associated with the Apigee API product, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#org_id ApigeeApiProduct#org_id}
+        :param api_resources: Comma-separated list of API resources to be bundled in the API product. By default, the resource paths are mapped from the proxy.pathsuffix variable. The proxy path suffix is defined as the URI fragment following the ProxyEndpoint base path. For example, if the apiResources element is defined to be /forecastrss and the base path defined for the API proxy is /weather, then only requests to /weather/forecastrss are permitted by the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#api_resources ApigeeApiProduct#api_resources}
+        :param approval_type: Flag that specifies how API keys are approved to access the APIs defined by the API product. Valid values are 'auto' or 'manual'. Possible values: ["auto", "manual"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#approval_type ApigeeApiProduct#approval_type}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
+        :param description: Description of the API product. Include key information about the API product that is not captured by other fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#description ApigeeApiProduct#description}
+        :param environments: Comma-separated list of environment names to which the API product is bound. Requests to environments that are not listed are rejected. By specifying one or more environments, you can bind the resources listed in the API product to a specific environment, preventing developers from accessing those resources through API proxies deployed in another environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#environments ApigeeApiProduct#environments}
+        :param graphql_operation_group: graphql_operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#graphql_operation_group ApigeeApiProduct#graphql_operation_group}
+        :param grpc_operation_group: grpc_operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#grpc_operation_group ApigeeApiProduct#grpc_operation_group}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#id ApigeeApiProduct#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param operation_group: operation_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_group ApigeeApiProduct#operation_group}
+        :param proxies: Comma-separated list of API proxy names to which this API product is bound. By specifying API proxies, you can associate resources in the API product with specific API proxies, preventing developers from accessing those resources through other API proxies. Apigee rejects requests to API proxies that are not listed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#proxies ApigeeApiProduct#proxies}
+        :param quota: Number of request messages permitted per app by this API product for the specified quotaInterval and quotaTimeUnit. For example, a quota of 50, for a quotaInterval of 12 and a quotaTimeUnit of hours means 50 requests are allowed every 12 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
+        :param quota_counter_scope: Scope of the quota decides how the quota counter gets applied and evaluate for quota violation. If the Scope is set as PROXY, then all the operations defined for the APIproduct that are associated with the same proxy will share the same quota counter set at the APIproduct level, making it a global counter at a proxy level. If the Scope is set as OPERATION, then each operations get the counter set at the API product dedicated, making it a local counter. Note that, the QuotaCounterScope applies only when an operation does not have dedicated quota set for itself. Possible values: ["QUOTA_COUNTER_SCOPE_UNSPECIFIED", "PROXY", "OPERATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota_counter_scope ApigeeApiProduct#quota_counter_scope}
+        :param quota_interval: Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota_interval ApigeeApiProduct#quota_interval}
+        :param quota_time_unit: Time unit defined for the quotaInterval. Valid values include second, minute, hour, day, month or year. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota_time_unit ApigeeApiProduct#quota_time_unit}
+        :param scopes: Comma-separated list of OAuth scopes that are validated at runtime. Apigee validates that the scopes in any access token presented match the scopes defined in the OAuth policy associated with the API product. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#scopes ApigeeApiProduct#scopes}
+        :param space: Optional. The resource ID of the parent Space. If not set, the parent resource will be the Organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#space ApigeeApiProduct#space}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#timeouts ApigeeApiProduct#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1148,7 +1148,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Name displayed in the UI or developer portal to developers registering for API access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#display_name ApigeeApiProduct#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#display_name ApigeeApiProduct#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1158,7 +1158,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Internal name of the API product.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1168,7 +1168,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def org_id(self) -> builtins.str:
         '''The Apigee Organization associated with the Apigee API product, in the format 'organizations/{{org_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#org_id ApigeeApiProduct#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#org_id ApigeeApiProduct#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
@@ -1181,7 +1181,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         By default, the resource paths are mapped from the proxy.pathsuffix variable.
         The proxy path suffix is defined as the URI fragment following the ProxyEndpoint base path. For example, if the apiResources element is defined to be /forecastrss and the base path defined for the API proxy is /weather, then only requests to /weather/forecastrss are permitted by the API product.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#api_resources ApigeeApiProduct#api_resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#api_resources ApigeeApiProduct#api_resources}
         '''
         result = self._values.get("api_resources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1192,7 +1192,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are 'auto' or 'manual'. Possible values: ["auto", "manual"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#approval_type ApigeeApiProduct#approval_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#approval_type ApigeeApiProduct#approval_type}
         '''
         result = self._values.get("approval_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1203,7 +1203,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApigeeApiProductAttributes]]]:
         '''attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
         '''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApigeeApiProductAttributes]]], result)
@@ -1212,7 +1212,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the API product. Include key information about the API product that is not captured by other fields.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#description ApigeeApiProduct#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#description ApigeeApiProduct#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1224,7 +1224,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Requests to environments that are not listed are rejected.
         By specifying one or more environments, you can bind the resources listed in the API product to a specific environment, preventing developers from accessing those resources through API proxies deployed in another environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#environments ApigeeApiProduct#environments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#environments ApigeeApiProduct#environments}
         '''
         result = self._values.get("environments")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1235,7 +1235,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApigeeApiProductGraphqlOperationGroup"]:
         '''graphql_operation_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#graphql_operation_group ApigeeApiProduct#graphql_operation_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#graphql_operation_group ApigeeApiProduct#graphql_operation_group}
         '''
         result = self._values.get("graphql_operation_group")
         return typing.cast(typing.Optional["ApigeeApiProductGraphqlOperationGroup"], result)
@@ -1246,14 +1246,14 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApigeeApiProductGrpcOperationGroup"]:
         '''grpc_operation_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#grpc_operation_group ApigeeApiProduct#grpc_operation_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#grpc_operation_group ApigeeApiProduct#grpc_operation_group}
         '''
         result = self._values.get("grpc_operation_group")
         return typing.cast(typing.Optional["ApigeeApiProductGrpcOperationGroup"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#id ApigeeApiProduct#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#id ApigeeApiProduct#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1265,7 +1265,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def operation_group(self) -> typing.Optional["ApigeeApiProductOperationGroup"]:
         '''operation_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_group ApigeeApiProduct#operation_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_group ApigeeApiProduct#operation_group}
         '''
         result = self._values.get("operation_group")
         return typing.cast(typing.Optional["ApigeeApiProductOperationGroup"], result)
@@ -1277,7 +1277,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         By specifying API proxies, you can associate resources in the API product with specific API proxies, preventing developers from accessing those resources through other API proxies.
         Apigee rejects requests to API proxies that are not listed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#proxies ApigeeApiProduct#proxies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#proxies ApigeeApiProduct#proxies}
         '''
         result = self._values.get("proxies")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1288,7 +1288,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For example, a quota of 50, for a quotaInterval of 12 and a quotaTimeUnit of hours means 50 requests are allowed every 12 hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
         '''
         result = self._values.get("quota")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1299,7 +1299,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If the Scope is set as PROXY, then all the operations defined for the APIproduct that are associated with the same proxy will share the same quota counter set at the APIproduct level, making it a global counter at a proxy level. If the Scope is set as OPERATION, then each operations get the counter set at the API product dedicated, making it a local counter. Note that, the QuotaCounterScope applies only when an operation does not have dedicated quota set for itself. Possible values: ["QUOTA_COUNTER_SCOPE_UNSPECIFIED", "PROXY", "OPERATION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota_counter_scope ApigeeApiProduct#quota_counter_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota_counter_scope ApigeeApiProduct#quota_counter_scope}
         '''
         result = self._values.get("quota_counter_scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1308,7 +1308,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def quota_interval(self) -> typing.Optional[builtins.str]:
         '''Time interval over which the number of request messages is calculated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota_interval ApigeeApiProduct#quota_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota_interval ApigeeApiProduct#quota_interval}
         '''
         result = self._values.get("quota_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1317,7 +1317,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def quota_time_unit(self) -> typing.Optional[builtins.str]:
         '''Time unit defined for the quotaInterval. Valid values include second, minute, hour, day, month or year.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota_time_unit ApigeeApiProduct#quota_time_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota_time_unit ApigeeApiProduct#quota_time_unit}
         '''
         result = self._values.get("quota_time_unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1328,7 +1328,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Apigee validates that the scopes in any access token presented match the scopes defined in the OAuth policy associated with the API product.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#scopes ApigeeApiProduct#scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#scopes ApigeeApiProduct#scopes}
         '''
         result = self._values.get("scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1337,7 +1337,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def space(self) -> typing.Optional[builtins.str]:
         '''Optional. The resource ID of the parent Space. If not set, the parent resource will be the Organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#space ApigeeApiProduct#space}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#space ApigeeApiProduct#space}
         '''
         result = self._values.get("space")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1346,7 +1346,7 @@ class ApigeeApiProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApigeeApiProductTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#timeouts ApigeeApiProduct#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#timeouts ApigeeApiProduct#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApigeeApiProductTimeouts"], result)
@@ -1379,8 +1379,8 @@ class ApigeeApiProductGraphqlOperationGroup:
         operation_config_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
-        :param operation_config_type: Flag that specifes whether the configuration is for Apigee API proxy or a remote service. Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
+        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
+        :param operation_config_type: Flag that specifes whether the configuration is for Apigee API proxy or a remote service. Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__936a1dceac7b48558ec2c38069d20dc17c9ead77276b3100598007b32c10b4f3)
@@ -1398,7 +1398,7 @@ class ApigeeApiProductGraphqlOperationGroup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGraphqlOperationGroupOperationConfigs"]]]:
         '''operation_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
         '''
         result = self._values.get("operation_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGraphqlOperationGroupOperationConfigs"]]], result)
@@ -1409,7 +1409,7 @@ class ApigeeApiProductGraphqlOperationGroup:
 
         Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
         '''
         result = self._values.get("operation_config_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1446,10 +1446,10 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigs:
         quota: typing.Optional[typing.Union["ApigeeApiProductGraphqlOperationGroupOperationConfigsQuota", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param api_source: Required. Name of the API proxy endpoint or remote service with which the GraphQL operation and quota are associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
-        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operations ApigeeApiProduct#operations}
-        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
+        :param api_source: Required. Name of the API proxy endpoint or remote service with which the GraphQL operation and quota are associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
+        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operations ApigeeApiProduct#operations}
+        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
         '''
         if isinstance(quota, dict):
             quota = ApigeeApiProductGraphqlOperationGroupOperationConfigsQuota(**quota)
@@ -1473,7 +1473,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigs:
     def api_source(self) -> typing.Optional[builtins.str]:
         '''Required. Name of the API proxy endpoint or remote service with which the GraphQL operation and quota are associated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
         '''
         result = self._values.get("api_source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1484,7 +1484,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGraphqlOperationGroupOperationConfigsAttributes"]]]:
         '''attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
         '''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGraphqlOperationGroupOperationConfigsAttributes"]]], result)
@@ -1495,7 +1495,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGraphqlOperationGroupOperationConfigsOperations"]]]:
         '''operations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operations ApigeeApiProduct#operations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operations ApigeeApiProduct#operations}
         '''
         result = self._values.get("operations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGraphqlOperationGroupOperationConfigsOperations"]]], result)
@@ -1506,7 +1506,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigs:
     ) -> typing.Optional["ApigeeApiProductGraphqlOperationGroupOperationConfigsQuota"]:
         '''quota block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
         '''
         result = self._values.get("quota")
         return typing.cast(typing.Optional["ApigeeApiProductGraphqlOperationGroupOperationConfigsQuota"], result)
@@ -1536,8 +1536,8 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsAttributes:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
-        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
+        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc6e04f9876bfbe81a6af66d8a8ea6a0f715b7aab2265ee801267bb94700833d)
@@ -1553,7 +1553,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsAttributes:
     def name(self) -> typing.Optional[builtins.str]:
         '''Key of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1562,7 +1562,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsAttributes:
     def value(self) -> typing.Optional[builtins.str]:
         '''Value of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1864,8 +1864,8 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsOperations:
         operation_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operation: GraphQL operation name. The name and operation type will be used to apply quotas. If no name is specified, the quota will be applied to all GraphQL operations irrespective of their operation names in the payload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation ApigeeApiProduct#operation}
-        :param operation_types: Required. GraphQL operation types. Valid values include query or mutation. Note: Apigee does not currently support subscription types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_types ApigeeApiProduct#operation_types}
+        :param operation: GraphQL operation name. The name and operation type will be used to apply quotas. If no name is specified, the quota will be applied to all GraphQL operations irrespective of their operation names in the payload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation ApigeeApiProduct#operation}
+        :param operation_types: Required. GraphQL operation types. Valid values include query or mutation. Note: Apigee does not currently support subscription types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_types ApigeeApiProduct#operation_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a39200f71531fd8b55b92b5e28809318f1df9f2ff24223acd502bd3ad6abf46)
@@ -1883,7 +1883,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsOperations:
 
         The name and operation type will be used to apply quotas. If no name is specified, the quota will be applied to all GraphQL operations irrespective of their operation names in the payload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation ApigeeApiProduct#operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation ApigeeApiProduct#operation}
         '''
         result = self._values.get("operation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1892,7 +1892,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsOperations:
     def operation_types(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Required. GraphQL operation types. Valid values include query or mutation. Note: Apigee does not currently support subscription types.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_types ApigeeApiProduct#operation_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_types ApigeeApiProduct#operation_types}
         '''
         result = self._values.get("operation_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2149,9 +2149,9 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsOutputReference(
         time_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
-        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
-        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
+        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
+        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
+        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
         '''
         value = ApigeeApiProductGraphqlOperationGroupOperationConfigsQuota(
             interval=interval, limit=limit, time_unit=time_unit
@@ -2266,9 +2266,9 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsQuota:
         time_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
-        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
-        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
+        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
+        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
+        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c9f898f73550f91a2148c4c3005e8d3f3e0fb8da5a467bfbc60cea5fdb6099a)
@@ -2287,7 +2287,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsQuota:
     def interval(self) -> typing.Optional[builtins.str]:
         '''Required. Time interval over which the number of request messages is calculated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
         '''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2296,7 +2296,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsQuota:
     def limit(self) -> typing.Optional[builtins.str]:
         '''Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
         '''
         result = self._values.get("limit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2307,7 +2307,7 @@ class ApigeeApiProductGraphqlOperationGroupOperationConfigsQuota:
 
         Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
         '''
         result = self._values.get("time_unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2525,7 +2525,7 @@ class ApigeeApiProductGrpcOperationGroup:
         operation_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApigeeApiProductGrpcOperationGroupOperationConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
+        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fec100a1e8f2a89dac2a24026ae8910e5869080d2674afbf1dd76a6a0e7be8ac)
@@ -2540,7 +2540,7 @@ class ApigeeApiProductGrpcOperationGroup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGrpcOperationGroupOperationConfigs"]]]:
         '''operation_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
         '''
         result = self._values.get("operation_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGrpcOperationGroupOperationConfigs"]]], result)
@@ -2579,11 +2579,11 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigs:
         service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param api_source: Required. Name of the API proxy with which the gRPC operation and quota are associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
-        :param methods: List of unqualified gRPC method names for the proxy to which quota will be applied. If this field is empty, the Quota will apply to all operations on the gRPC service defined on the proxy. Example: Given a proxy that is configured to serve com.petstore.PetService, the methods com.petstore.PetService.ListPets and com.petstore.PetService.GetPet would be specified here as simply ["ListPets", "GetPet"]. Note: Currently, you can specify only a single GraphQLOperation. Specifying more than one will cause the operation to fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#methods ApigeeApiProduct#methods}
-        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
-        :param service: Required. gRPC Service name associated to be associated with the API proxy, on which quota rules can be applied upon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#service ApigeeApiProduct#service}
+        :param api_source: Required. Name of the API proxy with which the gRPC operation and quota are associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
+        :param methods: List of unqualified gRPC method names for the proxy to which quota will be applied. If this field is empty, the Quota will apply to all operations on the gRPC service defined on the proxy. Example: Given a proxy that is configured to serve com.petstore.PetService, the methods com.petstore.PetService.ListPets and com.petstore.PetService.GetPet would be specified here as simply ["ListPets", "GetPet"]. Note: Currently, you can specify only a single GraphQLOperation. Specifying more than one will cause the operation to fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#methods ApigeeApiProduct#methods}
+        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
+        :param service: Required. gRPC Service name associated to be associated with the API proxy, on which quota rules can be applied upon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#service ApigeeApiProduct#service}
         '''
         if isinstance(quota, dict):
             quota = ApigeeApiProductGrpcOperationGroupOperationConfigsQuota(**quota)
@@ -2610,7 +2610,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigs:
     def api_source(self) -> typing.Optional[builtins.str]:
         '''Required. Name of the API proxy with which the gRPC operation and quota are associated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
         '''
         result = self._values.get("api_source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2621,7 +2621,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGrpcOperationGroupOperationConfigsAttributes"]]]:
         '''attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
         '''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductGrpcOperationGroupOperationConfigsAttributes"]]], result)
@@ -2636,7 +2636,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigs:
 
         Note: Currently, you can specify only a single GraphQLOperation. Specifying more than one will cause the operation to fail.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#methods ApigeeApiProduct#methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#methods ApigeeApiProduct#methods}
         '''
         result = self._values.get("methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2647,7 +2647,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigs:
     ) -> typing.Optional["ApigeeApiProductGrpcOperationGroupOperationConfigsQuota"]:
         '''quota block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
         '''
         result = self._values.get("quota")
         return typing.cast(typing.Optional["ApigeeApiProductGrpcOperationGroupOperationConfigsQuota"], result)
@@ -2658,7 +2658,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigs:
 
         gRPC Service name associated to be associated with the API proxy, on which quota rules can be applied upon.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#service ApigeeApiProduct#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#service ApigeeApiProduct#service}
         '''
         result = self._values.get("service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2688,8 +2688,8 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigsAttributes:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
-        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
+        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__601bf900e21075f8141cedd9003f5c0b47a88cf4f7c11227b0920844eb501623)
@@ -2705,7 +2705,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigsAttributes:
     def name(self) -> typing.Optional[builtins.str]:
         '''Key of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2714,7 +2714,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigsAttributes:
     def value(self) -> typing.Optional[builtins.str]:
         '''Value of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3051,9 +3051,9 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigsOutputReference(
         time_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
-        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
-        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
+        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
+        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
+        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
         '''
         value = ApigeeApiProductGrpcOperationGroupOperationConfigsQuota(
             interval=interval, limit=limit, time_unit=time_unit
@@ -3192,9 +3192,9 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigsQuota:
         time_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
-        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
-        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
+        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
+        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
+        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5558828c844edcf5368a2cb72168af726e3b6b838a92d8243acf854e62eeb702)
@@ -3213,7 +3213,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigsQuota:
     def interval(self) -> typing.Optional[builtins.str]:
         '''Required. Time interval over which the number of request messages is calculated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
         '''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3222,7 +3222,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigsQuota:
     def limit(self) -> typing.Optional[builtins.str]:
         '''Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
         '''
         result = self._values.get("limit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3233,7 +3233,7 @@ class ApigeeApiProductGrpcOperationGroupOperationConfigsQuota:
 
         Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
         '''
         result = self._values.get("time_unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3434,8 +3434,8 @@ class ApigeeApiProductOperationGroup:
         operation_config_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
-        :param operation_config_type: Flag that specifes whether the configuration is for Apigee API proxy or a remote service. Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
+        :param operation_configs: operation_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
+        :param operation_config_type: Flag that specifes whether the configuration is for Apigee API proxy or a remote service. Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26eb1ee29407550ff4f2557b537d7281fae97cf477ea41439692dcf4bb5e2493)
@@ -3453,7 +3453,7 @@ class ApigeeApiProductOperationGroup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductOperationGroupOperationConfigs"]]]:
         '''operation_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_configs ApigeeApiProduct#operation_configs}
         '''
         result = self._values.get("operation_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductOperationGroupOperationConfigs"]]], result)
@@ -3464,7 +3464,7 @@ class ApigeeApiProductOperationGroup:
 
         Valid values include proxy or remoteservice. Defaults to proxy. Set to proxy when Apigee API proxies are associated with the API product. Set to remoteservice when non-Apigee proxies like Istio-Envoy are associated with the API product. Possible values: ["proxy", "remoteservice"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operation_config_type ApigeeApiProduct#operation_config_type}
         '''
         result = self._values.get("operation_config_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3501,10 +3501,10 @@ class ApigeeApiProductOperationGroupOperationConfigs:
         quota: typing.Optional[typing.Union["ApigeeApiProductOperationGroupOperationConfigsQuota", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param api_source: Required. Name of the API proxy or remote service with which the resources, methods, and quota are associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
-        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operations ApigeeApiProduct#operations}
-        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
+        :param api_source: Required. Name of the API proxy or remote service with which the resources, methods, and quota are associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
+        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operations ApigeeApiProduct#operations}
+        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
         '''
         if isinstance(quota, dict):
             quota = ApigeeApiProductOperationGroupOperationConfigsQuota(**quota)
@@ -3528,7 +3528,7 @@ class ApigeeApiProductOperationGroupOperationConfigs:
     def api_source(self) -> typing.Optional[builtins.str]:
         '''Required. Name of the API proxy or remote service with which the resources, methods, and quota are associated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#api_source ApigeeApiProduct#api_source}
         '''
         result = self._values.get("api_source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3539,7 +3539,7 @@ class ApigeeApiProductOperationGroupOperationConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductOperationGroupOperationConfigsAttributes"]]]:
         '''attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#attributes ApigeeApiProduct#attributes}
         '''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductOperationGroupOperationConfigsAttributes"]]], result)
@@ -3550,7 +3550,7 @@ class ApigeeApiProductOperationGroupOperationConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductOperationGroupOperationConfigsOperations"]]]:
         '''operations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#operations ApigeeApiProduct#operations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#operations ApigeeApiProduct#operations}
         '''
         result = self._values.get("operations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeApiProductOperationGroupOperationConfigsOperations"]]], result)
@@ -3561,7 +3561,7 @@ class ApigeeApiProductOperationGroupOperationConfigs:
     ) -> typing.Optional["ApigeeApiProductOperationGroupOperationConfigsQuota"]:
         '''quota block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#quota ApigeeApiProduct#quota}
         '''
         result = self._values.get("quota")
         return typing.cast(typing.Optional["ApigeeApiProductOperationGroupOperationConfigsQuota"], result)
@@ -3591,8 +3591,8 @@ class ApigeeApiProductOperationGroupOperationConfigsAttributes:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
-        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
+        :param name: Key of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        :param value: Value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee0d3430197d6047b67b96b2cf7db554a25d048ad386fa494ceffcc698f5c8b1)
@@ -3608,7 +3608,7 @@ class ApigeeApiProductOperationGroupOperationConfigsAttributes:
     def name(self) -> typing.Optional[builtins.str]:
         '''Key of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#name ApigeeApiProduct#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3617,7 +3617,7 @@ class ApigeeApiProductOperationGroupOperationConfigsAttributes:
     def value(self) -> typing.Optional[builtins.str]:
         '''Value of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#value ApigeeApiProduct#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3919,8 +3919,8 @@ class ApigeeApiProductOperationGroupOperationConfigsOperations:
         resource: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param methods: Methods refers to the REST verbs, when none specified, all verb types are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#methods ApigeeApiProduct#methods}
-        :param resource: Required. REST resource path associated with the API proxy or remote service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#resource ApigeeApiProduct#resource}
+        :param methods: Methods refers to the REST verbs, when none specified, all verb types are allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#methods ApigeeApiProduct#methods}
+        :param resource: Required. REST resource path associated with the API proxy or remote service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#resource ApigeeApiProduct#resource}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82c5aaf235e8e1f05ba0bab1490b394ba6cf256faf89ac69132f6c87dc489c82)
@@ -3936,7 +3936,7 @@ class ApigeeApiProductOperationGroupOperationConfigsOperations:
     def methods(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Methods refers to the REST verbs, when none specified, all verb types are allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#methods ApigeeApiProduct#methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#methods ApigeeApiProduct#methods}
         '''
         result = self._values.get("methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3945,7 +3945,7 @@ class ApigeeApiProductOperationGroupOperationConfigsOperations:
     def resource(self) -> typing.Optional[builtins.str]:
         '''Required. REST resource path associated with the API proxy or remote service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#resource ApigeeApiProduct#resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#resource ApigeeApiProduct#resource}
         '''
         result = self._values.get("resource")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4202,9 +4202,9 @@ class ApigeeApiProductOperationGroupOperationConfigsOutputReference(
         time_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
-        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
-        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
+        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
+        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
+        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
         '''
         value = ApigeeApiProductOperationGroupOperationConfigsQuota(
             interval=interval, limit=limit, time_unit=time_unit
@@ -4319,9 +4319,9 @@ class ApigeeApiProductOperationGroupOperationConfigsQuota:
         time_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
-        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
-        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
+        :param interval: Required. Time interval over which the number of request messages is calculated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
+        :param limit: Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
+        :param time_unit: Time unit defined for the interval. Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c02f3fb00fa1dbf8e1723857cc084ce7232766790eb382170510ff14bb972fb)
@@ -4340,7 +4340,7 @@ class ApigeeApiProductOperationGroupOperationConfigsQuota:
     def interval(self) -> typing.Optional[builtins.str]:
         '''Required. Time interval over which the number of request messages is calculated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#interval ApigeeApiProduct#interval}
         '''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4349,7 +4349,7 @@ class ApigeeApiProductOperationGroupOperationConfigsQuota:
     def limit(self) -> typing.Optional[builtins.str]:
         '''Required. Upper limit allowed for the time interval and time unit specified. Requests exceeding this limit will be rejected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#limit ApigeeApiProduct#limit}
         '''
         result = self._values.get("limit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4360,7 +4360,7 @@ class ApigeeApiProductOperationGroupOperationConfigsQuota:
 
         Valid values include second, minute, hour, day, month or year. If limit and interval are valid, the default value is hour; otherwise, the default is null.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#time_unit ApigeeApiProduct#time_unit}
         '''
         result = self._values.get("time_unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4578,9 +4578,9 @@ class ApigeeApiProductTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#create ApigeeApiProduct#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#delete ApigeeApiProduct#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#update ApigeeApiProduct#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#create ApigeeApiProduct#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#delete ApigeeApiProduct#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#update ApigeeApiProduct#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__290d6a86ce0df70f7f4a693a4c2570b98a95557457a9f52463ba8709f15fba1b)
@@ -4597,19 +4597,19 @@ class ApigeeApiProductTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#create ApigeeApiProduct#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#create ApigeeApiProduct#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#delete ApigeeApiProduct#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#delete ApigeeApiProduct#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apigee_api_product#update ApigeeApiProduct#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apigee_api_product#update ApigeeApiProduct#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

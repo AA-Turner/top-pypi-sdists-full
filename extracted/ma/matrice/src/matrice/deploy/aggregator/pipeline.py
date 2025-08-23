@@ -161,7 +161,8 @@ class ResultsAggregationPipeline:
             self.results_ingestor = ResultsIngestor(
                 deployment_ids=self.deployment_ids,
                 session=self.session,
-                consumer_timeout=60.0  # 60 seconds timeout
+                consumer_timeout=300,
+                action_id=self.action_record_id
             )
             self.stats["component_status"]["ingestor"] = "initialized"
 
@@ -169,7 +170,7 @@ class ResultsAggregationPipeline:
             logging.info("Initializing results synchronizer...")
             self.results_synchronizer = ResultsSynchronizer(
                 results_queues=self.results_ingestor.results_queues,
-                sync_timeout=15.0  # 15 seconds timeout for synchronization
+                sync_timeout=300  # 60 seconds timeout for synchronization
             )
             self.stats["component_status"]["synchronizer"] = "initialized"
             
@@ -195,7 +196,7 @@ class ResultsAggregationPipeline:
                 inference_pipeline_id=self.inference_pipeline_id,
                 session=self.session,
                 final_results_queue=self.results_aggregator.aggregated_results_queue,
-                analytics_summarizer=self.analytics_summarizer,
+                analytics_summarizer=self.analytics_summarizer
             )
             self.stats["component_status"]["publisher"] = "initialized"
             
@@ -263,6 +264,13 @@ class ResultsAggregationPipeline:
                 self._record_error("Failed to start results publishing")
                 return False
             self.stats["component_status"]["publisher"] = "running"
+            
+            # Update status to indicate successful startup
+            self.update_status(
+                "AGG_RUNNING",
+                "SUCCESS",
+                f"Aggregation pipeline started successfully with {len(self.deployment_ids)} deployments"
+            )
             
             logging.info("Aggregation pipeline started successfully")
             if block:
@@ -454,6 +462,13 @@ class ResultsAggregationPipeline:
             logging.info("Streaming is not running")
             return
             
+        # Update status to indicate shutdown is starting
+        self.update_status(
+            "AGG_SHUTDOWN",
+            "IN_PROGRESS", 
+            "Aggregation pipeline shutdown initiated"
+        )
+            
         self.is_running = False
 
         # Stop components in reverse order: publisher -> aggregator -> synchronizer -> ingestor
@@ -496,6 +511,13 @@ class ResultsAggregationPipeline:
                 self.stats["component_status"]["ingestor"] = "stopped"
             except Exception as exc:
                 logging.error(f"Error stopping results ingestion: {exc}")
+        
+        # Update status to indicate successful shutdown
+        self.update_status(
+            "AGG_SHUTDOWN",
+            "SUCCESS",
+            "Aggregation pipeline stopped successfully"
+        )
         
         logging.info("Aggregation pipeline stopped")
 
@@ -773,6 +795,13 @@ class ResultsAggregationPipeline:
         """Clean up all resources."""
         logging.info("Cleaning up aggregation pipeline resources...")
         
+        # Update status to indicate cleanup is starting
+        self.update_status(
+            "AGG_CLEANUP",
+            "IN_PROGRESS",
+            "Aggregation pipeline cleanup initiated"
+        )
+        
         # Stop streaming if running
         if self.is_running:
             self.stop_streaming()
@@ -815,6 +844,13 @@ class ResultsAggregationPipeline:
                     self.final_results_queue.get_nowait()
             except Exception:
                 pass
+        
+        # Update status to indicate successful cleanup
+        self.update_status(
+            "AGG_CLEANUP",
+            "SUCCESS", 
+            "Aggregation pipeline cleanup completed successfully"
+        )
         
         logging.info("Aggregation pipeline cleanup completed")
 

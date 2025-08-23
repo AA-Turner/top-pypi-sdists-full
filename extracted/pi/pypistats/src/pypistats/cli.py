@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from typing import Any
 
 cli = argparse.ArgumentParser()
-cli.color = True
 subparsers = cli.add_subparsers(dest="subcommand")
 
 
@@ -52,7 +51,7 @@ def subcommand(args=None, parent=subparsers):
     if args is None:
         args = []
 
-    def decorator(func):
+    def decorator(func) -> None:
         func2 = getattr(pypistats, func.__name__)
         parser = parent.add_parser(
             func.__name__,
@@ -64,6 +63,48 @@ def subcommand(args=None, parent=subparsers):
         parser.set_defaults(func=func)
 
     return decorator
+
+
+def _package(value: Any) -> str:
+    from pathlib import Path
+
+    directory = Path(value)
+    if not directory.is_dir():
+        return value
+
+    pyproject_toml = directory / Path("pyproject.toml")
+    if pyproject_toml.exists():
+        try:
+            import tomllib
+        except ImportError:
+            import tomli as tomllib  # type: ignore[import-not-found, no-redef]
+
+        data = tomllib.loads(pyproject_toml.read_text())
+        try:
+            return data["project"]["name"]
+        except KeyError:
+            msg = "no 'project.name' in pyproject.toml"
+    else:
+        msg = "pyproject.toml not found"
+
+    setup_cfg = directory / Path("setup.cfg")
+    if setup_cfg.exists():
+        from configparser import ConfigParser
+
+        config = ConfigParser()
+        config.read(setup_cfg)
+
+        try:
+            return config["metadata"]["name"]
+        except KeyError:
+            msg += " and no 'metadata.name' in setup.cfg"
+    else:
+        msg += " and setup.cfg not found"
+
+    if msg == "pyproject.toml not found and setup.cfg not found":
+        msg = "pyproject.toml and setup.cfg not found"
+
+    raise argparse.ArgumentTypeError(msg)
 
 
 def _month_name_to_yyyy_mm(date_string: str, date_format: str) -> str:
@@ -193,6 +234,13 @@ arg_verbose = argument(
 )
 
 # These are used by all except the 'recent' subcommand
+package_argument = argument(
+    "package",
+    default=".",
+    type=_package,
+    nargs="?",
+    help="package name, or dir to check pyproject.toml/setup.cfg",
+)
 common_arguments = [
     arg_format,
     arg_json,
@@ -210,7 +258,7 @@ common_arguments = [
 
 @subcommand(
     [
-        argument("package"),
+        package_argument,
         argument("-p", "--period", choices=("day", "week", "month")),
         arg_format,
         arg_json,
@@ -227,7 +275,7 @@ def recent(args: argparse.Namespace) -> None:  # pragma: no cover
 
 @subcommand(
     [
-        argument("package"),
+        package_argument,
         argument("--mirrors", choices=("true", "false", "with", "without")),
         *common_arguments,
     ]
@@ -252,7 +300,7 @@ def overall(args: argparse.Namespace) -> None:  # pragma: no cover
 
 @subcommand(
     [
-        argument("package"),
+        package_argument,
         argument("-V", "--version", help="eg. 2 or 3", type=_python_major_version),
         *common_arguments,
     ]
@@ -274,7 +322,7 @@ def python_major(args: argparse.Namespace) -> None:  # pragma: no cover
 
 @subcommand(
     [
-        argument("package"),
+        package_argument,
         argument("-V", "--version", help="eg. 2.7 or 3.6", type=_python_minor_version),
         *common_arguments,
     ]
@@ -296,7 +344,7 @@ def python_minor(args: argparse.Namespace) -> None:  # pragma: no cover
 
 @subcommand(
     [
-        argument("package"),
+        package_argument,
         argument("-o", "--os", help="eg. windows, linux, darwin or other"),
         *common_arguments,
     ]

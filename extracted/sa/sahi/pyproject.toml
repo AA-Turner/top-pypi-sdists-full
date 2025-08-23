@@ -1,6 +1,6 @@
 [project]
 name = "sahi"
-version = "0.11.32"
+version = "0.11.33"
 readme = "README.md"
 description = "A vision library for performing sliced inference on large images/small objects"
 requires-python = ">=3.8"
@@ -47,6 +47,7 @@ maintainers = [
 [project.scripts]
 sahi = "sahi.cli:app"
 
+
 [dependency-groups]
 dev = [
     "pytest>=7.2.2,<9.0.0",
@@ -72,7 +73,8 @@ docs = [
 build = [
     "twine>=5.1.1,<7.0.0",
     "wheel>=0.40,<0.46",
-    "build>=0.10,<1.3"
+    "build>=0.10,<1.3",
+    "hatch>=1.14.1",
 ]
 
 [project.optional-dependencies]
@@ -112,9 +114,11 @@ ci = [
 ]
 
 [tool.uv]
-find-links = [
-  "https://download.openmmlab.com/mmcv/dist/cpu/torch2.1.0/index.html",
-]
+
+# find-links = [
+#   "http://download.openmmlab.com/mmcv/dist/cpu/torch2.1.0/index.html",
+# ]
+
 override-dependencies = ["pillow>=8.2.0"]
 
 [[tool.uv.index]]
@@ -125,13 +129,6 @@ explicit = true
 [tool.uv.sources]
 torch = [{ index = "pytorch-cpu" }]
 torchvision = [{ index = "pytorch-cpu" }]
-
-[tool.hatch.version]
-path = "sahi/__init__.py"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 120
@@ -152,3 +149,49 @@ pythonpath = ["."]
 
 [tool.typos.default]
 extend-ignore-identifiers-re = ["fo"]
+
+[tool.hatch.version]
+path = "sahi/__init__.py"
+
+[tool.hatch.envs.default]
+type = "pip-compile"
+
+[tool.hatch.env]
+requires = ["hatch-mkdocs", "hatch-pip-compile"]
+
+[tool.hatch.envs.docs]
+detached = false
+
+[tool.hatch.envs.default.scripts]
+
+# Workaround for https://github.com/juftin/hatch-pip-compile/issues/85
+# PR https://github.com/pypa/hatch/pull/1882
+dependencies = [
+    "pip",
+]
+
+all = [
+    "hatch run style:check",
+]
+
+[tool.hatch.envs.style]
+pip-compile-verbose = true
+detached = true
+
+dependencies = [
+    "ruff",
+]
+
+[tool.hatch.envs.style.scripts]
+categories = [
+    "lint",
+    "format",
+]
+
+check = [
+    "ruff check . --fix",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

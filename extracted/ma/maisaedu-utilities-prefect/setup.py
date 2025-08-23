@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="maisaedu_utilities_prefect",
-    version="1.2.53",
+    version="1.2.54",
     description="Utilities for interaction with Prefect, for +A Education",
     license="MIT License",
     author="A+ Educação",

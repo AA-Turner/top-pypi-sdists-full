@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ome-zarr
-Version: 0.12.1
+Version: 0.12.2
 Summary: Implementation of images in Zarr files.
 Author: The Open Microscopy Team
 License-Expression: BSD-2-Clause

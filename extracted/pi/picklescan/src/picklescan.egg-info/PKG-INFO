@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: picklescan
-Version: 0.0.27
+Version: 0.0.28
 Summary: Security scanner detecting Python Pickle files performing suspicious actions
 Home-page: https://github.com/mmaitre314/picklescan
 Author: Matthieu Maitre
@@ -104,7 +104,7 @@ picklescan -l DEBUG -u https://huggingface.co/prajjwal1/bert-tiny/resolve/main/p
 
 Lint the code:
 ```
-black src tests
+black src tests --line-length 140
 flake8 src tests --count --show-source
 ```
 

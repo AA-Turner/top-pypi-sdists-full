@@ -59,6 +59,7 @@ from .literals import (
     BlackoutSlateStateType,
     BurnInAlignmentType,
     BurnInBackgroundColorType,
+    BurnInDestinationSubtitleRowsType,
     BurnInFontColorType,
     BurnInOutlineColorType,
     BurnInShadowColorType,
@@ -92,6 +93,7 @@ from .literals import (
     DvbSubDestinationFontColorType,
     DvbSubDestinationOutlineColorType,
     DvbSubDestinationShadowColorType,
+    DvbSubDestinationSubtitleRowsType,
     DvbSubDestinationTeletextGridControlType,
     DvbSubOcrLanguageType,
     Eac3AtmosCodingModeType,
@@ -2737,6 +2739,7 @@ class BurnInDestinationSettingsTypeDef(TypedDict):
     TeletextGridControl: NotRequired[BurnInTeletextGridControlType]
     XPosition: NotRequired[int]
     YPosition: NotRequired[int]
+    SubtitleRows: NotRequired[BurnInDestinationSubtitleRowsType]
 
 
 class DvbSubDestinationSettingsTypeDef(TypedDict):
@@ -2757,6 +2760,7 @@ class DvbSubDestinationSettingsTypeDef(TypedDict):
     TeletextGridControl: NotRequired[DvbSubDestinationTeletextGridControlType]
     XPosition: NotRequired[int]
     YPosition: NotRequired[int]
+    SubtitleRows: NotRequired[DvbSubDestinationSubtitleRowsType]
 
 
 class InputLossBehaviorTypeDef(TypedDict):

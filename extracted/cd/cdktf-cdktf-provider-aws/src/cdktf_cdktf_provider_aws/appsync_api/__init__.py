@@ -1,7 +1,7 @@
 r'''
 # `aws_appsync_api`
 
-Refer to the Terraform Registry for docs: [`aws_appsync_api`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api).
+Refer to the Terraform Registry for docs: [`aws_appsync_api`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppsyncApi(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appsyncApi.AppsyncApi",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api aws_appsync_api}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api aws_appsync_api}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AppsyncApi(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api aws_appsync_api} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api aws_appsync_api} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#name AppsyncApi#name}.
-        :param event_config: event_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#event_config AppsyncApi#event_config}
-        :param owner_contact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#owner_contact AppsyncApi#owner_contact}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#region AppsyncApi#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#tags AppsyncApi#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#name AppsyncApi#name}.
+        :param event_config: event_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#event_config AppsyncApi#event_config}
+        :param owner_contact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#owner_contact AppsyncApi#owner_contact}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#region AppsyncApi#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#tags AppsyncApi#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AppsyncApi(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppsyncApi to import.
-        :param import_from_id: The id of the existing AppsyncApi that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppsyncApi that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppsyncApi to import is found.
         '''
         if __debug__:
@@ -322,11 +322,11 @@ class AppsyncApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#name AppsyncApi#name}.
-        :param event_config: event_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#event_config AppsyncApi#event_config}
-        :param owner_contact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#owner_contact AppsyncApi#owner_contact}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#region AppsyncApi#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#tags AppsyncApi#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#name AppsyncApi#name}.
+        :param event_config: event_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#event_config AppsyncApi#event_config}
+        :param owner_contact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#owner_contact AppsyncApi#owner_contact}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#region AppsyncApi#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#tags AppsyncApi#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -436,7 +436,7 @@ class AppsyncApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#name AppsyncApi#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#name AppsyncApi#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -447,14 +447,14 @@ class AppsyncApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfig"]]]:
         '''event_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#event_config AppsyncApi#event_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#event_config AppsyncApi#event_config}
         '''
         result = self._values.get("event_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfig"]]], result)
 
     @builtins.property
     def owner_contact(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#owner_contact AppsyncApi#owner_contact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#owner_contact AppsyncApi#owner_contact}.'''
         result = self._values.get("owner_contact")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -462,14 +462,14 @@ class AppsyncApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#region AppsyncApi#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#region AppsyncApi#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#tags AppsyncApi#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#tags AppsyncApi#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -507,11 +507,11 @@ class AppsyncApiEventConfig:
         log_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppsyncApiEventConfigLogConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param auth_provider: auth_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_provider AppsyncApi#auth_provider}
-        :param connection_auth_mode: connection_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#connection_auth_mode AppsyncApi#connection_auth_mode}
-        :param default_publish_auth_mode: default_publish_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#default_publish_auth_mode AppsyncApi#default_publish_auth_mode}
-        :param default_subscribe_auth_mode: default_subscribe_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#default_subscribe_auth_mode AppsyncApi#default_subscribe_auth_mode}
-        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#log_config AppsyncApi#log_config}
+        :param auth_provider: auth_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_provider AppsyncApi#auth_provider}
+        :param connection_auth_mode: connection_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#connection_auth_mode AppsyncApi#connection_auth_mode}
+        :param default_publish_auth_mode: default_publish_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#default_publish_auth_mode AppsyncApi#default_publish_auth_mode}
+        :param default_subscribe_auth_mode: default_subscribe_auth_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#default_subscribe_auth_mode AppsyncApi#default_subscribe_auth_mode}
+        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#log_config AppsyncApi#log_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5032e9a16cb19ed83db3c5ee9ad8dddf7741601e4fe759f495da1304296bb0fe)
@@ -538,7 +538,7 @@ class AppsyncApiEventConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigAuthProvider"]]]:
         '''auth_provider block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_provider AppsyncApi#auth_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_provider AppsyncApi#auth_provider}
         '''
         result = self._values.get("auth_provider")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigAuthProvider"]]], result)
@@ -549,7 +549,7 @@ class AppsyncApiEventConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigConnectionAuthMode"]]]:
         '''connection_auth_mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#connection_auth_mode AppsyncApi#connection_auth_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#connection_auth_mode AppsyncApi#connection_auth_mode}
         '''
         result = self._values.get("connection_auth_mode")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigConnectionAuthMode"]]], result)
@@ -560,7 +560,7 @@ class AppsyncApiEventConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigDefaultPublishAuthMode"]]]:
         '''default_publish_auth_mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#default_publish_auth_mode AppsyncApi#default_publish_auth_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#default_publish_auth_mode AppsyncApi#default_publish_auth_mode}
         '''
         result = self._values.get("default_publish_auth_mode")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigDefaultPublishAuthMode"]]], result)
@@ -571,7 +571,7 @@ class AppsyncApiEventConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigDefaultSubscribeAuthMode"]]]:
         '''default_subscribe_auth_mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#default_subscribe_auth_mode AppsyncApi#default_subscribe_auth_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#default_subscribe_auth_mode AppsyncApi#default_subscribe_auth_mode}
         '''
         result = self._values.get("default_subscribe_auth_mode")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigDefaultSubscribeAuthMode"]]], result)
@@ -582,7 +582,7 @@ class AppsyncApiEventConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigLogConfig"]]]:
         '''log_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#log_config AppsyncApi#log_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#log_config AppsyncApi#log_config}
         '''
         result = self._values.get("log_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigLogConfig"]]], result)
@@ -619,10 +619,10 @@ class AppsyncApiEventConfigAuthProvider:
         openid_connect_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppsyncApiEventConfigAuthProviderOpenidConnectConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.
-        :param cognito_config: cognito_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#cognito_config AppsyncApi#cognito_config}
-        :param lambda_authorizer_config: lambda_authorizer_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#lambda_authorizer_config AppsyncApi#lambda_authorizer_config}
-        :param openid_connect_config: openid_connect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#openid_connect_config AppsyncApi#openid_connect_config}
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.
+        :param cognito_config: cognito_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#cognito_config AppsyncApi#cognito_config}
+        :param lambda_authorizer_config: lambda_authorizer_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#lambda_authorizer_config AppsyncApi#lambda_authorizer_config}
+        :param openid_connect_config: openid_connect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#openid_connect_config AppsyncApi#openid_connect_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63d78675ff9b03c000d84912a098552c244d93794a9179265c5a0f09e980206c)
@@ -642,7 +642,7 @@ class AppsyncApiEventConfigAuthProvider:
 
     @builtins.property
     def auth_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.'''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
         return typing.cast(builtins.str, result)
@@ -653,7 +653,7 @@ class AppsyncApiEventConfigAuthProvider:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigAuthProviderCognitoConfig"]]]:
         '''cognito_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#cognito_config AppsyncApi#cognito_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#cognito_config AppsyncApi#cognito_config}
         '''
         result = self._values.get("cognito_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigAuthProviderCognitoConfig"]]], result)
@@ -664,7 +664,7 @@ class AppsyncApiEventConfigAuthProvider:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigAuthProviderLambdaAuthorizerConfig"]]]:
         '''lambda_authorizer_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#lambda_authorizer_config AppsyncApi#lambda_authorizer_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#lambda_authorizer_config AppsyncApi#lambda_authorizer_config}
         '''
         result = self._values.get("lambda_authorizer_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigAuthProviderLambdaAuthorizerConfig"]]], result)
@@ -675,7 +675,7 @@ class AppsyncApiEventConfigAuthProvider:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigAuthProviderOpenidConnectConfig"]]]:
         '''openid_connect_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#openid_connect_config AppsyncApi#openid_connect_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#openid_connect_config AppsyncApi#openid_connect_config}
         '''
         result = self._values.get("openid_connect_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppsyncApiEventConfigAuthProviderOpenidConnectConfig"]]], result)
@@ -710,9 +710,9 @@ class AppsyncApiEventConfigAuthProviderCognitoConfig:
         app_id_client_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#aws_region AppsyncApi#aws_region}.
-        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#user_pool_id AppsyncApi#user_pool_id}.
-        :param app_id_client_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#app_id_client_regex AppsyncApi#app_id_client_regex}.
+        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#aws_region AppsyncApi#aws_region}.
+        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#user_pool_id AppsyncApi#user_pool_id}.
+        :param app_id_client_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#app_id_client_regex AppsyncApi#app_id_client_regex}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2c22f989bda5580be9ac56f033350afe23ad873b678af937d455a0ca8b452d6)
@@ -728,21 +728,21 @@ class AppsyncApiEventConfigAuthProviderCognitoConfig:
 
     @builtins.property
     def aws_region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#aws_region AppsyncApi#aws_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#aws_region AppsyncApi#aws_region}.'''
         result = self._values.get("aws_region")
         assert result is not None, "Required property 'aws_region' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_pool_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#user_pool_id AppsyncApi#user_pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#user_pool_id AppsyncApi#user_pool_id}.'''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def app_id_client_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#app_id_client_regex AppsyncApi#app_id_client_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#app_id_client_regex AppsyncApi#app_id_client_regex}.'''
         result = self._values.get("app_id_client_regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -968,9 +968,9 @@ class AppsyncApiEventConfigAuthProviderLambdaAuthorizerConfig:
         identity_validation_expression: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authorizer_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#authorizer_uri AppsyncApi#authorizer_uri}.
-        :param authorizer_result_ttl_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#authorizer_result_ttl_in_seconds AppsyncApi#authorizer_result_ttl_in_seconds}.
-        :param identity_validation_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#identity_validation_expression AppsyncApi#identity_validation_expression}.
+        :param authorizer_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#authorizer_uri AppsyncApi#authorizer_uri}.
+        :param authorizer_result_ttl_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#authorizer_result_ttl_in_seconds AppsyncApi#authorizer_result_ttl_in_seconds}.
+        :param identity_validation_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#identity_validation_expression AppsyncApi#identity_validation_expression}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__afbbdc01cc154c80cefd7b2666cbfa2ff7454e60476362970c4bb8df56df6cdf)
@@ -987,20 +987,20 @@ class AppsyncApiEventConfigAuthProviderLambdaAuthorizerConfig:
 
     @builtins.property
     def authorizer_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#authorizer_uri AppsyncApi#authorizer_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#authorizer_uri AppsyncApi#authorizer_uri}.'''
         result = self._values.get("authorizer_uri")
         assert result is not None, "Required property 'authorizer_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def authorizer_result_ttl_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#authorizer_result_ttl_in_seconds AppsyncApi#authorizer_result_ttl_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#authorizer_result_ttl_in_seconds AppsyncApi#authorizer_result_ttl_in_seconds}.'''
         result = self._values.get("authorizer_result_ttl_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def identity_validation_expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#identity_validation_expression AppsyncApi#identity_validation_expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#identity_validation_expression AppsyncApi#identity_validation_expression}.'''
         result = self._values.get("identity_validation_expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1325,10 +1325,10 @@ class AppsyncApiEventConfigAuthProviderOpenidConnectConfig:
         iat_ttl: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#issuer AppsyncApi#issuer}.
-        :param auth_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_ttl AppsyncApi#auth_ttl}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#client_id AppsyncApi#client_id}.
-        :param iat_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#iat_ttl AppsyncApi#iat_ttl}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#issuer AppsyncApi#issuer}.
+        :param auth_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_ttl AppsyncApi#auth_ttl}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#client_id AppsyncApi#client_id}.
+        :param iat_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#iat_ttl AppsyncApi#iat_ttl}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__123b35c9371ef324fab21b86da13347539dc4828bc9dba85877078ffd90a2548)
@@ -1348,26 +1348,26 @@ class AppsyncApiEventConfigAuthProviderOpenidConnectConfig:
 
     @builtins.property
     def issuer(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#issuer AppsyncApi#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#issuer AppsyncApi#issuer}.'''
         result = self._values.get("issuer")
         assert result is not None, "Required property 'issuer' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def auth_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_ttl AppsyncApi#auth_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_ttl AppsyncApi#auth_ttl}.'''
         result = self._values.get("auth_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def client_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#client_id AppsyncApi#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#client_id AppsyncApi#client_id}.'''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iat_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#iat_ttl AppsyncApi#iat_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#iat_ttl AppsyncApi#iat_ttl}.'''
         result = self._values.get("iat_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1760,7 +1760,7 @@ class AppsyncApiEventConfigAuthProviderOutputReference(
 class AppsyncApiEventConfigConnectionAuthMode:
     def __init__(self, *, auth_type: builtins.str) -> None:
         '''
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9509ffab43109087b07fc8bd1bef599b853061da7d61fe6dbd043dc3a6a55ae6)
@@ -1771,7 +1771,7 @@ class AppsyncApiEventConfigConnectionAuthMode:
 
     @builtins.property
     def auth_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.'''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1950,7 +1950,7 @@ class AppsyncApiEventConfigConnectionAuthModeOutputReference(
 class AppsyncApiEventConfigDefaultPublishAuthMode:
     def __init__(self, *, auth_type: builtins.str) -> None:
         '''
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f4d428859dbdb10caa18089310ccb9e2fc8e159e2902039507b4570b19a4ca4)
@@ -1961,7 +1961,7 @@ class AppsyncApiEventConfigDefaultPublishAuthMode:
 
     @builtins.property
     def auth_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.'''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
         return typing.cast(builtins.str, result)
@@ -2140,7 +2140,7 @@ class AppsyncApiEventConfigDefaultPublishAuthModeOutputReference(
 class AppsyncApiEventConfigDefaultSubscribeAuthMode:
     def __init__(self, *, auth_type: builtins.str) -> None:
         '''
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__715001a97e337306e8c58a95afbb81310368fa32b3adf24341631fb03fb5dabc)
@@ -2151,7 +2151,7 @@ class AppsyncApiEventConfigDefaultSubscribeAuthMode:
 
     @builtins.property
     def auth_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#auth_type AppsyncApi#auth_type}.'''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
         return typing.cast(builtins.str, result)
@@ -2428,8 +2428,8 @@ class AppsyncApiEventConfigLogConfig:
         log_level: builtins.str,
     ) -> None:
         '''
-        :param cloudwatch_logs_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#cloudwatch_logs_role_arn AppsyncApi#cloudwatch_logs_role_arn}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#log_level AppsyncApi#log_level}.
+        :param cloudwatch_logs_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#cloudwatch_logs_role_arn AppsyncApi#cloudwatch_logs_role_arn}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#log_level AppsyncApi#log_level}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3a04742ba3f2faf5d8c13c4ec422650b313f6ba4301470bf7c4ec5a7b3dbdab)
@@ -2442,14 +2442,14 @@ class AppsyncApiEventConfigLogConfig:
 
     @builtins.property
     def cloudwatch_logs_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#cloudwatch_logs_role_arn AppsyncApi#cloudwatch_logs_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#cloudwatch_logs_role_arn AppsyncApi#cloudwatch_logs_role_arn}.'''
         result = self._values.get("cloudwatch_logs_role_arn")
         assert result is not None, "Required property 'cloudwatch_logs_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_level(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/appsync_api#log_level AppsyncApi#log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/appsync_api#log_level AppsyncApi#log_level}.'''
         result = self._values.get("log_level")
         assert result is not None, "Required property 'log_level' is missing"
         return typing.cast(builtins.str, result)

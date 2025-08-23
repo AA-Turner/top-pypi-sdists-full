@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: spectacles
-Version: 2.4.12
+Version: 2.4.13
 Summary: A command-line, continuous integration tool for Looker and LookML.
 License: MIT
 Keywords: Looker,LookML,CI,continuous integration,testing,validation

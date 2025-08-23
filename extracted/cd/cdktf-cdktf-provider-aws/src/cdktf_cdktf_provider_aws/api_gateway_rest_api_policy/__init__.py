@@ -1,7 +1,7 @@
 r'''
 # `aws_api_gateway_rest_api_policy`
 
-Refer to the Terraform Registry for docs: [`aws_api_gateway_rest_api_policy`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy).
+Refer to the Terraform Registry for docs: [`aws_api_gateway_rest_api_policy`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApiGatewayRestApiPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.apiGatewayRestApiPolicy.ApiGatewayRestApiPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy aws_api_gateway_rest_api_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy aws_api_gateway_rest_api_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ApiGatewayRestApiPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy aws_api_gateway_rest_api_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy aws_api_gateway_rest_api_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#policy ApiGatewayRestApiPolicy#policy}.
-        :param rest_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#rest_api_id ApiGatewayRestApiPolicy#rest_api_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#id ApiGatewayRestApiPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#region ApiGatewayRestApiPolicy#region}
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#policy ApiGatewayRestApiPolicy#policy}.
+        :param rest_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#rest_api_id ApiGatewayRestApiPolicy#rest_api_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#id ApiGatewayRestApiPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#region ApiGatewayRestApiPolicy#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ApiGatewayRestApiPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApiGatewayRestApiPolicy to import.
-        :param import_from_id: The id of the existing ApiGatewayRestApiPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApiGatewayRestApiPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApiGatewayRestApiPolicy to import is found.
         '''
         if __debug__:
@@ -254,10 +254,10 @@ class ApiGatewayRestApiPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#policy ApiGatewayRestApiPolicy#policy}.
-        :param rest_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#rest_api_id ApiGatewayRestApiPolicy#rest_api_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#id ApiGatewayRestApiPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#region ApiGatewayRestApiPolicy#region}
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#policy ApiGatewayRestApiPolicy#policy}.
+        :param rest_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#rest_api_id ApiGatewayRestApiPolicy#rest_api_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#id ApiGatewayRestApiPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#region ApiGatewayRestApiPolicy#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -363,21 +363,21 @@ class ApiGatewayRestApiPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def policy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#policy ApiGatewayRestApiPolicy#policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#policy ApiGatewayRestApiPolicy#policy}.'''
         result = self._values.get("policy")
         assert result is not None, "Required property 'policy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rest_api_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#rest_api_id ApiGatewayRestApiPolicy#rest_api_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#rest_api_id ApiGatewayRestApiPolicy#rest_api_id}.'''
         result = self._values.get("rest_api_id")
         assert result is not None, "Required property 'rest_api_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#id ApiGatewayRestApiPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#id ApiGatewayRestApiPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -389,7 +389,7 @@ class ApiGatewayRestApiPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/api_gateway_rest_api_policy#region ApiGatewayRestApiPolicy#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/api_gateway_rest_api_policy#region ApiGatewayRestApiPolicy#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)

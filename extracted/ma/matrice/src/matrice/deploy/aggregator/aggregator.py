@@ -1,15 +1,14 @@
 import logging
 import threading
 import time
-import copy
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Set, Tuple
 from queue import Queue, Empty
-from collections import defaultdict
-
+from collections import defaultdict, deque
+import copy
 
 class ResultsAggregator:
     """
-    Handles complex aggregation and combination of synchronized results from multiple deployments.
+    Optimized aggregation and combination of synchronized results from multiple deployments.
     This component takes synchronized results and combines them into meaningful aggregated outputs
     while maintaining consistent structure with individual deployment results.
     """
@@ -24,7 +23,7 @@ class ResultsAggregator:
 
         Args:
             synchronized_results_queue: Queue containing synchronized results from synchronizer
-            aggregation_strategies: List of aggregation strategies to apply
+            aggregate_by_location: Whether to aggregate by location
         """
         self.synchronized_results_queue = synchronized_results_queue
         self.aggregated_results_queue = Queue()
@@ -34,8 +33,12 @@ class ResultsAggregator:
         self._stop_aggregation = threading.Event()
         self._aggregation_thread: Optional[threading.Thread] = None
         self._is_running = False
-        self._lock = threading.RLock()
-        self._sent_keys = set()
+        self._stats_lock = threading.Lock()
+        
+        # Use more efficient data structure for tracking sent keys
+        # Use a deque with fixed maxlen for automatic cleanup
+        self._sent_keys: deque = deque(maxlen=50000)  # More memory efficient than manual cleanup
+        self._sent_keys_set: Set[Tuple[str, str, int]] = set()  # For O(1) lookups
 
         # Statistics
         self.stats = {
@@ -45,7 +48,7 @@ class ResultsAggregator:
             "errors": 0,
             "last_error": None,
             "last_error_time": None,
-            "strategy_stats": defaultdict(int),
+            "duplicates_skipped": 0,
         }
 
     def start_aggregation(self) -> bool:
@@ -104,8 +107,10 @@ class ResultsAggregator:
         logging.info("Results aggregation stopped")
 
     def _aggregation_worker(self):
-        """Main aggregation worker thread."""
+        """Optimized main aggregation worker thread for immediate processing."""
         logging.info("Results aggregation worker started")
+        last_log_time = time.time()
+        log_interval = 30.0  # Log every 30 seconds
 
         while not self._stop_aggregation.is_set():
             try:
@@ -115,20 +120,35 @@ class ResultsAggregator:
                 except Empty:
                     continue
 
-                # Process the single synchronized result
+                # Process the single synchronized result immediately
                 aggregated_result = self._aggregate_single_result(synced_result)
                 
                 if aggregated_result:
-                    # Add to output queue
+                    # Add to output queue immediately
                     self.aggregated_results_queue.put(aggregated_result)
                     
                     # Update statistics
-                    with self._lock:
+                    with self._stats_lock:
                         self.stats["results_processed"] += 1
                         self.stats["aggregations_created"] += 1
+                else:
+                    # Track duplicates
+                    with self._stats_lock:
+                        self.stats["duplicates_skipped"] += 1
 
                 # Mark task as done
                 self.synchronized_results_queue.task_done()
+
+                # Reduced frequency logging
+                current_time = time.time()
+                if (current_time - last_log_time) > log_interval:
+                    with self._stats_lock:
+                        processed = self.stats["results_processed"]
+                        duplicates = self.stats["duplicates_skipped"]
+                        queue_size = self.aggregated_results_queue.qsize()
+                    if processed > 0 or duplicates > 0:
+                        logging.debug(f"Aggregator: processed={processed}, duplicates={duplicates}, queue_size={queue_size}")
+                    last_log_time = current_time
 
             except Exception as exc:
                 if not self._stop_aggregation.is_set():
@@ -138,12 +158,11 @@ class ResultsAggregator:
         logging.info("Results aggregation worker stopped")
 
     def _aggregate_single_result(self, sync_result: Dict) -> Optional[Dict]:
-        """Aggregate a single synchronized result using configured strategies."""
+        """Optimized aggregation of a single synchronized result."""
         try:
             # Extract deployment results
             deployment_results = sync_result.get("deployment_results", {})
             if not deployment_results:
-                logging.warning("No deployment results found in synchronized result")
                 return None
 
             # Get stream info from synchronized result
@@ -151,64 +170,77 @@ class ResultsAggregator:
             input_order = sync_result.get("input_order")
             stream_group_key = sync_result.get("stream_group_key")
             
-            key = (stream_group_key, stream_key, input_order)
-            if key in self._sent_keys:
-                logging.debug(f"Skipping duplicate result: {key}")
-                return None
-            self._sent_keys.add(key)
-            
-            # Basic memory management - prevent unbounded growth
-            if len(self._sent_keys) > 10000:
-                # Remove oldest entries (this is a simple approach)
-                keys_to_remove = list(self._sent_keys)[:2000]
-                for old_key in keys_to_remove:
-                    self._sent_keys.discard(old_key)
-                logging.debug(f"Cleaned up {len(keys_to_remove)} old keys from _sent_keys")
-
             if not stream_key or input_order is None:
-                logging.warning("Missing stream_key or input_order in synchronized result")
                 return None
 
-            # Extract input_stream and camera_info from the first available deployment result
-            # These should be consistent across all deployments for the same stream
+            # Efficient duplicate checking using O(1) set lookup
+            key = (stream_group_key, stream_key, input_order)
+            if key in self._sent_keys_set:
+                return None  # Duplicate, skip silently for performance
+            
+            # Add to both deque (for automatic cleanup) and set (for fast lookup)
+            self._sent_keys.append(key)
+            self._sent_keys_set.add(key)
+            
+            # Clean up set when deque automatically removes old items
+            if len(self._sent_keys_set) > self._sent_keys.maxlen:
+                # Only keep recent items in set - rebuild from deque
+                self._sent_keys_set = set(self._sent_keys)
+
+            # Extract input_stream and camera_info efficiently (avoid deep copy)
             first_deployment_result = next(iter(deployment_results.values()))
             first_app_result = first_deployment_result.get("result", {})
             input_streams = first_app_result.get("input_streams", [])
-            # Handle both input_stream if key in dict and input_data if key is not in dict
-            input_data = input_streams[0] if input_streams else {}
-            input_stream = copy.deepcopy(input_data.get("input_stream", input_data))
-            camera_info = copy.deepcopy(first_app_result.get("camera_info", {}))
             
-            # Collect all app results for agg_apps
+            # Get input stream data efficiently
+            if input_streams:
+                input_data = input_streams[0]
+                input_stream = copy.deepcopy(input_data.get("input_stream", input_data))
+            else:
+                input_stream = {}
+            
+            # Get camera_info without deep copy
+            camera_info = first_app_result.get("camera_info", {})
+            
+            # Collect all app results efficiently
             agg_apps = []
+            current_timestamp = time.time()
             
             for deployment_id, deployment_result in deployment_results.items():
-                # Extract the actual app result from deployment result
                 app_result = deployment_result.get("result", {})
-                if app_result:
-                    app_result["deployment_id"] = deployment_id
-                    app_result["deployment_timestamp"] = deployment_result.get("timestamp", time.time())
-                    # Remove content from inner input_streams to save space
-                    if "input_streams" in app_result:
-                        for input_stream_item in app_result["input_streams"]:
-                            if "input_stream" in input_stream_item and "content" in input_stream_item["input_stream"]:
-                                del input_stream_item["input_stream"]["content"]
-                            if "content" in input_stream_item:
-                                del input_stream_item["content"]
-                    agg_apps.append(app_result)
+                if not app_result:
+                    continue
+                    
+                # Create optimized app result
+                optimized_app_result = {
+                    **app_result,  # Shallow copy for performance
+                    "deployment_id": deployment_id,
+                    "deployment_timestamp": deployment_result.get("timestamp", current_timestamp)
+                }
+                
+                # Remove large content fields to save memory
+                if "input_streams" in optimized_app_result:
+                    input_streams_clean = []
+                    for item in optimized_app_result["input_streams"]:
+                        clean_item = {k: v for k, v in item.items() if k != "content"}
+                        if "input_stream" in clean_item and isinstance(clean_item["input_stream"], dict):
+                            clean_item["input_stream"] = {k: v for k, v in clean_item["input_stream"].items() if k != "content"}
+                        input_streams_clean.append(clean_item)
+                    optimized_app_result["input_streams"] = input_streams_clean
+                
+                agg_apps.append(optimized_app_result)
 
-            # Create camera_results structure as expected by the notebook
+            # Create optimized camera_results structure
             camera_results = {
                 "input_stream": input_stream,
                 "camera_info": camera_info,
                 "agg_apps": agg_apps,
-                # Add aggregation metadata for tracking
                 "aggregation_metadata": {
                     "stream_key": stream_key,
                     "input_order": input_order,
                     "stream_group_key": stream_group_key,
                     "deployment_count": len(deployment_results),
-                    "aggregation_timestamp": time.time(),
+                    "aggregation_timestamp": current_timestamp,
                     "aggregation_type": "camera_results",
                     "synchronization_metadata": sync_result.get("synchronization_metadata", {})
                 }
@@ -222,15 +254,17 @@ class ResultsAggregator:
 
     def _record_error(self, error_message: str):
         """Record an error in statistics."""
-        with self._lock:
+        with self._stats_lock:
             self.stats["errors"] += 1
             self.stats["last_error"] = error_message
             self.stats["last_error_time"] = time.time()
-        logging.error(f"Aggregator error: {error_message}")
+        # Reduce logging frequency for performance
+        if self.stats["errors"] % 10 == 1:  # Log every 10th error
+            logging.error(f"Aggregator error (#{self.stats['errors']}): {error_message}")
 
     def get_stats(self) -> Dict[str, Any]:
         """Get current aggregation statistics."""
-        with self._lock:
+        with self._stats_lock:
             stats = self.stats.copy()
 
         # Add runtime statistics
@@ -238,6 +272,8 @@ class ResultsAggregator:
             stats["runtime_seconds"] = time.time() - stats["start_time"]
 
         stats["output_queue_size"] = self.aggregated_results_queue.qsize()
+        stats["sent_keys_count"] = len(self._sent_keys)
+        stats["sent_keys_set_count"] = len(self._sent_keys_set)
 
         return stats
 
@@ -287,5 +323,6 @@ class ResultsAggregator:
         
         # Clear tracking data
         self._sent_keys.clear()
+        self._sent_keys_set.clear()
 
         logging.info("Results aggregator cleanup completed") 

@@ -123,6 +123,9 @@ class Application(Container, IApplication):
             # Property to store the exception handler class
             self.__exception_handler: Type[BaseExceptionHandler] = None
 
+            # Base path for the application, used for relative paths
+            self.__bootstrap_base_path: str | Path = None
+
             # Flag to prevent re-initialization
             self.__initialized = True
 
@@ -1377,7 +1380,6 @@ class Application(Container, IApplication):
     def setPaths(
         self,
         *,
-        root: str | Path = Path.cwd().resolve(),
         commands: str | Path = (Path.cwd() / 'app' / 'console' / 'commands').resolve(),
         controllers: str | Path = (Path.cwd() / 'app' / 'http' / 'controllers').resolve(),
         middleware: str | Path = (Path.cwd() / 'app' / 'http' / 'middleware').resolve(),
@@ -1415,8 +1417,6 @@ class Application(Container, IApplication):
 
         Parameters
         ----------
-        root : str or Path, optional
-            Root directory of the application. Defaults to the current working directory.
         commands : str or Path, optional
             Directory for console command classes. Defaults to 'app/console/commands'.
         controllers : str or Path, optional
@@ -1483,7 +1483,7 @@ class Application(Container, IApplication):
         # Prepare and store all resolved paths as strings in the configurators dictionary
         # Ensure 'paths' exists in configurators
         self.__configurators['path'] = {
-            'root' : str(root),
+            'root' : self.__bootstrap_base_path or str(Path.cwd().resolve()),
             'commands' : str(commands),
             'controllers' : str(controllers),
             'middleware' : str(middleware),
@@ -1555,6 +1555,9 @@ class Application(Container, IApplication):
 
         # If paths is a dict, convert it to Paths instance
         if isinstance(paths, dict):
+            paths.update({
+                'root': self.__bootstrap_base_path or str(Path.cwd().resolve())
+            })
             paths = Paths(**paths)
 
         # Store the configuration
@@ -1562,6 +1565,52 @@ class Application(Container, IApplication):
 
         # Return the application instance for method chaining
         return self
+
+    def setBasePath(
+        self,
+        basePath: str | Path
+    ) -> 'Application':
+        """
+        Set the base path for the application.
+
+        This method allows setting the base path of the application, which is
+        used as the root directory for all relative paths in the application.
+        The provided basePath is resolved to an absolute path.
+
+        Parameters
+        ----------
+        basePath : str or Path
+            The base path to set for the application. It can be a string or a Path object.
+
+        Returns
+        -------
+        Application
+            The current application instance to enable method chaining.
+        """
+
+        # Resolve and store the base path as a string
+        self.__bootstrap_base_path = str(Path(basePath).resolve())
+
+        # Return self instance for method chaining
+        return self
+
+    def getBasePath(
+        self
+    ) -> str | Path:
+        """
+        Get the base path of the application.
+
+        This method returns the base path that was previously set using setBasePath().
+        If no base path has been set, it returns None.
+
+        Returns
+        -------
+        str or Path
+            The base path of the application as a string or Path object, or None if not set.
+        """
+
+        # Return the base path if set, otherwise None
+        return self.__bootstrap_base_path if self.__bootstrap_base_path else Path.cwd().resolve()
 
     def setConfigQueue(
         self,

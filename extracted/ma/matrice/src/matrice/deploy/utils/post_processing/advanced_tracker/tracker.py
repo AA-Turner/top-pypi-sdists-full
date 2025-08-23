@@ -136,6 +136,11 @@ class AdvancedTracker:
             # Create STrack
             xywh = [x, y, w, h, i]  # Add index as last element
             strack = STrack(xywh, score, category)
+            
+            # CRITICAL FIX: Store the original detection data to preserve all fields
+            # This ensures face recognition fields (embedding, landmarks, etc.) are preserved
+            strack.original_detection = det.copy()
+            
             stracks.append(strack)
         
         return stracks
@@ -149,18 +154,37 @@ class AdvancedTracker:
                 # Get bounding box in xyxy format
                 xyxy = strack.xyxy
                 
-                detection = {
-                    'bounding_box': {
+                # CRITICAL FIX: Start with original detection data to preserve all fields
+                if hasattr(strack, 'original_detection') and strack.original_detection:
+                    # Start with the original detection to preserve all face recognition fields
+                    detection = strack.original_detection.copy()
+                    
+                    # Update with tracking-specific fields
+                    detection['bounding_box'] = {
                         'xmin': float(xyxy[0]),
                         'ymin': float(xyxy[1]),
                         'xmax': float(xyxy[2]),
                         'ymax': float(xyxy[3])
-                    },
-                    'confidence': float(strack.score),
-                    'category': strack.cls,
-                    'track_id': int(strack.track_id),
-                    'frame_id': int(strack.frame_id)
-                }
+                    }
+                    detection['confidence'] = float(strack.score)
+                    detection['category'] = strack.cls
+                    detection['track_id'] = int(strack.track_id)
+                    detection['frame_id'] = int(strack.frame_id)
+                else:
+                    # Fallback to minimal detection if original data not available
+                    detection = {
+                        'bounding_box': {
+                            'xmin': float(xyxy[0]),
+                            'ymin': float(xyxy[1]),
+                            'xmax': float(xyxy[2]),
+                            'ymax': float(xyxy[3])
+                        },
+                        'confidence': float(strack.score),
+                        'category': strack.cls,
+                        'track_id': int(strack.track_id),
+                        'frame_id': int(strack.frame_id)
+                    }
+                
                 detections.append(detection)
         
         return detections

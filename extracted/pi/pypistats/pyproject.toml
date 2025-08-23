@@ -44,6 +44,7 @@ dependencies = [
   "python-dateutil",
   "python-slugify",
   "termcolor>=2.1",
+  "tomli; python_version<'3.11'",
 ]
 optional-dependencies.numpy = [
   "numpy",
@@ -53,6 +54,7 @@ optional-dependencies.pandas = [
 ]
 optional-dependencies.tests = [
   "freezegun",
+  "pyfakefs",
   "pytest",
   "pytest-cov",
   "respx>=0.11",
@@ -89,6 +91,7 @@ lint.select = [
   "PYI",    # flake8-pyi
   "RUF022", # unsorted-dunder-all
   "RUF100", # unused noqa (yesqa)
+  "TC",     # flake8-type-checking
   "UP",     # pyupgrade
   "W",      # pycodestyle warnings
   "YTT",    # flake8-2020
@@ -112,8 +115,21 @@ max_supported_python = "3.14"
 
 [tool.pytest.ini_options]
 addopts = "--color=yes"
-filterwarnings = [
-  # Python <= 3.11
-  "ignore:sys.monitoring isn't available, using default core:coverage.exceptions.CoverageWarning",
-]
 testpaths = [ "tests" ]
+
+[tool.coverage.run]
+omit = [
+  "*/pypistats/__main__.py",
+]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+  # Don't complain if non-runnable code isn't run:
+  "if __name__ == .__main__.:",
+]
+
+[tool.mypy]
+pretty = true
+#strict = true
+show_error_codes = true

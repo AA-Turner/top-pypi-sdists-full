@@ -16,7 +16,6 @@ from datetime import datetime, timezone
 from .frame_comparators import SSIMComparator
 from .frame_difference import FrameDifferenceProcessor
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +46,7 @@ class ClientTransmissionHandler:
     # -----------------------------
     # Strategy Decision
     # -----------------------------
-    def decide_transmission(
+    def decide_transmission( # TODO: Enable this after testing and hanlding async and send the reconstructed frame from the server
         self,
         frame: np.ndarray,
         stream_key: str,
@@ -128,6 +127,7 @@ class ClientTransmissionHandler:
         is_video_chunk: bool = False,
         chunk_duration_seconds: Optional[float] = None,
         chunk_frames: Optional[int] = None,
+        camera_location: Optional[str] = None,
     ) -> Dict[str, Any]:
         original_fps = video_props.get("original_fps", 0)
         frame_sample_rate = original_fps / fps if (original_fps and fps) else 1.0
@@ -167,6 +167,7 @@ class ClientTransmissionHandler:
             "video_properties": video_props,
             "video_format": _get_video_format(input_source),
             "stream_type": stream_type,
+            "camera_location": camera_location or "Unknown Location",
         }
 
     def prepare_transmission(
@@ -185,6 +186,7 @@ class ClientTransmissionHandler:
         is_video_chunk: bool = False,
         chunk_duration_seconds: Optional[float] = None,
         chunk_frames: Optional[int] = None,
+        camera_location: Optional[str] = None,
     ) -> Tuple[bytes, Dict[str, Any], str]:
         """Prepare bytes payload and metadata for transport.
 
@@ -205,6 +207,7 @@ class ClientTransmissionHandler:
             is_video_chunk,
             chunk_duration_seconds,
             chunk_frames,
+            camera_location,
         )
         metadata["transmission_strategy"] = strategy
         if "similarity_score" in strategy_data:
@@ -300,12 +303,13 @@ class ServerTransmissionHandler:
             )
             return "process_difference", None
 
+        # TODO: Enable this after testing and hanlding async and optimal threshold
         # Full (or unknown) -> optionally check SSIM to skip redundant work
-        if self._is_similar_to_cached_frame(message, frame_cache):
-            logger.debug(
-                f"decide_action key={stream_key} strat=full -> similar_by_ssim"
-            )
-            return "similar", None
+        # if self._is_similar_to_cached_frame(message, frame_cache):
+        #     logger.debug(
+        #         f"decide_action key={stream_key} strat=full -> similar_by_ssim"
+        #     )
+        #     return "similar", None
 
         logger.debug(
             f"decide_action key={stream_key} strat={strategy} -> process"
@@ -443,6 +447,7 @@ class ServerTransmissionHandler:
             },
             "transmission_strategy": transmission_strategy,
             "similarity_score": similarity_score,
+            "camera_location": camera_info.get("location") if camera_info else "Unknown Location",
         }
 
         if transmission_strategy == "skip":

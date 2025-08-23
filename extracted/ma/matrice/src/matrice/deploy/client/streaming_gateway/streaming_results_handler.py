@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -124,7 +125,7 @@ class StreamingResultsHandler:
             logging.error(f"Failed to setup post-processing: {exc}")
             raise
 
-    def _apply_post_processing(self, result: Dict) -> Dict:
+    async def _apply_post_processing(self, result: Dict) -> Dict:
         """Apply post-processing to a result.
 
         Args:
@@ -141,7 +142,7 @@ class StreamingResultsHandler:
             model_output = result.get("result", result)
 
             # Apply post-processing
-            processed_result = self.post_processor.process(model_output)
+            processed_result = await self.post_processor.process(model_output)
 
             # Update statistics
             with self._state_lock:
@@ -197,7 +198,7 @@ class StreamingResultsHandler:
                 # Apply post-processing if configured
                 processed_result = result
                 if self.output_config and self.output_config.apply_post_processing:
-                    processed_result = self._apply_post_processing(result)
+                    processed_result = asyncio.run(self._apply_post_processing(result))
 
                 # Process result based on output configuration
                 if self.output_config:

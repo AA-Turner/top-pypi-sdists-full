@@ -1,7 +1,7 @@
 r'''
 # `aws_ecr_repository_creation_template`
 
-Refer to the Terraform Registry for docs: [`aws_ecr_repository_creation_template`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template).
+Refer to the Terraform Registry for docs: [`aws_ecr_repository_creation_template`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EcrRepositoryCreationTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ecrRepositoryCreationTemplate.EcrRepositoryCreationTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template aws_ecr_repository_creation_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template aws_ecr_repository_creation_template}.'''
 
     def __init__(
         self,
@@ -58,6 +58,7 @@ class EcrRepositoryCreationTemplate(
         encryption_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcrRepositoryCreationTemplateEncryptionConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
         id: typing.Optional[builtins.str] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
+        image_tag_mutability_exclusion_filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
         lifecycle_policy: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         repository_policy: typing.Optional[builtins.str] = None,
@@ -70,21 +71,22 @@ class EcrRepositoryCreationTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template aws_ecr_repository_creation_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template aws_ecr_repository_creation_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param applied_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#applied_for EcrRepositoryCreationTemplate#applied_for}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#prefix EcrRepositoryCreationTemplate#prefix}.
-        :param custom_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#custom_role_arn EcrRepositoryCreationTemplate#custom_role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#description EcrRepositoryCreationTemplate#description}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#encryption_configuration EcrRepositoryCreationTemplate#encryption_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#id EcrRepositoryCreationTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_tag_mutability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#image_tag_mutability EcrRepositoryCreationTemplate#image_tag_mutability}.
-        :param lifecycle_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#lifecycle_policy EcrRepositoryCreationTemplate#lifecycle_policy}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#region EcrRepositoryCreationTemplate#region}
-        :param repository_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#repository_policy EcrRepositoryCreationTemplate#repository_policy}.
-        :param resource_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#resource_tags EcrRepositoryCreationTemplate#resource_tags}.
+        :param applied_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#applied_for EcrRepositoryCreationTemplate#applied_for}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#prefix EcrRepositoryCreationTemplate#prefix}.
+        :param custom_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#custom_role_arn EcrRepositoryCreationTemplate#custom_role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#description EcrRepositoryCreationTemplate#description}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#encryption_configuration EcrRepositoryCreationTemplate#encryption_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#id EcrRepositoryCreationTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_tag_mutability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#image_tag_mutability EcrRepositoryCreationTemplate#image_tag_mutability}.
+        :param image_tag_mutability_exclusion_filter: image_tag_mutability_exclusion_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#image_tag_mutability_exclusion_filter EcrRepositoryCreationTemplate#image_tag_mutability_exclusion_filter}
+        :param lifecycle_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#lifecycle_policy EcrRepositoryCreationTemplate#lifecycle_policy}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#region EcrRepositoryCreationTemplate#region}
+        :param repository_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#repository_policy EcrRepositoryCreationTemplate#repository_policy}.
+        :param resource_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#resource_tags EcrRepositoryCreationTemplate#resource_tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -105,6 +107,7 @@ class EcrRepositoryCreationTemplate(
             encryption_configuration=encryption_configuration,
             id=id,
             image_tag_mutability=image_tag_mutability,
+            image_tag_mutability_exclusion_filter=image_tag_mutability_exclusion_filter,
             lifecycle_policy=lifecycle_policy,
             region=region,
             repository_policy=repository_policy,
@@ -133,7 +136,7 @@ class EcrRepositoryCreationTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EcrRepositoryCreationTemplate to import.
-        :param import_from_id: The id of the existing EcrRepositoryCreationTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EcrRepositoryCreationTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EcrRepositoryCreationTemplate to import is found.
         '''
         if __debug__:
@@ -157,6 +160,19 @@ class EcrRepositoryCreationTemplate(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putEncryptionConfiguration", [value]))
 
+    @jsii.member(jsii_name="putImageTagMutabilityExclusionFilter")
+    def put_image_tag_mutability_exclusion_filter(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9009e7b56e71357de95bc333e03afff6a13b7b94322b5abb804af3264ba168ae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putImageTagMutabilityExclusionFilter", [value]))
+
     @jsii.member(jsii_name="resetCustomRoleArn")
     def reset_custom_role_arn(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetCustomRoleArn", []))
@@ -176,6 +192,10 @@ class EcrRepositoryCreationTemplate(
     @jsii.member(jsii_name="resetImageTagMutability")
     def reset_image_tag_mutability(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetImageTagMutability", []))
+
+    @jsii.member(jsii_name="resetImageTagMutabilityExclusionFilter")
+    def reset_image_tag_mutability_exclusion_filter(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetImageTagMutabilityExclusionFilter", []))
 
     @jsii.member(jsii_name="resetLifecyclePolicy")
     def reset_lifecycle_policy(self) -> None:
@@ -214,6 +234,13 @@ class EcrRepositoryCreationTemplate(
         return typing.cast("EcrRepositoryCreationTemplateEncryptionConfigurationList", jsii.get(self, "encryptionConfiguration"))
 
     @builtins.property
+    @jsii.member(jsii_name="imageTagMutabilityExclusionFilter")
+    def image_tag_mutability_exclusion_filter(
+        self,
+    ) -> "EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterList":
+        return typing.cast("EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterList", jsii.get(self, "imageTagMutabilityExclusionFilter"))
+
+    @builtins.property
     @jsii.member(jsii_name="registryId")
     def registry_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "registryId"))
@@ -244,6 +271,13 @@ class EcrRepositoryCreationTemplate(
     @jsii.member(jsii_name="idInput")
     def id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imageTagMutabilityExclusionFilterInput")
+    def image_tag_mutability_exclusion_filter_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter"]]], jsii.get(self, "imageTagMutabilityExclusionFilterInput"))
 
     @builtins.property
     @jsii.member(jsii_name="imageTagMutabilityInput")
@@ -416,6 +450,7 @@ class EcrRepositoryCreationTemplate(
         "encryption_configuration": "encryptionConfiguration",
         "id": "id",
         "image_tag_mutability": "imageTagMutability",
+        "image_tag_mutability_exclusion_filter": "imageTagMutabilityExclusionFilter",
         "lifecycle_policy": "lifecyclePolicy",
         "region": "region",
         "repository_policy": "repositoryPolicy",
@@ -440,6 +475,7 @@ class EcrRepositoryCreationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments
         encryption_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcrRepositoryCreationTemplateEncryptionConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
         id: typing.Optional[builtins.str] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
+        image_tag_mutability_exclusion_filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
         lifecycle_policy: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         repository_policy: typing.Optional[builtins.str] = None,
@@ -453,17 +489,18 @@ class EcrRepositoryCreationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param applied_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#applied_for EcrRepositoryCreationTemplate#applied_for}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#prefix EcrRepositoryCreationTemplate#prefix}.
-        :param custom_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#custom_role_arn EcrRepositoryCreationTemplate#custom_role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#description EcrRepositoryCreationTemplate#description}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#encryption_configuration EcrRepositoryCreationTemplate#encryption_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#id EcrRepositoryCreationTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_tag_mutability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#image_tag_mutability EcrRepositoryCreationTemplate#image_tag_mutability}.
-        :param lifecycle_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#lifecycle_policy EcrRepositoryCreationTemplate#lifecycle_policy}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#region EcrRepositoryCreationTemplate#region}
-        :param repository_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#repository_policy EcrRepositoryCreationTemplate#repository_policy}.
-        :param resource_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#resource_tags EcrRepositoryCreationTemplate#resource_tags}.
+        :param applied_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#applied_for EcrRepositoryCreationTemplate#applied_for}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#prefix EcrRepositoryCreationTemplate#prefix}.
+        :param custom_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#custom_role_arn EcrRepositoryCreationTemplate#custom_role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#description EcrRepositoryCreationTemplate#description}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#encryption_configuration EcrRepositoryCreationTemplate#encryption_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#id EcrRepositoryCreationTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_tag_mutability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#image_tag_mutability EcrRepositoryCreationTemplate#image_tag_mutability}.
+        :param image_tag_mutability_exclusion_filter: image_tag_mutability_exclusion_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#image_tag_mutability_exclusion_filter EcrRepositoryCreationTemplate#image_tag_mutability_exclusion_filter}
+        :param lifecycle_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#lifecycle_policy EcrRepositoryCreationTemplate#lifecycle_policy}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#region EcrRepositoryCreationTemplate#region}
+        :param repository_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#repository_policy EcrRepositoryCreationTemplate#repository_policy}.
+        :param resource_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#resource_tags EcrRepositoryCreationTemplate#resource_tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -483,6 +520,7 @@ class EcrRepositoryCreationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument image_tag_mutability", value=image_tag_mutability, expected_type=type_hints["image_tag_mutability"])
+            check_type(argname="argument image_tag_mutability_exclusion_filter", value=image_tag_mutability_exclusion_filter, expected_type=type_hints["image_tag_mutability_exclusion_filter"])
             check_type(argname="argument lifecycle_policy", value=lifecycle_policy, expected_type=type_hints["lifecycle_policy"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument repository_policy", value=repository_policy, expected_type=type_hints["repository_policy"])
@@ -515,6 +553,8 @@ class EcrRepositoryCreationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments
             self._values["id"] = id
         if image_tag_mutability is not None:
             self._values["image_tag_mutability"] = image_tag_mutability
+        if image_tag_mutability_exclusion_filter is not None:
+            self._values["image_tag_mutability_exclusion_filter"] = image_tag_mutability_exclusion_filter
         if lifecycle_policy is not None:
             self._values["lifecycle_policy"] = lifecycle_policy
         if region is not None:
@@ -590,27 +630,27 @@ class EcrRepositoryCreationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def applied_for(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#applied_for EcrRepositoryCreationTemplate#applied_for}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#applied_for EcrRepositoryCreationTemplate#applied_for}.'''
         result = self._values.get("applied_for")
         assert result is not None, "Required property 'applied_for' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#prefix EcrRepositoryCreationTemplate#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#prefix EcrRepositoryCreationTemplate#prefix}.'''
         result = self._values.get("prefix")
         assert result is not None, "Required property 'prefix' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def custom_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#custom_role_arn EcrRepositoryCreationTemplate#custom_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#custom_role_arn EcrRepositoryCreationTemplate#custom_role_arn}.'''
         result = self._values.get("custom_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#description EcrRepositoryCreationTemplate#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#description EcrRepositoryCreationTemplate#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -620,14 +660,14 @@ class EcrRepositoryCreationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrRepositoryCreationTemplateEncryptionConfiguration"]]]:
         '''encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#encryption_configuration EcrRepositoryCreationTemplate#encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#encryption_configuration EcrRepositoryCreationTemplate#encryption_configuration}
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrRepositoryCreationTemplateEncryptionConfiguration"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#id EcrRepositoryCreationTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#id EcrRepositoryCreationTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -637,13 +677,24 @@ class EcrRepositoryCreationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def image_tag_mutability(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#image_tag_mutability EcrRepositoryCreationTemplate#image_tag_mutability}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#image_tag_mutability EcrRepositoryCreationTemplate#image_tag_mutability}.'''
         result = self._values.get("image_tag_mutability")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def image_tag_mutability_exclusion_filter(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter"]]]:
+        '''image_tag_mutability_exclusion_filter block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#image_tag_mutability_exclusion_filter EcrRepositoryCreationTemplate#image_tag_mutability_exclusion_filter}
+        '''
+        result = self._values.get("image_tag_mutability_exclusion_filter")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter"]]], result)
+
+    @builtins.property
     def lifecycle_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#lifecycle_policy EcrRepositoryCreationTemplate#lifecycle_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#lifecycle_policy EcrRepositoryCreationTemplate#lifecycle_policy}.'''
         result = self._values.get("lifecycle_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -651,14 +702,14 @@ class EcrRepositoryCreationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#region EcrRepositoryCreationTemplate#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#region EcrRepositoryCreationTemplate#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def repository_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#repository_policy EcrRepositoryCreationTemplate#repository_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#repository_policy EcrRepositoryCreationTemplate#repository_policy}.'''
         result = self._values.get("repository_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -666,7 +717,7 @@ class EcrRepositoryCreationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def resource_tags(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#resource_tags EcrRepositoryCreationTemplate#resource_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#resource_tags EcrRepositoryCreationTemplate#resource_tags}.'''
         result = self._values.get("resource_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -695,8 +746,8 @@ class EcrRepositoryCreationTemplateEncryptionConfiguration:
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#encryption_type EcrRepositoryCreationTemplate#encryption_type}.
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#kms_key EcrRepositoryCreationTemplate#kms_key}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#encryption_type EcrRepositoryCreationTemplate#encryption_type}.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#kms_key EcrRepositoryCreationTemplate#kms_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec03be3ba06d5a61068be2c9e13e808e511f969a3e310aa6c154235d87f7c2fc)
@@ -710,13 +761,13 @@ class EcrRepositoryCreationTemplateEncryptionConfiguration:
 
     @builtins.property
     def encryption_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#encryption_type EcrRepositoryCreationTemplate#encryption_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#encryption_type EcrRepositoryCreationTemplate#encryption_type}.'''
         result = self._values.get("encryption_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecr_repository_creation_template#kms_key EcrRepositoryCreationTemplate#kms_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#kms_key EcrRepositoryCreationTemplate#kms_key}.'''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -911,12 +962,232 @@ class EcrRepositoryCreationTemplateEncryptionConfigurationOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.ecrRepositoryCreationTemplate.EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter",
+    jsii_struct_bases=[],
+    name_mapping={"filter": "filter", "filter_type": "filterType"},
+)
+class EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter:
+    def __init__(self, *, filter: builtins.str, filter_type: builtins.str) -> None:
+        '''
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#filter EcrRepositoryCreationTemplate#filter}.
+        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#filter_type EcrRepositoryCreationTemplate#filter_type}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36cee37a096e8e0c16d1fe434978a8f7359fc34ef90f0ad1cc157a5e53644358)
+            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+            check_type(argname="argument filter_type", value=filter_type, expected_type=type_hints["filter_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "filter": filter,
+            "filter_type": filter_type,
+        }
+
+    @builtins.property
+    def filter(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#filter EcrRepositoryCreationTemplate#filter}.'''
+        result = self._values.get("filter")
+        assert result is not None, "Required property 'filter' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def filter_type(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/ecr_repository_creation_template#filter_type EcrRepositoryCreationTemplate#filter_type}.'''
+        result = self._values.get("filter_type")
+        assert result is not None, "Required property 'filter_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecrRepositoryCreationTemplate.EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66bc1ef05146a848a430fde191984580a33e2b31a5c9a9915b9751d370234a47)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d91e62d26cf7cad436fd4a00abfd0a688daf094c39d7a8650032114c294fb575)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70603fafb44960e98f4121f797be29080a418e31c7d678b8f8e451c0019abc78)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a54e824b8393341d90ff3b9bcc7850ca5e44094eaf1a21fc507bf43a559a275)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76405932b4036fedee904c8b6129eb959bdf7d6ed9aed4e4f7a0eee7430b2007)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__caf52bd287b935b13be8606c1a34bcced68f7a192724a5380d7746929bd4d409)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecrRepositoryCreationTemplate.EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ac1057cfff994926b07bcb680ac6d3c6241bdeda9550c795d2421f56172b2fe)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="filterInput")
+    def filter_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "filterInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filterTypeInput")
+    def filter_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "filterTypeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filter")
+    def filter(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "filter"))
+
+    @filter.setter
+    def filter(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2653a8fc9f50b9985b89b8ee75b089c5bac21e64c82d588487aee4fecd36700e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filter", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="filterType")
+    def filter_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "filterType"))
+
+    @filter_type.setter
+    def filter_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__343e8705fdf9596d14535ca08e95315659f57c3bb62f7975e9cd889a8ca9d390)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filterType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__995fa02a7b027c8ec31463b2ffdc542eb6a8385a6ef5f00382c7952a4d87395f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "EcrRepositoryCreationTemplate",
     "EcrRepositoryCreationTemplateConfig",
     "EcrRepositoryCreationTemplateEncryptionConfiguration",
     "EcrRepositoryCreationTemplateEncryptionConfigurationList",
     "EcrRepositoryCreationTemplateEncryptionConfigurationOutputReference",
+    "EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter",
+    "EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterList",
+    "EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilterOutputReference",
 ]
 
 publication.publish()
@@ -932,6 +1203,7 @@ def _typecheckingstub__039341acceb8d5eeb60cdfed1141248f002b4f4e2005e22f179dae741
     encryption_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcrRepositoryCreationTemplateEncryptionConfiguration, typing.Dict[builtins.str, typing.Any]]]]] = None,
     id: typing.Optional[builtins.str] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
+    image_tag_mutability_exclusion_filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter, typing.Dict[builtins.str, typing.Any]]]]] = None,
     lifecycle_policy: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     repository_policy: typing.Optional[builtins.str] = None,
@@ -958,6 +1230,12 @@ def _typecheckingstub__49b5213790a63fd95b9a3f5d0d13e32510cb4ee13ff6ddd2455f004a8
 
 def _typecheckingstub__eecd03c6e38e59d342ee4370b71d723d11a7d414536e64823ca88f2b4cd0de83(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcrRepositoryCreationTemplateEncryptionConfiguration, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9009e7b56e71357de95bc333e03afff6a13b7b94322b5abb804af3264ba168ae(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1038,6 +1316,7 @@ def _typecheckingstub__67db037b94729c9193ad8b8a53028a49fa4952492260d9161c48b3ae2
     encryption_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcrRepositoryCreationTemplateEncryptionConfiguration, typing.Dict[builtins.str, typing.Any]]]]] = None,
     id: typing.Optional[builtins.str] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
+    image_tag_mutability_exclusion_filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter, typing.Dict[builtins.str, typing.Any]]]]] = None,
     lifecycle_policy: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     repository_policy: typing.Optional[builtins.str] = None,
@@ -1115,6 +1394,79 @@ def _typecheckingstub__46578c147833c4c4cbb2597e807aee4f82bdee7a0e4c2c417f70477f6
 
 def _typecheckingstub__e05acef3b62c3f5243f6ac03d5702892780192d9fe4cfb8ecb5e70bfedcd190f(
     value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcrRepositoryCreationTemplateEncryptionConfiguration]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36cee37a096e8e0c16d1fe434978a8f7359fc34ef90f0ad1cc157a5e53644358(
+    *,
+    filter: builtins.str,
+    filter_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66bc1ef05146a848a430fde191984580a33e2b31a5c9a9915b9751d370234a47(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d91e62d26cf7cad436fd4a00abfd0a688daf094c39d7a8650032114c294fb575(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70603fafb44960e98f4121f797be29080a418e31c7d678b8f8e451c0019abc78(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a54e824b8393341d90ff3b9bcc7850ca5e44094eaf1a21fc507bf43a559a275(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76405932b4036fedee904c8b6129eb959bdf7d6ed9aed4e4f7a0eee7430b2007(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__caf52bd287b935b13be8606c1a34bcced68f7a192724a5380d7746929bd4d409(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ac1057cfff994926b07bcb680ac6d3c6241bdeda9550c795d2421f56172b2fe(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2653a8fc9f50b9985b89b8ee75b089c5bac21e64c82d588487aee4fecd36700e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__343e8705fdf9596d14535ca08e95315659f57c3bb62f7975e9cd889a8ca9d390(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__995fa02a7b027c8ec31463b2ffdc542eb6a8385a6ef5f00382c7952a4d87395f(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcrRepositoryCreationTemplateImageTagMutabilityExclusionFilter]],
 ) -> None:
     """Type checking stubs"""
     pass

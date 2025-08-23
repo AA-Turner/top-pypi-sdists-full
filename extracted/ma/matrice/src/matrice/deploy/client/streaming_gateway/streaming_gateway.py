@@ -275,6 +275,7 @@ class StreamingGateway:
                         is_video_chunk=True,
                         chunk_duration_seconds=input_config.video_duration,
                         chunk_frames=input_config.max_frames,
+                        camera_location=input_config.camera_location,
                     )
                     logging.info(
                         f"Started video streaming for input {input_config.source} "
@@ -293,6 +294,7 @@ class StreamingGateway:
                         width=input_config.width,
                         height=input_config.height,
                         simulate_video_file_stream=input_config.simulate_video_file_stream,
+                        camera_location=input_config.camera_location,
                     )
                     logging.info(
                         f"Started frame streaming for input {input_config.source}"

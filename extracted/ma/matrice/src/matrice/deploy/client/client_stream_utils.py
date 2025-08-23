@@ -20,7 +20,7 @@ class ClientStreamUtils:
         consumer_group_instance_id: str = None,
         threshold_a: float = 0.95,
         threshold_b: float = 0.85,
-        enable_intelligent_transmission: bool = True,
+        enable_intelligent_transmission: bool = False,
     ):
         """Initialize ClientStreamUtils.
 
@@ -274,8 +274,24 @@ class ClientStreamUtils:
         is_video_chunk: bool = False,
         chunk_duration_seconds: Optional[float] = None,
         chunk_frames: Optional[int] = None,
+        camera_location: Optional[str] = None,
     ) -> bool:
-        """Start a stream input to the Kafka stream in the current thread."""
+        """Start a stream input to the Kafka stream in the current thread.
+        
+        Args:
+            input: Video input source (camera index, file path, or URL)
+            fps: Target frames per second
+            stream_key: Unique identifier for this stream
+            stream_group_key: Group identifier for this stream
+            quality: JPEG compression quality (1-100)
+            width: Target frame width (optional)
+            height: Target frame height (optional)
+            simulate_video_file_stream: Whether to simulate video file as stream
+            is_video_chunk: Whether to send video chunks instead of frames
+            chunk_duration_seconds: Duration of video chunks in seconds
+            chunk_frames: Maximum number of frames per chunk
+            camera_location: Physical location of the camera (e.g., "Building A, Floor 2, Room 205")
+        """
         if not self._check_stream_support():
             return False
 
@@ -295,6 +311,7 @@ class ClientStreamUtils:
                 is_video_chunk=is_video_chunk,
                 chunk_duration_seconds=chunk_duration_seconds,
                 chunk_frames=chunk_frames,
+                camera_location=camera_location,
             )
             return True
         except Exception as exc:
@@ -318,8 +335,24 @@ class ClientStreamUtils:
         is_video_chunk: bool = False,
         chunk_duration_seconds: Optional[float] = None,
         chunk_frames: Optional[int] = None,
+        camera_location: Optional[str] = None,
     ) -> bool:
-        """Start a stream input to the Kafka stream in a background thread."""
+        """Start a stream input to the Kafka stream in a background thread.
+        
+        Args:
+            input: Video input source (camera index, file path, or URL)
+            fps: Target frames per second
+            stream_key: Unique identifier for this stream
+            stream_group_key: Group identifier for this stream
+            quality: JPEG compression quality (1-100)
+            width: Target frame width (optional)
+            height: Target frame height (optional)
+            simulate_video_file_stream: Whether to simulate video file as stream
+            is_video_chunk: Whether to send video chunks instead of frames
+            chunk_duration_seconds: Duration of video chunks in seconds
+            chunk_frames: Maximum number of frames per chunk
+            camera_location: Physical location of the camera (e.g., "Building A, Floor 2, Room 205")
+        """
         if not self._check_stream_support():
             return False
 
@@ -341,6 +374,7 @@ class ClientStreamUtils:
                     is_video_chunk,
                     chunk_duration_seconds,
                     chunk_frames,
+                    camera_location,
                 ),
                 daemon=True,
             )
@@ -364,6 +398,7 @@ class ClientStreamUtils:
         is_video_chunk: bool = False,
         chunk_duration_seconds: Optional[float] = None,
         chunk_frames: Optional[int] = None,
+        camera_location: Optional[str] = None,
     ) -> None:
         """Stream inputs from a video source to Kafka."""
         quality = max(1, min(100, quality))
@@ -460,6 +495,7 @@ class ClientStreamUtils:
                             is_video_chunk=is_video_chunk,
                             chunk_duration_seconds=chunk_duration_seconds,
                             chunk_frames=chunk_frames,
+                            camera_location=camera_location,
                         )
                     )
                 except Exception as exc:
@@ -554,8 +590,8 @@ class ClientStreamUtils:
             "camera_info": {
                 "camera_name": stream_key,
                 "camera_group": stream_group_key,
-                "location": "TODO",
-            },
+                "location": metadata.get("camera_location", "Unknown Location")
+                },
             "latency_stats": {
                 "last_read_time_sec": "TODO",
                 "last_write_time_sec": "TODO",

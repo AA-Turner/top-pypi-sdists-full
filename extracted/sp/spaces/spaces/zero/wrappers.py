@@ -177,7 +177,7 @@ def regular_function_wrapper(
         if forked:
             return task(*args, **kwargs)
 
-        request = request_var.get()
+        request = request_var.get(None)
         duration_ = static_duration(duration, *args, **kwargs)
         duration_ = process_duration(duration_)
         schedule_response = client.schedule(task_id=task_id, request=request, duration=duration_)
@@ -213,8 +213,8 @@ def regular_function_wrapper(
                 print(res.traceback)
                 raise error("ZeroGPU worker error", res.error_cls)
             if isinstance(res, OkResult):
-                release()
                 workers[nvidia_index] = worker
+                release()
                 return res.value
             if isinstance(res, GradioQueueEvent):
                 try_process_queue_event(res.method_name, *res.args, **res.kwargs)
@@ -290,7 +290,7 @@ def generator_function_wrapper(
             yield from task(*args, **kwargs)
             return
 
-        request = request_var.get()
+        request = request_var.get(None)
         duration_ = static_duration(duration, *args, **kwargs)
         duration_ = process_duration(duration_)
         schedule_response = client.schedule(task_id=task_id, request=request, duration=duration_)
@@ -329,8 +329,8 @@ def generator_function_wrapper(
                     yield_queue.put(res)
                     return
                 if isinstance(res, EndResult):
-                    release()
                     workers[nvidia_index] = worker
+                    release()
                     yield_queue.put(EndResult())
                     return
                 if isinstance(res, OkResult):

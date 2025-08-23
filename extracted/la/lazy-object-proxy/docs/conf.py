@@ -12,18 +12,18 @@ extensions = [
 source_suffix = '.rst'
 master_doc = 'index'
 project = 'lazy-object-proxy'
-year = '2014-2024'
+year = '2014-2025'
 author = 'Ionel Cristian Mărieș'
 copyright = f'{year}, {author}'
 try:
-    from pkg_resources import get_distribution
+    from importlib import metadata
 
-    version = release = get_distribution('lazy_object_proxy').version
+    version = release = metadata.version('hunter')
 except Exception:
     import traceback
 
     traceback.print_exc()
-    version = release = '1.11.0'
+    version = release = '1.12.0'
 
 pygments_style = 'trac'
 templates_path = ['.']

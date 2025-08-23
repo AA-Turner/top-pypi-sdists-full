@@ -26,7 +26,10 @@ use crate::alt::class::class_field::DataclassMember;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::alt::types::class_metadata::ClassValidationFlags;
 use crate::alt::types::class_metadata::DataclassMetadata;
+use crate::binding::pydantic::GT;
+use crate::binding::pydantic::LT;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -187,7 +190,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ParamList::new(params),
             self.stdlib.object().clone().to_type(),
         )));
-        self.check_type(&want, &post_init, range, errors, &|| {
+        self.check_type(&post_init, &want, range, errors, &|| {
             TypeCheckContext::of_kind(TypeCheckKind::PostInit)
         });
     }
@@ -216,10 +219,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         .iter()
         .any(|k| map.0.contains_key(*k));
         let mut kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);
-        let mut alias = map
-            .get_string(alias_keyword)
-            .or_else(|| map.get_string(&DataclassFieldKeywords::ALIAS))
-            .map(Name::new);
+
+        let mut alias = if dataclass_metadata.class_validation_flags.validate_by_alias {
+            map.get_string(alias_keyword)
+                .or_else(|| map.get_string(&DataclassFieldKeywords::ALIAS))
+                .map(Name::new)
+        } else {
+            None
+        };
+
+        let gt = map.0.get(&GT).cloned();
+        let lt = map.0.get(&LT).cloned();
+
         let mut converter_param = map
             .0
             .get(&DataclassFieldKeywords::CONVERTER)
@@ -232,6 +243,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 args,
                 errors,
                 alias_keyword,
+                dataclass_metadata.class_validation_flags.clone(),
                 &mut init,
                 &mut kw_only,
                 &mut alias,
@@ -243,6 +255,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             default,
             kw_only,
             alias,
+            lt,
+            gt,
             converter_param,
         }
     }
@@ -254,6 +268,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         args: &Arguments,
         errors: &ErrorCollector,
         alias_key_to_use: &Name,
+        validation_flags: ClassValidationFlags,
         init: &mut Option<bool>,
         kw_only: &mut Option<bool>,
         alias: &mut Option<Name>,
@@ -311,7 +326,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if name == &DataclassFieldKeywords::KW_ONLY {
                     self.fill_in_literal(kw_only, ty, default_ty, |ty| ty.as_bool());
                 }
-                if alias.is_none() && name == alias_key_to_use {
+                if validation_flags.validate_by_alias && alias.is_none() && name == alias_key_to_use
+                {
                     self.fill_in_literal(alias, ty, default_ty, |ty| match ty {
                         Type::Literal(Lit::Str(s)) => Some(Name::new(s)),
                         _ => None,
@@ -351,7 +367,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let callable = self.constructor_to_callable(&instance);
                 &self.distribute_over_union(&callable, |ty| {
                     if let Type::BoundMethod(m) = ty {
-                        m.drop_self().unwrap_or_else(|| ty.clone())
+                        self.bind_boundmethod(m).unwrap_or_else(|| ty.clone())
                     } else {
                         ty.clone()
                     }
@@ -420,7 +436,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut has_seen_default = false;
         for (name, field, field_flags) in self.iter_fields(cls, dataclass, true) {
             if field_flags.init {
-                let has_default = field_flags.default;
+                let has_default = field_flags.default
+                    || (dataclass.class_validation_flags.validate_by_name
+                        && dataclass.class_validation_flags.validate_by_alias);
                 let is_kw_only = field_flags.is_kw_only();
                 if !is_kw_only {
                     if !has_default
@@ -440,12 +458,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_seen_default = true;
                     }
                 }
-                params.push(field.as_param(
-                    &field_flags.alias.unwrap_or(name),
-                    has_default,
-                    is_kw_only,
-                    field_flags.converter_param,
-                ));
+                if dataclass.class_validation_flags.validate_by_name
+                    || (dataclass.class_validation_flags.validate_by_alias
+                        && field_flags.alias.is_none())
+                {
+                    params.push(field.as_param(
+                        &name,
+                        has_default,
+                        is_kw_only,
+                        field_flags.converter_param.clone(),
+                    ));
+                }
+                if let Some(alias) = &field_flags.alias
+                    && dataclass.class_validation_flags.validate_by_alias
+                {
+                    params.push(field.as_param(
+                        alias,
+                        has_default,
+                        is_kw_only,
+                        field_flags.converter_param.clone(),
+                    ));
+                }
             }
         }
 

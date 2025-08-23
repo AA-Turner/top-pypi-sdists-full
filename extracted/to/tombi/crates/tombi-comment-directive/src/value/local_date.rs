@@ -3,4 +3,6 @@
 #[serde(rename_all = "kebab-case")]
 #[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "jsonschema", schemars(extend("$id" = "tombi://json.tombi.dev/local-date-tombi-directive.json")))]
-pub struct LocalDateTombiCommentDirective {}
+pub struct LocalDateTombiCommentDirective {
+    // No specific fields for local date type
+}

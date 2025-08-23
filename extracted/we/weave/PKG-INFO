@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.52.1
+Version: 0.52.4
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.com/
@@ -237,7 +237,6 @@ Requires-Dist: nest-asyncio==1.6.0
 Requires-Dist: packaging>=21.0
 Requires-Dist: polyfile-weave
 Requires-Dist: pydantic>=2.0.0
-Requires-Dist: rich
 Requires-Dist: sentry-sdk<3.0.0,>=2.0.0
 Requires-Dist: tenacity!=8.4.0,>=8.3.0
 Requires-Dist: wandb>=0.17.1
@@ -335,6 +334,8 @@ Requires-Dist: pandas>=2.2.3; extra == 'pandas-test'
 Provides-Extra: presidio
 Requires-Dist: presidio-analyzer==2.2.357; extra == 'presidio'
 Requires-Dist: presidio-anonymizer==2.2.357; extra == 'presidio'
+Provides-Extra: rich
+Requires-Dist: rich; extra == 'rich'
 Provides-Extra: scorers
 Requires-Dist: huggingface-hub>=0.28.1; extra == 'scorers'
 Requires-Dist: levenshtein>=0.26.0; extra == 'scorers'
@@ -386,6 +387,7 @@ Requires-Dist: pytest-shard==0.1.2; extra == 'test'
 Requires-Dist: pytest-xdist>=3.1.0; extra == 'test'
 Requires-Dist: pytest>=8.2.0; extra == 'test'
 Requires-Dist: reportlab; extra == 'test'
+Requires-Dist: rich; extra == 'test'
 Requires-Dist: sqlparse==0.5.0; extra == 'test'
 Requires-Dist: uvicorn>=0.27.0; extra == 'test'
 Requires-Dist: vcrpy>=7.0.0; extra == 'test'
@@ -420,6 +422,7 @@ Description-Content-Type: text/markdown
 [![Download Stats](https://img.shields.io/pypi/dm/weave)](https://pypistats.org/packages/weave)
 [![Github Checks](https://img.shields.io/github/check-runs/wandb/weave/master
 )](https://github.com/wandb/weave)
+[![codecov](https://codecov.io/gh/wandb/weave/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/wandb/weave)
 
 Weave is a toolkit for developing Generative AI applications, built by [Weights & Biases](https://wandb.ai/).
 
@@ -443,7 +446,7 @@ Our documentation site can be found [here](https://wandb.me/weave).
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.9 or higher
 - A [Weights & Biases account](https://wandb.ai/signup) (free tier available)
 
 

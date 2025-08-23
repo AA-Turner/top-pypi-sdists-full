@@ -8120,6 +8120,7 @@ class ScanMetadata:
     cli_version: Version
     unique_id: Uuid
     requested_products: List[Product]
+    compress_config: bool = field(default_factory=lambda: False)
     dry_run: bool = field(default_factory=lambda: False)
     sms_scan_id: Optional[str] = None
 
@@ -8130,6 +8131,7 @@ class ScanMetadata:
                 cli_version=Version.from_json(x['cli_version']) if 'cli_version' in x else _atd_missing_json_field('ScanMetadata', 'cli_version'),
                 unique_id=Uuid.from_json(x['unique_id']) if 'unique_id' in x else _atd_missing_json_field('ScanMetadata', 'unique_id'),
                 requested_products=_atd_read_list(Product.from_json)(x['requested_products']) if 'requested_products' in x else _atd_missing_json_field('ScanMetadata', 'requested_products'),
+                compress_config=_atd_read_bool(x['compress_config']) if 'compress_config' in x else False,
                 dry_run=_atd_read_bool(x['dry_run']) if 'dry_run' in x else False,
                 sms_scan_id=_atd_read_string(x['sms_scan_id']) if 'sms_scan_id' in x else None,
             )
@@ -8141,6 +8143,7 @@ class ScanMetadata:
         res['cli_version'] = (lambda x: x.to_json())(self.cli_version)
         res['unique_id'] = (lambda x: x.to_json())(self.unique_id)
         res['requested_products'] = _atd_write_list((lambda x: x.to_json()))(self.requested_products)
+        res['compress_config'] = _atd_write_bool(self.compress_config)
         res['dry_run'] = _atd_write_bool(self.dry_run)
         if self.sms_scan_id is not None:
             res['sms_scan_id'] = _atd_write_string(self.sms_scan_id)
@@ -8885,6 +8888,49 @@ class ResolutionResult:
 
 
 @dataclass
+class PrefilteringStats:
+    """Original type: prefiltering_stats = { ... }"""
+
+    project_level_time: float
+    file_level_time: float
+    rules_with_project_prefilters_ratio: float
+    rules_with_file_prefilters_ratio: float
+    rules_selected_ratio: float
+    rules_matched_ratio: float
+
+    @classmethod
+    def from_json(cls, x: Any) -> 'PrefilteringStats':
+        if isinstance(x, dict):
+            return cls(
+                project_level_time=_atd_read_float(x['project_level_time']) if 'project_level_time' in x else _atd_missing_json_field('PrefilteringStats', 'project_level_time'),
+                file_level_time=_atd_read_float(x['file_level_time']) if 'file_level_time' in x else _atd_missing_json_field('PrefilteringStats', 'file_level_time'),
+                rules_with_project_prefilters_ratio=_atd_read_float(x['rules_with_project_prefilters_ratio']) if 'rules_with_project_prefilters_ratio' in x else _atd_missing_json_field('PrefilteringStats', 'rules_with_project_prefilters_ratio'),
+                rules_with_file_prefilters_ratio=_atd_read_float(x['rules_with_file_prefilters_ratio']) if 'rules_with_file_prefilters_ratio' in x else _atd_missing_json_field('PrefilteringStats', 'rules_with_file_prefilters_ratio'),
+                rules_selected_ratio=_atd_read_float(x['rules_selected_ratio']) if 'rules_selected_ratio' in x else _atd_missing_json_field('PrefilteringStats', 'rules_selected_ratio'),
+                rules_matched_ratio=_atd_read_float(x['rules_matched_ratio']) if 'rules_matched_ratio' in x else _atd_missing_json_field('PrefilteringStats', 'rules_matched_ratio'),
+            )
+        else:
+            _atd_bad_json('PrefilteringStats', x)
+
+    def to_json(self) -> Any:
+        res: Dict[str, Any] = {}
+        res['project_level_time'] = _atd_write_float(self.project_level_time)
+        res['file_level_time'] = _atd_write_float(self.file_level_time)
+        res['rules_with_project_prefilters_ratio'] = _atd_write_float(self.rules_with_project_prefilters_ratio)
+        res['rules_with_file_prefilters_ratio'] = _atd_write_float(self.rules_with_file_prefilters_ratio)
+        res['rules_selected_ratio'] = _atd_write_float(self.rules_selected_ratio)
+        res['rules_matched_ratio'] = _atd_write_float(self.rules_matched_ratio)
+        return res
+
+    @classmethod
+    def from_json_string(cls, x: str) -> 'PrefilteringStats':
+        return cls.from_json(json.loads(x))
+
+    def to_json_string(self, **kw: Any) -> str:
+        return json.dumps(self.to_json(), **kw)
+
+
+@dataclass
 class ParsingTime:
     """Original type: parsing_time = { ... }"""
 
@@ -9007,6 +9053,7 @@ class Profile:
     matching_time: Optional[MatchingTime] = None
     tainting_time: Optional[TaintingTime] = None
     fixpoint_timeouts: Optional[List[CoreError]] = None
+    prefiltering: Optional[PrefilteringStats] = None
     max_memory_bytes: Optional[int] = None
 
     @classmethod
@@ -9023,6 +9070,7 @@ class Profile:
                 matching_time=MatchingTime.from_json(x['matching_time']) if 'matching_time' in x else None,
                 tainting_time=TaintingTime.from_json(x['tainting_time']) if 'tainting_time' in x else None,
                 fixpoint_timeouts=_atd_read_list(CoreError.from_json)(x['fixpoint_timeouts']) if 'fixpoint_timeouts' in x else None,
+                prefiltering=PrefilteringStats.from_json(x['prefiltering']) if 'prefiltering' in x else None,
                 max_memory_bytes=_atd_read_int(x['max_memory_bytes']) if 'max_memory_bytes' in x else None,
             )
         else:
@@ -9045,6 +9093,8 @@ class Profile:
             res['tainting_time'] = (lambda x: x.to_json())(self.tainting_time)
         if self.fixpoint_timeouts is not None:
             res['fixpoint_timeouts'] = _atd_write_list((lambda x: x.to_json()))(self.fixpoint_timeouts)
+        if self.prefiltering is not None:
+            res['prefiltering'] = (lambda x: x.to_json())(self.prefiltering)
         if self.max_memory_bytes is not None:
             res['max_memory_bytes'] = _atd_write_int(self.max_memory_bytes)
         return res

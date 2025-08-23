@@ -840,6 +840,19 @@ def test_measure_gate_after_measurement():
     assert circ == expected
 
 
+def test_measure_add_circuit_target_mapping():
+    circuit = Circuit().h(0).cnot(0, 1).measure(0).measure(1)
+    circuit = Circuit().add_circuit(circuit, target_mapping={0: 1, 1: 0})
+    expected = (
+        Circuit()
+        .add_instruction(Instruction(Gate.H(), 1))
+        .add_instruction(Instruction(Gate.CNot(), [1, 0]))
+        .add_instruction(Instruction(Measure(), 1))
+        .add_instruction(Instruction(Measure(), 0))
+    )
+    assert circuit == expected
+
+
 def test_to_ir_with_measure():
     circ = Circuit().h(0).cnot(0, 1).cnot(1, 2).measure([0, 2])
     expected_ir = OpenQasmProgram(
@@ -908,6 +921,55 @@ def test_from_ir_round_trip_transformation():
 
     assert Circuit.from_ir(ir) == Circuit.from_ir(circuit.to_ir("OPENQASM"))
     assert circuit.to_ir("OPENQASM") == Circuit.from_ir(ir).to_ir("OPENQASM")
+
+
+def test_from_ir_with_verbatim_box():
+    ir = OpenQasmProgram(
+        source="\n".join([
+            "OPENQASM 3.0;",
+            "#pragma braket verbatim",
+            "box {",
+            "  h $0;",
+            "  cnot $0, $1;",
+            "}",
+        ]),
+        inputs={},
+    )
+
+    verbatim_subcirc = Circuit().h(0).cnot(0, 1)
+    expected_circ = Circuit().add_verbatim_box(verbatim_subcirc)
+    actual_circ = Circuit().from_ir(source=ir.source, inputs=ir.inputs)
+    assert actual_circ == expected_circ
+
+
+def test_from_ir_with_mixed_verbatim_non_verbatim_instr():
+    ir = OpenQasmProgram(
+        source="\n".join([
+            "OPENQASM 3.0;",
+            "qubit[2] q;",
+            "bit[2] c;",
+            # Non-verbatim instructions
+            "h q[0];",
+            "cnot q[0], q[1];",
+            # Verbatim block
+            "#pragma braket verbatim",
+            "box {",
+            "  h $0;",
+            "  cnot $0, $1;",
+            "}",
+            "c[0] = measure $0;",
+            "c[1] = measure $1;",
+        ]),
+        inputs={},
+    )
+
+    verbatim_subcirc = Circuit().h(0).cnot(0, 1)
+    expected_circ = Circuit().h(0).cnot(0, 1)
+    expected_circ.add_verbatim_box(verbatim_subcirc)
+    expected_circ.measure(0)
+    expected_circ.measure(1)
+    actual_circ = Circuit().from_ir(source=ir.source, inputs=ir.inputs)
+    assert actual_circ == expected_circ
 
 
 def test_add_with_instruction_with_default(cnot_instr):

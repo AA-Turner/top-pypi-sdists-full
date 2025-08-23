@@ -15,7 +15,7 @@ class ResultsIngestor:
     """
 
     def __init__(
-        self, deployment_ids: List[str], session: Session, consumer_timeout: float = 60
+        self, deployment_ids: List[str], session: Session, consumer_timeout: float = 60, action_id: str = ""
     ):
         """
         Initialize the results streamer.
@@ -30,7 +30,11 @@ class ResultsIngestor:
         self.deployments_stream_utils: Dict[str, MatriceKafkaDeployment] = {}
         for deployment_id in self.deployment_ids:
             self.deployments_stream_utils[deployment_id] = MatriceKafkaDeployment(
-                self.session, deployment_id, type="client", consumer_group_id=f"aggregator-{deployment_id}", consumer_group_instance_id=f"aggregator-{deployment_id}"
+                self.session,
+                deployment_id,
+                type="client",
+                consumer_group_id=f"aggregator-{deployment_id}",
+                consumer_group_instance_id=f"aggregator-{deployment_id}-{action_id}",
             )
 
         self.consumer_timeout = consumer_timeout
@@ -44,16 +48,17 @@ class ResultsIngestor:
         # Control flags
         self._stop_streaming = threading.Event()
         self._is_streaming = False
-        self._lock = threading.RLock()
+        self._lock = threading.Lock()  # Main state lock
+        self._stats_lock = threading.Lock()  # Separate lock for better performance
 
         # Counter for ordering within (deployment_id, stream_key, stream_group_key)
         self._counters: Dict[Tuple[str, str, str], itertools.count] = {}
         # Global per-deployment sequence for PriorityQueue tie-breaking across streams
         self._queue_seq_counters: Dict[str, itertools.count] = {}
-        
+
         # Track last seen input_order for reset detection
         self._last_input_order: Dict[Tuple[str, str], int] = {}
-        
+
         # Track session/epoch for each (deployment_id, stream_key) to handle resets
         self._session_counters: Dict[Tuple[str, str], int] = {}
 
@@ -66,6 +71,7 @@ class ResultsIngestor:
             "last_error_time": None,
             "queue_sizes": {},
             "start_time": None,
+            "consumer_timeout": consumer_timeout,
         }
 
         # Initialize queues
@@ -78,7 +84,6 @@ class ResultsIngestor:
             self.stats["queue_sizes"][deployment_id] = 0
             # Initialize per-deployment sequence counter
             self._queue_seq_counters[deployment_id] = itertools.count()
-    
 
     def start_streaming(self) -> bool:
         """
@@ -170,11 +175,11 @@ class ResultsIngestor:
             int: Priority counter for ordering within the same stream
         """
         key = (deployment_id, stream_key, stream_group_key)
-        
+
         # Initialize counters if needed
         if key not in self._counters:
             self._counters[key] = itertools.count()
-        
+
         return next(self._counters[key])
 
     def _get_queue_sequence(self, deployment_id: str) -> int:
@@ -224,7 +229,7 @@ class ResultsIngestor:
                             f"Stream key: {stream_key}, Stream group: {stream_group_key}"
                         )
                         continue
-                    
+
                     order = self._get_priority_counter(deployment_id, stream_key, stream_group_key)
                     seq = self._get_queue_sequence(deployment_id)
                     # Create enhanced result object with the structured response
@@ -241,40 +246,38 @@ class ResultsIngestor:
                         # Include a sequence tie-breaker to avoid comparing dicts when priorities are equal
                         results_queue.put((order, seq, enhanced_result), block=False)
 
-                        with self._lock:
+                        with self._stats_lock:
                             self.stats["results_consumed"] += 1
-                            self.stats["queue_sizes"][
-                                deployment_id
-                            ] = results_queue.qsize()
+                            self.stats["queue_sizes"][deployment_id] = results_queue.qsize()
 
                     except Full:
-                        # Queue is full, log warning and continue
-                        logging.warning(
-                            f"Result queue full for deployment {deployment_id}, dropping result"
-                        )
-                        with self._lock:
+                        # Queue is full - reduce logging frequency for performance
+                        with self._stats_lock:
                             self.stats["errors"] += 1
                             self.stats["last_error"] = "Queue full"
                             self.stats["last_error_time"] = time.time()
+                            # Only log every 10th queue full error
+                            if self.stats["errors"] % 10 == 1:
+                                logging.warning(f"Result queue full for deployment {deployment_id}, dropping result (#{self.stats['errors']})")
                     except Exception as exc:
                         # Other enqueue errors
-                        logging.error(
-                            f"Failed to enqueue result for deployment {deployment_id}: {exc}"
-                        )
-                        with self._lock:
+                        with self._stats_lock:
                             self.stats["errors"] += 1
                             self.stats["last_error"] = str(exc)
                             self.stats["last_error_time"] = time.time()
+                            # Only log every 10th enqueue error
+                            if self.stats["errors"] % 10 == 1:
+                                logging.error(f"Failed to enqueue result for deployment {deployment_id}: {exc} (#{self.stats['errors']})")
 
             except Exception as exc:
                 if not self._stop_streaming.is_set():
-                    logging.error(
-                        f"Error streaming results for deployment {deployment_id}: {exc}", exc_info=True
-                    )
-                    with self._lock:
+                    with self._stats_lock:
                         self.stats["errors"] += 1
                         self.stats["last_error"] = str(exc)
                         self.stats["last_error_time"] = time.time()
+                        # Reduce logging frequency for performance
+                        if self.stats["errors"] % 10 == 1:
+                            logging.error(f"Error streaming results for deployment {deployment_id}: {exc} (#{self.stats['errors']})", exc_info=True)
 
                     # Add small delay to prevent tight error loops
                     time.sleep(0.1)
@@ -300,10 +303,8 @@ class ResultsIngestor:
             priority_result = self.results_queues[deployment_id].get(timeout=timeout)
             self.results_queues[deployment_id].task_done()
 
-            with self._lock:
-                self.stats["queue_sizes"][deployment_id] = self.results_queues[
-                    deployment_id
-                ].qsize()
+            with self._stats_lock:
+                self.stats["queue_sizes"][deployment_id] = self.results_queues[deployment_id].qsize()
 
             # Handle both 2-tuple (legacy) and 3-tuple (with seq) queue items
             if isinstance(priority_result, tuple):
@@ -341,7 +342,7 @@ class ResultsIngestor:
 
     def get_stats(self) -> Dict:
         """Get current statistics."""
-        with self._lock:
+        with self._stats_lock:
             stats = self.stats.copy()
 
         # Add runtime statistics
@@ -368,18 +369,17 @@ class ResultsIngestor:
         }
 
         # Check queue sizes
-        with self._lock:
-            total_queue_size = 0
-            for deployment_id, queue in self.results_queues.items():
-                queue_size = queue.qsize()
-                health["queue_sizes"][deployment_id] = queue_size
-                total_queue_size += queue_size
+        total_queue_size = 0
+        for deployment_id, queue in self.results_queues.items():
+            queue_size = queue.qsize()
+            health["queue_sizes"][deployment_id] = queue_size
+            total_queue_size += queue_size
 
-                # Mark as degraded if queue is getting full
-                if queue_size > 1000:
-                    health["status"] = "degraded"
-                    health["reason"] = f"Queue for {deployment_id} nearly full ({queue_size})"
-                    logging.warning(f"Ingestor degraded: {deployment_id} queue has {queue_size} items")
+            # Mark as degraded if queue is getting full
+            if queue_size > 1000:
+                health["status"] = "degraded"
+                health["reason"] = f"Queue for {deployment_id} nearly full ({queue_size})"
+                logging.warning(f"Ingestor degraded: {deployment_id} queue has {queue_size} items")
 
         # Check for recent errors (within last 60 seconds)
         if (
@@ -396,7 +396,7 @@ class ResultsIngestor:
             for deployment_id, thread in self.results_streaming_threads.items():
                 if not thread.is_alive():
                     dead_threads.append(deployment_id)
-            
+
             if dead_threads:
                 health["status"] = "degraded" 
                 health["reason"] = f"Dead threads for deployments: {', '.join(dead_threads)}"
@@ -428,10 +428,10 @@ class ResultsIngestor:
                 pass
 
         self.results_queues.clear()
-        
+
         # Clear tracking data
         self._counters.clear()
         self._last_input_order.clear()
         self._session_counters.clear()
-        
+
         logging.info("Results streamer cleanup completed")

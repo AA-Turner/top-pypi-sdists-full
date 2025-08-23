@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: hunter
-Version: 3.8.0
+Version: 3.9.0
 Summary: Hunter is a flexible code tracing toolkit.
-Home-page: https://github.com/ionelmc/python-hunter
-Author: Ionel Cristian Mărieș
-Author-email: contact@ionelmc.ro
-License: BSD-2-Clause
+Author-email: Ionel Cristian Mărieș <contact@ionelmc.ro>
+License-Expression: BSD-2-Clause
+Project-URL: Sources, https://github.com/ionelmc/python-hunter
 Project-URL: Documentation, https://python-hunter.readthedocs.io/
 Project-URL: Changelog, https://python-hunter.readthedocs.io/en/latest/changelog.html
 Project-URL: Issue Tracker, https://github.com/ionelmc/python-hunter/issues
@@ -30,21 +29,10 @@ Classifier: Topic :: Software Development :: Debuggers
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-License-File: AUTHORS.rst
 Requires-Dist: manhole>=1.5; platform_system != "Windows"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-python
-Dynamic: summary
 
 ========
 Overview
@@ -473,6 +461,12 @@ More projects using it at https://github.com/ionelmc/python-hunter/network/depen
 
 Changelog
 =========
+
+3.9.0 (2025-08-22)
+------------------
+
+* Added support and wheels for Python 3.14.
+* Modernized packaging to have metadata in ``pyproject.toml``.
 
 3.8.0 (2025-07-11)
 ------------------

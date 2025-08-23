@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional
 from falcon import HTTP_400, HTTP_415, MEDIA_JSON, HTTPError, http_status_to_code
 from falcon import Request as FalconRequest
 from falcon import Response as FalconResponse
+from falcon.asgi import Request as FalconASGIRequest
 from falcon.routing.compiled import _FIELD_PATTERN as FALCON_FIELD_PATTERN
 
 from spectree._pydantic import (
@@ -16,7 +17,6 @@ from spectree._pydantic import (
     serialize_model_instance,
 )
 from spectree._types import ModelType
-from spectree.models import BaseFile
 from spectree.plugins.base import BasePlugin, validate_response
 from spectree.response import Response
 from spectree.utils import cached_type_hints
@@ -192,17 +192,19 @@ class FalconPlugin(BasePlugin):
                     raise
                 media = None
             req.context.json = json.parse_obj(media)
-        if form:
-            fields = form.__fields__
-            req_form = {}
-            for part in req.get_media():
-                if part.name in fields and fields[part.name].annotation is BaseFile:
-                    # pass the `falcon.BodyPart` if it's annotated as BaseFile
-                    req_form[part.name] = part
-                    # try to consume the file data, otherwise it will be lost
-                    _ = part.data
-                else:
-                    req_form[part.name] = part.data
+        if form and req.content_type:
+            if req.content_type == "application/x-www-form-urlencoded":
+                req_form = req.get_media()
+            elif req.content_type.startswith("multipart/form-data"):
+                req_form = {}
+                for part in req.get_media():
+                    if part.filename is None:
+                        req_form[part.name] = part.data
+                    else:
+                        # pass the `falcon.BodyPart` if it's attached as a file
+                        req_form[part.name] = part
+                        # try to consume the file data, otherwise it will be lost
+                        _ = part.data
             req.context.form = form.parse_obj(req_form)
 
     def validate_response(
@@ -312,7 +314,9 @@ class FalconAsgiPlugin(FalconPlugin):
     OPEN_API_ROUTE_CLASS = OpenAPIAsgi
     DOC_PAGE_ROUTE_CLASS = DocPageAsgi
 
-    async def validate_async_request(self, req, query, json, form, headers, cookies):
+    async def validate_async_request(
+        self, req: FalconASGIRequest, query, json, form, headers, cookies
+    ):
         if query:
             req.context.query = query.parse_obj(req.params)
         if headers:
@@ -327,7 +331,7 @@ class FalconAsgiPlugin(FalconPlugin):
                     raise
                 media = None
             req.context.json = json.parse_obj(media)
-        if form:
+        if form and req.content_type:
             try:
                 form_data = await req.get_media()
             except HTTPError as err:
@@ -335,16 +339,18 @@ class FalconAsgiPlugin(FalconPlugin):
                     raise
                 req.context.form = None
             else:
-                req_form = {}
-                fields = form.__fields__
-                async for part in form_data:
-                    if part.name in fields and fields[part.name].annotation is BaseFile:
-                        # pass the `falcon.BodyPart` if it's annotated as BaseFile
-                        req_form[part.name] = part
-                        # try to consume the file data, otherwise it will be lost
-                        await part.data
-                    else:
-                        req_form[part.name] = await part.data
+                if req.content_type == "application/x-www-form-urlencoded":
+                    req_form = form_data
+                elif req.content_type.startswith("multipart/form-data"):
+                    req_form = {}
+                    async for part in form_data:
+                        if part.filename is None:
+                            req_form[part.name] = await part.data
+                        else:
+                            # pass the `falcon.BodyPart` if it's attached as a file
+                            req_form[part.name] = part
+                            # try to consume the file data, otherwise it will be lost
+                            await part.data
                 req.context.form = form.parse_obj(req_form)
 
     async def validate(

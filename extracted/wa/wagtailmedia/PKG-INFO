@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wagtailmedia
-Version: 0.16.0
+Version: 0.17.0
 Summary: A Wagtail module for audio and video files.
 Keywords: Wagtail,Django,media
 Author-email: Mikalai Radchuk  <hello@torchbox.com>
@@ -25,8 +25,9 @@ Classifier: Framework :: Wagtail :: 7
 License-File: LICENSE
 Requires-Dist: Wagtail>=6.3
 Requires-Dist: Django>=4.2
-Requires-Dist: pre-commit>=4.2.0 ; extra == "linting"
-Requires-Dist: coverage>=7.8.0 ; extra == "testing"
+Requires-Dist: pre-commit>=4.3.0 ; extra == "linting"
+Requires-Dist: coverage>=7.10.0 ; extra == "testing"
+Requires-Dist: tox>=4.28.4 ; extra == "testing"
 Project-URL: Changelog, https://github.com/torchbox/wagtailmedia/blob/main/CHANGELOG.md
 Project-URL: Issues, https://github.com/torchbox/wagtailmedia/issues
 Project-URL: Repository, https://github.com/torchbox/wagtailmedia

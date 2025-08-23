@@ -4,7 +4,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "openapi-generator-cli"
-version = "7.14.0"
+version = "7.15.0"
 description = "CLI for openapi generator"
 readme = "README.md"
 keywords = [

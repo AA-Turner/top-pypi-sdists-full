@@ -5,6 +5,7 @@ import logging
 from typing import Union, Optional, Coroutine
 
 from . import debug, version
+
 from .models import Model
 from .client import Client, AsyncClient
 from .typing import Messages, CreateResult, AsyncResult, ImageType

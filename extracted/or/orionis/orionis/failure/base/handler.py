@@ -1,4 +1,5 @@
 from typing import Any, List
+from orionis.console.entities.request import CLIRequest
 from orionis.console.output.contracts.console import IConsole
 from orionis.failure.contracts.handler import IBaseExceptionHandler
 from orionis.failure.entities.throwable import Throwable
@@ -91,7 +92,7 @@ class BaseExceptionHandler(IBaseExceptionHandler):
         # Return the structured exception
         return throwable
 
-    def renderCLI(self, args: List[str], exception: BaseException, log: ILogger, console: IConsole) -> Any:
+    def renderCLI(self, request: CLIRequest, exception: BaseException, log: ILogger, console: IConsole) -> Any:
         """
         Render the exception message for CLI output.
 
@@ -111,8 +112,11 @@ class BaseExceptionHandler(IBaseExceptionHandler):
         # Convert the exception into a structured Throwable object
         throwable = self.destructureException(exception)
 
+        args = request.args if isinstance(request, CLIRequest) and request.args else []
+        string_args = ' '.join(args)
+
         # Log the CLI error message with arguments
-        log.error(f"CLI Error: {throwable.message} (Args: {args})")
+        log.error(f"CLI Error: {throwable.message} (Args: {string_args})")
 
         # Output the exception traceback to the console
         console.newLine()

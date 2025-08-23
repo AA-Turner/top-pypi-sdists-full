@@ -27,9 +27,11 @@ class CLIRequest(BaseEntity):
     """
 
     # The command to execute
-    command: str
+    command: str = field(
+        default=None
+    )
 
     # Arguments for the command; defaults to an empty list if not provided
     args: list[str] = field(
-        default_factory=list
+        default_factory=lambda: []
     )

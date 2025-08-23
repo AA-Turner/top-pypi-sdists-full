@@ -60,6 +60,7 @@ __all__ = (
     "BlackoutSlateStateType",
     "BurnInAlignmentType",
     "BurnInBackgroundColorType",
+    "BurnInDestinationSubtitleRowsType",
     "BurnInFontColorType",
     "BurnInOutlineColorType",
     "BurnInShadowColorType",
@@ -105,6 +106,7 @@ __all__ = (
     "DvbSubDestinationFontColorType",
     "DvbSubDestinationOutlineColorType",
     "DvbSubDestinationShadowColorType",
+    "DvbSubDestinationSubtitleRowsType",
     "DvbSubDestinationTeletextGridControlType",
     "DvbSubOcrLanguageType",
     "Eac3AtmosCodingModeType",
@@ -474,6 +476,7 @@ BlackoutSlateNetworkEndBlackoutType = Literal["DISABLED", "ENABLED"]
 BlackoutSlateStateType = Literal["DISABLED", "ENABLED"]
 BurnInAlignmentType = Literal["CENTERED", "LEFT", "SMART"]
 BurnInBackgroundColorType = Literal["BLACK", "NONE", "WHITE"]
+BurnInDestinationSubtitleRowsType = Literal["ROWS_16", "ROWS_20", "ROWS_24"]
 BurnInFontColorType = Literal["BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELLOW"]
 BurnInOutlineColorType = Literal["BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELLOW"]
 BurnInShadowColorType = Literal["BLACK", "NONE", "WHITE"]
@@ -596,6 +599,7 @@ DvbSubDestinationBackgroundColorType = Literal["BLACK", "NONE", "WHITE"]
 DvbSubDestinationFontColorType = Literal["BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELLOW"]
 DvbSubDestinationOutlineColorType = Literal["BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELLOW"]
 DvbSubDestinationShadowColorType = Literal["BLACK", "NONE", "WHITE"]
+DvbSubDestinationSubtitleRowsType = Literal["ROWS_16", "ROWS_20", "ROWS_24"]
 DvbSubDestinationTeletextGridControlType = Literal["FIXED", "SCALED"]
 DvbSubOcrLanguageType = Literal["DEU", "ENG", "FRA", "NLD", "POR", "SPA"]
 Eac3AtmosCodingModeType = Literal["CODING_MODE_5_1_4", "CODING_MODE_7_1_4", "CODING_MODE_9_1_6"]

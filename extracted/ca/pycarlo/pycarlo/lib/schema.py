@@ -3211,44 +3211,6 @@ class JobPerformanceFacet(sgqlc.types.Enum):
     )
 
 
-class JobTypeEnum(sgqlc.types.Enum):
-    """Enumeration Choices:
-
-    * `AGENT_REACHABILITY`None
-    * `DIRECT_LINEAGE`None
-    * `ETL`None
-    * `JSON_SCHEMA`None
-    * `METADATA`None
-    * `QUERY_LOGS`None
-    * `QUERY_LOGS_BOOTSTRAP`None
-    * `REPORTS`None
-    * `S3_METADATA_EVENTS`None
-    * `S3_QL_EVENTS`None
-    * `SLO`None
-    * `SQL_QUERY`None
-    * `STREAM_METADATA`None
-    * `TABLEAU_GQL`None
-    """
-
-    __schema__ = schema
-    __choices__ = (
-        "AGENT_REACHABILITY",
-        "DIRECT_LINEAGE",
-        "ETL",
-        "JSON_SCHEMA",
-        "METADATA",
-        "QUERY_LOGS",
-        "QUERY_LOGS_BOOTSTRAP",
-        "REPORTS",
-        "S3_METADATA_EVENTS",
-        "S3_QL_EVENTS",
-        "SLO",
-        "SQL_QUERY",
-        "STREAM_METADATA",
-        "TABLEAU_GQL",
-    )
-
-
 class JobsPerformanceSummarySort(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -12259,6 +12221,36 @@ class AgentLogEntry(sgqlc.types.Type):
     """
 
 
+class AgentLogNode(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("node_name", "node_value", "child_nodes", "level", "count", "is_leaf")
+    node_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeName")
+
+    node_value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeValue")
+
+    child_nodes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentLogNode"))),
+        graphql_name="childNodes",
+    )
+
+    level = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="level")
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+
+    is_leaf = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isLeaf")
+
+
+class AgentLogTree(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("nodes", "query")
+    nodes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentLogNode))),
+        graphql_name="nodes",
+    )
+
+    query = sgqlc.types.Field(String, graphql_name="query")
+
+
 class AggregatedMetricDataType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("query_group", "metric_aggregation", "timestamp", "value")
@@ -13640,7 +13632,7 @@ class AzureInformation(sgqlc.types.Type):
     subscription_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="subscriptionId")
     """Azure Subscription ID"""
 
-    primary_region = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="primaryRegion")
+    primary_region = sgqlc.types.Field(String, graphql_name="primaryRegion")
     """Azure Region"""
 
     secondary_region = sgqlc.types.Field(String, graphql_name="secondaryRegion")
@@ -16906,7 +16898,6 @@ class DataCollectorScheduleInfo(sgqlc.types.Type):
         "uuid",
         "resource_id",
         "connection_id",
-        "job_type",
         "internal_job_type",
         "limits",
         "interval_in_seconds",
@@ -16919,9 +16910,6 @@ class DataCollectorScheduleInfo(sgqlc.types.Type):
 
     connection_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="connectionId")
     """Connection ID this schedule belongs to"""
-
-    job_type = sgqlc.types.Field(sgqlc.types.non_null(JobTypeEnum), graphql_name="jobType")
-    """Type of job - DEPRECATED: Use internal_job_type instead"""
 
     internal_job_type = sgqlc.types.Field(
         sgqlc.types.non_null(InternalJobType), graphql_name="internalJobType"
@@ -21245,6 +21233,7 @@ class HostingInformation(sgqlc.types.Type):
         "infrastructure_details",
         "network_details",
         "collection_details",
+        "available_env_configurations",
     )
     domain_details = sgqlc.types.Field(
         sgqlc.types.non_null(HostingDomainDetails), graphql_name="domainDetails"
@@ -21268,6 +21257,12 @@ class HostingInformation(sgqlc.types.Type):
 
     collection_details = sgqlc.types.Field(CollectionDetails, graphql_name="collectionDetails")
     """Collection platform information"""
+
+    available_env_configurations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(AwsEnvConfiguration)),
+        graphql_name="availableEnvConfigurations",
+    )
+    """List of enabled configurations (primary/secondary)"""
 
 
 class IncidentCategoryCount(sgqlc.types.Type):
@@ -42711,6 +42706,7 @@ class Query(sgqlc.types.Type):
         "get_monitor_queries",
         "test_monitor_queries",
         "get_notification_audiences_for_table",
+        "retrieve_agent_log_groups",
         "get_all_user_defined_monitors_v2",
         "get_all_user_defined_monitors",
         "get_custom_rule",
@@ -42763,7 +42759,6 @@ class Query(sgqlc.types.Type):
         "evaluate_comparisons",
         "get_delta_logs",
         "get_job_schedules",
-        "get_warehouse_job_schedules",
         "get_data_assets_dashboard",
         "get_incident_dashboard_data",
         "get_incident_data_weekly",
@@ -50024,6 +50019,34 @@ class Query(sgqlc.types.Type):
     * `mcon` (`String!`): MCON that specifies a table
     """
 
+    retrieve_agent_log_groups = sgqlc.types.Field(
+        AgentLogTree,
+        graphql_name="retrieveAgentLogGroups",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "dw_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
+                ),
+                (
+                    "data_source",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DataSourceUnionInput),
+                        graphql_name="dataSource",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Retrieve agent log groups with observability data
+
+    Arguments:
+
+    * `dw_id` (`UUID!`): Warehouse UUID
+    * `data_source` (`DataSourceUnionInput!`): The data source
+    """
+
     get_all_user_defined_monitors_v2 = sgqlc.types.Field(
         "UserDefinedMonitorConnectionV2Connection",
         graphql_name="getAllUserDefinedMonitorsV2",
@@ -51521,51 +51544,8 @@ class Query(sgqlc.types.Type):
       to specific connection)
     * `job_types` (`[InternalJobType!]`): List of job types to filter
       by (e.g., METADATA, QUERY_LOGS)
-    * `schedule_type` (`String`): Schedule type to filter by (e.g.,
-      'loose')
-    * `include_deleted` (`Boolean`): Include deleted schedules
-      (default: `false`)
-    """
-
-    get_warehouse_job_schedules = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DataCollectorScheduleInfo))),
-        graphql_name="getWarehouseJobSchedules",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "warehouse_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="warehouseUuid", default=None
-                    ),
-                ),
-                (
-                    "job_types",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(JobTypeEnum)),
-                        graphql_name="jobTypes",
-                        default=None,
-                    ),
-                ),
-                (
-                    "schedule_type",
-                    sgqlc.types.Arg(String, graphql_name="scheduleType", default=None),
-                ),
-                (
-                    "include_deleted",
-                    sgqlc.types.Arg(Boolean, graphql_name="includeDeleted", default=False),
-                ),
-            )
-        ),
-    )
-    """(experimental) Get data collector schedules for a warehouse
-
-    Arguments:
-
-    * `warehouse_uuid` (`String!`): Warehouse UUID
-    * `job_types` (`[JobTypeEnum!]`): List of job types to filter by
-      (e.g., METADATA, QUERY_LOGS)
-    * `schedule_type` (`String`): Schedule type to filter by (e.g.,
-      'loose')
+    * `schedule_type` (`String`): DEPRECATED: Schedule type filtering
+      is no longer supported.
     * `include_deleted` (`Boolean`): Include deleted schedules
       (default: `false`)
     """
@@ -57116,8 +57096,8 @@ class Query(sgqlc.types.Type):
                 ),
                 ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
                 (
-                    "search_database_schema",
-                    sgqlc.types.Arg(String, graphql_name="searchDatabaseSchema", default=None),
+                    "rank_by_database_schema",
+                    sgqlc.types.Arg(String, graphql_name="rankByDatabaseSchema", default=None),
                 ),
                 (
                     "search_full_table_id",
@@ -57145,7 +57125,7 @@ class Query(sgqlc.types.Type):
     * `filter_by_schema_name` (`String`)None
     * `domain_restrictions` (`[UUID!]`)None
     * `search` (`String`)None
-    * `search_database_schema` (`String`)None
+    * `rank_by_database_schema` (`String`)None
     * `search_full_table_id` (`String`)None
     * `is_monitored` (`Boolean`): Filter by monitored status if
       provided

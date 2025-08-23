@@ -1,7 +1,7 @@
 r'''
 # `data_google_artifact_registry_docker_images`
 
-Refer to the Terraform Registry for docs: [`data_google_artifact_registry_docker_images`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images).
+Refer to the Terraform Registry for docs: [`data_google_artifact_registry_docker_images`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleArtifactRegistryDockerImages(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleArtifactRegistryDockerImages.DataGoogleArtifactRegistryDockerImages",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images google_artifact_registry_docker_images}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images google_artifact_registry_docker_images}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleArtifactRegistryDockerImages(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images google_artifact_registry_docker_images} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images google_artifact_registry_docker_images} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#location DataGoogleArtifactRegistryDockerImages#location}.
-        :param repository_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#repository_id DataGoogleArtifactRegistryDockerImages#repository_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#id DataGoogleArtifactRegistryDockerImages#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#project DataGoogleArtifactRegistryDockerImages#project}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#location DataGoogleArtifactRegistryDockerImages#location}.
+        :param repository_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#repository_id DataGoogleArtifactRegistryDockerImages#repository_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#id DataGoogleArtifactRegistryDockerImages#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#project DataGoogleArtifactRegistryDockerImages#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleArtifactRegistryDockerImages(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleArtifactRegistryDockerImages to import.
-        :param import_from_id: The id of the existing DataGoogleArtifactRegistryDockerImages that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleArtifactRegistryDockerImages that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleArtifactRegistryDockerImages to import is found.
         '''
         if __debug__:
@@ -261,10 +261,10 @@ class DataGoogleArtifactRegistryDockerImagesConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#location DataGoogleArtifactRegistryDockerImages#location}.
-        :param repository_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#repository_id DataGoogleArtifactRegistryDockerImages#repository_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#id DataGoogleArtifactRegistryDockerImages#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#project DataGoogleArtifactRegistryDockerImages#project}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#location DataGoogleArtifactRegistryDockerImages#location}.
+        :param repository_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#repository_id DataGoogleArtifactRegistryDockerImages#repository_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#id DataGoogleArtifactRegistryDockerImages#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#project DataGoogleArtifactRegistryDockerImages#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,21 +370,21 @@ class DataGoogleArtifactRegistryDockerImagesConfig(
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#location DataGoogleArtifactRegistryDockerImages#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#location DataGoogleArtifactRegistryDockerImages#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def repository_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#repository_id DataGoogleArtifactRegistryDockerImages#repository_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#repository_id DataGoogleArtifactRegistryDockerImages#repository_id}.'''
         result = self._values.get("repository_id")
         assert result is not None, "Required property 'repository_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#id DataGoogleArtifactRegistryDockerImages#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#id DataGoogleArtifactRegistryDockerImages#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -394,7 +394,7 @@ class DataGoogleArtifactRegistryDockerImagesConfig(
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/artifact_registry_docker_images#project DataGoogleArtifactRegistryDockerImages#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/data-sources/artifact_registry_docker_images#project DataGoogleArtifactRegistryDockerImages#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

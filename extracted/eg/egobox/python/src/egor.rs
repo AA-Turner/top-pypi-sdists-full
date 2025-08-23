@@ -30,7 +30,7 @@ use std::cmp::Ordering;
 //     since = "0.30.0",
 //     note = "Useless utility method, list of lists are now automatically converted. This method will be removed"
 // )]
-pub(crate) fn to_specs(py: Python, xlimits: Vec<Vec<f64>>) -> PyResult<Bound<'_, PyAny>> {
+pub(crate) fn to_specs(py: Python, xlimits: Vec<Vec<f64>>) -> PyResult<Bound<PyAny>> {
     if xlimits.is_empty() || xlimits[0].is_empty() {
         let err = "Error: xspecs argument cannot be empty";
         return Err(PyValueError::new_err(err.to_string()));
@@ -470,7 +470,6 @@ impl Egor {
         match self.infill_optimizer {
             InfillOptimizer::Cobyla => egobox_ego::InfillOptimizer::Cobyla,
             InfillOptimizer::Slsqp => egobox_ego::InfillOptimizer::Slsqp,
-            InfillOptimizer::Gbnm => egobox_ego::InfillOptimizer::Gbnm,
         }
     }
 

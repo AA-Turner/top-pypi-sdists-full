@@ -133,7 +133,6 @@ How did you come up with the answer?
 class VectorStoreWrapperBase(BaseToolApiWrapper):
     llm: Any
     embedding_model: str
-    embedding_model_params: dict
     vectorstore_type: str
     vectorstore_params: dict
     max_docs_per_add: int = 100
@@ -158,13 +157,11 @@ class VectorStoreWrapperBase(BaseToolApiWrapper):
             raise ValueError("Embedding model is required.")
         if not values.get('vectorstore_params'):
             raise ValueError("Vectorstore parameters are required.")
-        if not values.get('embedding_model_params'):
-            raise ValueError("Embedding model parameters are required.")
         values["dataset"] = values.get('vectorstore_params').get('collection_name')
         if not values["dataset"]:
             raise ValueError("Collection name is required.")
         if not values.get('embeddings'):
-            values['embeddings'] = get_embeddings(values['embedding_model'], values['embedding_model_params'])
+            values['embeddings'] = values['alita'].get_embeddings(values['embedding_model'])
         values['vectorstore'] = get_vectorstore(values['vectorstore_type'], values['vectorstore_params'], embedding_func=values['embeddings'])
         values['vectoradapter'] = VectorAdapter(
             vectorstore=values['vectorstore'],
@@ -424,7 +421,7 @@ class VectorStoreWrapperBase(BaseToolApiWrapper):
                         for result in text_results:
                             doc_id = result['id']
                             text_score = result['text_score']
-                            
+
                             if doc_id in doc_map:
                                 # Document exists in vector results, combine scores
                                 doc, vector_score = doc_map[doc_id]
@@ -455,7 +452,7 @@ class VectorStoreWrapperBase(BaseToolApiWrapper):
         
         # Apply cutoff filter
         if cut_off:
-            combined_items = [item for item in combined_items if abs(item[1]) >= cut_off]
+            combined_items = [item for item in combined_items if abs(item[1]) <= cut_off]
         
         # Sort by score and limit results
         # DISABLED: for chroma we want ascending order (lower score is better), for others descending

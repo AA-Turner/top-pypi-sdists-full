@@ -668,6 +668,11 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 // Enum('Color', 'RED', 'GREEN', 'BLUE')
                 [Expr::StringLiteral(_), ..] => self.extract_string_literals(members),
+                // Enum('Color', []), Enum('Color', ())
+                [
+                    Expr::List(ExprList { elts, .. }) | Expr::Tuple(ExprTuple { elts, .. }),
+                    ..,
+                ] if elts.is_empty() => Vec::new(),
                 // Enum('Color', ['RED', 'GREEN', 'BLUE'])
                 [Expr::List(ExprList { elts, .. })]
                     if matches!(elts.as_slice(), [Expr::StringLiteral(_), ..]) =>
@@ -773,6 +778,12 @@ impl<'a> BindingsBuilder<'a> {
                         .collect()
                 }
             }
+            // namedtuple('Point', []), namedtuple('Point', ())
+            [Expr::List(ExprList { elts, .. }) | Expr::Tuple(ExprTuple { elts, .. })]
+                if elts.is_empty() =>
+            {
+                Vec::new()
+            }
             // namedtuple('Point', ['x', 'y'])
             [Expr::List(ExprList { elts, .. })]
                 if matches!(elts.as_slice(), [Expr::StringLiteral(_), ..]) =>
@@ -826,10 +837,15 @@ impl<'a> BindingsBuilder<'a> {
                     defaults.splice(n_members - n_defaults.., elts.map(|x| Some(x.clone())));
                 }
             } else {
+                let maybe_name = if let Some(name) = &kw.arg {
+                    format!(" `{name}`")
+                } else {
+                    "".to_owned()
+                };
                 self.error(
-                    kw.value.range(),
+                    kw.range(),
                     ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                    "Unrecognized argument for named tuple definition".to_owned(),
+                    format!("Unrecognized argument{maybe_name} for named tuple definition"),
                 );
             }
         }
@@ -868,6 +884,12 @@ impl<'a> BindingsBuilder<'a> {
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)> =
             match members {
+                // NamedTuple('Point', []), NamedTuple('Point', ())
+                [Expr::List(ExprList { elts, .. }) | Expr::Tuple(ExprTuple { elts, .. })]
+                    if elts.is_empty() =>
+                {
+                    Vec::new()
+                }
                 // NamedTuple('Point', [('x', int), ('y', int)])
                 [Expr::List(ExprList { elts, .. })]
                     if matches!(elts.as_slice(), [Expr::Tuple(_), ..]) =>
@@ -951,19 +973,28 @@ impl<'a> BindingsBuilder<'a> {
         let (mut class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(func, class_object.usage());
         self.check_functional_definition_name(&name.id, arg_name);
-        let mut base_class_keywords: Box<[(Name, Expr)]> = Box::new([]);
+        let mut base_class_keywords = Vec::new();
         for kw in keywords {
             self.ensure_expr(&mut kw.value, class_object.usage());
-            if let Some(name) = &kw.arg
-                && name.id == "total"
-                && matches!(kw.value, Expr::BooleanLiteral(_))
-            {
-                base_class_keywords = Box::new([(name.id.clone(), kw.value.clone())])
+            let recognized_kw = match (kw.arg.as_ref().map(|id| &id.id), &kw.value) {
+                (Some(name), Expr::BooleanLiteral(_)) if name == "total" || name == "closed" => {
+                    Some(name)
+                }
+                (Some(name), _) if name == "extra_items" => Some(name),
+                _ => None,
+            };
+            if let Some(kw_name) = recognized_kw {
+                base_class_keywords.push((kw_name.clone(), kw.value.clone()));
             } else {
+                let maybe_name = if let Some(name) = &kw.arg {
+                    format!(" `{name}`")
+                } else {
+                    "".to_owned()
+                };
                 self.error(
-                    kw.value.range(),
+                    kw.range(),
                     ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                    "Unrecognized argument for typed dictionary definition".to_owned(),
+                    format!("Unrecognized argument{maybe_name} for typed dictionary definition"),
                 );
             }
         }
@@ -1013,7 +1044,7 @@ impl<'a> BindingsBuilder<'a> {
             class_object,
             class_indices,
             Some(func.clone()),
-            base_class_keywords,
+            base_class_keywords.into_boxed_slice(),
             member_definitions,
             IllegalIdentifierHandling::Allow,
             false,

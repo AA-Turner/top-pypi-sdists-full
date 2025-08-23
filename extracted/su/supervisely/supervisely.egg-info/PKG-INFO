@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: supervisely
-Version: 6.73.420
+Version: 6.73.424
 Summary: Supervisely Python SDK.
 Home-page: https://github.com/supervisely/supervisely
 Author: Supervisely
@@ -132,6 +132,8 @@ Requires-Dist: torchvision; extra == "training"
 Requires-Dist: tensorboardX; extra == "training"
 Requires-Dist: markdown; extra == "training"
 Requires-Dist: pymdown-extensions; extra == "training"
+Requires-Dist: tbparse; extra == "training"
+Requires-Dist: kaleido==0.2.1; extra == "training"
 Provides-Extra: plugins
 Requires-Dist: jsonschema<3.0.0,>=2.6.0; extra == "plugins"
 Provides-Extra: sdk-nn-plugins

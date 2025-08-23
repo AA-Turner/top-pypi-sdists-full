@@ -25,8 +25,8 @@ class ClaimMappings(BaseModel):
     """
     ClaimMappings
     """
-    user_id:  Optional[StrictStr] = Field(None,alias="userId") 
-    login:  Optional[StrictStr] = Field(None,alias="login") 
+    user_id:  StrictStr = Field(...,alias="userId") 
+    login:  StrictStr = Field(...,alias="login") 
     email:  StrictStr = Field(...,alias="email") 
     first_name:  StrictStr = Field(...,alias="firstName") 
     last_name:  StrictStr = Field(...,alias="lastName") 
@@ -66,16 +66,6 @@ class ClaimMappings(BaseModel):
                           exclude={
                           },
                           exclude_none=True)
-        # set to None if user_id (nullable) is None
-        # and __fields_set__ contains the field
-        if self.user_id is None and "user_id" in self.__fields_set__:
-            _dict['userId'] = None
-
-        # set to None if login (nullable) is None
-        # and __fields_set__ contains the field
-        if self.login is None and "login" in self.__fields_set__:
-            _dict['login'] = None
-
         # set to None if groups (nullable) is None
         # and __fields_set__ contains the field
         if self.groups is None and "groups" in self.__fields_set__:

@@ -1,6 +1,7 @@
 import drawsvg
 import numpy as np
 import io
+import rich
 
 cmap = [
     '#252525', # black
@@ -15,6 +16,8 @@ cmap = [
     '#8D1D2C',#870C25', # brown
     '#FFFFFF'
         ]
+
+bg_color = '#EEEFF6' # White
 
 def draw_grid(grid, xmax=10, ymax=10, padding=.5, extra_bottom_padding=0.5, group=False, add_size=True, label='', bordercol='#111111ff'):
     """
@@ -65,6 +68,12 @@ def draw_grid(grid, xmax=10, ymax=10, padding=.5, extra_bottom_padding=0.5, grou
         drawing = drawsvg.Group()
     else:
         drawing = drawsvg.Drawing(xsize+padding, ysize+padding+extra_bottom_padding, origin=(-0.5*padding, -0.5*padding))
+        # Add background rectangle first
+        drawing.append(drawsvg.Rectangle(
+            -0.5*padding, -0.5*padding,                          # x, y position with extra padding
+            xsize+padding, ysize+padding+extra_bottom_padding,   # width, height with padding
+            fill=bg_color                                        # background color `bg_color`
+        ))
         drawing.set_pixel_scale(40)
     # drawing = drawsvg.Group()
     for j, row in enumerate(grid):
@@ -81,7 +90,8 @@ def draw_grid(grid, xmax=10, ymax=10, padding=.5, extra_bottom_padding=0.5, grou
     bw = border_width / 3 # slightly more than 2 to avoid white border
     drawing.append(drawsvg.Rectangle(-bw, -bw, xsize+bw*2, ysize+bw*2, fill='none', stroke=bordercol, stroke_width=border_width))
 
-    drawing.embed_google_font('Anuphan:wght@400;600;700', text=set(f'Input Output 0123456789x Test Task ABCDEFGHIJ? abcdefghjklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
+    if not group:
+        drawing.embed_google_font('Anuphan:wght@400;600;700', text=set(f'Input Output 0123456789x Test Task ABCDEFGHIJ? abcdefghjklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
 
     # Write size on the bottom right
     # drawing.append(drawsvg.Text(text=f'{gridx}x{gridy}', x=-0.05, y=-0.25, font_size=padding/4, fill='black', text_anchor='start'))
@@ -262,3 +272,44 @@ def output_drawing(d: drawsvg.Drawing, filename: str, context=None):
         cairosvg.svg2pdf(bytestring=buffer.getvalue(), write_to=filename)
     else:
         raise ValueError(f'Unknown file extension for {filename}')
+
+def print_grid(grid: np.ndarray):
+    """
+    Print a grid to the terminal using rich library
+
+    Parameters
+    ----------
+    grid : np.ndarray
+        the standard grid format for Task 
+    """
+    CELL_WIDTH = 2
+
+    def get_color(color_str):
+        color_str = color_str.strip('#')
+        return rich.color.Color.from_rgb(*bytes.fromhex(color_str))
+
+    # Translate 'cmap' to rich style with respective color as background
+    rich_scmap = {
+        i: rich.style.Style(bgcolor=get_color(color))
+        for i, color in enumerate(cmap)
+    }
+
+    # Create and populate rich table
+    table = rich.table.Table.grid(expand=False)
+    
+    height, width = grid.shape
+    
+    # Add columns
+    for x in range(width):
+        table.add_column()
+        table.columns[x]._cells = [''] * height
+    
+    table.rows = [rich.table.Row()] * height
+
+    # Populate cells
+    for y in range(height):
+        for x in range(width):
+            color_idx = grid[y, x]
+            table.columns[x]._cells[y] = rich.text.Text(' ' * CELL_WIDTH, style=rich_scmap[color_idx])
+
+    rich.print(table)

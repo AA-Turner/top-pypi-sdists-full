@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arelle-release
-Version: 2.37.49
+Version: 2.37.50
 Summary: An open source XBRL platform.
 Author-email: "arelle.org" <support@arelle.org>
 License-Expression: Apache-2.0
@@ -31,36 +31,38 @@ License-File: LICENSE.md
 Requires-Dist: bottle<0.14,>=0.13
 Requires-Dist: certifi
 Requires-Dist: filelock
-Requires-Dist: jsonschema==4.*
-Requires-Dist: isodate==0.*
-Requires-Dist: lxml<6,>=4
+Requires-Dist: isodate<1,>=0
+Requires-Dist: jsonschema<5,>=4
+Requires-Dist: lxml!=6.0.0,<7,>=4
 Requires-Dist: numpy<3,>=1
-Requires-Dist: openpyxl==3.*
+Requires-Dist: openpyxl<4,>=3
 Requires-Dist: pillow<12,>=10
-Requires-Dist: pyparsing==3.*
-Requires-Dist: python-dateutil==2.*
+Requires-Dist: pyparsing<4,>=3
+Requires-Dist: python-dateutil<3,>=2
 Requires-Dist: regex
-Requires-Dist: truststore==0.*; python_version > "3.9"
-Requires-Dist: typing-extensions==4.*
+Requires-Dist: truststore<1,>=0; python_version > "3.9"
+Requires-Dist: typing-extensions<5,>=4
 Provides-Extra: crypto
-Requires-Dist: pycryptodome==3.*; extra == "crypto"
+Requires-Dist: pycryptodome<4,>=3; extra == "crypto"
 Provides-Extra: db
-Requires-Dist: pg8000==1.*; extra == "db"
-Requires-Dist: PyMySQL==1.*; extra == "db"
+Requires-Dist: pg8000<2,>=1; extra == "db"
+Requires-Dist: PyMySQL<2,>=1; extra == "db"
 Requires-Dist: pyodbc<6,>=4; extra == "db"
 Requires-Dist: rdflib<8,>=5; extra == "db"
 Provides-Extra: efm
-Requires-Dist: aniso8601==10.*; extra == "efm"
-Requires-Dist: holidays==0.*; extra == "efm"
-Requires-Dist: Matplotlib==3.*; extra == "efm"
+Requires-Dist: aniso8601<11,>=10; extra == "efm"
+Requires-Dist: holidays<1,>=0; extra == "efm"
+Requires-Dist: matplotlib<4,>=3; extra == "efm"
 Requires-Dist: pytz; extra == "efm"
 Provides-Extra: esef
-Requires-Dist: tinycss2==1.*; extra == "esef"
+Requires-Dist: tinycss2<2,>=1; extra == "esef"
 Provides-Extra: objectmaker
-Requires-Dist: graphviz==0.*; extra == "objectmaker"
+Requires-Dist: graphviz<1,>=0; extra == "objectmaker"
 Provides-Extra: webserver
 Requires-Dist: cheroot<11,>=8; extra == "webserver"
-Requires-Dist: tornado==6.*; extra == "webserver"
+Requires-Dist: tornado<7,>=6; extra == "webserver"
+Provides-Extra: xule
+Requires-Dist: aniso8601<11,>=10; extra == "xule"
 Dynamic: license-file
 
 # Arelle

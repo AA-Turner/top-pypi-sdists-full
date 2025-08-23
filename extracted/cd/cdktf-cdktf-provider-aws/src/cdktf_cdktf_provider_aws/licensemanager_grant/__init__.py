@@ -1,7 +1,7 @@
 r'''
 # `aws_licensemanager_grant`
 
-Refer to the Terraform Registry for docs: [`aws_licensemanager_grant`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant).
+Refer to the Terraform Registry for docs: [`aws_licensemanager_grant`](https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LicensemanagerGrant(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.licensemanagerGrant.LicensemanagerGrant",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant aws_licensemanager_grant}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant aws_licensemanager_grant}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class LicensemanagerGrant(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant aws_licensemanager_grant} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant aws_licensemanager_grant} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param allowed_operations: Allowed operations for the grant. This is a subset of the allowed operations on the license. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#allowed_operations LicensemanagerGrant#allowed_operations}
-        :param license_arn: License ARN. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#license_arn LicensemanagerGrant#license_arn}
-        :param name: Name of the grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#name LicensemanagerGrant#name}
-        :param principal: The grantee principal ARN. The target account for the grant in the form of the ARN for an account principal of the root user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#principal LicensemanagerGrant#principal}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#id LicensemanagerGrant#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#region LicensemanagerGrant#region}
+        :param allowed_operations: Allowed operations for the grant. This is a subset of the allowed operations on the license. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#allowed_operations LicensemanagerGrant#allowed_operations}
+        :param license_arn: License ARN. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#license_arn LicensemanagerGrant#license_arn}
+        :param name: Name of the grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#name LicensemanagerGrant#name}
+        :param principal: The grantee principal ARN. The target account for the grant in the form of the ARN for an account principal of the root user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#principal LicensemanagerGrant#principal}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#id LicensemanagerGrant#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#region LicensemanagerGrant#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class LicensemanagerGrant(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LicensemanagerGrant to import.
-        :param import_from_id: The id of the existing LicensemanagerGrant that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LicensemanagerGrant that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LicensemanagerGrant to import is found.
         '''
         if __debug__:
@@ -323,12 +323,12 @@ class LicensemanagerGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param allowed_operations: Allowed operations for the grant. This is a subset of the allowed operations on the license. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#allowed_operations LicensemanagerGrant#allowed_operations}
-        :param license_arn: License ARN. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#license_arn LicensemanagerGrant#license_arn}
-        :param name: Name of the grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#name LicensemanagerGrant#name}
-        :param principal: The grantee principal ARN. The target account for the grant in the form of the ARN for an account principal of the root user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#principal LicensemanagerGrant#principal}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#id LicensemanagerGrant#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#region LicensemanagerGrant#region}
+        :param allowed_operations: Allowed operations for the grant. This is a subset of the allowed operations on the license. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#allowed_operations LicensemanagerGrant#allowed_operations}
+        :param license_arn: License ARN. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#license_arn LicensemanagerGrant#license_arn}
+        :param name: Name of the grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#name LicensemanagerGrant#name}
+        :param principal: The grantee principal ARN. The target account for the grant in the form of the ARN for an account principal of the root user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#principal LicensemanagerGrant#principal}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#id LicensemanagerGrant#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#region LicensemanagerGrant#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -440,7 +440,7 @@ class LicensemanagerGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allowed_operations(self) -> typing.List[builtins.str]:
         '''Allowed operations for the grant. This is a subset of the allowed operations on the license.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#allowed_operations LicensemanagerGrant#allowed_operations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#allowed_operations LicensemanagerGrant#allowed_operations}
         '''
         result = self._values.get("allowed_operations")
         assert result is not None, "Required property 'allowed_operations' is missing"
@@ -450,7 +450,7 @@ class LicensemanagerGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def license_arn(self) -> builtins.str:
         '''License ARN.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#license_arn LicensemanagerGrant#license_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#license_arn LicensemanagerGrant#license_arn}
         '''
         result = self._values.get("license_arn")
         assert result is not None, "Required property 'license_arn' is missing"
@@ -460,7 +460,7 @@ class LicensemanagerGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the grant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#name LicensemanagerGrant#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#name LicensemanagerGrant#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -472,7 +472,7 @@ class LicensemanagerGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The target account for the grant in the form of the ARN for an account principal of the root user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#principal LicensemanagerGrant#principal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#principal LicensemanagerGrant#principal}
         '''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
@@ -480,7 +480,7 @@ class LicensemanagerGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#id LicensemanagerGrant#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#id LicensemanagerGrant#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -492,7 +492,7 @@ class LicensemanagerGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/licensemanager_grant#region LicensemanagerGrant#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.10.0/docs/resources/licensemanager_grant#region LicensemanagerGrant#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)

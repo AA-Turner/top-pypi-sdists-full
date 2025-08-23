@@ -16,7 +16,7 @@ from flask_restx import Resource
 from loguru import logger
 from referencing.exceptions import Unresolvable
 from requests import HTTPError
-from werkzeug.http import generate_etag
+from werkzeug.http import generate_etag, quote_etag
 
 from flexget import manager
 from flexget.config_schema import format_checker, process_config
@@ -407,7 +407,7 @@ def etag(method: Callable | None = None, cache_age: int = 0):
             + rv.headers.get('total-count', '')
         )
         data = (rv.get_data().decode() + content_headers).encode()
-        etag = generate_etag(data)
+        etag = quote_etag(generate_etag(data))
         rv.headers['Cache-Control'] = f'max-age={cache_age}'
         rv.headers['ETag'] = etag
         if_match = request.headers.get('If-Match')

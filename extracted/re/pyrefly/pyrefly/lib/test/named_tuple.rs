@@ -361,3 +361,21 @@ for x in nt:
     assert_type(x, str)  # E: assert_type(int, str)
     "#,
 );
+
+testcase!(
+    test_collections_namedtuple_unexpected_keyword,
+    r#"
+from collections import namedtuple
+X = namedtuple('X', [], nonsense=True)  # E: Unrecognized argument `nonsense` for named tuple definition
+def f(kwargs):
+    Y = namedtuple('Y', [], **kwargs)  # E: Unrecognized argument for named tuple definition
+    "#,
+);
+
+testcase!(
+    test_empty_functional_def,
+    r#"
+from typing import NamedTuple
+N = NamedTuple('N', ())
+    "#,
+);

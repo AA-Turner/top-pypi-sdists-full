@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pm4py
-Version: 2.7.16.2
+Version: 2.7.17
 Summary: Process mining for Python
 Home-page: https://processintelligence.solutions/
 Author: Process Intelligence Solutions (PIS)
@@ -108,6 +108,7 @@ If you are using PM4Py in your scientific work, please cite PM4Py as follows:
 
 BiBTeX:
 
+bibtex
 @article{pm4py,  
 title = {PM4Py: A process mining library for Python},  
 journal = {Software Impacts},  
@@ -119,6 +120,7 @@ doi = {https://doi.org/10.1016/j.simpa.2023.100556},
 url = {https://www.sciencedirect.com/science/article/pii/S2665963823000933},  
 author = {Alessandro Berti and Sebastiaan van Zelst and Daniel Schuster},  
 }
+
 
 ## Legal Notice
 

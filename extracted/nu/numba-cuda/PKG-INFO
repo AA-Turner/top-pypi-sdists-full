@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: numba-cuda
-Version: 0.19.0
+Version: 0.19.1
 Summary: CUDA target for Numba
 Author: Anaconda Inc., NVIDIA Corporation
-License: BSD 2-clause
+License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://nvidia.github.io/numba-cuda/
 Project-URL: Documentation, https://nvidia.github.io/numba-cuda/
 Project-URL: Repository, https://github.com/NVIDIA/numba-cuda
@@ -12,6 +12,7 @@ Project-URL: Issues, https://github.com/NVIDIA/numba-cuda/issues
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+License-File: LICENSE.numba
 Requires-Dist: numba>=0.60.0
 Provides-Extra: cu12
 Requires-Dist: cuda-bindings<13.0.0,>=12.9.1; extra == "cu12"
@@ -21,6 +22,7 @@ Requires-Dist: nvidia-cuda-nvcc-cu12; extra == "cu12"
 Requires-Dist: nvidia-cuda-runtime-cu12; extra == "cu12"
 Requires-Dist: nvidia-cuda-nvrtc-cu12; extra == "cu12"
 Requires-Dist: nvidia-nvjitlink-cu12; extra == "cu12"
+Requires-Dist: nvidia-cuda-cccl-cu12; extra == "cu12"
 Provides-Extra: cu13
 Requires-Dist: cuda-bindings==13.*; extra == "cu13"
 Requires-Dist: cuda-core<0.4.0dev0,==0.3.2; extra == "cu13"
@@ -29,6 +31,7 @@ Requires-Dist: nvidia-nvvm==13.*; extra == "cu13"
 Requires-Dist: nvidia-cuda-runtime==13.*; extra == "cu13"
 Requires-Dist: nvidia-cuda-nvrtc==13.*; extra == "cu13"
 Requires-Dist: nvidia-nvjitlink==13.*; extra == "cu13"
+Requires-Dist: nvidia-cuda-cccl==13.*; extra == "cu13"
 Provides-Extra: test
 Requires-Dist: pre-commit; extra == "test"
 Requires-Dist: psutil; extra == "test"
