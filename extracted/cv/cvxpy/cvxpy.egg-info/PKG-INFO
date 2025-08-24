@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cvxpy
-Version: 1.7.1
+Version: 1.7.2
 Summary: A domain-specific language for modeling convex optimization problems in Python.
 Author-email: Steven Diamond <stevend2@stanford.edu>, akshayka@cs.stanford.edu, Eric Chu <echu508@stanford.edu>, Stephen Boyd <boyd@stanford.edu>
 License: Apache License, Version 2.0
@@ -18,7 +18,6 @@ Requires-Dist: cylp>=0.91.5; extra == "cbc"
 Provides-Extra: clarabel
 Provides-Extra: cuopt
 Requires-Dist: cuopt-cu12>=25.5; extra == "cuopt"
-Requires-Dist: cuopt-sh-client>=25.5; extra == "cuopt"
 Requires-Dist: nvidia-cuda-runtime-cu12<13.0,>=12.8; extra == "cuopt"
 Provides-Extra: cvxopt
 Requires-Dist: cvxopt; extra == "cvxopt"
@@ -29,7 +28,7 @@ Requires-Dist: ecos; extra == "ecos"
 Provides-Extra: ecos-bb
 Requires-Dist: ecos; extra == "ecos-bb"
 Provides-Extra: glop
-Requires-Dist: ortools<9.12,>=9.7; extra == "glop"
+Requires-Dist: ortools<9.15,>=9.7; extra == "glop"
 Provides-Extra: glpk
 Requires-Dist: cvxopt; extra == "glpk"
 Provides-Extra: glpk-mi
@@ -42,7 +41,7 @@ Provides-Extra: mosek
 Requires-Dist: Mosek; extra == "mosek"
 Provides-Extra: osqp
 Provides-Extra: pdlp
-Requires-Dist: ortools<9.12,>=9.7; extra == "pdlp"
+Requires-Dist: ortools<9.15,>=9.7; extra == "pdlp"
 Provides-Extra: piqp
 Requires-Dist: piqp; extra == "piqp"
 Provides-Extra: proxqp
@@ -55,7 +54,7 @@ Provides-Extra: scipy
 Requires-Dist: scipy; extra == "scipy"
 Provides-Extra: scs
 Provides-Extra: xpress
-Requires-Dist: xpress; extra == "xpress"
+Requires-Dist: xpress>=9.5; extra == "xpress"
 Provides-Extra: daqp
 Requires-Dist: daqp; extra == "daqp"
 Provides-Extra: testing

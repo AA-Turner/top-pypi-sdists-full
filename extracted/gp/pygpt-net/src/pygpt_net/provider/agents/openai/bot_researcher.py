@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.12 19:00:00                  #
+# Updated Date: 2025.08.24 03:00:00                  #
 # ================================================== #
 
 from typing import Dict, Any, Tuple, Union, Optional
@@ -89,7 +89,7 @@ class Agent(BaseAgent):
         kwargs = {
             "name": agent_name,
             "instructions": system_prompt,
-            "model": model.id,
+            "model": window.core.agents.provider.get_openai_model(model),
             "handoffs": handoffs,
         }
         tool_kwargs = append_tools(
@@ -154,18 +154,6 @@ class Agent(BaseAgent):
         model_search_kwargs = {}
         model_planner_kwargs = {}
 
-        if model.provider != "openai":
-            custom_provider = get_custom_model_provider(window, model)
-            model_kwargs["run_config"] = RunConfig(model_provider=custom_provider)
-
-        if model_search.provider != "openai":
-            custom_provider = get_custom_model_provider(window, model_search)
-            model_search_kwargs["run_config"] = RunConfig(model_provider=custom_provider)
-
-        if model_planner.provider != "openai":
-            custom_provider = get_custom_model_provider(window, model_planner)
-            model_planner_kwargs["run_config"] = RunConfig(model_provider=custom_provider)
-
         # get experts
         experts = get_experts(
             window=window,
@@ -207,10 +195,6 @@ class Agent(BaseAgent):
             },
             history=messages if messages else [],
         )
-
-        if model.provider == "openai":
-            set_openai_env(window)
-
         final_output = await bot.run(query)
         return ctx, final_output, response_id
 

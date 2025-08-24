@@ -1,8 +1,9 @@
 [package]
 name = "pepecore-py-bindings"
-version = "1.0.3"
+version = "1.0.4"
 edition.workspace = true
 publish.workspace = true
+readme = "README.md"
 
 [dependencies]
 libc = "1.0.0-alpha.1"

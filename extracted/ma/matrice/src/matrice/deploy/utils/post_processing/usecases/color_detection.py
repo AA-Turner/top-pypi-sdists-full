@@ -62,13 +62,13 @@ class ColorDetectionConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    zone_config: Optional[Dict[str, List[List[float]]]] = field(
-    default_factory=lambda: {
-        "zones": {
-            "Entrance": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
-        }
-    }
-)
+    zone_config: Optional[Dict[str, List[List[float]]]] = None #field(
+#     default_factory=lambda: {
+#         "zones": {
+#             "Entrance": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
+#         }
+#     }
+# )
 
     def validate(self) -> List[str]:
         errors = super().validate()
@@ -468,6 +468,13 @@ class ColorDetectionUseCase(BaseProcessor):
                     enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, color_processed_data, config)
                     for zone_name, enhanced_data in enhanced_zone_analysis.items():
                         zone_analysis[zone_name] = enhanced_data
+            # else:
+            #     frame_data = color_processed_data
+            #     zone_analysis = count_objects_in_zones(frame_data, config.zone_config['zones'])
+            #     enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, color_processed_data, config)
+            #     for zone_name, enhanced_data in enhanced_zone_analysis.items():
+            #             zone_analysis[zone_name] = enhanced_data
+
             
             # Step 11: Generate alerts, incidents, tracking stats, and summary
             alerts = self._check_alerts(color_summary, frame_number, config)
@@ -475,6 +482,7 @@ class ColorDetectionUseCase(BaseProcessor):
             # print(alerts)
             # print("-------------------ALERTS-------------------")
             incidents_list = self._generate_incidents(color_summary, alerts, config, frame_number, stream_info)
+            incidents_list = []
             # print("-------------------INCIDENTS_LIST-------------------")
             # print(incidents_list)
             # print("-------------------INCIDENTS_LIST-------------------")

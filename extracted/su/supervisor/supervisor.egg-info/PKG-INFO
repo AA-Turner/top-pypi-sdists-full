@@ -1,11 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: supervisor
-Version: 4.2.5
+Version: 4.3.0
 Summary: A system for controlling process state under UNIX
 Home-page: http://supervisord.org/
 Author: Chris McDonough
 Author-email: chrism@plope.com
 License: BSD-derived (http://www.repoze.org/LICENSE.txt)
+Project-URL: Changelog, http://supervisord.org/changelog
+Project-URL: Documentation, http://supervisord.org
+Project-URL: Issue Tracker, https://github.com/Supervisor/supervisor
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: No Input/Output (Daemon)
 Classifier: Intended Audience :: System Administrators
@@ -25,8 +28,22 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Provides-Extra: testing
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSES.txt
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: summary
 
 Supervisor
 ==========
@@ -70,6 +87,32 @@ We'll review contributions from the community in
 `pull requests <https://help.github.com/articles/using-pull-requests>`_
 on GitHub.
 
+
+4.3.0 (2025-08-23)
+------------------
+
+- Fixed a bug where the poller would not unregister a closed
+  file descriptor under some circumstances, which caused excessive
+  polling, resulting in higher CPU usage.  Patch by aftersnow.
+
+- Fixed a bug where restarting ``supervisord`` may have failed with
+  the message ``Error: Another program is already listening
+  on a port that one of our HTTP servers is configured to use.``
+  if an HTTP request was made during restart.  Patch by Julien Le Cléach.
+
+- Fixed a unit test that failed only on Python 3.13.  Only test code was
+  changed; no changes to ``supervisord`` itself.  Patch by Colin Watson.
+
+- On Python 3.8 and later, ``setuptools`` is no longer a runtime
+  dependency.  Patch by Ofek Lev.
+
+- On Python versions before 3.8, ``setuptools`` is still a runtime
+  dependency (for ``pkg_resources``) but it is no longer declared in
+  ``setup.py`` as such.  This is because adding a conditional dependency
+  with an environment marker (``setuptools; python_version < '3.8'``)
+  breaks installation in some scenarios, e.g. ``setup.py install`` or
+  older versions of ``pip``.  Ensure that ``setuptools`` is installed
+  if using Python before 3.8.
 
 4.2.5 (2022-12-23)
 ------------------

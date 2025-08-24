@@ -2,7 +2,7 @@ import asyncio
 import time
 from pathlib import Path
 from typing import Any, List, Type
-from orionis.console.base.contracts.scheduler import IBaseScheduler
+from orionis.console.contracts.scheduler import IBaseScheduler
 from orionis.console.base.scheduler import BaseScheduler
 from orionis.container.container import Container
 from orionis.container.contracts.service_provider import IServiceProvider

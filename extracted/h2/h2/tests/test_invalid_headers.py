@@ -48,6 +48,14 @@ class TestInvalidFrameSequences:
         [*base_request_headers, ("name ", "name with trailing space")],
         [*base_request_headers, ("name", " value with leading space")],
         [*base_request_headers, ("name", "value with trailing space ")],
+        [*base_request_headers, ("illegal:characters", "value")],
+        [*base_request_headers, ("illegal-\r-characters", "value")],
+        [*base_request_headers, ("illegal-\n-characters", "value")],
+        [*base_request_headers, ("illegal-\x00-characters", "value")],
+        [*base_request_headers, ("illegal-\x01-characters", "value")],
+        [*base_request_headers, ("illegal-characters", "some \r value")],
+        [*base_request_headers, ("illegal-characters", "some \n value")],
+        [*base_request_headers, ("illegal-characters", "some \x00 value")],
         [header for header in base_request_headers
          if header[0] != ":authority"],
         [(":protocol", "websocket"), *base_request_headers],
@@ -665,7 +673,7 @@ class TestFilter:
 
     def test_inbound_header_name_length_full_frame_decode(self, frame_factory) -> None:
         f = frame_factory.build_headers_frame([])
-        f.data = b"\x00\x00\x05\x00\x00\x00\x00\x04"
+        f.data = b"\x00\x00\x01\x04"
         data = f.serialize()
 
         c = h2.connection.H2Connection(config=h2.config.H2Configuration(client_side=False))

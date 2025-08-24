@@ -302,6 +302,7 @@ class PeopleCountingUseCase(BaseProcessor):
         
         # Step 6: Generate summary and standardized agg_summary components for this frame
         incidents = self._generate_incidents(counting_summary, zone_analysis, alerts, config, frame_id, stream_info)
+        incidents = []
         tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, config, frame_id=frame_id, alerts=alerts, stream_info=stream_info)
         business_analytics = self._generate_business_analytics(counting_summary, zone_analysis, config, frame_id, stream_info, is_empty=True)
         summary = self._generate_summary(counting_summary, incidents, tracking_stats, business_analytics, alerts)

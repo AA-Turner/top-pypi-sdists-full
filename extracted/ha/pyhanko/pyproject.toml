@@ -33,13 +33,13 @@ requires-python = ">=3.9"
 dependencies = [
     "asn1crypto>=1.5.1",
     "tzlocal>=4.3",
-    "pyhanko-certvalidator>=0.27.0,<0.28",
+    "pyhanko-certvalidator>=0.28.0,<0.29",
     "requests>=2.31.0",
     "pyyaml>=6.0",
     "cryptography>=43.0.3",
     "lxml>=5.4.0",
 ]
-version = "0.29.1"
+version = "0.30.0"
 
 
 [project.readme]
@@ -67,9 +67,9 @@ image-support = [
     "Pillow>=7.2.0",
     "python-barcode==0.15.1"
 ]
-pkcs11 = ["python-pkcs11~=0.8.0"]
+pkcs11 = ["python-pkcs11~=0.9.0"]
 async-http = ["aiohttp>=3.9,<3.13"]
-etsi = ["xsdata>=24.4,<26.0"]
+etsi = ["xsdata>=24.4,<26.0", "signxml>=4.2.0"]
 
 [dependency-groups]
 testing-base = [
@@ -78,10 +78,8 @@ testing-base = [
     "requests-mock>=1.8.0",
     "freezegun>=1.1.0",
     "certomancer>=0.13.0,<0.14",
-    "pytest-cov>=4.0,<6.2",
-    "pytest-asyncio==0.24.0;python_version<\"3.9\"",
-    "pytest-asyncio==0.26.0;python_version>=\"3.9\"",
-    "backports.zoneinfo[tzdata];python_version<\"3.9\"",
+    "pytest-cov>=4.0,<6.3",
+    "pytest-asyncio==0.26.0",
 ]
 testing-aiohttp = [
     "aiohttp>=3.9,<3.13",
@@ -101,6 +99,7 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.package-data]
 pyhanko = ["py.typed"]
+"pyhanko.sign.validation.qualified" = ["lotl-certs/*.cert.pem"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

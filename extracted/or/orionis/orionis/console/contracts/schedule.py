@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
-from orionis.console.tasks.event import Event
+from datetime import datetime
+from typing import List, Optional, Union
+from orionis.console.contracts.event import IEvent
+from orionis.console.contracts.schedule_event_listener import IScheduleEventListener
+from orionis.console.enums.listener import ListeningEvent
 
 class ISchedule(ABC):
 
@@ -9,7 +12,7 @@ class ISchedule(ABC):
         self,
         signature: str,
         args: Optional[List[str]] = None
-    ) -> 'Event':
+    ) -> 'IEvent':
         """
         Prepare an Event instance for a given command signature and its arguments.
 
@@ -40,6 +43,136 @@ class ISchedule(ABC):
         pass
 
     @abstractmethod
+    def setListener(
+        self,
+        event: Union[str, ListeningEvent],
+        listener: Union[IScheduleEventListener, callable]
+    ) -> None:
+        """
+        Register a listener callback for a specific scheduler event.
+
+        This method registers a listener function or an instance of IScheduleEventListener
+        to be invoked when the specified scheduler event occurs. The event can be a global
+        event name (e.g., 'scheduler_started') or a specific job ID. The listener must be
+        callable and should accept the event object as a parameter.
+
+        Parameters
+        ----------
+        event : str
+            The name of the event to listen for. This can be a global event name (e.g., 'scheduler_started')
+            or a specific job ID.
+        listener : IScheduleEventListener or callable
+            A callable function or an instance of IScheduleEventListener that will be invoked
+            when the specified event occurs. The listener should accept one parameter, which
+            will be the event object.
+
+        Returns
+        -------
+        None
+            This method does not return any value. It registers the listener for the specified event.
+
+        Raises
+        ------
+        ValueError
+            If the event name is not a non-empty string or if the listener is not callable
+            or an instance of IScheduleEventListener.
+        """
+        pass
+
+    @abstractmethod
+    def pauseEverythingAt(
+        self,
+        at: datetime
+    ) -> None:
+        """
+        Schedule the scheduler to pause all operations at a specific datetime.
+
+        This method allows you to schedule a job that will pause the AsyncIOScheduler
+        at the specified datetime. The job is added to the scheduler with a 'date'
+        trigger, ensuring it executes exactly at the given time.
+
+        Parameters
+        ----------
+        at : datetime
+            The datetime at which the scheduler should be paused. Must be a valid
+            datetime object.
+
+        Returns
+        -------
+        None
+            This method does not return any value. It schedules a job to pause the
+            scheduler at the specified datetime.
+
+        Raises
+        ------
+        ValueError
+            If the 'at' parameter is not a valid datetime object.
+        """
+        pass
+
+    @abstractmethod
+    def resumeEverythingAt(
+        self,
+        at: datetime
+    ) -> None:
+        """
+        Schedule the scheduler to resume all operations at a specific datetime.
+
+        This method allows you to schedule a job that will resume the AsyncIOScheduler
+        at the specified datetime. The job is added to the scheduler with a 'date'
+        trigger, ensuring it executes exactly at the given time.
+
+        Parameters
+        ----------
+        at : datetime
+            The datetime at which the scheduler should be resumed. Must be a valid
+            datetime object.
+
+        Returns
+        -------
+        None
+            This method does not return any value. It schedules a job to resume the
+            scheduler at the specified datetime.
+
+        Raises
+        ------
+        ValueError
+            If the 'at' parameter is not a valid datetime object.
+        """
+        pass
+
+    @abstractmethod
+    def shutdownEverythingAt(
+        self,
+        at: datetime
+    ) -> None:
+        """
+        Schedule the scheduler to shut down all operations at a specific datetime.
+
+        This method allows you to schedule a job that will shut down the AsyncIOScheduler
+        at the specified datetime. The job is added to the scheduler with a 'date'
+        trigger, ensuring it executes exactly at the given time.
+
+        Parameters
+        ----------
+        at : datetime
+            The datetime at which the scheduler should be shut down. Must be a valid
+            datetime object.
+
+        Returns
+        -------
+        None
+            This method does not return any value. It schedules a job to shut down the
+            scheduler at the specified datetime.
+
+        Raises
+        ------
+        ValueError
+            If the 'at' parameter is not a valid datetime object.
+        """
+        pass
+
+    @abstractmethod
     async def start(self) -> None:
         """
         Start the AsyncIO scheduler instance and keep it running.
@@ -60,45 +193,112 @@ class ISchedule(ABC):
         """
         Shut down the AsyncIO scheduler instance asynchronously.
 
-        This method gracefully stops the AsyncIOScheduler that handles asynchronous job execution.
-        Using async ensures proper cleanup in asyncio environments.
+        This method gracefully stops the AsyncIOScheduler that manages asynchronous job execution.
+        It ensures proper cleanup in asyncio environments and allows for an optional wait period
+        to complete currently executing jobs before shutting down.
 
         Parameters
         ----------
         wait : bool, optional
-            If True, the method will wait until all currently executing jobs are completed before shutting down the scheduler.
-            If False, the scheduler will be shut down immediately without waiting for running jobs to finish. Default is True.
+            If True, the method waits until all currently executing jobs are completed before shutting down the scheduler.
+            If False, the scheduler shuts down immediately without waiting for running jobs to finish. Default is True.
 
         Returns
         -------
         None
-            This method does not return any value. It shuts down the AsyncIO scheduler.
-        """
-        pass
-
-    @abstractmethod
-    async def remove(self, signature: str) -> bool:
-        """
-        Remove a scheduled job from the AsyncIO scheduler asynchronously.
-
-        This method removes a job with the specified signature from both the internal
-        jobs dictionary and the AsyncIOScheduler instance. Using async ensures proper
-        cleanup in asyncio environments.
-
-        Parameters
-        ----------
-        signature : str
-            The signature of the command/job to remove from the scheduler.
-
-        Returns
-        -------
-        bool
-            Returns True if the job was successfully removed, False if the job was not found.
+            This method does not return any value. It performs the shutdown operation for the AsyncIO scheduler.
 
         Raises
         ------
         ValueError
-            If the signature is not a non-empty string.
+            If the 'wait' parameter is not a boolean value.
+        CLIOrionisRuntimeError
+            If an error occurs during the shutdown process.
+        """
+        pass
+
+    @abstractmethod
+    def pause(self, signature: str) -> bool:
+        """
+        Pause a scheduled job in the AsyncIO scheduler.
+
+        This method pauses a job in the AsyncIOScheduler identified by its unique signature.
+        It validates the provided signature to ensure it is a non-empty string and attempts
+        to pause the job. If the operation is successful, it logs the action and returns True.
+        If the job cannot be paused (e.g., it does not exist), the method returns False.
+
+        Parameters
+        ----------
+        signature : str
+            The unique signature (ID) of the job to pause. This must be a non-empty string.
+
+        Returns
+        -------
+        bool
+            True if the job was successfully paused.
+            False if the job does not exist or an error occurred.
+
+        Raises
+        ------
+        CLIOrionisValueError
+            If the `signature` parameter is not a non-empty string.
+        """
+        pass
+
+    @abstractmethod
+    def resume(self, signature: str) -> bool:
+        """
+        Resume a paused job in the AsyncIO scheduler.
+
+        This method attempts to resume a job that was previously paused in the AsyncIOScheduler.
+        It validates the provided job signature, ensures it is a non-empty string, and then
+        resumes the job if it exists and is currently paused. If the operation is successful,
+        it logs the action and returns True. If the job cannot be resumed (e.g., it does not exist),
+        the method returns False.
+
+        Parameters
+        ----------
+        signature : str
+            The unique signature (ID) of the job to resume. This must be a non-empty string.
+
+        Returns
+        -------
+        bool
+            True if the job was successfully resumed, False if the job does not exist or an error occurred.
+
+        Raises
+        ------
+        CLIOrionisValueError
+            If the `signature` parameter is not a non-empty string.
+        """
+        pass
+
+    @abstractmethod
+    def remove(self, signature: str) -> bool:
+        """
+        Remove a scheduled job from the AsyncIO scheduler.
+
+        This method removes a job from the AsyncIOScheduler using its unique signature (ID).
+        It validates the provided signature to ensure it is a non-empty string, attempts to
+        remove the job from the scheduler, and updates the internal jobs list accordingly.
+        If the operation is successful, it logs the action and returns True. If the job
+        cannot be removed (e.g., it does not exist), the method returns False.
+
+        Parameters
+        ----------
+        signature : str
+            The unique signature (ID) of the job to remove. This must be a non-empty string.
+
+        Returns
+        -------
+        bool
+            True if the job was successfully removed from the scheduler.
+            False if the job does not exist or an error occurred.
+
+        Raises
+        ------
+        CLIOrionisValueError
+            If the `signature` parameter is not a non-empty string.
         """
         pass
 

@@ -1,25 +1,36 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyRFC3339
-Version: 2.0.1
+Version: 2.1.0
 Summary: Generate and parse RFC 3339 timestamps
-Home-page: https://github.com/kurtraschke/pyRFC3339
-Author: Kurt Raschke
-Author-email: kurt@kurtraschke.com
-License: MIT
-Keywords: rfc 3339 timestamp
+Author-email: Kurt Raschke <kurt@kurtraschke.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/kurtraschke/pyrfc3339
+Project-URL: Documentation, https://pyrfc3339.readthedocs.io/
+Project-URL: Repository, https://github.com/kurtraschke/pyRFC3339.git
+Project-URL: Bug Tracker, https://github.com/kurtraschke/pyRFC3339/issues
+Project-URL: Changelog, https://github.com/kurtraschke/pyRFC3339/blob/main/CHANGES.rst
+Keywords: rfc-3339,timestamp,iso-8601,datetime
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Dynamic: license-file
 
 Description
 ===========
 
-.. image:: https://github.com/kurtraschke/pyRFC3339/actions/workflows/test-python.yml/badge.svg
-    :target: https://github.com/kurtraschke/pyRFC3339/actions/workflows/test-python.yml
+.. image:: https://github.com/kurtraschke/pyRFC3339/actions/workflows/python.yml/badge.svg
+    :target: https://github.com/kurtraschke/pyRFC3339/actions/workflows/python.yml
     :alt: Build Status
 
 .. image:: https://readthedocs.org/projects/pyrfc3339/badge/?version=latest
@@ -35,24 +46,27 @@ pyRFC3339 parses and generates :RFC:`3339`-compliant timestamps using `Python <h
 >>> parse('2009-01-01T10:01:02Z')
 datetime.datetime(2009, 1, 1, 10, 1, 2, tzinfo=datetime.timezone.utc)
 >>> parse('2009-01-01T14:01:02-04:00')
-datetime.datetime(2009, 1, 1, 14, 1, 2, tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=72000), '<UTC-04:00>'))
+datetime.datetime(2009, 1, 1, 14, 1, 2, tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=72000)))
 
 Installation
 ============
 
-To install the latest version from `PyPI <https://pypi.python.org/pypi>`_:
+To install the latest version from `PyPI <https://pypi.org/>`_:
 
 ``$ pip install pyRFC3339``
 
 To install the latest development version:
 
-``$ pip install https://github.com/kurtraschke/pyRFC3339/tarball/master#egg=pyRFC3339-dev``
+``$ pip install https://github.com/kurtraschke/pyRFC3339/tarball/main#egg=pyRFC3339-dev``
+
+Tests as well as enforcement of code style, formatting, and type safety are run with `tox <https://tox.wiki/>`_:
+
+``$ tox``
 
 To build the documentation with Sphinx:
 
-#. ``$ pip install -r docs/requirements.txt``
-#. ``$ sphinx-build -M html docs/source/ docs/build``
+``$ tox -e docs``
 
 The documentation is also available online at:
 
-``https://pyrfc3339.readthedocs.io/``
+https://pyrfc3339.readthedocs.io/

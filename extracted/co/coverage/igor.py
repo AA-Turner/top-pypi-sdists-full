@@ -8,6 +8,7 @@ of in shell scripts, batch files, or Makefiles.
 
 """
 
+import contextlib
 import datetime
 import glob
 import inspect
@@ -21,6 +22,7 @@ import subprocess
 import sys
 import sysconfig
 import textwrap
+import time
 import types
 import zipfile
 
@@ -43,6 +45,16 @@ VERBOSITY = int(os.getenv("COVERAGE_IGOR_VERBOSE", "1"))
 
 # Functions named do_* are executable from the command line: do_blah is run
 # by "python igor.py blah".
+
+
+@contextlib.contextmanager
+def time_message(msg: str):
+    """Print a message about how long something took."""
+    start = time.monotonic()
+    try:
+        yield
+    finally:
+        print(f"Time for {msg}: {time.monotonic() - start:.2f}s")
 
 
 def do_show_env():
@@ -231,7 +243,8 @@ def do_combine_html():
     os.environ["COVERAGE_HOME"] = os.getcwd()
     cov = coverage.Coverage(config_file="metacov.ini")
     cov.load()
-    cov.combine()
+    with time_message("combine"):
+        cov.combine()
     cov.save()
     # A new Coverage to turn on messages. Better would be to have tighter
     # control over message verbosity...
@@ -240,8 +253,8 @@ def do_combine_html():
     show_contexts = bool(
         os.getenv("COVERAGE_DYNCTX") or os.getenv("COVERAGE_CONTEXT"),
     )
-    total = cov.html_report(show_contexts=show_contexts)
-    cov.json_report(show_contexts=show_contexts, pretty_print=True)
+    with time_message("html"):
+        total = cov.html_report(show_contexts=show_contexts)
     print(f"Total: {total:.3f}%")
 
 
@@ -304,7 +317,7 @@ def print_banner(label):
     """Print the version of Python."""
     impl = platform.python_implementation()
     version = platform.python_version()
-    has_gil = getattr(sys, '_is_gil_enabled', lambda: True)()
+    has_gil = getattr(sys, "_is_gil_enabled", lambda: True)()
     if not has_gil:
         version += "t"
     if PYPY:
@@ -318,7 +331,10 @@ def print_banner(label):
 def do_quietly(command):
     """Run a command in a shell, and suppress all output."""
     proc = subprocess.run(
-        command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        command,
+        shell=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     return proc.returncode
 
@@ -373,7 +389,9 @@ def do_edit_for_release():
 
     # NOTICE.txt
     update_file(
-        "NOTICE.txt", r"Copyright 2004.*? Ned", f"Copyright 2004-{facts.now:%Y} Ned",
+        "NOTICE.txt",
+        r"Copyright 2004.*? Ned",
+        f"Copyright 2004-{facts.now:%Y} Ned",
     )
 
     # CHANGES.rst
@@ -388,7 +406,7 @@ def do_edit_for_release():
     new_conf = textwrap.dedent(
         f"""\
         # @@@ editable
-        copyright = "2009\N{EN DASH}{facts.now:%Y}, Ned Batchelder" # pylint: disable=redefined-builtin
+        copyright = "2009\N{EN DASH}{facts.now:%Y}, Ned Batchelder"  # pylint: disable=redefined-builtin
         # The short X.Y.Z version.
         version = "{facts.shortver}"
         # The full version, including alpha/beta/rc tags.
@@ -400,13 +418,16 @@ def do_edit_for_release():
     )
     update_file("doc/conf.py", r"(?s)# @@@ editable\n.*# @@@ end\n", new_conf)
 
+
 def do_release_version():
     """Set the version to 'final' for a release."""
     facts = get_release_facts()
     rel_vi = facts.vi[:3] + ("final", 0)
     rel_version = f"version_info = {rel_vi}\n_dev = 0".replace("'", '"')
     update_file(
-        "coverage/version.py", r"(?m)^version_info = .*\n_dev = \d+$", rel_version,
+        "coverage/version.py",
+        r"(?m)^version_info = .*\n_dev = \d+$",
+        rel_version,
     )
 
 
@@ -424,7 +445,9 @@ def do_bump_version():
     # coverage/version.py
     next_version = f"version_info = {facts.next_vi}\n_dev = 1".replace("'", '"')
     update_file(
-        "coverage/version.py", r"(?m)^version_info = .*\n_dev = \d+$", next_version,
+        "coverage/version.py",
+        r"(?m)^version_info = .*\n_dev = \d+$",
+        next_version,
     )
 
 
@@ -471,6 +494,7 @@ def do_cheats():
 def do_copy_with_hash(*args):
     """Copy files with a cache-busting hash.  Used in tests/gold/html/Makefile."""
     from coverage.html import copy_with_cache_bust
+
     *srcs, dest_dir = args
     for src in srcs:
         copy_with_cache_bust(src, dest_dir)

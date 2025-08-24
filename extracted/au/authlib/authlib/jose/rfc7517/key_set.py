@@ -32,10 +32,9 @@ class KeySet:
         if params:
             keys = list(_filter_keys_by_params(keys, **params))
 
-        if len(keys) == 1:
+        if keys:
             return keys[0]
-
-        raise ValueError("Invalid JSON Web Key Set")
+        raise ValueError("Key not found")
 
 
 def _filter_keys_by_params(keys, **params):

@@ -8,7 +8,7 @@ from typing import Dict, Iterable, List, Optional, Set, Union
 from asn1crypto import crl, ocsp, x509
 from asn1crypto.util import timezone
 
-from .authority import AuthorityWithCert, CertTrustAnchor
+from .authority import AuthorityWithCert
 from .fetchers import FetcherBackend, Fetchers, default_fetcher_backend
 from .fetchers.requests_fetchers import RequestsFetcherBackend
 from .ltv.poe import POEManager
@@ -36,6 +36,7 @@ from .revinfo.archival import (
     process_legacy_ocsp_input,
 )
 from .revinfo.manager import RevinfoManager
+from .sig_validate import DefaultSignatureValidator, SignatureValidator
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,7 @@ class ValidationContext:
         trust_manager: Optional[TrustManager] = None,
         algorithm_usage_policy: Optional[AlgorithmUsagePolicy] = None,
         fetchers: Optional[Fetchers] = None,
+        signature_validator: Optional[SignatureValidator] = None,
     ):
         """
         :param trust_roots:
@@ -318,6 +320,7 @@ class ValidationContext:
         )
 
         self._acceptable_ac_targets = acceptable_ac_targets
+        self.sig_validator = signature_validator or DefaultSignatureValidator()
 
     @property
     def revinfo_manager(self) -> RevinfoManager:
@@ -486,12 +489,14 @@ class ValidationContext:
             object of the validation path
         """
 
-        if (
-            self.path_builder.trust_manager.is_root(cert)
-            and cert.signature not in self._validate_map
-        ):
+        maybe_trust_anchor = self.path_builder.trust_manager.as_trust_anchor(
+            AuthorityWithCert(cert)
+        )
+        if maybe_trust_anchor and cert.signature not in self._validate_map:
             self._validate_map[cert.signature] = ValidationPath(
-                trust_anchor=CertTrustAnchor(cert), interm=[], leaf=None
+                trust_anchor=maybe_trust_anchor,
+                interm=[],
+                leaf=None,
             )
 
         return self._validate_map.get(cert.signature)
@@ -654,6 +659,12 @@ class CertValidationPolicySpec:
     The PKIX validation parameters to use, as defined in :rfc:`5280`.
     """
 
+    signature_validator: SignatureValidator = DefaultSignatureValidator()
+    """
+    Validator implementing the necessary cryptographic operations to validate
+    signatures.
+    """
+
     def build_validation_context(
         self,
         timing_info: ValidationTimingInfo,
@@ -698,4 +709,5 @@ class CertValidationPolicySpec:
             time_tolerance=self.time_tolerance,
             acceptable_ac_targets=self.acceptable_ac_targets,
             allow_fetching=revinfo_manager.fetching_allowed,
+            signature_validator=self.signature_validator,
         )

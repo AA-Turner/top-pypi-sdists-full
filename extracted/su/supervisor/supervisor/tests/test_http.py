@@ -1,7 +1,6 @@
 import base64
 import os
 import stat
-import sys
 import socket
 import tempfile
 import unittest
@@ -684,9 +683,3 @@ class DummyProducer:
             return self.data.pop(0)
         else:
             return b''
-
-def test_suite():
-    return unittest.findTestCases(sys.modules[__name__])
-
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')

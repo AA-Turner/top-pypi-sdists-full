@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dao_treasury
-Version: 0.0.43
+Version: 0.0.45
 Summary: Produce comprehensive financial reports for your on-chain org
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
@@ -14,6 +14,13 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10,<3.13
 Description-Content-Type: text/markdown
+Requires-Dist: eth-portfolio-temp<0.2,>=0.1.7.dev0
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 DAO Treasury is a comprehensive financial reporting and treasury management solution designed specifically for decentralized organizations. Built as an extension to [eth-portfolio](https://github.com/BobTheBuidler/eth-portfolio)'s [Portfolio Exporter](https://bobthebuidler.github.io/eth-portfolio/exporter.html), DAO Treasury automates the collection and visualization of financial data, enabling organizations to monitor and report on treasury activities with clarity and transparency.
 

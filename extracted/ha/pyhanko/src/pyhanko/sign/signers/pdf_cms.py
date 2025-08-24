@@ -27,6 +27,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.serialization import pkcs12
+
 from pyhanko.pdf_utils import misc
 from pyhanko.sign import attributes
 from pyhanko.sign.ades.api import CAdESSignedAttrSpec
@@ -38,16 +39,17 @@ from pyhanko.sign.attributes import (
 from pyhanko.sign.general import (
     SigningError,
     get_cms_hash_algo_for_mechanism,
-    get_pyca_cryptography_hash,
     optimal_pss_params,
-    process_pss_params,
     simple_cms_attribute,
 )
 from pyhanko.sign.timestamps import TimeStamper
-
 from pyhanko_certvalidator.registry import (
     CertificateStore,
     SimpleCertificateStore,
+)
+from pyhanko_certvalidator.util import (
+    get_pyca_cryptography_hash,
+    process_pss_params,
 )
 
 from ...keys import (
@@ -1454,7 +1456,7 @@ class SimpleSigner(Signer):
             return priv_key.sign(data, padding, hash_algo)
         elif mechanism == 'rsassa_pss':
             params = signature_mechanism['parameters']
-            padding, hash_algo = process_pss_params(params, digest_algorithm)
+            padding, hash_algo = process_pss_params(params)
             assert isinstance(priv_key, RSAPrivateKey)
             return priv_key.sign(data, padding, hash_algo)
         elif mechanism == 'ecdsa':

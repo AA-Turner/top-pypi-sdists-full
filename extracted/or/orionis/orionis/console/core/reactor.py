@@ -4,7 +4,7 @@ import re
 from typing import Any, List, Optional
 from orionis.console.args.argument import CLIArgument
 from orionis.console.base.command import BaseCommand
-from orionis.console.base.contracts.command import IBaseCommand
+from orionis.console.contracts.command import IBaseCommand
 from orionis.console.contracts.reactor import IReactor
 from orionis.console.enums.command import Command
 from orionis.console.exceptions import CLIOrionisValueError

@@ -1,13 +1,11 @@
 from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
-from rich.text import Text
 from orionis.console.base.command import BaseCommand
 from orionis.console.contracts.schedule import ISchedule
+from orionis.console.enums.listener import ListeningEvent
 from orionis.console.exceptions import CLIOrionisRuntimeError
-from orionis.container.exceptions.exception import OrionisContainerException
 from orionis.foundation.contracts.application import IApplication
-from orionis.foundation.exceptions.runtime import OrionisRuntimeError
 
 class ScheduleWorkCommand(BaseCommand):
     """
@@ -74,16 +72,16 @@ class ScheduleWorkCommand(BaseCommand):
         try:
 
             # Retrieve the Scheduler instance from the application
-            Scheduler = app.getScheduler()
+            scheduler = app.getScheduler()
 
             # Create an instance of the ISchedule service
-            schedule_serice: ISchedule = app.make(ISchedule)
+            schedule_service: ISchedule = app.make(ISchedule)
 
             # Register scheduled tasks using the Scheduler's tasks method
-            Scheduler.tasks(schedule_serice)
+            await scheduler.tasks(schedule_service)
 
             # Retrieve the list of scheduled jobs/events
-            list_tasks = schedule_serice.events()
+            list_tasks = schedule_service.events()
 
             # Display a message if no scheduled jobs are found
             if not list_tasks:
@@ -92,32 +90,49 @@ class ScheduleWorkCommand(BaseCommand):
                 console.line()
                 return True
 
-            # Display a start message for the scheduler worker
-            console.line()
-            start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            panel_content = Text.assemble(
-                (" Orionis Scheduler Worker ", "bold white on green"),
-                ("\n\n", ""),
-                ("The scheduled tasks worker has started successfully.\n", "white"),
-                (f"Started at: {start_time}\n", "dim"),
-                ("To stop the worker, press ", "white"),
-                ("Ctrl+C", "bold yellow"),
-                (".", "white")
-            )
-            console.print(
-                Panel(panel_content, border_style="green", padding=(1, 2))
-            )
-            console.line()
+            # If there are scheduled jobs and the scheduler has an onStarted method
+            if hasattr(scheduler, "onStarted") and callable(scheduler.onStarted):
+                schedule_service.setListener(ListeningEvent.SCHEDULER_STARTED, scheduler.onStarted)
+
+            # If the scheduler has an onPaused method
+            if hasattr(scheduler, "onPaused") and callable(scheduler.onPaused):
+                schedule_service.setListener(ListeningEvent.SCHEDULER_PAUSED, scheduler.onPaused)
+
+            # If the scheduler has an onResumed method
+            if hasattr(scheduler, "onResumed") and callable(scheduler.onResumed):
+                schedule_service.setListener(ListeningEvent.SCHEDULER_RESUMED, scheduler.onResumed)
+
+            # If the scheduler has an onFinalized method
+            if hasattr(scheduler, "onFinalized") and callable(scheduler.onFinalized):
+                schedule_service.setListener(ListeningEvent.SCHEDULER_SHUTDOWN, scheduler.onFinalized)
+
+            # If the scheduler has an onError method
+            if hasattr(scheduler, "onError") and callable(scheduler.onError):
+                schedule_service.setListener(ListeningEvent.SCHEDULER_ERROR, scheduler.onError)
+
+            # Check if the scheduler has specific pause, resume, and finalize times
+            if hasattr(scheduler, "PAUSE_AT") and scheduler.PAUSE_AT is not None:
+                if not isinstance(scheduler.PAUSE_AT, datetime):
+                    raise CLIOrionisRuntimeError("PAUSE_AT must be a datetime instance.")
+                schedule_service.pauseEverythingAt(scheduler.PAUSE_AT)
+
+            if hasattr(scheduler, "RESUME_AT") and scheduler.RESUME_AT is not None:
+                if not isinstance(scheduler.RESUME_AT, datetime):
+                    raise CLIOrionisRuntimeError("RESUME_AT must be a datetime instance.")
+                schedule_service.resumeEverythingAt(scheduler.RESUME_AT)
+
+            if hasattr(scheduler, "FINALIZE_AT") and scheduler.FINALIZE_AT is not None:
+                if not isinstance(scheduler.FINALIZE_AT, datetime):
+                    raise CLIOrionisRuntimeError("FINALIZE_AT must be a datetime instance.")
+                schedule_service.shutdownEverythingAt(scheduler.FINALIZE_AT)
 
             # Start the scheduler worker asynchronously
-            await schedule_serice.start()
+            await schedule_service.start()
+
+            # Flag to indicate the scheduler is running
             return True
 
         except Exception as e:
-
-            # If the exception is already a CLIOrionisRuntimeError or OrionisContainerException, re-raise it
-            if isinstance(e, (OrionisRuntimeError, OrionisContainerException)):
-                raise
 
             # Raise any unexpected exceptions as CLIOrionisRuntimeError
             raise CLIOrionisRuntimeError(

@@ -27,7 +27,7 @@ To generate a route:
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Literal, cast
 
 import kfactory as kf
@@ -45,6 +45,7 @@ from gdsfactory.typings import (
     LayerSpec,
     LayerTransitions,
     Port,
+    Step,
     WayPoints,
 )
 
@@ -60,7 +61,7 @@ def route_single(
     start_straight_length: float = 0.0,
     end_straight_length: float = 0.0,
     waypoints: WayPoints | None = None,
-    steps: Sequence[Mapping[Literal["x", "y", "dx", "dy"], int | float]] | None = None,
+    steps: Sequence[Step] | None = None,
     port_type: str | None = None,
     allow_width_mismatch: bool = False,
     radius: float | None = None,
@@ -105,36 +106,33 @@ def route_single(
         gf.routing.route_single(c, mmi1.ports["o2"], mmi2.ports["o1"], radius=5, cross_section="strip")
         c.plot()
     """
-    p1 = port1
-    p2 = port2
-    c = component
-
     if cross_section is None:
         if layer is None or route_width is None:
             raise ValueError(
                 f"Either {cross_section=} or {layer=} and route_width must be provided"
             )
 
-        elif radius:
-            cross_section = gf.cross_section.cross_section(
-                layer=layer,
-                width=route_width,
-                radius=radius,
-            )
-        else:
-            cross_section = gf.cross_section.cross_section(
-                layer=layer,
-                width=route_width,
-            )
-
+    c = component
+    p1 = port1
+    p2 = port2
     port_type = port_type or p1.port_type
+
+    if cross_section is None:
+        cross_section = gf.cross_section.cross_section(
+            layer=cast(LayerSpec, layer),
+            width=cast(float, route_width),
+            port_names=("e1", "e2") if port_type == "electrical" else ("o1", "o2"),
+            port_types=(port_type, port_type),
+        )
+
     if route_width:
         xs = gf.get_cross_section(cross_section, width=route_width)
     else:
         xs = gf.get_cross_section(cross_section)
     width = route_width or xs.width
+
     radius = radius or xs.radius
-    bend90 = gf.get_component(bend, cross_section=xs, radius=radius)
+    bend90 = gf.get_component(bend, cross_section=xs, radius=radius, width=width)
     if auto_taper:
         p1 = add_auto_tapers(component, [p1], xs, layer_transitions)[0]
         p2 = add_auto_tapers(component, [p2], xs, layer_transitions)[0]
@@ -154,20 +152,17 @@ def route_single(
         raise ValueError("Provide either steps or waypoints, not both")
 
     waypoints_list = [] if waypoints is None else list(waypoints)
-    if steps is None:
-        steps = []
 
     if steps:
         x, y = p1.center
         for d in steps:
             if not STEP_DIRECTIVES.issuperset(d):
-                invalid_step_directives = list(set[str](d.keys()) - STEP_DIRECTIVES)
                 raise ValueError(
-                    f"Invalid step directives: {invalid_step_directives}."
+                    f"Invalid step directives: {list(d.keys() - STEP_DIRECTIVES)}."
                     f"Valid directives are {list(STEP_DIRECTIVES)}"
                 )
-            x = float(d.get("x", x) + d.get("dx", 0.0))
-            y = float(d.get("y", y) + d.get("dy", 0.0))
+            x = d.get("x", x) + d.get("dx", 0)
+            y = d.get("y", y) + d.get("dy", 0)
             waypoints_list.append((x, y))
 
     if waypoints_list:

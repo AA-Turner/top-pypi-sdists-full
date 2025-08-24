@@ -13,9 +13,22 @@ from exifread.exif_log import get_logger
 from exifread.serialize import convert_types
 from exifread.tags import DEFAULT_STOP_TAG
 
-__version__ = "3.4.0"
+__version__ = "3.5.1"
 
 logger = get_logger()
+
+
+def _extract_xmp_data(hdr: ExifHeader, fh: BinaryIO):
+    # Easy we already have them
+    xmp_tag = hdr.tags.get("Image ApplicationNotes")
+    if xmp_tag:
+        logger.debug("XMP present in Exif")
+        xmp_bytes = bytes(xmp_tag.values)
+    # We need to look in the entire file for the XML
+    else:
+        xmp_bytes = find_xmp_data(fh)
+    if xmp_bytes:
+        hdr.parse_xmp(xmp_bytes)
 
 
 def process_file(
@@ -72,10 +85,9 @@ def process_file(
     hdr = ExifHeader(
         fh, endian_str, offset, fake_exif, strict, debug, details, truncate_tags
     )
-    ifd_list = hdr.list_ifd()
     thumb_ifd = 0
     ctr = 0
-    for ifd in ifd_list:
+    for ifd in hdr.list_ifd():
         if ctr == 0:
             ifd_name = "Image"
         elif ctr == 1:
@@ -92,11 +104,26 @@ def process_file(
         logger.debug("Exif SubIFD at offset %s:", exif_off.values[0])
         hdr.dump_ifd(ifd=exif_off.values[0], ifd_name="EXIF", stop_tag=stop_tag)
 
+    # EXIF SubIFD
+    sub_ifds = hdr.tags.get("Image SubIFDs")
+    if details and sub_ifds:
+        for subifd_id, subifd_offset in enumerate(sub_ifds.values):
+            logger.debug("Exif SubIFD%d at offset %d:", subifd_id, subifd_offset)
+            hdr.dump_ifd(
+                ifd=subifd_offset, ifd_name=f"EXIF SubIFD{subifd_id}", stop_tag=stop_tag
+            )
+
     # deal with MakerNote contained in EXIF IFD
     # (Some apps use MakerNote tags but do not use a format for which we
     # have a description, do not process these).
     if details and "EXIF MakerNote" in hdr.tags and "Image Make" in hdr.tags:
-        hdr.decode_maker_note()
+        try:
+            hdr.decode_maker_note()
+        except ValueError as err:
+            if not strict:
+                logger.debug("Failed to decode EXIF MakerNote: %s", str(err))
+            else:
+                raise err
 
     # extract thumbnails
     if thumb_ifd and extract_thumbnail:
@@ -105,16 +132,7 @@ def process_file(
 
     # parse XMP tags (experimental)
     if debug and details:
-        # Easy we already have them
-        xmp_tag = hdr.tags.get("Image ApplicationNotes")
-        if xmp_tag:
-            logger.debug("XMP present in Exif")
-            xmp_bytes = bytes(xmp_tag.values)
-        # We need to look in the entire file for the XML
-        else:
-            xmp_bytes = find_xmp_data(fh)
-        if xmp_bytes:
-            hdr.parse_xmp(xmp_bytes)
+        _extract_xmp_data(hdr=hdr, fh=fh)
 
     if builtin_types:
         return convert_types(hdr.tags)

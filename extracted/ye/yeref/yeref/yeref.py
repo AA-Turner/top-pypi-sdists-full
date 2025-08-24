@@ -10869,15 +10869,15 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
             print(f"after balance_html_tags_async {POST_TEXT}")
         POST_BLOG = await region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_TYPE)
 
-        POST_ISPAY = POST_CHKBOX['POST_ISPAY'] if 'POST_ISPAY' in POST_CHKBOX else False
-        POST_STARS = POST_CHKBOX['POST_STARS'] if 'POST_STARS' in POST_CHKBOX else '1'
-        POST_ISWATER = POST_CHKBOX['POST_ISWATER'] if 'POST_ISWATER' in POST_CHKBOX else False
-        POST_WATER = POST_CHKBOX['POST_WATER'] if 'POST_WATER' in POST_CHKBOX else ''
+        POST_ISPAY = POST_CHKBOX.get('POST_ISPAY', False)
+        POST_STARS = POST_CHKBOX.get('POST_STARS', '1')
+        POST_ISWATER = POST_CHKBOX.get('POST_ISWATER', False)
+        POST_WATER = POST_CHKBOX.get('POST_WATER', '')
 
-        POST_APPTOKEN = post['POST_APPTOKEN'] if 'POST_APPTOKEN' in post else ''
-        POST_TARGETTYPE = post['POST_TARGETTYPE'] if 'POST_TARGETTYPE' in post else 'me'
-        POST_TARGET = post['POST_TARGET'] if 'POST_TARGET' in post else ''
-        POST_ISPRIVATE = post['POST_ISPRIVATE'] if 'POST_ISPRIVATE' in post else 0
+        POST_APPTOKEN = post.get('POST_APPTOKEN', '')
+        POST_TARGETTYPE = post.get('POST_TARGETTYPE', 'me')
+        POST_TARGET = post.get('POST_TARGET', '')
+        POST_ISPRIVATE = post.get('POST_ISPRIVATE', False)  # why not POST_CHKBOX?
 
         targets = []
         if POST_TARGETTYPE == 'ids' and PROJECT_USERNAME == 'FereyBotBot':
@@ -10919,7 +10919,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
             web_val = f"pst-{tid_tmp}-{POST_TID}"
             print(f"{web_val=}")
             HASH_VAL = hashlib.blake2b(web_val.encode('utf-8'), digest_size=8).hexdigest()
-            POST_WEB = f"https://t.me/{PROJECT_USERNAME}/web?startapp=pst-{HASH_VAL}-{tid_tmp}&mode=fullscreen"
+            POST_WEB = f"https://t.me/{PROJECT_USERNAME}/web?startapp=pst-{HASH_VAL}-{tid_tmp}"
 
         print(f"{result=}, {POST_APPTOKEN=}")
         if ENT_TOKEN and len(POST_MEDIA):
@@ -11422,7 +11422,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                             await extra_bot.session.close()
                 else:
                     file_id = POST_MEDIA[index]['filew_id']
-            elif index == 0 and POST_MEDIA[index]['file_link'] not in [photo_jpg] and len(POST_TEXT_) > 1024 and POST_CHKBOX['POST_REACTION'] and POST_CHKBOX['POST_EFFECT']:
+            elif index == 0 and POST_MEDIA[index]['file_link'] not in [photo_jpg] and len(POST_TEXT_) > 1024:
                 POST_TEXT_ = await correct_txt_tags_for_tg(POST_TEXT_)
                 print(f"{POST_TEXT_=}")
 
@@ -12213,7 +12213,7 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                     #     await db_change_pg(sql, (HASH_STR, HASH_VAL,), BASE_P)
 
                     post_fix = '' if PROJECT_USERNAME == 'FereyPostBot' else f"-{str(ENT_TID).replace('-', '')}"
-                    url = f'https://t.me/{PROJECT_USERNAME}/web?startapp=pst-{HASH_VAL}{post_fix}&mode=fullscreen'
+                    url = f'https://t.me/{PROJECT_USERNAME}/web?startapp=pst-{HASH_VAL}{post_fix}'
                     btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
                     rows[row_index].append(btn)
                 elif button['knd'] == 'nft':

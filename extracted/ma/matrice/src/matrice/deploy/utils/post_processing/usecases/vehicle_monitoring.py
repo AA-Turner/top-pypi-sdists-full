@@ -29,13 +29,13 @@ class VehicleMonitoringConfig(BaseConfig):
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
     confidence_threshold: float = 0.6
-    zone_config: Optional[Dict[str, List[List[float]]]] = field(
-    default_factory=lambda: {
-        "zones": {
-            "Entrance": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
-        }
-    }
-)
+    zone_config: Optional[Dict[str, List[List[float]]]] = None #field(
+#     default_factory=lambda: {
+#         "zones": {
+#             "Entrance": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
+#         }
+#     }
+# )
     usecase_categories: List[str] = field(
         default_factory=lambda: [
             "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
@@ -220,6 +220,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
         predictions = self._extract_predictions(processed_data)
 
         incidents_list = self._generate_incidents(counting_summary,zone_analysis, alerts, config, frame_number, stream_info)
+        incidents_list = []
         tracking_stats_list = self._generate_tracking_stats(counting_summary,zone_analysis, alerts, config, frame_number, stream_info)
         # print("---------------------------TS--------------------------------------")
         # print(tracking_stats_list)

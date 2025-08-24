@@ -1,19 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: monday
-Version: 2.0.1
+Version: 2.0.3
 Summary: A Python client library for Monday.com
 Home-page: https://github.com/ProdPerfect/monday
 Author: Christina D'Astolfo
 Author-email: chdastolfo@gmail.com, lemi@prodperfect.com, pevner@prodperfect.com
 License: BSD
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.6
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 # monday
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
@@ -26,7 +36,7 @@ For an overview of the Monday API, [click here](https://developer.monday.com/api
 
 
 #### Requirements
-- Python >= 3.6
+- Python >= 3.11
 
 #### Getting started
 `pip install monday`

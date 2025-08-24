@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "cdk-gitlab-runner",
-    "2.3.228",
+    "2.3.229",
     __name__[0:-6],
-    "cdk-gitlab-runner@2.3.228.jsii.tgz",
+    "cdk-gitlab-runner@2.3.229.jsii.tgz",
 )
 
 __all__ = [

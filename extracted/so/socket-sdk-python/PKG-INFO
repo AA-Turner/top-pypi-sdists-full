@@ -1,13 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: socket-sdk-python
-Version: 2.1.8
-Summary: Socket Security Python SDK
+Version: 2.2.3
+Summary: Socket Security Python SDK [DEPRECATED: Please use 'socketdev' package instead]
+Project-URL: Homepage, https://github.com/socketdev/socket-sdk-python
 Author-email: Douglas Coburn <douglas@socket.dev>
 Maintainer-email: Douglas Coburn <douglas@socket.dev>
-License: MIT
-Project-URL: Homepage, https://github.com/socketdev/socket-sdk-python
-Keywords: socketsecurity,socket.dev,sca,oss,security,sdk
-Classifier: Development Status :: 5 - Production/Stable
+License: MIT License
+        
+        Copyright (c) 2025 Socket Inc.
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: oss,sca,sdk,security,socket.dev,socketsecurity
+Classifier: Development Status :: 7 - Inactive
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -16,21 +37,31 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
 Requires-Dist: requests
 Requires-Dist: typing-extensions>=4.12.2
 Provides-Extra: dev
-Requires-Dist: ruff>=0.3.0; extra == "dev"
-Requires-Dist: twine>=4.0.0; extra == "dev"
-Requires-Dist: wheel>=0.40.0; extra == "dev"
-Requires-Dist: build>=1.0.0; extra == "dev"
+Requires-Dist: hatch>=1.14.0; extra == 'dev'
+Requires-Dist: hatchling>=1.27.0; extra == 'dev'
+Requires-Dist: ruff>=0.3.0; extra == 'dev'
+Requires-Dist: twine>=4.0.0; extra == 'dev'
 Provides-Extra: test
-Requires-Dist: pytest>=7.0.0; extra == "test"
-Requires-Dist: pytest-cov>=4.0.0; extra == "test"
+Requires-Dist: pytest-cov>=4.0.0; extra == 'test'
+Requires-Dist: pytest>=7.0.0; extra == 'test'
+Description-Content-Type: text/x-rst
 
 
 socket-python-sdk
 #################
+
+.. warning::
+   **DEPRECATED**: This package is deprecated. Please migrate to the new ``socketdev`` package:
+   
+   .. code-block:: bash
+      
+      pip uninstall socket-sdk-python
+      pip install socketdev
+   
+   The API remains exactly the same, only the package name has changed. This package will no longer receive updates.
 
 Purpose
 -------

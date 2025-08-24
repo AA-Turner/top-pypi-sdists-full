@@ -11,11 +11,13 @@ from typing import IO, Optional, Union
 
 from asn1crypto import cms
 from cryptography.hazmat.primitives import hashes
+
 from pyhanko.pdf_utils import generic, misc
 from pyhanko.pdf_utils.generic import pdf_date, pdf_name, pdf_string
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.writer import BasePdfFileWriter
-from pyhanko.sign.general import SigningError, get_pyca_cryptography_hash
+from pyhanko.sign.general import SigningError
+from pyhanko_certvalidator.util import get_pyca_cryptography_hash
 
 from ..fields import SigAuthType, SigSeedSubFilter
 from . import constants

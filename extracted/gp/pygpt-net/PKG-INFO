@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.20
+Version: 2.6.21
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
@@ -111,7 +111,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.20** | build: **2025-08-22** | Python: **>=3.10, <3.14**
+Release: **2.6.21** | build: **2025-08-24** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -929,8 +929,6 @@ Below is a pattern for how different types of agents work. You can use these pat
 **Limitations:**
 
 - When the `Computer use` tool is selected for an expert or when the `computer-use` model is chosen, all other tools will not be available for that model.
-
-- Ollama models are not supported in this mode.
 
 ##  Agent (Autonomous) 
 
@@ -2489,8 +2487,6 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 
 - `Use ReAct agent for Tool calls in Chat with Files mode`: Enable ReAct agent for tool calls in Chat with Files mode.
 
-- `Display full agent output in chat window`: If enabled, a real-time output from agent reasoning will be displayed with the response.
-
 - `Auto-retrieve additional context`: Enable automatic retrieve of additional context from vector store in every query.
 
 **Embeddings**
@@ -2544,6 +2540,8 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 - `Auto retrieve additional context from RAG`: Auto retrieve additional context from RAG at the beginning if the index is provided.
 
 - `Display a tray notification when the goal is achieved.`: If enabled, a notification will be displayed after goal achieved / finished run.
+
+- `Display full agent output in chat window`: If enabled, a real-time output from agent reasoning will be displayed with the response.
 
 **Agents (LlamaIndex / OpenAI)**
 
@@ -3537,6 +3535,15 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.21 (2025-08-24)**
+
+- Ollama models are now available in OpenAI Agents mode.
+- Improved parsing of responses from Agents.
+- Fix: do not initialize index in Agents mode if not provided.
+- Fix: agent response evaluation steps limit.
+- Fix: do not execute code in agents if Tools are disabled.
+- Refactoring.
 
 **2.6.20 (2025-08-22)**
 

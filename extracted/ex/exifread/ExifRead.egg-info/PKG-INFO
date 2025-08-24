@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ExifRead
-Version: 3.4.0
+Version: 3.5.1
 Summary: Library to extract Exif information from digital camera image files.
 Author: Ianaré Sévi
 License: 
@@ -83,7 +83,7 @@ Easy to use Python module to extract Exif metadata from digital image files.
 
 Pure Python, lightweight, no dependencies.
 
-Supported formats: TIFF, JPEG, PNG, Webp, HEIC
+Supported formats: TIFF, JPEG, JPEG XL, PNG, Webp, HEIC, RAW
 
 
 Compatibility

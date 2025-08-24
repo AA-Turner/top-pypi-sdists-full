@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: h2
-Version: 4.2.0
+Version: 4.3.0
 Summary: Pure-Python HTTP/2 protocol implementation
 Author-email: Cory Benfield <cory@lukasa.co.uk>
 Maintainer-email: Thomas Kriechbaumer <thomas@kriechbaumer.name>
@@ -48,6 +48,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: hyperframe<7,>=6.1
 Requires-Dist: hpack<5,>=4.1
+Dynamic: license-file
 
 =========================
 h2: HTTP/2 Protocol Stack
@@ -113,7 +114,7 @@ to large feature requests and changes.
 Before you contribute (either by opening an issue or filing a pull request),
 please `read the contribution guidelines`_.
 
-.. _read the contribution guidelines: http://python-hyper.org/en/latest/contributing.html
+.. _read the contribution guidelines: https://python-hyper.org/en/latest/contributing.html
 
 License
 =======

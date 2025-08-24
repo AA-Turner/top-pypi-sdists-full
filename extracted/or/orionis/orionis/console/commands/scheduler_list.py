@@ -4,9 +4,7 @@ from rich.table import Table
 from orionis.console.base.command import BaseCommand
 from orionis.console.contracts.schedule import ISchedule
 from orionis.console.exceptions import CLIOrionisRuntimeError
-from orionis.container.exceptions.exception import OrionisContainerException
 from orionis.foundation.contracts.application import IApplication
-from orionis.foundation.exceptions.runtime import OrionisRuntimeError
 
 class ScheduleListCommand(BaseCommand):
     """
@@ -38,7 +36,7 @@ class ScheduleListCommand(BaseCommand):
     # Command description
     description: str = "Executes the scheduled tasks defined in the application."
 
-    def handle(self, app: IApplication, console: Console) -> bool:
+    async def handle(self, app: IApplication, console: Console) -> bool:
         """
         Displays a table of scheduled jobs defined in the application.
 
@@ -64,13 +62,13 @@ class ScheduleListCommand(BaseCommand):
         try:
 
             # Retrieve the Scheduler instance from the application
-            Scheduler = app.getScheduler()
+            scheduler = app.getScheduler()
 
             # Create an instance of the ISchedule service
             schedule_service: ISchedule = app.make(ISchedule)
 
             # Register scheduled tasks using the Scheduler's tasks method
-            Scheduler.tasks(schedule_service)
+            await scheduler.tasks(schedule_service)
 
             # Retrieve the list of scheduled jobs/events
             list_tasks = schedule_service.events()
@@ -111,10 +109,6 @@ class ScheduleListCommand(BaseCommand):
             return True
 
         except Exception as e:
-
-            # If the exception is already a CLIOrionisRuntimeError or OrionisContainerException, re-raise it
-            if isinstance(e, (OrionisRuntimeError, OrionisContainerException)):
-                raise
 
             # Catch any unexpected exceptions and raise as a CLIOrionisRuntimeError
             raise CLIOrionisRuntimeError(

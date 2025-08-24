@@ -2,7 +2,6 @@ use bkmr::cli::args::{Cli, Commands};
 use bkmr::util::argument_processor::ArgumentProcessor;
 use bkmr::domain::tag::Tag;
 use bkmr::util::testing::{init_test_env, EnvGuard};
-use serial_test::serial;
 use termcolor::{ColorChoice, StandardStream};
 
 // fn create_mock_service() -> impl BookmarkService {
@@ -18,7 +17,6 @@ use termcolor::{ColorChoice, StandardStream};
 // }
 
 #[test]
-#[serial]
 fn given_tag_prefix_options_when_search_then_combines_tag_sets() {
     // Arrange
     let _env = init_test_env();
@@ -30,6 +28,7 @@ fn given_tag_prefix_options_when_search_then_combines_tag_sets() {
         config: None,
         debug: 0,
         openai: false,
+        no_color: false,
         generate_config: false,
         command: Some(Commands::Search {
             fts_query: None,
@@ -76,7 +75,6 @@ fn given_tag_prefix_options_when_search_then_combines_tag_sets() {
 }
 
 #[test]
-#[serial]
 fn given_search_command_with_prefixes_when_executed_then_performs_search() {
     // This test would need to mock the BookmarkService to verify the right parameters
     // are passed through. A full implementation would be fairly complex.
@@ -95,6 +93,7 @@ fn given_search_command_with_prefixes_when_executed_then_performs_search() {
         config: None,
         debug: 0,
         openai: false,
+        no_color: false,
         generate_config: false,
         command: Some(Commands::Search {
             fts_query: None,
@@ -133,7 +132,6 @@ fn given_search_command_with_prefixes_when_executed_then_performs_search() {
 }
 
 #[test]
-#[serial]
 fn test_search_interpolate_flag_parsing() {
     // Arrange
     let _env = init_test_env();
@@ -174,7 +172,6 @@ fn test_search_interpolate_flag_parsing() {
 }
 
 #[test]
-#[serial]
 fn test_search_command_structure_with_interpolate() {
     // Arrange
     let _env = init_test_env();
@@ -186,6 +183,7 @@ fn test_search_command_structure_with_interpolate() {
         config: None,
         debug: 0,
         openai: false,
+        no_color: false,
         generate_config: false,
         command: Some(Commands::Search {
             fts_query: Some("test query".to_string()),
@@ -230,7 +228,6 @@ fn test_search_command_structure_with_interpolate() {
 }
 
 #[test]
-#[serial]
 fn test_interpolation_conditions() {
     // Test the conditions for when interpolation should be applied
     let test_cases = vec![

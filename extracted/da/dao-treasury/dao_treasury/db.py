@@ -23,7 +23,18 @@ from functools import lru_cache
 from logging import getLogger
 from os import path
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Final, Tuple, Union, final
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Coroutine,
+    Dict,
+    Final,
+    Literal,
+    Tuple,
+    Union,
+    final,
+    overload,
+)
 from datetime import date, datetime, time, timezone
 
 import eth_portfolio
@@ -33,13 +44,14 @@ from brownie.convert.datatypes import HexString
 from brownie.exceptions import EventLookupError
 from brownie.network.event import EventDict, _EventItem
 from brownie.network.transaction import TransactionReceipt
-from eth_typing import ChecksumAddress, HexAddress, HexStr
 from eth_portfolio.structs import (
     InternalTransfer,
     LedgerEntry,
     TokenTransfer,
     Transaction,
 )
+from eth_retry import auto_retry
+from eth_typing import ChecksumAddress, HexAddress, HexStr
 from pony.orm import (
     Database,
     InterfaceError,
@@ -71,6 +83,7 @@ SQLITE_DIR.mkdir(parents=True, exist_ok=True)
 
 _INSERT_THREAD = AsyncThreadPoolExecutor(1)
 _SORT_THREAD = AsyncThreadPoolExecutor(1)
+_EVENTS_THREADS = AsyncThreadPoolExecutor(16)
 _SORT_SEMAPHORE = Semaphore(50)
 
 _UTC = timezone.utc
@@ -731,7 +744,15 @@ class TreasuryTx(DbEntity):
         """Decoded event logs for this transaction."""
         return self._transaction.events
 
-    def get_events(self, event_name: str) -> _EventItem:
+    @overload
+    def get_events(
+        self, event_name: str, sync: Literal[False]
+    ) -> Coroutine[Any, Any, _EventItem]: ...
+    @overload
+    def get_events(self, event_name: str, sync: bool = True) -> _EventItem: ...
+    def get_events(self, event_name: str, sync: bool = True) -> _EventItem:
+        if not sync:
+            return _EVENTS_THREADS.run(self.get_events, event_name)
         try:
             return self.events[event_name]
         except EventLookupError:
@@ -748,6 +769,7 @@ class TreasuryTx(DbEntity):
         return get_transaction(self.hash)
 
     @staticmethod
+    @auto_retry
     async def insert(entry: LedgerEntry) -> None:
         """Asynchronously insert and sort a ledger entry.
 

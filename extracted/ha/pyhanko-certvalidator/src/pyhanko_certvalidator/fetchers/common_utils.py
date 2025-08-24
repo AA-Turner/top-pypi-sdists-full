@@ -6,7 +6,7 @@ and OCSP responses.
 import asyncio
 import logging
 import os
-from typing import Awaitable, Callable, Dict, Iterable, Optional, TypeVar, Union
+from typing import Awaitable, Callable, Dict, Optional, TypeVar, Union
 
 from asn1crypto import algos, cms, core, ocsp, pem, x509
 from asn1crypto.x509 import DistributionPoint
@@ -24,6 +24,7 @@ __all__ = [
     'ocsp_job_get_earliest',
     'complete_certificate_fetch_jobs',
     'gather_aia_issuer_urls',
+    'enumerate_delivery_point_urls',
     'ACCEPTABLE_STRICT_CERT_CONTENT_TYPES',
     'ACCEPTABLE_CERT_PEM_ALIASES',
     'ACCEPTABLE_PKCS7_DER_ALIASES',
@@ -31,7 +32,6 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
-
 
 ACCEPTABLE_STRICT_CERT_CONTENT_TYPES = frozenset(
     [
@@ -60,11 +60,11 @@ ACCEPTABLE_CERT_DER_ALIASES = frozenset(
     ]
 )
 
-
 ACCEPTABLE_PKCS7_DER_ALIASES = frozenset(
     [
         'application/pkcs7-mime',
         'application/x-pkcs7-certificates',
+        'application/octet-stream',
         'binary/octet-stream',
     ]
 )
@@ -92,6 +92,10 @@ def unpack_cert_content(
             yield from _unpack_der_pkcs7(response_data, url)
         elif der_sequence_length == 3:
             yield x509.Certificate.load(response_data)
+        else:
+            raise ValueError(
+                f"Failed to heuristically determine content of payload from source URL {url}"
+            )
     elif (content_type in ACCEPTABLE_PKCS7_DER_ALIASES) and not is_pem:
         yield from _unpack_der_pkcs7(response_data, url)
     elif permit_pem and is_pem:
@@ -102,7 +106,7 @@ def unpack_cert_content(
                 yield from _unpack_der_pkcs7(data, url)
             else:
                 yield x509.Certificate.load(data)
-    else:  # pragma: nocover
+    else:
         raise ValueError(
             f"Failed to extract certs from {content_type} payload. "
             f"Source URL: {url}."
@@ -280,6 +284,7 @@ async def crl_job_results_as_completed(jobs):
     for crl_job in asyncio.as_completed(list(jobs)):
         try:
             fetched_crl = await crl_job
+            at_least_one_success = True
             yield fetched_crl
         except errors.CRLFetchError as e:
             last_e = e
@@ -353,6 +358,9 @@ async def complete_certificate_fetch_jobs(fetch_jobs):
 def enumerate_delivery_point_urls(distribution_point: DistributionPoint):
     name = distribution_point['distribution_point']
     if name.name != 'full_name':
+        logger.debug(
+            f"Relative delivery point name {name.chosen.native!r} is not supported"
+        )
         # We don't support relative DPs
         #  (esp. since we don't support directory-based lookups at all)
         return

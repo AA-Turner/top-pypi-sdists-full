@@ -39,6 +39,7 @@ from asn1crypto import pdf as asn1_pdf
 from asn1crypto import tsp, x509
 from asn1crypto.crl import CertificateList
 from asn1crypto.ocsp import OCSPResponse
+
 from pyhanko.pdf_utils.reader import HistoricalResolver, PdfFileReader
 from pyhanko.sign.ades.report import (
     AdESFailure,
@@ -73,9 +74,12 @@ from pyhanko.sign.validation.status import (
     StandardCMSSignatureStatus,
     TimestampSignatureStatus,
 )
-
 from pyhanko_certvalidator import ValidationContext
-from pyhanko_certvalidator.authority import CertTrustAnchor, TrustAnchor
+from pyhanko_certvalidator.authority import (
+    Authority,
+    CertTrustAnchor,
+    TrustAnchor,
+)
 from pyhanko_certvalidator.context import (
     CertValidationPolicySpec,
     ValidationDataHandlers,
@@ -109,11 +113,18 @@ from .errors import NoDSSFoundError
 from .policy_decl import (
     LocalKnowledge,
     PdfSignatureValidationSpec,
+    QualificationRequirements,
     RevinfoOnlineFetchingRule,
     RevocationInfoGatheringSpec,
     SignatureValidationSpec,
     bootstrap_validation_data_handlers,
 )
+from .qualified.assess import (
+    QualificationAssessor,
+    QualificationPolicyError,
+    enforce_requirements,
+)
+from .qualified.tsp import TSPTrustManager
 from .utils import CMSAlgorithmUsagePolicy
 
 __all__ = [
@@ -190,6 +201,12 @@ class ValidationObjectSet:
     @staticmethod
     def empty():
         return ValidationObjectSet(())
+
+
+@dataclass(frozen=True)
+class _QualificationData:
+    assessor: QualificationAssessor
+    requirements: Optional[QualificationRequirements] = None
 
 
 @dataclass(frozen=True)
@@ -333,10 +350,15 @@ async def ades_timestamp_validation(
     validation_context = cert_validation_policy.build_validation_context(
         timing_info=timing_info, handlers=validation_data_handlers
     )
+    qualification_requirements = (
+        validation_spec.ts_qualification_requirements
+        or validation_spec.qualification_requirements
+    )
     return await _ades_timestamp_validation_from_context(
         tst_signed_data,
         validation_context,
         expected_tst_imprint,
+        qualification_requirements,
         extra_status_kwargs=extra_status_kwargs,
         status_cls=status_cls,
     )
@@ -403,6 +425,7 @@ async def _ades_timestamp_validation_from_context(
     tst_signed_data: cms.SignedData,
     validation_context: ValidationContext,
     expected_tst_imprint: bytes,
+    ts_qualification_requirements: Optional[QualificationRequirements],
     extra_status_kwargs: Optional[Dict[str, Any]] = None,
     status_cls=TimestampSignatureStatus,
 ) -> AdESBasicValidationResult:
@@ -437,11 +460,38 @@ async def _ades_timestamp_validation_from_context(
         validation_context,
         ac_validation_context=None,
         signature_not_before_time=None,
+        ts_qualification_requirements=ts_qualification_requirements,
     )
     interm_result.status_kwargs = status_kwargs
     vos = ValidationObjectSet(
         iter(vos), _enumerate_certs_in_paths(interm_result)
     )
+    if interm_result.validation_path:
+        qualification_result = _qualification_analysis(
+            validation_context.path_builder.trust_manager,
+            interm_result.validation_path,
+            moment=interm_result.signature_poe_time,
+        )
+        interm_result.status_kwargs['qualification_result'] = (
+            qualification_result
+        )
+        if qualification_result and ts_qualification_requirements:
+            try:
+                enforce_requirements(
+                    ts_qualification_requirements,
+                    qualification_result,
+                    interm_result.validation_path,
+                )
+            except QualificationPolicyError as e:
+                interm_result.trust_subindic_update = e.ades_subindication
+                return AdESBasicValidationResult(
+                    ades_subindic=e.ades_subindication,
+                    failure_msg=e.failure_message,
+                    api_status=interm_result.update(
+                        status_cls, with_ts=False, with_attrs=False
+                    ),
+                    validation_objects=vos,
+                )
     return AdESBasicValidationResult(
         ades_subindic=interm_result.ades_subindic,
         api_status=interm_result.update(
@@ -453,7 +503,11 @@ async def _ades_timestamp_validation_from_context(
 
 
 async def _ades_process_attached_ts(
-    signer_info, validation_context, signed: bool, tst_digest: bytes
+    signer_info,
+    validation_context: ValidationContext,
+    signed: bool,
+    tst_digest: bytes,
+    qualification_requirements: Optional[QualificationRequirements],
 ) -> AdESBasicValidationResult:
     tst_signed_data = generic_cms.extract_tst_data(signer_info, signed=signed)
     if tst_signed_data is not None:
@@ -461,6 +515,7 @@ async def _ades_process_attached_ts(
             tst_signed_data,
             validation_context,
             tst_digest,
+            qualification_requirements,
         )
     return AdESBasicValidationResult(
         ades_subindic=AdESIndeterminate.GENERIC,
@@ -476,6 +531,7 @@ async def _process_basic_validation(
     ts_validation_context: ValidationContext,
     ac_validation_context: Optional[ValidationContext],
     signature_not_before_time: Optional[datetime],
+    ts_qualification_requirements: Optional[QualificationRequirements],
 ):
     validation_time = temp_status.validation_time
     ades_trust_status: Optional[AdESSubIndic] = temp_status.trust_problem_indic
@@ -497,6 +553,7 @@ async def _process_basic_validation(
             tst_digest=generic_cms.find_unique_cms_attribute(
                 signer_info['signed_attrs'], 'message_digest'
             ).native,
+            qualification_requirements=ts_qualification_requirements,
         )
         if content_ts_result.ades_subindic == AdESPassed.OK:
             ts_status = content_ts_result.api_status
@@ -541,7 +598,9 @@ async def _process_basic_validation(
         validation_context=ac_validation_context,
         sd_signed_attrs=signer_info['signed_attrs'],
     )
-    ades_subindic = ades_trust_status or AdESPassed.OK
+    ades_subindic: AdESSubIndic = (
+        AdESPassed.OK if ades_trust_status is None else ades_trust_status
+    )
     return _InternalBasicValidationResult(
         ades_subindic=ades_subindic,
         trust_subindic_update=ades_trust_status,
@@ -583,6 +642,18 @@ def _init_vcs(
         ac_validation_context = None
 
     return validation_context, ts_validation_context, ac_validation_context
+
+
+def _qualification_analysis(
+    tm: TrustManager,
+    path: ValidationPath,
+    moment: Optional[datetime],
+):
+    if not isinstance(tm, TSPTrustManager):
+        return None
+
+    assessor = QualificationAssessor(tm.tsp_registry)
+    return assessor.check_entity_cert_qualified(path, moment)
 
 
 # ETSI EN 319 102-1 § 5.3
@@ -662,6 +733,11 @@ async def ades_basic_validation(
         ac_validation_context,
     ) = _init_vcs(validation_spec, timing_info, validation_data_handlers)
 
+    ts_qualification_requirements = (
+        validation_spec.ts_qualification_requirements
+        or validation_spec.qualification_requirements
+    )
+
     interm_result = await _ades_basic_validation(
         signed_data=signed_data,
         validation_context=validation_context,
@@ -673,20 +749,48 @@ async def ades_basic_validation(
         extra_status_kwargs=extra_status_kwargs,
         status_cls=status_cls,
         algorithm_policy=validation_spec.signature_algorithm_policy,
+        ts_qualification_requirements=ts_qualification_requirements,
     )
     if isinstance(interm_result, AdESBasicValidationResult):
         return interm_result
-
-    status: StandardCMSSignatureStatus = interm_result.update(
-        StandardCMSSignatureStatus, with_ts=False, with_attrs=True
-    )
     vos = ValidationObjectSet(
         _enumerate_validation_objects(validation_context),
         _enumerate_validation_objects(ac_validation_context),
         _enumerate_validation_objects(ts_validation_context),
-        _enumerate_certs_in_paths(status),
+        _enumerate_certs_in_paths(interm_result),
     )
 
+    if interm_result.validation_path:
+        qualification_result = _qualification_analysis(
+            validation_spec.cert_validation_policy.trust_manager,
+            interm_result.validation_path,
+            moment=interm_result.signature_poe_time,
+        )
+        interm_result.status_kwargs['qualification_result'] = (
+            qualification_result
+        )
+        status: StandardCMSSignatureStatus
+        if qualification_result and validation_spec.qualification_requirements:
+            try:
+                enforce_requirements(
+                    validation_spec.qualification_requirements,
+                    qualification_result,
+                    interm_result.validation_path,
+                )
+            except QualificationPolicyError as e:
+                interm_result.trust_subindic_update = e.ades_subindication
+                status = interm_result.update(
+                    StandardCMSSignatureStatus, with_ts=False, with_attrs=True
+                )
+                return AdESBasicValidationResult(
+                    ades_subindic=e.ades_subindication,
+                    api_status=status,
+                    failure_msg=e.failure_message,
+                    validation_objects=vos,
+                )
+    status = interm_result.update(
+        StandardCMSSignatureStatus, with_ts=False, with_attrs=True
+    )
     return AdESBasicValidationResult(
         ades_subindic=interm_result.ades_subindic,
         api_status=status,
@@ -706,6 +810,7 @@ async def _ades_basic_validation(
     extra_status_kwargs: Optional[Dict[str, Any]],
     algorithm_policy: Optional[CMSAlgorithmUsagePolicy],
     status_cls: Type[StatusType],
+    ts_qualification_requirements: Optional[QualificationRequirements],
 ) -> Union[AdESBasicValidationResult, _InternalBasicValidationResult]:
     status_kwargs = dict(extra_status_kwargs or {})
     vos = ValidationObjectSet(
@@ -724,7 +829,7 @@ async def _ades_basic_validation(
         status_kwargs.update(status_kwargs_from_validation)
     except errors.SignatureValidationError as e:
         return AdESBasicValidationResult(
-            ades_subindic=e.ades_subindication or AdESIndeterminate.GENERIC,
+            ades_subindic=e.ades_subindication,
             failure_msg=e.failure_message,
             api_status=None,
             validation_objects=vos,
@@ -753,6 +858,7 @@ async def _ades_basic_validation(
         ts_validation_context,
         ac_validation_context=ac_validation_context,
         signature_not_before_time=signature_not_before_time,
+        ts_qualification_requirements=ts_qualification_requirements,
     )
     interm_result.status_kwargs = status_kwargs
     return interm_result
@@ -851,6 +957,10 @@ async def ades_with_time_validation(
         ac_validation_context,
     ) = _init_vcs(validation_spec, timing_info, validation_data_handlers)
 
+    ts_qualification_requirements = (
+        validation_spec.ts_qualification_requirements
+        or validation_spec.qualification_requirements
+    )
     sig_bytes = signed_data['signer_infos'][0]['signature'].native
     signature_poe_time = validation_data_handlers.poe_manager[sig_bytes]
 
@@ -865,6 +975,7 @@ async def ades_with_time_validation(
         extra_status_kwargs=extra_status_kwargs,
         status_cls=status_cls,
         algorithm_policy=validation_spec.signature_algorithm_policy,
+        ts_qualification_requirements=ts_qualification_requirements,
     )
 
     if isinstance(interm_result, AdESBasicValidationResult):
@@ -930,7 +1041,11 @@ async def ades_with_time_validation(
             validation_objects=vos,
         )
     sig_ts_result = await _ades_process_attached_ts(
-        signer_info, validation_context, signed=False, tst_digest=tst_digest
+        signer_info,
+        ts_validation_context,
+        signed=False,
+        tst_digest=tst_digest,
+        qualification_requirements=ts_qualification_requirements,
     )
     vos = ValidationObjectSet(
         _enumerate_validation_objects(validation_context),
@@ -993,15 +1108,14 @@ async def ades_with_time_validation(
     ):
         # in this case error_time_horizon is set to the point where the
         # constraint was triggered
-        if signature_poe_time >= temp_status.error_time_horizon:
-            return AdESWithTimeValidationResult(
-                ades_subindic=interm_result.ades_subindic,
-                api_status=temp_status,
-                failure_msg=None,
-                best_signature_time=signature_poe_time,
-                signature_not_before_time=signature_not_before_time,
-                validation_objects=vos,
-            )
+        return AdESWithTimeValidationResult(
+            ades_subindic=interm_result.ades_subindic,
+            api_status=temp_status,
+            failure_msg=None,
+            best_signature_time=signature_poe_time,
+            signature_not_before_time=signature_not_before_time,
+            validation_objects=vos,
+        )
 
     # TODO TSTInfo ordering/comparison check
     if (
@@ -1020,6 +1134,35 @@ async def ades_with_time_validation(
     interm_result.trust_subindic_update = None
     interm_result.status_kwargs['trust_problem_indic'] = None
 
+    if interm_result.validation_path:
+        qualification_result = _qualification_analysis(
+            validation_spec.cert_validation_policy.trust_manager,
+            interm_result.validation_path,
+            moment=interm_result.signature_poe_time,
+        )
+        interm_result.status_kwargs['qualification_result'] = (
+            qualification_result
+        )
+        if qualification_result and validation_spec.qualification_requirements:
+            try:
+                enforce_requirements(
+                    validation_spec.qualification_requirements,
+                    qualification_result,
+                    interm_result.validation_path,
+                )
+            except QualificationPolicyError as e:
+                interm_result.trust_subindic_update = e.ades_subindication
+                return AdESWithTimeValidationResult(
+                    ades_subindic=e.ades_subindication,
+                    failure_msg=e.failure_message,
+                    best_signature_time=signature_poe_time,
+                    signature_not_before_time=signature_not_before_time,
+                    api_status=interm_result.update(
+                        status_cls, with_ts=False, with_attrs=False
+                    ),
+                    validation_objects=vos,
+                )
+
     status = interm_result.update(status_cls, with_ts=True, with_attrs=True)
     return AdESWithTimeValidationResult(
         ades_subindic=AdESPassed.OK,
@@ -1032,13 +1175,13 @@ async def ades_with_time_validation(
 
 
 class _TrustNoOne(TrustManager):
-    def is_root(self, cert: x509.Certificate) -> bool:
-        return False
-
     def find_potential_issuers(
         self, cert: x509.Certificate
     ) -> Iterator[TrustAnchor]:
         return iter(())
+
+    def as_trust_anchor(self, authority: Authority) -> Optional[TrustAnchor]:
+        return None
 
 
 def _crl_issuer_cert_poe_boundary(
@@ -1143,12 +1286,13 @@ async def _build_and_past_validate_cert(
         async for cand_path in paths:
             past_result: generic_cms.CertvalidatorOperationResult[datetime]
             past_result = await generic_cms.handle_certvalidator_errors(
-                past_validate(
+                cert=cert,
+                coro=past_validate(
                     path=cand_path,
                     validation_policy_spec=validation_policy_spec,
                     validation_data_handlers=validation_data_handlers,
                     init_control_time=None,
-                )
+                ),
             )
             current_subindication = past_result.error_subindic
             validation_time = past_result.success_result
@@ -1326,7 +1470,7 @@ async def ades_past_signature_validation(
         return AdESPassed.OK
     except errors.SignatureValidationError as e:
         logger.warning(e)
-        return e.ades_subindication or AdESIndeterminate.GENERIC
+        return e.ades_subindication
     except PathError as e:
         logger.warning(e)
         return AdESIndeterminate.CERTIFICATE_CHAIN_GENERAL_FAILURE
@@ -2008,6 +2152,15 @@ async def ades_lta_validation(
         poe_manager=copy(updated_poe_manager),
         timing_info=timing_info,
     )
+    updated_api_status: Optional[PdfSignatureStatus] = (
+        signature_prelim_result.api_status
+    )
+
+    if updated_api_status and signature_ts_result:
+        updated_api_status = dataclasses.replace(
+            updated_api_status,
+            timestamp_validity=signature_ts_result.api_status,
+        )
 
     # (6) past signature validation
     if isinstance(current_time_sub_indic, AdESIndeterminate):
@@ -2015,7 +2168,7 @@ async def ades_lta_validation(
         #  already. Ensure that that is possible.
         past_sig_poe_manager = copy(updated_poe_manager)
         try:
-            await _ades_past_signature_validation(
+            past_validation_path = await _ades_past_signature_validation(
                 signed_data=embedded_sig.signed_data,
                 validation_spec=augmented_validation_spec,
                 poe_manager=past_sig_poe_manager,
@@ -2023,6 +2176,15 @@ async def ades_lta_validation(
                 init_control_time=timing_info.validation_time,
                 is_timestamp=False,
             )
+            if (
+                updated_api_status is not None
+                and not updated_api_status.validation_path
+            ):
+                updated_api_status = dataclasses.replace(
+                    updated_api_status,
+                    validation_path=past_validation_path,
+                    trust_problem_indic=None,
+                )
             updated_poe_manager = past_sig_poe_manager
         except errors.SignatureValidationError as e:
             sig_poe = past_sig_poe_manager[signature_bytes]
@@ -2030,7 +2192,7 @@ async def ades_lta_validation(
                 ades_subindic=e.ades_subindication or current_time_sub_indic,
                 failure_msg=e.failure_message,
                 # FIXME rewrite api_status!
-                api_status=signature_prelim_result.api_status,
+                api_status=updated_api_status,
                 best_signature_time=sig_poe,
                 signature_not_before_time=(
                     signature_prelim_result.signature_not_before_time
@@ -2045,7 +2207,7 @@ async def ades_lta_validation(
     # (7) get the oldest PoE for the signature
     signature_poe_time = updated_poe_manager[signature_bytes]
 
-    # (8) perform SVA (=> only crypto checks)
+    # (8) perform SVA (=> only crypto / qualification checks)
     algo_policy = (
         augmented_validation_spec.cert_validation_policy.algorithm_usage_policy
     )
@@ -2065,9 +2227,53 @@ async def ades_lta_validation(
         ades_subindic = e.ades_subindication or current_time_sub_indic
         failure_msg = e.failure_message
 
+    if updated_api_status and updated_api_status.validation_path:
+        qualification_result = _qualification_analysis(
+            validation_spec.cert_validation_policy.trust_manager,
+            updated_api_status.validation_path,
+            moment=signature_poe_time,
+        )
+
+        updated_api_status = dataclasses.replace(
+            updated_api_status,
+            qualification_result=qualification_result,
+        )
+        if (
+            qualification_result
+            and validation_spec.qualification_requirements
+            and updated_api_status.validation_path
+        ):
+            try:
+                enforce_requirements(
+                    validation_spec.qualification_requirements,
+                    qualification_result,
+                    updated_api_status.validation_path,
+                )
+            except QualificationPolicyError as e:
+                updated_api_status = dataclasses.replace(
+                    updated_api_status,
+                    trust_problem_indic=e.ades_subindication,
+                )
+                return AdESLTAValidationResult(
+                    ades_subindic=e.ades_subindication,
+                    api_status=updated_api_status,
+                    failure_msg=e.failure_message,
+                    best_signature_time=signature_poe_time,
+                    signature_not_before_time=(
+                        signature_prelim_result.signature_not_before_time
+                    ),
+                    signature_timestamp_status=signature_ts_result,
+                    oldest_evidence_record_timestamp=(
+                        oldest_evidence_record_timestamp
+                    ),
+                    validation_objects=(
+                        signature_prelim_result.validation_objects
+                    ),
+                )
+
     return AdESLTAValidationResult(
         ades_subindic=ades_subindic,
-        api_status=signature_prelim_result.api_status,
+        api_status=updated_api_status,
         failure_msg=failure_msg,
         best_signature_time=signature_poe_time,
         signature_not_before_time=(

@@ -30,45 +30,45 @@ def fgmres(A, b, x0=None, tol=1e-5,
     Parameters
     ----------
     A : array, matrix, sparse matrix, LinearOperator
-        n x n, linear system to solve
+        Linear system of size (n,n) to solve.
     b : array, matrix
-        right hand side, shape is (n,) or (n,1)
+        Right hand side of size (n,) or (n,1).
     x0 : array, matrix
-        initial guess, default is a vector of zeros
+        Initial guess, default is a vector of zeros.
     tol : float
         Tolerance for stopping criteria, let r=r_k
-        ||r|| < tol ||b||
+
+            ||r|| < tol ||b||
+
         if ||b||=0, then set ||b||=1 for these tests.
     restart : None, int
-        - if int, restart is max number of inner iterations
-          and maxiter is the max number of outer iterations
-        - if None, do not restart GMRES, and max number of inner iterations
-          is maxiter
+        - If int, restart is max number of inner iterations
+          and maxiter is the max number of outer iterations.
+        - If None, do not restart GMRES, and max number of inner iterations
+          is maxiter.
     maxiter : None, int
-        - if restart is None, maxiter is the max number of inner iterations
-          and GMRES does not restart
-        - if restart is int, maxiter is the max number of outer iterations,
-          and restart is the max number of inner iterations
-        - defaults to min(n,40) if restart=None
+        - If restart is None, maxiter is the max number of inner iterations
+          and GMRES does not restart.
+        - If restart is int, maxiter is the max number of outer iterations,
+          and restart is the max number of inner iterations.
+        - Defaults to min(n,40) if ``restart=None``.
     M : array, matrix, sparse matrix, LinearOperator
-        n x n, inverted preconditioner, i.e. solve M A x = M b.
-        M need not be stationary for fgmres
+        Inverted preconditioner of size (n,n), i.e. solve M A x = M b.
+        M need not be stationary for ``fgmres``.
     callback : function
         User-supplied function is called after each iteration as
-        callback(xk), where xk is the current solution vector
+        ``callback(xk)``, where xk is the current solution vector.
     residuals : list
-        residual history in the 2-norm, including the initial residual
-    reorth : boolean
-        If True, then a check is made whether to re-orthogonalize the Krylov
-        space each GMRES iteration
+        Residual history in the 2-norm, including the initial residual.
     restrt : None, int
         Deprecated.  See restart.
 
     Returns
     -------
-    xk, info
-    xk : an updated guess after k iterations to the solution of Ax = b
-    info : halting status
+    array
+        Updated guess after k iterations to the solution of Ax = b.
+    int
+        Halting status
 
             ==  =======================================
             0   successful exit
@@ -83,13 +83,19 @@ def fgmres(A, b, x0=None, tol=1e-5,
     Use this class if you prefer to define A or M as a mat-vec routine
     as opposed to explicitly constructing the matrix.
 
-    fGMRES allows for non-stationary preconditioners, as opposed to GMRES
+    fGMRES allows for non-stationary preconditioners, as opposed to GMRES.
 
     For robustness, Householder reflections are used to orthonormalize
-    the Krylov Space
-    Givens Rotations are used to provide the residual norm each iteration
+    the Krylov Space.
+    Givens Rotations are used to provide the residual norm each iteration.
     Flexibility implies that the right preconditioner, M, can
-    vary from iteration to iteration
+    vary from iteration to iteration.
+
+    References
+    ----------
+    .. [1] Yousef Saad, "Iterative Methods for Sparse Linear Systems,
+       Second Edition", SIAM, pp. 151-172, pp. 272-275, 2003
+       http://www-users.cs.umn.edu/~saad/books.html
 
     Examples
     --------
@@ -100,14 +106,8 @@ def fgmres(A, b, x0=None, tol=1e-5,
     >>> A = poisson((10,10))
     >>> b = np.ones((A.shape[0],))
     >>> (x,flag) = fgmres(A,b, maxiter=2, tol=1e-8)
-    >>> print(f'{norm(b - A*x):.6}')
+    >>> print(f'{norm(b - A@x):.6}')
     6.54282
-
-    References
-    ----------
-    .. [1] Yousef Saad, "Iterative Methods for Sparse Linear Systems,
-       Second Edition", SIAM, pp. 151-172, pp. 272-275, 2003
-       http://www-users.cs.umn.edu/~saad/books.html
 
     """
     if restrt is not None:
@@ -119,7 +119,7 @@ def fgmres(A, b, x0=None, tol=1e-5,
         warnings.warn(msg, DeprecationWarning, stacklevel=1)
 
     # Convert inputs to linear system, with error checking
-    A, M, x, b, postprocess = make_system(A, M, x0, b)
+    A, M, x, b = make_system(A, M, x0, b)
     n = A.shape[0]
 
     # Ensure that warnings are always reissued from this function
@@ -154,7 +154,7 @@ def fgmres(A, b, x0=None, tol=1e-5,
     # Is this a one dimensional matrix?
     if n == 1:
         entry = np.ravel(A @ np.array([1.0], dtype=x.dtype))
-        return (postprocess(b/entry), 0)
+        return (b/entry, 0)
 
     # Prep for method
     r = b - A @ x
@@ -169,7 +169,7 @@ def fgmres(A, b, x0=None, tol=1e-5,
         normb = 1.0   # reset so that tol is unscaled
 
     if normr < tol * normb:
-        return (postprocess(x), 0)
+        return (x, 0)
 
     # Use separate variable to track iterations.  If convergence fails,
     # we cannot simply report niter = (outer-1)*max_outer + inner.  Numerical
@@ -220,7 +220,7 @@ def fgmres(A, b, x0=None, tol=1e-5,
             # Check for nan, inf
             # if isnan(v).any() or isinf(v).any():
             #    warn('inf or nan after application of preconditioner')
-            #    return(postprocess(x), -1)
+            #    return(x, -1)
             Z[:, inner] = v
 
             # Calculate new search direction
@@ -334,12 +334,12 @@ def fgmres(A, b, x0=None, tol=1e-5,
             change = np.max(np.abs(update[indices] / x[indices]))
             if change < 1e-12:
                 # No change, halt
-                return (postprocess(x), -1)
+                return (x, -1)
 
         # test for convergence
         if normr < tol * normb:
-            return (postprocess(x), 0)
+            return (x, 0)
 
     # end outer loop
 
-    return (postprocess(x), niter)
+    return (x, niter)

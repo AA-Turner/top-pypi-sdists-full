@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 from orionis.console.args.argument import CLIArgument
 from orionis.console.dynamic.progress_bar import ProgressBar
 from orionis.console.output.console import Console
-from orionis.console.base.contracts.command import IBaseCommand
+from orionis.console.contracts.command import IBaseCommand
 
 class BaseCommand(Console, ProgressBar, IBaseCommand):
     """

@@ -73,7 +73,7 @@ packaging = [
   "check-manifest==0.50",
   "readme-renderer==44.0",
   "build>=1.2.2,<2",
-  "twine>=5.1.1,<6",
+  "twine>=6.1.0,<7",
   "wheel>=0.45.0,<1",
 ]
 
@@ -183,9 +183,6 @@ python = """
 """
 
 [tool.tox.env_run_base]
-pass_env = [
-  "GITHUB_*",
-]
 dependency_groups = ["testing"]
 commands = [
   ["python", "-bb", "-m", "pytest", "--cov-report=xml", "--cov-report=term", "--cov=h2", { replace = "posargs", extend = true }]

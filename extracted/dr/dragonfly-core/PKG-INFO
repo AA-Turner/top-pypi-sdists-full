@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dragonfly-core
-Version: 1.69.0
+Version: 1.69.1
 Summary: :dragon: dragonfly core library
 Home-page: https://github.com/ladybug-tools/dragonfly-core
 Author: Ladybug Tools
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: honeybee-core==1.61.35
+Requires-Dist: honeybee-core==1.62.0
 Requires-Dist: dragonfly-schema==1.15.2; python_version >= "3.7"
 Dynamic: author
 Dynamic: author-email
