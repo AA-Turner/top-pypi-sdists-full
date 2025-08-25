@@ -39,6 +39,7 @@ class ModelArgs:
     custom_layer_parameters: list = field(default_factory=list)
     custom_parameter_groups: list = field(default_factory=list)
     dataloader_num_workers: int = 0
+    dataset_cache_dir: str = None
     do_lower_case: bool = False
     dynamic_quantize: bool = False
     early_stopping_consider_epochs: bool = False
@@ -149,6 +150,8 @@ class ClassificationArgs(ModelArgs):
     """
 
     model_class: str = "ClassificationModel"
+    as_reranker: bool = False
+    batch_chunk_size: int = None
     labels_list: list = field(default_factory=list)
     labels_map: dict = field(default_factory=dict)
     lazy_delimiter: str = "\t"
@@ -159,15 +162,17 @@ class ClassificationArgs(ModelArgs):
     lazy_text_b_column: bool = None
     lazy_text_column: int = 0
     onnx: bool = False
+    pairwise_reranking_format: str = "repeat_query"
     regression: bool = False
     sliding_window: bool = False
     special_tokens_list: list = field(default_factory=list)
     stride: float = 0.8
     tie_value: int = 1
+    tourney_mode: bool = False
 
 
 @dataclass
-class MultiLabelClassificationArgs(ModelArgs):
+class MultiLabelClassificationArgs(ClassificationArgs):
     """
     Model args for a MultiLabelClassificationModel
     """
@@ -225,10 +230,12 @@ class T5Args(ModelArgs):
     model_class: str = "T5Model"
     add_prefix: bool = True
     as_reranker: bool = False
+    batch_chunk_size: int = None
     dataset_class: Dataset = None
     do_sample: bool = False
     early_stopping: bool = True
     evaluate_generated_text: bool = False
+    evaluate_before_training: bool = False
     length_penalty: float = 2.0
     max_length: int = 20
     max_steps: int = -1
@@ -352,7 +359,6 @@ class Seq2SeqArgs(ModelArgs):
     model_class: str = "Seq2SeqModel"
     base_marian_model_name: str = None
     dataset_class: Dataset = None
-    dataset_cache_dir: str = None
     do_sample: bool = False
     early_stopping: bool = True
     evaluate_generated_text: bool = False
@@ -409,6 +415,7 @@ class RetrievalArgs(Seq2SeqArgs):
     model_class: str = "RetrievalModel"
     ance_refresh_n_epochs: int = 1
     ance_training: bool = False
+    batch_chunk_size: int = None
     cluster_concatenated: bool = False
     cluster_every_n_epochs: int = 1
     cluster_queries: bool = False
@@ -443,6 +450,10 @@ class RetrievalArgs(Seq2SeqArgs):
     margin_mse_lambda: float = 1
     mse_loss: bool = False
     moving_average_loss_count: int = 10
+    multi_negatives: bool = False
+    multi_head_vectors: bool = False
+    multi_head_vector_strategy: str = "maxsim"
+    minmax_multi_head_vectors: bool = False
     multi_vector_query: bool = False
     query_vector_count: int = 50
     nll_lambda: float = 1.0
@@ -479,6 +490,11 @@ class RetrievalArgs(Seq2SeqArgs):
     autoencoder_mse_loss: bool = True
     autoencoder_kl_div_loss: bool = False
     mean_pooling: bool = False
+    include_quartet_loss: bool = False
+    include_multi_negatives_loss: bool = False
+    quartet_training_format: bool = False
+    quartet_lambda: float = 1.0
+    similarity_function: str = "dot_product"
 
 
 @dataclass

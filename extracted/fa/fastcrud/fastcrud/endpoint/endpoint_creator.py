@@ -304,13 +304,16 @@ class EndpointCreator:
                 select_schema, response_key
             )
         else:
-            self.list_response_model = None # type: ignore
-            self.paginated_response_model = None # type: ignore
+            self.list_response_model = None  # type: ignore
+            self.paginated_response_model = None  # type: ignore
 
     def _validate_filter_config(self, filter_config: FilterConfig) -> None:
         model_columns = self.crud.model_col_names
         supported_filters = self.crud._SUPPORTED_FILTERS
-        for key in filter_config.filters.keys():
+        for key, value in filter_config.filters.items():
+            if callable(value):
+                continue
+
             if "__" in key:
                 field_name, op = key.rsplit("__", 1)
                 if op not in supported_filters:
@@ -369,7 +372,18 @@ class EndpointCreator:
         return endpoint
 
     def _read_items(self):
-        """Creates an endpoint for reading multiple items from the database."""
+        """Creates an endpoint for reading multiple items from the database.
+
+        The created endpoint supports:
+        - Pagination (using page/itemsPerPage or offset/limit)
+        - Filtering based on configured filter parameters
+        - Sorting by one or more fields (supports both ascending and descending order)
+
+        Sorting can be applied using the 'sort' query parameter:
+        - Single field ascending: ?sort=field_name
+        - Single field descending: ?sort=-field_name
+        - Multiple fields: ?sort=field1,-field2 (field1 asc, field2 desc)
+        """
         dynamic_filters = _create_dynamic_filters(self.filter_config, self.column_types)
 
         async def endpoint(
@@ -383,6 +397,10 @@ class EndpointCreator:
             page: Optional[int] = Query(None, alias="page", description="Page number"),
             items_per_page: Optional[int] = Query(
                 None, alias="itemsPerPage", description="Number of items per page"
+            ),
+            sort: Optional[str] = Query(
+                None,
+                description="Sort results by one or more fields. Format: 'field1,-field2' where '-' prefix indicates descending order. Example: 'name' (ascending), '-age' (descending), 'name,-age' (name ascending, then age descending).",
             ),
             filters: dict = Depends(dynamic_filters),
         ) -> Union[dict[str, Any], PaginatedListResponse, ListResponse]:
@@ -405,12 +423,28 @@ class EndpointCreator:
                 offset = 0
                 limit = 100
 
+            sort_columns: list[str] = []
+            sort_orders: list[str] = []
+            if sort:
+                for s in sort.split(","):
+                    s = s.strip()
+                    if not s:
+                        continue
+                    if s.startswith("-"):
+                        sort_columns.append(s[1:])
+                        sort_orders.append("desc")
+                    else:
+                        sort_columns.append(s)
+                        sort_orders.append("asc")
+
             if self.select_schema is not None:
                 crud_data = await self.crud.get_multi(
                     db,
                     offset=offset,  # type: ignore
                     limit=limit,  # type: ignore
                     schema_to_select=self.select_schema,
+                    sort_columns=sort_columns,
+                    sort_orders=sort_orders,
                     return_as_model=True,
                     **filters,
                 )
@@ -419,6 +453,8 @@ class EndpointCreator:
                     db,
                     offset=offset,  # type: ignore
                     limit=limit,  # type: ignore
+                    sort_columns=sort_columns,
+                    sort_orders=sort_orders,
                     **filters,
                 )
 
@@ -637,8 +673,14 @@ class EndpointCreator:
                 response_model=response_model,
                 description=(
                     f"Read multiple {self.model.__name__} rows from the database.\n\n"
-                    f"- Use page & itemsPerPage for paginated results\n"
-                    f"- Use offset & limit for specific ranges\n"
+                    f"**Pagination Options:**\n"
+                    f"- Use `page` & `itemsPerPage` for paginated results\n"
+                    f"- Use `offset` & `limit` for specific ranges\n\n"
+                    f"**Sorting:**\n"
+                    f"- Use `sort` parameter to sort results by one or more fields\n"
+                    f"- Format: `field1,-field2` (comma-separated, `-` prefix for descending)\n"
+                    f"- Examples: `name` (ascending), `-age` (descending), `name,-age` (mixed)\n\n"
+                    f"**Response Format:**\n"
                     f"- Returns paginated response when using page/itemsPerPage\n"
                     f"- Returns simple list response when using offset/limit"
                 ),

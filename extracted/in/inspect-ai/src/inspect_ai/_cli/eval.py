@@ -50,6 +50,7 @@ NO_LOG_REALTIME_HELP = (
     "Do not log events in realtime (affects live viewing of samples in inspect view)"
 )
 NO_FAIL_ON_ERROR_HELP = "Do not fail the eval if errors occur within samples (instead, continue running other samples)"
+CONTINUE_ON_FAIL_HELP = "Do not immediately fail the eval if the error threshold is exceeded (instead, continue running other samples until the eval completes, and then possibly fail the eval)."
 RETRY_ON_ERROR_HELP = "Retry samples if they encounter errors (by default, no retries occur). Specify --retry-on-error to retry a single time, or specify e.g. `--retry-on-error=3` to retry multiple times."
 LOG_IMAGES_HELP = (
     "Include base64 encoded versions of filename or URL based images in the log file."
@@ -280,6 +281,14 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
         default=False,
         help=NO_FAIL_ON_ERROR_HELP,
         envvar="INSPECT_EVAL_NO_FAIL_ON_ERROR",
+    )
+    @click.option(
+        "--continue-on-fail",
+        type=bool,
+        is_flag=True,
+        default=False,
+        help=CONTINUE_ON_FAIL_HELP,
+        envvar="INSPECT_EVAL_CONTINUE_ON_FAIL",
     )
     @click.option(
         "--retry-on-error",
@@ -576,6 +585,7 @@ def eval_command(
     max_sandboxes: int | None,
     fail_on_error: bool | float | None,
     no_fail_on_error: bool | None,
+    continue_on_fail: bool | None,
     retry_on_error: int | None,
     no_log_samples: bool | None,
     no_log_realtime: bool | None,
@@ -633,6 +643,7 @@ def eval_command(
         max_sandboxes=max_sandboxes,
         fail_on_error=fail_on_error,
         no_fail_on_error=no_fail_on_error,
+        continue_on_fail=continue_on_fail,
         retry_on_error=retry_on_error,
         debug_errors=common["debug_errors"],
         no_log_samples=no_log_samples,
@@ -687,6 +698,12 @@ def eval_command(
     type=str,
     is_flag=True,
     help="Overwrite existing bundle dir.",
+)
+@click.option(
+    "--log-dir-allow-dirty",
+    type=bool,
+    is_flag=True,
+    help="Do not fail if the log-dir contains files that are not part of the eval set.",
 )
 @eval_options
 @click.pass_context
@@ -755,6 +772,7 @@ def eval_set_command(
     max_sandboxes: int | None,
     fail_on_error: bool | float | None,
     no_fail_on_error: bool | None,
+    continue_on_fail: bool | None,
     retry_on_error: int | None,
     no_log_samples: bool | None,
     no_log_realtime: bool | None,
@@ -765,6 +783,7 @@ def eval_set_command(
     no_score_display: bool | None,
     bundle_dir: str | None,
     bundle_overwrite: bool | None,
+    log_dir_allow_dirty: bool | None,
     log_format: Literal["eval", "json"] | None,
     log_level_transcript: str,
     **common: Unpack[CommonOptions],
@@ -817,6 +836,7 @@ def eval_set_command(
         max_sandboxes=max_sandboxes,
         fail_on_error=fail_on_error,
         no_fail_on_error=no_fail_on_error,
+        continue_on_fail=continue_on_fail,
         retry_on_error=retry_on_error,
         debug_errors=common["debug_errors"],
         no_log_samples=no_log_samples,
@@ -833,6 +853,7 @@ def eval_set_command(
         retry_cleanup=not no_retry_cleanup,
         bundle_dir=bundle_dir,
         bundle_overwrite=True if bundle_overwrite else False,
+        log_dir_allow_dirty=log_dir_allow_dirty,
         **config,
     )
 
@@ -877,6 +898,7 @@ def eval_exec(
     max_sandboxes: int | None,
     fail_on_error: bool | float | None,
     no_fail_on_error: bool | None,
+    continue_on_fail: bool | None,
     retry_on_error: int | None,
     debug_errors: bool | None,
     no_log_samples: bool | None,
@@ -893,6 +915,7 @@ def eval_exec(
     retry_cleanup: bool | None = None,
     bundle_dir: str | None = None,
     bundle_overwrite: bool = False,
+    log_dir_allow_dirty: bool | None = None,
     **kwargs: Unpack[GenerateConfigArgs],
 ) -> bool:
     # parse task, solver, and model args
@@ -972,6 +995,7 @@ def eval_exec(
             sample_shuffle=eval_sample_shuffle,
             epochs=eval_epochs,
             fail_on_error=fail_on_error,
+            continue_on_fail=continue_on_fail,
             retry_on_error=retry_on_error,
             debug_errors=debug_errors,
             message_limit=message_limit,
@@ -1001,6 +1025,7 @@ def eval_exec(
         params["retry_cleanup"] = retry_cleanup
         params["bundle_dir"] = bundle_dir
         params["bundle_overwrite"] = bundle_overwrite
+        params["log_dir_allow_dirty"] = log_dir_allow_dirty
         success, _ = eval_set(**params)
         return success
     else:
@@ -1115,6 +1140,14 @@ def parse_comma_separated(value: str | None) -> list[str] | None:
     envvar="INSPECT_EVAL_NO_FAIL_ON_ERROR",
 )
 @click.option(
+    "--continue-on-fail",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help=CONTINUE_ON_FAIL_HELP,
+    envvar="INSPECT_EVAL_CONTINUE_ON_FAIL",
+)
+@click.option(
     "--retry-on-error",
     is_flag=False,
     flag_value="true",
@@ -1202,6 +1235,7 @@ def eval_retry_command(
     trace: bool | None,
     fail_on_error: bool | float | None,
     no_fail_on_error: bool | None,
+    continue_on_fail: bool | None,
     retry_on_error: int | None,
     no_log_samples: bool | None,
     no_log_realtime: bool | None,
@@ -1256,6 +1290,7 @@ def eval_retry_command(
         sandbox_cleanup=sandbox_cleanup,
         trace=trace,
         fail_on_error=fail_on_error,
+        continue_on_fail=continue_on_fail,
         retry_on_error=retry_on_error,
         debug_errors=common["debug_errors"],
         log_samples=log_samples,

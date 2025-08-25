@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: braintrust
-Version: 0.2.4
+Version: 0.2.5
 Summary: SDK for integrating Braintrust
 Home-page: https://www.braintrust.dev
 Author: Braintrust
@@ -24,6 +24,8 @@ Provides-Extra: cli
 Requires-Dist: boto3; extra == "cli"
 Requires-Dist: psycopg2-binary; extra == "cli"
 Requires-Dist: uv; extra == "cli"
+Requires-Dist: starlette; extra == "cli"
+Requires-Dist: uvicorn; extra == "cli"
 Provides-Extra: doc
 Requires-Dist: pydoc-markdown; extra == "doc"
 Provides-Extra: openai-agents
@@ -40,7 +42,9 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "all"
 Requires-Dist: opentelemetry-sdk; extra == "all"
 Requires-Dist: psycopg2-binary; extra == "all"
 Requires-Dist: pydoc-markdown; extra == "all"
+Requires-Dist: starlette; extra == "all"
 Requires-Dist: uv; extra == "all"
+Requires-Dist: uvicorn; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

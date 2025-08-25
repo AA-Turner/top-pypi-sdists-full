@@ -27,7 +27,7 @@ from nominal.conjure.v1 import compat_pb2 as nominal_dot_conjure_dot_v1_dot_comp
 from nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19nominal/types/types.proto\x12\rnominal.types\x1a\x1b\x62uf/validate/validate.proto\x1a\x1fnominal/conjure/v1/compat.proto\x1a\x1anominal/gen/v1/alias.proto\"\x07\n\x05\x45mpty\"R\n\x0b\x45rrorResult\x12\x32\n\nerror_type\x18\x01 \x01(\tB\x1e\x9a\xb2\x1a\x1a\n\x18io.nominal.api.ErrorType\x12\x0f\n\x07message\x18\x02 \x01(\t\"L\n\x06Handle\x12)\n\x02s3\x18\x01 \x01(\tB\x1b\x9a\xb2\x1a\x17\n\x15io.nominal.api.S3PathH\x00:\x06\xa2\xb2\x1a\x02\x08\x01\x42\x0f\n\x06handle\x12\x05\xbaH\x02\x08\x01\"\x12\n\x10InProgressResult\"\xc9\x01\n\x0eIngestStatusV2\x12/\n\x07success\x18\x01 \x01(\x0b\x32\x1c.nominal.types.SuccessResultH\x00\x12+\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x1a.nominal.types.ErrorResultH\x00\x12\x36\n\x0bin_progress\x18\x03 \x01(\x0b\x32\x1f.nominal.types.InProgressResultH\x00:\x06\xa2\xb2\x1a\x02\x08\x01\x42\x19\n\x10ingest_status_v2\x12\x05\xbaH\x02\x08\x01\"\xa5\x01\n\x12McapChannelLocator\x12\x36\n\x05topic\x18\x01 \x01(\tB%\x9a\xb2\x1a!\n\x1fio.nominal.api.McapChannelTopicH\x00\x12\x30\n\x02id\x18\x02 \x01(\x05\x42\"\x9a\xb2\x1a\x1e\n\x1cio.nominal.api.McapChannelIdH\x00:\x06\xa2\xb2\x1a\x02\x08\x01\x42\x1d\n\x14mcap_channel_locator\x12\x05\xbaH\x02\x08\x01\"n\n\x08Property\x12/\n\x04name\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.PropertyName\x12\x31\n\x05value\x18\x02 \x01(\tB\"\x9a\xb2\x1a\x1e\n\x1cio.nominal.api.PropertyValue\"s\n\x0eRefNameAndType\x12\x34\n\x04name\x18\x01 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.DataSourceRefName\x12+\n\x04type\x18\x02 \x01(\x0e\x32\x1d.nominal.types.DataSourceType\"\xe0\x01\n\x11SerializableError\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x07message\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x11\x65rror_instance_id\x18\x03 \x01(\t\x12\x13\n\x0bstatus_code\x18\x04 \x01(\x05\x12<\n\x06params\x18\x05 \x03(\x0b\x32,.nominal.types.SerializableError.ParamsEntry\x1a-\n\x0bParamsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\n\n\x08_message\"\x0f\n\rSuccessResult*Q\n\x0e\x41rchivedStatus\x12\x1f\n\x1b\x41RCHIVED_STATUS_UNSPECIFIED\x10\x00\x12\x10\n\x0cNOT_ARCHIVED\x10\x01\x12\x0c\n\x08\x41RCHIVED\x10\x02*Z\n\x0e\x44\x61taSourceType\x12 \n\x1c\x44\x41TA_SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\x0b\n\x07\x44\x41TASET\x10\x01\x12\x0e\n\nCONNECTION\x10\x02\x12\t\n\x05VIDEO\x10\x03*L\n\x0bGranularity\x12\x1b\n\x17GRANULARITY_UNSPECIFIED\x10\x00\x12\x0f\n\x0bPICOSECONDS\x10\x01\x12\x0f\n\x0bNANOSECONDS\x10\x02*Y\n\x0cIngestStatus\x12\x1d\n\x19INGEST_STATUS_UNSPECIFIED\x10\x00\x12\r\n\tSUCCEEDED\x10\x01\x12\n\n\x06\x46\x41ILED\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03*`\n\x0fNominalDataType\x12!\n\x1dNOMINAL_DATA_TYPE_UNSPECIFIED\x10\x00\x12\n\n\x06\x44OUBLE\x10\x01\x12\n\n\x06STRING\x10\x02\x12\x07\n\x03LOG\x10\x03\x12\t\n\x05INT64\x10\x04\x42\x14\n\x10io.nominal.typesP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19nominal/types/types.proto\x12\rnominal.types\x1a\x1b\x62uf/validate/validate.proto\x1a\x1fnominal/conjure/v1/compat.proto\x1a\x1anominal/gen/v1/alias.proto\"\x07\n\x05\x45mpty\"R\n\x0b\x45rrorResult\x12\x32\n\nerror_type\x18\x01 \x01(\tB\x1e\x9a\xb2\x1a\x1a\n\x18io.nominal.api.ErrorType\x12\x0f\n\x07message\x18\x02 \x01(\t\"L\n\x06Handle\x12)\n\x02s3\x18\x01 \x01(\tB\x1b\x9a\xb2\x1a\x17\n\x15io.nominal.api.S3PathH\x00:\x06\xa2\xb2\x1a\x02\x08\x01\x42\x0f\n\x06handle\x12\x05\xbaH\x02\x08\x01\"\x12\n\x10InProgressResult\"\xc9\x01\n\x0eIngestStatusV2\x12/\n\x07success\x18\x01 \x01(\x0b\x32\x1c.nominal.types.SuccessResultH\x00\x12+\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x1a.nominal.types.ErrorResultH\x00\x12\x36\n\x0bin_progress\x18\x03 \x01(\x0b\x32\x1f.nominal.types.InProgressResultH\x00:\x06\xa2\xb2\x1a\x02\x08\x01\x42\x19\n\x10ingest_status_v2\x12\x05\xbaH\x02\x08\x01\"\xa5\x01\n\x12McapChannelLocator\x12\x36\n\x05topic\x18\x01 \x01(\tB%\x9a\xb2\x1a!\n\x1fio.nominal.api.McapChannelTopicH\x00\x12\x30\n\x02id\x18\x02 \x01(\x05\x42\"\x9a\xb2\x1a\x1e\n\x1cio.nominal.api.McapChannelIdH\x00:\x06\xa2\xb2\x1a\x02\x08\x01\x42\x1d\n\x14mcap_channel_locator\x12\x05\xbaH\x02\x08\x01\"n\n\x08Property\x12/\n\x04name\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.PropertyName\x12\x31\n\x05value\x18\x02 \x01(\tB\"\x9a\xb2\x1a\x1e\n\x1cio.nominal.api.PropertyValue\"@\n\x12LabelUpdateWrapper\x12*\n\x06labels\x18\x01 \x03(\tB\x1a\x9a\xb2\x1a\x16\n\x14io.nominal.api.Label\"\xd6\x01\n\x15PropertyUpdateWrapper\x12\x89\x01\n\nproperties\x18\x01 \x03(\x0b\x32\x34.nominal.types.PropertyUpdateWrapper.PropertiesEntryB?\x9a\xb2\x1a;\x12\x1bio.nominal.api.PropertyName\x1a\x1cio.nominal.api.PropertyValue\x1a\x31\n\x0fPropertiesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"s\n\x0eRefNameAndType\x12\x34\n\x04name\x18\x01 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.DataSourceRefName\x12+\n\x04type\x18\x02 \x01(\x0e\x32\x1d.nominal.types.DataSourceType\"\xe0\x01\n\x11SerializableError\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x07message\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x11\x65rror_instance_id\x18\x03 \x01(\t\x12\x13\n\x0bstatus_code\x18\x04 \x01(\x05\x12<\n\x06params\x18\x05 \x03(\x0b\x32,.nominal.types.SerializableError.ParamsEntry\x1a-\n\x0bParamsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\n\n\x08_message\"\x0f\n\rSuccessResult*Q\n\x0e\x41rchivedStatus\x12\x1f\n\x1b\x41RCHIVED_STATUS_UNSPECIFIED\x10\x00\x12\x10\n\x0cNOT_ARCHIVED\x10\x01\x12\x0c\n\x08\x41RCHIVED\x10\x02*Z\n\x0e\x44\x61taSourceType\x12 \n\x1c\x44\x41TA_SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\x0b\n\x07\x44\x41TASET\x10\x01\x12\x0e\n\nCONNECTION\x10\x02\x12\t\n\x05VIDEO\x10\x03*L\n\x0bGranularity\x12\x1b\n\x17GRANULARITY_UNSPECIFIED\x10\x00\x12\x0f\n\x0bPICOSECONDS\x10\x01\x12\x0f\n\x0bNANOSECONDS\x10\x02*Y\n\x0cIngestStatus\x12\x1d\n\x19INGEST_STATUS_UNSPECIFIED\x10\x00\x12\r\n\tSUCCEEDED\x10\x01\x12\n\n\x06\x46\x41ILED\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03*`\n\x0fNominalDataType\x12!\n\x1dNOMINAL_DATA_TYPE_UNSPECIFIED\x10\x00\x12\n\n\x06\x44OUBLE\x10\x01\x12\n\n\x06STRING\x10\x02\x12\x07\n\x03LOG\x10\x03\x12\t\n\x05INT64\x10\x04\x42\x14\n\x10io.nominal.typesP\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -59,20 +59,26 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_PROPERTY'].fields_by_name['name']._serialized_options = b'\232\262\032\035\n\033io.nominal.api.PropertyName'
   _globals['_PROPERTY'].fields_by_name['value']._loaded_options = None
   _globals['_PROPERTY'].fields_by_name['value']._serialized_options = b'\232\262\032\036\n\034io.nominal.api.PropertyValue'
+  _globals['_LABELUPDATEWRAPPER'].fields_by_name['labels']._loaded_options = None
+  _globals['_LABELUPDATEWRAPPER'].fields_by_name['labels']._serialized_options = b'\232\262\032\026\n\024io.nominal.api.Label'
+  _globals['_PROPERTYUPDATEWRAPPER_PROPERTIESENTRY']._loaded_options = None
+  _globals['_PROPERTYUPDATEWRAPPER_PROPERTIESENTRY']._serialized_options = b'8\001'
+  _globals['_PROPERTYUPDATEWRAPPER'].fields_by_name['properties']._loaded_options = None
+  _globals['_PROPERTYUPDATEWRAPPER'].fields_by_name['properties']._serialized_options = b'\232\262\032;\022\033io.nominal.api.PropertyName\032\034io.nominal.api.PropertyValue'
   _globals['_REFNAMEANDTYPE'].fields_by_name['name']._loaded_options = None
   _globals['_REFNAMEANDTYPE'].fields_by_name['name']._serialized_options = b'\232\262\032\"\n io.nominal.api.DataSourceRefName'
   _globals['_SERIALIZABLEERROR_PARAMSENTRY']._loaded_options = None
   _globals['_SERIALIZABLEERROR_PARAMSENTRY']._serialized_options = b'8\001'
-  _globals['_ARCHIVEDSTATUS']._serialized_start=1170
-  _globals['_ARCHIVEDSTATUS']._serialized_end=1251
-  _globals['_DATASOURCETYPE']._serialized_start=1253
-  _globals['_DATASOURCETYPE']._serialized_end=1343
-  _globals['_GRANULARITY']._serialized_start=1345
-  _globals['_GRANULARITY']._serialized_end=1421
-  _globals['_INGESTSTATUS']._serialized_start=1423
-  _globals['_INGESTSTATUS']._serialized_end=1512
-  _globals['_NOMINALDATATYPE']._serialized_start=1514
-  _globals['_NOMINALDATATYPE']._serialized_end=1610
+  _globals['_ARCHIVEDSTATUS']._serialized_start=1453
+  _globals['_ARCHIVEDSTATUS']._serialized_end=1534
+  _globals['_DATASOURCETYPE']._serialized_start=1536
+  _globals['_DATASOURCETYPE']._serialized_end=1626
+  _globals['_GRANULARITY']._serialized_start=1628
+  _globals['_GRANULARITY']._serialized_end=1704
+  _globals['_INGESTSTATUS']._serialized_start=1706
+  _globals['_INGESTSTATUS']._serialized_end=1795
+  _globals['_NOMINALDATATYPE']._serialized_start=1797
+  _globals['_NOMINALDATATYPE']._serialized_end=1893
   _globals['_EMPTY']._serialized_start=134
   _globals['_EMPTY']._serialized_end=141
   _globals['_ERRORRESULT']._serialized_start=143
@@ -87,12 +93,18 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_MCAPCHANNELLOCATOR']._serialized_end=695
   _globals['_PROPERTY']._serialized_start=697
   _globals['_PROPERTY']._serialized_end=807
-  _globals['_REFNAMEANDTYPE']._serialized_start=809
-  _globals['_REFNAMEANDTYPE']._serialized_end=924
-  _globals['_SERIALIZABLEERROR']._serialized_start=927
-  _globals['_SERIALIZABLEERROR']._serialized_end=1151
-  _globals['_SERIALIZABLEERROR_PARAMSENTRY']._serialized_start=1094
-  _globals['_SERIALIZABLEERROR_PARAMSENTRY']._serialized_end=1139
-  _globals['_SUCCESSRESULT']._serialized_start=1153
-  _globals['_SUCCESSRESULT']._serialized_end=1168
+  _globals['_LABELUPDATEWRAPPER']._serialized_start=809
+  _globals['_LABELUPDATEWRAPPER']._serialized_end=873
+  _globals['_PROPERTYUPDATEWRAPPER']._serialized_start=876
+  _globals['_PROPERTYUPDATEWRAPPER']._serialized_end=1090
+  _globals['_PROPERTYUPDATEWRAPPER_PROPERTIESENTRY']._serialized_start=1041
+  _globals['_PROPERTYUPDATEWRAPPER_PROPERTIESENTRY']._serialized_end=1090
+  _globals['_REFNAMEANDTYPE']._serialized_start=1092
+  _globals['_REFNAMEANDTYPE']._serialized_end=1207
+  _globals['_SERIALIZABLEERROR']._serialized_start=1210
+  _globals['_SERIALIZABLEERROR']._serialized_end=1434
+  _globals['_SERIALIZABLEERROR_PARAMSENTRY']._serialized_start=1377
+  _globals['_SERIALIZABLEERROR_PARAMSENTRY']._serialized_end=1422
+  _globals['_SUCCESSRESULT']._serialized_start=1436
+  _globals['_SUCCESSRESULT']._serialized_end=1451
 # @@protoc_insertion_point(module_scope)

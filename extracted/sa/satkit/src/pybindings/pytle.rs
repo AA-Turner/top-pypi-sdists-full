@@ -2,12 +2,22 @@ use pyo3::prelude::*;
 use pyo3::IntoPyObjectExt;
 
 use crate::tle::TLE;
+
+use crate::pybindings::pyinstant::ToTimeVec;
+use anyhow::{bail, Result};
+
+// Import PyMPSuccess from its module (adjust the path if needed)
+use crate::pybindings::pympsuccess::PyMPSuccess;
+
 use std::fs::File;
-use std::io::{self, BufRead};
+use std::io;
+use std::io::BufRead;
+
+
+
 
 #[pyclass(name = "TLE", module = "satkit")]
 pub struct PyTLE(pub TLE);
-
 impl<'py> IntoPyObject<'py> for TLE {
     type Target = PyAny; // the Python type
     type Output = Bound<'py, Self::Target>; // in most cases this will be `Bound`
@@ -34,7 +44,7 @@ impl PyTLE {
     /// * `tle` - a list of TLE objects or a single TLE if lines for
     ///           only 1 are passed in
     #[staticmethod]
-    fn from_file(filename: String) -> PyResult<PyObject> {
+    fn from_file(filename: String) -> Result<PyObject> {
         let file = File::open(std::path::PathBuf::from(filename))?;
 
         let lines: Vec<String> = io::BufReader::new(file)
@@ -64,50 +74,47 @@ impl PyTLE {
     /// * `tle` - a list of TLE objects or a single TLE if lines for
     ///           only 1 are passed in
     #[staticmethod]
-    fn from_lines(lines: Vec<String>) -> PyResult<PyObject> {
-        match TLE::from_lines(&lines) {
-            Ok(v) => pyo3::Python::with_gil(|py| -> PyResult<PyObject> {
+    fn from_lines(lines: Vec<String>) -> Result<PyObject> {
+        TLE::from_lines(&lines).and_then(|v| {
+            pyo3::Python::with_gil(|py| {
                 if v.len() > 1 {
                     v.into_py_any(py)
                 } else {
                     v[0].clone().into_py_any(py)
                 }
-            }),
-            Err(e) => {
-                let serr = format!("Error loading TLEs: {}", e);
-                Err(pyo3::exceptions::PyImportError::new_err(serr))
-            }
-        }
+            })
+            .map_err(|e| e.into())
+        })
     }
 
     /// Satellite NORAD Catalog Number
     #[getter]
-    const fn get_satnum(&self) -> PyResult<i32> {
-        Ok(self.0.sat_num)
+    const fn get_satnum(&self) -> i32 {
+        self.0.sat_num
     }
 
     /// Orbit eccentricity
     #[getter]
-    const fn get_eccen(&self) -> PyResult<f64> {
-        Ok(self.0.eccen)
+    const fn get_eccen(&self) -> f64 {
+        self.0.eccen
     }
 
     /// Mean anomaly in degrees
     #[getter]
-    const fn get_mean_anomaly(&self) -> PyResult<f64> {
-        Ok(self.0.mean_anomaly)
+    const fn get_mean_anomaly(&self) -> f64 {
+        self.0.mean_anomaly
     }
 
     /// Mean motion in revs / day
     #[getter]
-    const fn get_mean_motion(&self) -> PyResult<f64> {
-        Ok(self.0.mean_motion)
+    const fn get_mean_motion(&self) -> f64 {
+        self.0.mean_motion
     }
 
     /// inclination in degrees
     #[getter]
-    const fn get_inclination(&self) -> PyResult<f64> {
-        Ok(self.0.inclination)
+    const fn get_inclination(&self) -> f64 {
+        self.0.inclination
     }
 
     /// Epoch time of TLE
@@ -118,34 +125,80 @@ impl PyTLE {
 
     /// argument of perigee, degrees
     #[getter]
-    const fn get_arg_of_perigee(&self) -> PyResult<f64> {
-        Ok(self.0.arg_of_perigee)
+    const fn get_arg_of_perigee(&self) -> f64 {
+        self.0.arg_of_perigee
     }
 
     /// One half of 1st derivative of mean motion wrt time, in revs/day^2
     #[getter]
-    const fn get_mean_motion_dot(&self) -> PyResult<f64> {
-        Ok(self.0.mean_motion_dot)
+    const fn get_mean_motion_dot(&self) -> f64 {
+        self.0.mean_motion_dot
     }
 
     /// One sixth of 2nd derivative of mean motion wrt time, in revs/day^3
     #[getter]
-    const fn get_mean_motion_dot_dot(&self) -> PyResult<f64> {
-        Ok(self.0.mean_motion_dot_dot)
+    const fn get_mean_motion_dot_dot(&self) -> f64 {
+        self.0.mean_motion_dot_dot
     }
 
     /// Name of satellite
-    fn name(&self) -> PyResult<String> {
-        Ok(self.0.name.clone())
+    fn name(&self) -> String {
+        self.0.name.clone()
     }
 
     // Drag
-    const fn bstar(&self) -> PyResult<f64> {
-        Ok(self.0.bstar)
+    const fn bstar(&self) -> f64 {
+        self.0.bstar
     }
 
     fn __str__(&self) -> String {
         self.0.to_pretty_string()
+    }
+
+    /// Output as 2 canonical TLE Lines
+    fn to_2line(&self) -> Result<[String; 2]> {
+        self.0.to_2line()
+    }
+
+    // Output as 2 canonical TLE lines preceded by a name line (3-line element set)
+    fn to_3line(&self) -> Result<[String; 3]> {
+        self.0.to_3line()
+    }
+
+    // Fit a TLE from GCRF states and times
+    #[staticmethod]
+    fn fit_from_states(
+        states: Vec<[f64; 6]>,
+        times: &Bound<'_, PyAny>,
+        epoch: &Bound<'_, PyAny>,
+    ) -> Result<(Self, Py<PyAny>)> {
+        let times = times.to_time_vec()?;
+        let epoch = epoch.to_time_vec()?;
+        if epoch.len() != 1 {
+            bail!("epoch must be a single time value");
+        }
+        let (tle, status) = TLE::fit_from_states(&states, &times, epoch[0])?;
+
+        Ok((
+            Self(tle),
+            pyo3::Python::with_gil(|py| -> PyResult<PyObject> {
+                let dict = pyo3::types::PyDict::new(py);
+                dict.set_item("success", PyMPSuccess::from(status.success))?;
+                dict.set_item("best_norm", status.best_norm)?;
+                dict.set_item("orig_norm", status.orig_norm)?;
+                dict.set_item("n_iter", status.n_iter)?;
+                dict.set_item("n_fev", status.n_fev)?;
+                dict.set_item("n_par", status.n_par)?;
+                dict.set_item("n_free", status.n_free)?;
+                dict.set_item("n_pegged", status.n_pegged)?;
+                dict.set_item("n_func", status.n_func)?;
+                dict.set_item("resid", status.resid)?;
+                dict.set_item("xerror", status.xerror)?;
+                dict.set_item("covar", status.covar)?;
+
+                Ok(dict.into())
+            })?,
+        ))
     }
 
     fn __getstate__(&mut self, py: Python) -> PyResult<PyObject> {

@@ -196,6 +196,16 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             if dataset:
                 assets.append(StarlakeDagsterUtils.get_asset(context, config, dataset))
 
+            arguments = [] if not arguments else arguments
+            tmp_arguments = []
+            tmp_arguments.append("--scheduledDate")
+            from datetime import datetime
+            from ai.starlake.common import sl_timestamp_format
+            logical_datetime: datetime = StarlakeDagsterUtils.get_logical_datetime(context, config).strftime(sl_timestamp_format)
+            tmp_arguments.append(f"\'{logical_datetime}\'")
+            command = arguments.pop(0)
+            arguments = [command] + tmp_arguments + arguments
+
             if transform:
                 opts = arguments[-1].split(",")
                 transform_opts = StarlakeDagsterUtils.get_transform_options(context, config, params).split(',')

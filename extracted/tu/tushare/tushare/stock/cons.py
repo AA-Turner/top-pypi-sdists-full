@@ -448,3 +448,6 @@ def _get_xxserver():
     ips = XXLIST
     random.shuffle(ips)
     return ips[0]
+
+
+verify_token_url = "http://api.tushare.pro/dataapi/sdk-event"

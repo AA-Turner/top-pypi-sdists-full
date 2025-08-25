@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kreuzberg
-Version: 3.11.2
+Version: 3.11.4
 Summary: Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats
 Project-URL: documentation, https://kreuzberg.dev
 Project-URL: homepage, https://github.com/Goldziher/kreuzberg
@@ -52,9 +52,9 @@ Requires-Dist: gmft>=0.4.2; extra == 'all'
 Requires-Dist: keybert>=0.9.0; extra == 'all'
 Requires-Dist: litestar[opentelemetry,standard,structlog]>=2.17.0; extra == 'all'
 Requires-Dist: mailparse>=1.0.15; extra == 'all'
-Requires-Dist: paddleocr>=3.1.1; extra == 'all'
-Requires-Dist: paddlepaddle>=3.1.0; extra == 'all'
-Requires-Dist: pandas>=2.3.1; extra == 'all'
+Requires-Dist: paddleocr>=3.2.0; extra == 'all'
+Requires-Dist: paddlepaddle>=3.1.1; extra == 'all'
+Requires-Dist: pandas>=2.3.2; extra == 'all'
 Requires-Dist: playa-pdf[crypto]>=0.7.0; extra == 'all'
 Requires-Dist: rich>=14.1.0; extra == 'all'
 Requires-Dist: semantic-text-splitter>=0.27.0; extra == 'all'
@@ -73,7 +73,7 @@ Provides-Extra: crypto
 Requires-Dist: playa-pdf[crypto]>=0.7.0; extra == 'crypto'
 Provides-Extra: document-classification
 Requires-Dist: deep-translator>=1.11.4; extra == 'document-classification'
-Requires-Dist: pandas>=2.3.1; extra == 'document-classification'
+Requires-Dist: pandas>=2.3.2; extra == 'document-classification'
 Provides-Extra: easyocr
 Requires-Dist: easyocr>=1.7.2; extra == 'easyocr'
 Provides-Extra: entity-extraction
@@ -84,8 +84,8 @@ Requires-Dist: gmft>=0.4.2; extra == 'gmft'
 Provides-Extra: langdetect
 Requires-Dist: fast-langdetect>=0.3.2; extra == 'langdetect'
 Provides-Extra: paddleocr
-Requires-Dist: paddleocr>=3.1.1; extra == 'paddleocr'
-Requires-Dist: paddlepaddle>=3.1.0; extra == 'paddleocr'
+Requires-Dist: paddleocr>=3.2.0; extra == 'paddleocr'
+Requires-Dist: paddlepaddle>=3.1.1; extra == 'paddleocr'
 Requires-Dist: setuptools>=80.9.0; extra == 'paddleocr'
 Description-Content-Type: text/markdown
 

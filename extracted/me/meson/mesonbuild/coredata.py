@@ -68,7 +68,7 @@ if T.TYPE_CHECKING:
 #
 # Pip requires that RCs are named like this: '0.1.0.rc1'
 # But the corresponding Git tag needs to be '0.1.0rc1'
-version = '1.8.4'
+version = '1.9.0'
 
 # The next stable version when we are in dev. This is used to allow projects to
 # require meson version >=1.2.0 when using 1.1.99. FeatureNew won't warn when
@@ -244,6 +244,7 @@ class CoreData:
             'default': '8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942',
             'c': '8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942',
             'cpp': '8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942',
+            'masm': '8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942',
             'test': '3AC096D0-A1C2-E12C-1390-A8335801FDAB',
             'directory': '2150E333-8FDC-42A3-9474-1A3956D46DE8',
         }
@@ -566,14 +567,14 @@ class CoreData:
 
     def add_compiler_options(self, c_options: MutableKeyedOptionDictType, lang: str, for_machine: MachineChoice) -> None:
         for k, o in c_options.items():
-            comp_key = OptionKey(f'{k.name}', None, for_machine)
+            assert k.subproject is None and k.machine is for_machine
             if lang == 'objc' and k.name == 'c_std':
                 # For objective C, always fall back to c_std.
-                self.optstore.add_compiler_option('c', comp_key, o)
+                self.optstore.add_compiler_option('c', k, o)
             elif lang == 'objcpp' and k.name == 'cpp_std':
-                self.optstore.add_compiler_option('cpp', comp_key, o)
+                self.optstore.add_compiler_option('cpp', k, o)
             else:
-                self.optstore.add_compiler_option(lang, comp_key, o)
+                self.optstore.add_compiler_option(lang, k, o)
 
     def process_compiler_options(self, lang: str, comp: Compiler, subproject: str) -> None:
         self.add_compiler_options(comp.get_options(), lang, comp.for_machine)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastcrud
-Version: 0.15.12
+Version: 0.16.0
 Summary: FastCRUD is a Python package for FastAPI, offering robust async CRUD operations and flexible endpoint creation utilities.
 Project-URL: Repository, https://github.com/igorbenav/fastcrud
 Author-email: Igor Benav <igor.magalhaes.r@gmail.com>
@@ -77,6 +77,10 @@ Description-Content-Type: text/markdown
   <li><b>Pydantic:</b> Version 2.4.1 or newer. FastCRUD leverages Pydantic models for data validation and serialization.</li>
   <li><b>SQLAlchemy-Utils:</b> Optional, but recommended for additional SQLAlchemy utilities.</li>
 </ul>
+
+> **⚠️ Warning:**  
+> If you are using a non-native column type (such as those from `sqlalchemy-utils`) in your models, you may encounter a `NotImplementedError`. In such cases, you need to add a `python_type` attribute to your column type. For more details and a discussion on this issue, see [this pull request](https://github.com/kvesteri/sqlalchemy-utils/pull/779).
+
 
 <h2>Installing</h2>
 

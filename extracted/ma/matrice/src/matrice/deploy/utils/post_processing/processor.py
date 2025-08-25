@@ -98,6 +98,7 @@ from .usecases import (
     DrowsyDriverUseCase,
     WaterBodyUseCase,
     LicensePlateMonitorUseCase,
+    DwellUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -240,6 +241,7 @@ class PostProcessor:
         registry.register_use_case("general", "human_activity_recognition", HumanActivityUseCase)
         registry.register_use_case("oil_gas", "gas_leak_detection", GasLeakDetectionUseCase)
         registry.register_use_case("license_plate_monitor", "license_plate_monitor", LicensePlateMonitorUseCase)
+        registry.register_use_case("general", "dwell", DwellUseCase)
 
         #Put all IMAGE based usecases here
         registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)

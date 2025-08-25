@@ -2,6 +2,7 @@
 name = "rdetoolkit-core"
 version = "0.2.0"
 edition = "2021"
+readme = "README.md"
 
 [lib]
 name = "rdetoolkit_core"

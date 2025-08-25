@@ -8,14 +8,14 @@ use arrow::ffi::{FFI_ArrowArray, FFI_ArrowSchema, from_ffi};
 use arrow_odbc::{
     OdbcWriter,
     arrow::{array::StructArray, datatypes::Schema, record_batch::RecordBatch},
-    odbc_api::{Connection, handles::StatementConnection},
+    odbc_api::{SharedConnection, handles::StatementConnection},
 };
 
 use crate::{ArrowOdbcConnection, ArrowOdbcError, try_};
 
 /// Opaque type holding all the state associated with an ODBC writer implementation in Rust. This
 /// type also has ownership of the ODBC Connection handle.
-pub struct ArrowOdbcWriter(OdbcWriter<StatementConnection<Connection<'static>>>);
+pub struct ArrowOdbcWriter(OdbcWriter<StatementConnection<SharedConnection<'static>>>);
 
 /// Frees the resources associated with an ArrowOdbcWriter
 ///
@@ -43,14 +43,14 @@ pub unsafe extern "C" fn arrow_odbc_writer_free(writer: NonNull<ArrowOdbcWriter>
 ///   is transferred to the caller.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn arrow_odbc_writer_make(
-    mut connection: NonNull<ArrowOdbcConnection>,
+    connection: NonNull<ArrowOdbcConnection>,
     table_buf: *const u8,
     table_len: usize,
     chunk_size: usize,
     schema: *const c_void,
     writer_out: *mut *mut ArrowOdbcWriter,
 ) -> *mut ArrowOdbcError {
-    let connection = unsafe { connection.as_mut().take() };
+    let connection = unsafe { connection.as_ref().inner() };
 
     let table = unsafe { slice::from_raw_parts(table_buf, table_len) };
     let table = str::from_utf8(table).unwrap();

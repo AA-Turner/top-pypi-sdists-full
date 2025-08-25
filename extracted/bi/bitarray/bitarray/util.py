@@ -27,7 +27,7 @@ from bitarray._util import (
 )
 
 __all__ = [
-    'zeros', 'ones', 'urandom', 'random_k', 'random_p',
+    'zeros', 'ones', 'urandom', 'random_k', 'random_p', 'gen_primes',
     'pprint', 'strip', 'count_n',
     'parity', 'sum_indices', 'xor_indices',
     'count_and', 'count_or', 'count_xor', 'any_and', 'subset',
@@ -250,19 +250,61 @@ class _Random:
         return a
 
 
-def sum_indices(__a, __mode=1):
-    """sum_indices(a, /) -> int
+def gen_primes(__n, endian=None, odd=False):
+    """gen_primes(n, /, endian=None, odd=False) -> bitarray
+
+Generate a bitarray of length `n` in which active indices are prime numbers.
+By default (`odd=False`), active indices correspond to prime numbers directly.
+When `odd=True`, only odd prime numbers are represented in the resulting
+bitarray `a`, and `a[i]` corresponds to `2*i+1` being prime or not.
+"""
+    n = int(__n)
+    if n < 0:
+        raise ValueError("bitarray length must be >= 0")
+
+    if odd:
+        a = ones(105, endian)  # 105 = 3 * 5 * 7
+        a[1::3] = 0
+        a[2::5] = 0
+        a[3::7] = 0
+        f = "01110110"
+    else:
+        a = ones(210, endian)  # 210 = 2 * 3 * 5 * 7
+        for i in 2, 3, 5, 7:
+            a[::i] = 0
+        f = "00110101"
+
+    # repeating the array many times is faster than setting the multiples
+    # of the low primes to 0
+    a *= (n + len(a) - 1) // len(a)
+    a[:8] = bitarray(f, endian)
+    del a[n:]
+    # perform sieve starting at 11
+    if odd:
+        for i in a.search(1, 5, int(math.sqrt(n // 2) + 1.0)):  # 11//2 = 5
+            j = 2 * i + 1
+            a[(j * j) // 2 :: j] = 0
+    else:
+        # i*i is always odd, and even bits are already set to 0: use step 2*i
+        for i in a.search(1, 11, int(math.sqrt(n) + 1.0)):
+            a[i * i :: 2 * i] = 0
+    return a
+
+
+def sum_indices(__a, mode=1):
+    """sum_indices(a, /, mode=1) -> int
 
 Return sum of indices of all active bits in bitarray `a`.
 Equivalent to `sum(i for i, v in enumerate(a) if v)`.
+`mode=2` sums square of indices.
 """
-    if __mode not in (1, 2):
-        raise ValueError("unexpected mode %r" % __mode)
+    if mode not in (1, 2):
+        raise ValueError("unexpected mode %r" % mode)
 
     # For details see: devel/test_sum_indices.py
     n = 1 << 19  # block size  512 Kbits
     if len(__a) <= n:  # shortcut for single block
-        return _ssqi(__a, __mode)
+        return _ssqi(__a, mode)
 
     # Constants
     m = n // 8  # block size in bytes
@@ -285,7 +327,7 @@ Equivalent to `sum(i for i, v in enumerate(a) if v)`.
         if k:
             y = n * i
             z1 = o1 if k == n else _ssqi(block)
-            if __mode == 1:
+            if mode == 1:
                 sm += k * y + z1
             else:
                 z2 = o2 if k == n else _ssqi(block, 2)
@@ -297,11 +339,9 @@ Equivalent to `sum(i for i, v in enumerate(a) if v)`.
 def pprint(__a, stream=None, group=8, indent=4, width=80):
     """pprint(bitarray, /, stream=None, group=8, indent=4, width=80)
 
-Prints the formatted representation of object on `stream` (which defaults
-to `sys.stdout`).  By default, elements are grouped in bytes (8 elements),
-and 8 bytes (64 elements) per line.
-Non-bitarray objects are printed by the standard library
-function `pprint.pprint()`.
+Pretty-print bitarray object to `stream`, defaults is `sys.stdout`.
+By default, bits are grouped in bytes (8 bits), and 64 bits per line.
+Non-bitarray objects are printed using `pprint.pprint()`.
 """
     if stream is None:
         stream = sys.stdout

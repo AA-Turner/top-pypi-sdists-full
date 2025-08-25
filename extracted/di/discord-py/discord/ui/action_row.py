@@ -21,6 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
+
 from __future__ import annotations
 
 from typing import (
@@ -66,6 +67,7 @@ if TYPE_CHECKING:
     from ..components import SelectOption
     from ..interactions import Interaction
     from .container import Container
+    from .dynamic import DynamicItem
 
     SelectCallbackDecorator = Callable[[ItemCallbackType['S', BaseSelectT]], BaseSelectT]
 
@@ -193,9 +195,18 @@ class ActionRow(Item[V]):
         # it should error anyways.
         return True
 
+    def _swap_item(self, base: Item, new: DynamicItem, custom_id: str) -> None:
+        child_index = self._children.index(base)
+        self._children[child_index] = new  # type: ignore
+
     @property
     def width(self):
         return 5
+
+    @property
+    def _total_count(self) -> int:
+        # 1 for self and all children
+        return 1 + len(self._children)
 
     @property
     def type(self) -> Literal[ComponentType.action_row]:
@@ -347,6 +358,7 @@ class ActionRow(Item[V]):
         The function being decorated should have three parameters, ``self`` representing
         the :class:`discord.ui.ActionRow`, the :class:`discord.Interaction` you receive and
         the :class:`discord.ui.Button` being pressed.
+
         .. note::
 
             Buttons with a URL or a SKU cannot be created with this function.
@@ -405,8 +417,7 @@ class ActionRow(Item[V]):
         max_values: int = ...,
         disabled: bool = ...,
         id: Optional[int] = ...,
-    ) -> SelectCallbackDecorator[S, SelectT]:
-        ...
+    ) -> SelectCallbackDecorator[S, SelectT]: ...
 
     @overload
     def select(
@@ -422,8 +433,7 @@ class ActionRow(Item[V]):
         disabled: bool = ...,
         default_values: Sequence[ValidDefaultValues] = ...,
         id: Optional[int] = ...,
-    ) -> SelectCallbackDecorator[S, UserSelectT]:
-        ...
+    ) -> SelectCallbackDecorator[S, UserSelectT]: ...
 
     @overload
     def select(
@@ -439,8 +449,7 @@ class ActionRow(Item[V]):
         disabled: bool = ...,
         default_values: Sequence[ValidDefaultValues] = ...,
         id: Optional[int] = ...,
-    ) -> SelectCallbackDecorator[S, RoleSelectT]:
-        ...
+    ) -> SelectCallbackDecorator[S, RoleSelectT]: ...
 
     @overload
     def select(
@@ -456,8 +465,7 @@ class ActionRow(Item[V]):
         disabled: bool = ...,
         default_values: Sequence[ValidDefaultValues] = ...,
         id: Optional[int] = ...,
-    ) -> SelectCallbackDecorator[S, ChannelSelectT]:
-        ...
+    ) -> SelectCallbackDecorator[S, ChannelSelectT]: ...
 
     @overload
     def select(
@@ -473,8 +481,7 @@ class ActionRow(Item[V]):
         disabled: bool = ...,
         default_values: Sequence[ValidDefaultValues] = ...,
         id: Optional[int] = ...,
-    ) -> SelectCallbackDecorator[S, MentionableSelectT]:
-        ...
+    ) -> SelectCallbackDecorator[S, MentionableSelectT]: ...
 
     def select(
         self,

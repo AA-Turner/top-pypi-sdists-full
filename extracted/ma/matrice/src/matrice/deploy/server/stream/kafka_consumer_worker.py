@@ -63,7 +63,7 @@ class KafkaConsumerWorker:
             deployment_id,
             "server",
             consumer_group_id,
-            f"{consumer_group_id}-{worker_id}",
+            f"{consumer_group_id}-{deployment_instance_id}-{worker_id}",
             custom_request_service_id=custom_request_service_id
         )
         # Note: async consumer setup moved to start() method

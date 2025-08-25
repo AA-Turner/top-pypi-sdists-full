@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-plantri
-Version: 10.6.7
+Version: 10.6.8
 Summary: passagemath: Generating planar graphs with plantri and fullgen
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors

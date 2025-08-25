@@ -485,7 +485,6 @@ class Dataset(lib._Weakrefable):
         """
     def count_rows(
         self,
-        columns: list[str] | None = None,
         filter: Expression | None = None,
         batch_size: int = ...,
         batch_readahead: int = 16,
@@ -946,6 +945,7 @@ class Fragment(lib._Weakrefable):
         """
     def to_batches(
         self,
+        schema: lib.Schema | None = None,
         columns: list[str] | None = None,
         filter: Expression | None = None,
         batch_size: int = ...,
@@ -1018,6 +1018,7 @@ class Fragment(lib._Weakrefable):
         """
     def to_table(
         self,
+        schema: lib.Schema | None = None,
         columns: list[str] | None = None,
         filter: Expression | None = None,
         batch_size: int = ...,

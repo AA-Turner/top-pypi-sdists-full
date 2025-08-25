@@ -36,6 +36,7 @@ from simpletransformers.config.model_args import T5Args
 from simpletransformers.config.utils import sweep_config_to_sweep_values
 from simpletransformers.t5.t5_utils import T5Dataset, load_hf_dataset
 from simpletransformers.custom_models.reranking_model import EET5
+from simpletransformers.utils.utils import ChunkSampler
 
 try:
     import wandb
@@ -181,6 +182,7 @@ class T5Model:
         eval_data=None,
         qrels=None,
         run_dict=None,
+        eval_name=None,
         verbose=True,
         **kwargs,
     ):
@@ -247,7 +249,7 @@ class T5Model:
             verbose=verbose,
             qrels=qrels,
             run_dict=run_dict,
-            eval_name=None,
+            eval_name=eval_name,
             **kwargs,
         )
 
@@ -285,7 +287,12 @@ class T5Model:
         device = self.device
 
         tb_writer = SummaryWriter(log_dir=args.tensorboard_dir)
-        train_sampler = RandomSampler(train_dataset)
+        if args.batch_chunk_size is not None:
+            train_sampler = ChunkSampler(
+                train_dataset, args.batch_chunk_size, args.train_batch_size
+            )
+        else:
+            train_sampler = RandomSampler(train_dataset)
         train_dataloader = DataLoader(
             train_dataset,
             sampler=train_sampler,
@@ -519,6 +526,30 @@ class T5Model:
             from torch.cuda import amp
 
             scaler = amp.GradScaler()
+
+        if args.evaluate_before_training:
+            results = self._evaluate_during_training(
+                eval_data,
+                verbose=verbose and args.evaluate_during_training_verbose,
+                silent=args.evaluate_during_training_silent,
+                qrels=qrels,
+                run_dict=run_dict,
+                eval_name=eval_name,
+                **kwargs,
+            )
+
+            training_progress_scores["global_step"].append(global_step)
+            training_progress_scores["train_loss"].append(0)
+            for key in results:
+                training_progress_scores[key].append(results[key])
+            report = pd.DataFrame(training_progress_scores)
+            report.to_csv(
+                os.path.join(args.output_dir, "training_progress_scores.csv"),
+                index=False,
+            )
+
+            if args.wandb_project or self.is_sweeping:
+                wandb.log(self._get_last_metrics(training_progress_scores))
 
         for current_epoch in train_iterator:
             model.train()
@@ -1278,19 +1309,19 @@ class T5Model:
                 qrels_dict[query_id] = {}
             qrels_dict[query_id][doc_id] = relevance
 
-        pytrec_eval_metrics = ["recip_rank", "recall_100", "ndcg_cut_10", "ndcg"]
+        pytrec_eval_metrics = [
+            "recip_rank",
+            "recall_100",
+            "ndcg_cut_10",
+            "ndcg",
+            "ndcg_cut_1",
+        ]
 
         evaluator = pytrec_eval.RelevanceEvaluator(
             qrels_dict,
             pytrec_eval_metrics,
             relevance_level=1,
         )
-
-        # Test by loading bm25 dev runfile as run_dict
-        # runfile_path = "../data/bm25/bm25_dev.json"
-
-        # with open(runfile_path, "r") as f:
-        #     run_dict = json.load(f)
 
         try:
             results = evaluator.evaluate(run_dict)
@@ -1339,7 +1370,6 @@ class T5Model:
                         eval_data_item,
                         qrels=qrel,
                         run_dict=run,
-                        eval_name=name,
                         **kwargs,
                     )
                 else:
@@ -1351,7 +1381,7 @@ class T5Model:
                     )
 
                 for key in results_default_names:
-                    results[f"{eval_name}_{key}"] = results_default_names[key]
+                    results[f"{name}_{key}"] = results_default_names[key]
         else:
             if self.args.as_reranker:
                 results = self.rerank(
@@ -1501,7 +1531,6 @@ class T5Model:
                         f"{name}_ndcg_cut_10": [],
                         f"{name}_ndcg": [],
                     }
-                training_progress_scores.pop("eval_loss")
             else:
                 training_progress_scores = {
                     **training_progress_scores,
@@ -1510,6 +1539,12 @@ class T5Model:
                     "ndcg_cut_10": [],
                     "ndcg": [],
                 }
+            training_progress_scores.pop("eval_loss")
+            if self.args.early_stopping_metric == "eval_loss":
+                self.args.early_stopping_metric = f"{eval_name[0]}_ndcg_cut_10"
+                warnings.warn(
+                    f"Early stopping metric changed to {eval_name[0]}_ndcg_cut_10 from eval_loss."
+                )
 
         return training_progress_scores
 

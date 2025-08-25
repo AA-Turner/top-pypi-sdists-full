@@ -152,12 +152,6 @@ def tensorleap_custom_metric(name: str,
                 raise Exception(f'Metric with name {name} already exists. '
                                 f'Please choose another')
 
-        leap_binder.add_custom_metric(user_function, name, direction, compute_insights)
-
-        if connects_to is not None:
-            arg_names = leap_binder.setup_container.metrics[-1].metric_handler_data.arg_names
-            _add_mapping_connections(connects_to, arg_names, NodeMappingType.Metric, name)
-
         def _validate_input_args(*args, **kwargs) -> None:
             for i, arg in enumerate(args):
                 assert isinstance(arg, (np.ndarray, SamplePreprocessResponse)), (
@@ -233,9 +227,7 @@ def tensorleap_custom_metric(name: str,
                         (f'tensorleap_custom_metric validation failed: '
                          f'compute_insights should be boolean. Got {type(compute_insights)}.')
 
-        def inner(*args, **kwargs):
-            _validate_input_args(*args, **kwargs)
-
+        def inner_without_validate(*args, **kwargs):
             global _called_from_inside_tl_decorator
             _called_from_inside_tl_decorator += 1
 
@@ -243,6 +235,19 @@ def tensorleap_custom_metric(name: str,
                 result = user_function(*args, **kwargs)
             finally:
                 _called_from_inside_tl_decorator -= 1
+
+            return result
+
+        leap_binder.add_custom_metric(inner_without_validate, name, direction, compute_insights)
+
+        if connects_to is not None:
+            arg_names = leap_binder.setup_container.metrics[-1].metric_handler_data.arg_names
+            _add_mapping_connections(connects_to, arg_names, NodeMappingType.Metric, name)
+
+        def inner(*args, **kwargs):
+            _validate_input_args(*args, **kwargs)
+
+            result = inner_without_validate(*args, **kwargs)
 
             _validate_result(result)
             return result
@@ -284,12 +289,6 @@ def tensorleap_custom_visualizer(name: str, visualizer_type: LeapDataType,
                 raise Exception(f'Visualizer with name {name} already exists. '
                                 f'Please choose another')
 
-        leap_binder.set_visualizer(user_function, name, visualizer_type, heatmap_function)
-
-        if connects_to is not None:
-            arg_names = leap_binder.setup_container.visualizers[-1].visualizer_handler_data.arg_names
-            _add_mapping_connections(connects_to, arg_names, NodeMappingType.Visualizer, name)
-
         def _validate_input_args(*args, **kwargs):
             for i, arg in enumerate(args):
                 assert isinstance(arg, (np.ndarray, SamplePreprocessResponse)), (
@@ -324,9 +323,8 @@ def tensorleap_custom_visualizer(name: str, visualizer_type: LeapDataType,
                 (f'tensorleap_custom_visualizer validation failed: '
                  f'The return type should be {result_type_map[visualizer_type]}. Got {type(result)}.')
 
-        def inner(*args, **kwargs):
-            _validate_input_args(*args, **kwargs)
 
+        def inner_without_validate(*args, **kwargs):
             global _called_from_inside_tl_decorator
             _called_from_inside_tl_decorator += 1
 
@@ -335,8 +333,22 @@ def tensorleap_custom_visualizer(name: str, visualizer_type: LeapDataType,
             finally:
                 _called_from_inside_tl_decorator -= 1
 
+            return result
+
+        leap_binder.set_visualizer(inner_without_validate, name, visualizer_type, heatmap_function)
+
+        if connects_to is not None:
+            arg_names = leap_binder.setup_container.visualizers[-1].visualizer_handler_data.arg_names
+            _add_mapping_connections(connects_to, arg_names, NodeMappingType.Visualizer, name)
+
+        def inner(*args, **kwargs):
+            _validate_input_args(*args, **kwargs)
+
+            result = inner_without_validate()
+
             _validate_result(result)
             return result
+
 
         def mapping_inner(*args, **kwargs):
             user_unique_name = mapping_inner.name
@@ -372,8 +384,6 @@ def tensorleap_metadata(
                 raise Exception(f'Metadata with name {name} already exists. '
                                 f'Please choose another')
 
-        leap_binder.set_metadata(user_function, name, metadata_type)
-
         def _validate_input_args(sample_id: Union[int, str], preprocess_response: PreprocessResponse):
             assert isinstance(sample_id, (int, str)), \
                 (f'tensorleap_metadata validation failed: '
@@ -401,11 +411,7 @@ def tensorleap_metadata(
                         (f'tensorleap_metadata validation failed: '
                          f'Values in the return dict should be of type {str(supported_result_types)}. Got {type(value)}.')
 
-        def inner(sample_id, preprocess_response):
-            if os.environ.get(mapping_runtime_mode_env_var_mame):
-                return None
-
-            _validate_input_args(sample_id, preprocess_response)
+        def inner_without_validate(sample_id, preprocess_response):
 
             global _called_from_inside_tl_decorator
             _called_from_inside_tl_decorator += 1
@@ -414,6 +420,19 @@ def tensorleap_metadata(
                 result = user_function(sample_id, preprocess_response)
             finally:
                 _called_from_inside_tl_decorator -= 1
+
+            return result
+
+
+        leap_binder.set_metadata(inner_without_validate, name, metadata_type)
+
+        def inner(sample_id, preprocess_response):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return None
+
+            _validate_input_args(sample_id, preprocess_response)
+
+            result = inner_without_validate(sample_id, preprocess_response)
 
             _validate_result(result)
             return result
@@ -549,8 +568,6 @@ def tensorleap_unlabeled_preprocess():
 
 def tensorleap_instances_masks_encoder(name: str):
     def decorating_function(user_function: InstanceCallableInterface):
-        leap_binder.set_instance_masks(user_function, name)
-
         def _validate_input_args(sample_id: str, preprocess_response: PreprocessResponse):
             assert isinstance(sample_id, str), \
                 (f'tensorleap_instances_masks_encoder validation failed: '
@@ -568,13 +585,7 @@ def tensorleap_instances_masks_encoder(name: str):
                 (f'tensorleap_instances_masks_encoder validation failed: '
                  f'Unsupported return type. Should be a numpy array. Got {type(result)}.')
 
-
-        def inner(sample_id, preprocess_response):
-            if os.environ.get(mapping_runtime_mode_env_var_mame):
-                return None
-
-            _validate_input_args(sample_id, preprocess_response)
-
+        def inner_without_validate(sample_id, preprocess_response):
             global _called_from_inside_tl_decorator
             _called_from_inside_tl_decorator += 1
 
@@ -582,6 +593,19 @@ def tensorleap_instances_masks_encoder(name: str):
                 result = user_function(sample_id, preprocess_response)
             finally:
                 _called_from_inside_tl_decorator -= 1
+
+            return result
+
+        leap_binder.set_instance_masks(inner_without_validate, name)
+
+
+        def inner(sample_id, preprocess_response):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return None
+
+            _validate_input_args(sample_id, preprocess_response)
+
+            result = inner_without_validate(sample_id, preprocess_response)
 
             _validate_result(result)
             return result
@@ -733,12 +757,6 @@ def tensorleap_custom_loss(name: str, connects_to=None):
                 raise Exception(f'Custom loss with name {name} already exists. '
                                 f'Please choose another')
 
-        leap_binder.add_custom_loss(user_function, name)
-
-        if connects_to is not None:
-            arg_names = leap_binder.setup_container.custom_loss_handlers[-1].custom_loss_handler_data.arg_names
-            _add_mapping_connections(connects_to, arg_names, NodeMappingType.CustomLoss, name)
-
 
         valid_types = (np.ndarray, SamplePreprocessResponse)
         try:
@@ -771,9 +789,7 @@ def tensorleap_custom_loss(name: str, connects_to=None):
                 (f'tensorleap_custom_loss validation failed: '
                  f'The return type should be a numpy array. Got {type(result)}.')
 
-        def inner(*args, **kwargs):
-            _validate_input_args(*args, **kwargs)
-
+        def inner_without_validate(*args, **kwargs):
             global _called_from_inside_tl_decorator
             _called_from_inside_tl_decorator += 1
 
@@ -781,6 +797,19 @@ def tensorleap_custom_loss(name: str, connects_to=None):
                 result = user_function(*args, **kwargs)
             finally:
                 _called_from_inside_tl_decorator -= 1
+
+            return result
+
+        leap_binder.add_custom_loss(inner_without_validate, name)
+
+        if connects_to is not None:
+            arg_names = leap_binder.setup_container.custom_loss_handlers[-1].custom_loss_handler_data.arg_names
+            _add_mapping_connections(connects_to, arg_names, NodeMappingType.CustomLoss, name)
+
+        def inner(*args, **kwargs):
+            _validate_input_args(*args, **kwargs)
+
+            result = inner_without_validate(*args, **kwargs)
 
             _validate_result(result)
             return result

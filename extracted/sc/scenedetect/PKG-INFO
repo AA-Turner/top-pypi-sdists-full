@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: scenedetect
-Version: 0.6.6
+Version: 0.6.7
 Summary: Video scene cut/shot detection program and Python library.
 Home-page: https://www.scenedetect.com
 Author: Brandon Castellano
@@ -46,6 +46,7 @@ Provides-Extra: pyav
 Requires-Dist: av; extra == "pyav"
 Provides-Extra: moviepy
 Requires-Dist: moviepy; extra == "moviepy"
+Dynamic: license-file
 
 
 PySceneDetect

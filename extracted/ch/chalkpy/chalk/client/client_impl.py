@@ -3125,6 +3125,7 @@ https://docs.chalk.ai/cli/apply
         ignore_errors: bool,
         query_inputs: bool,
         return_type: Literal["polars_dataframe"],
+        skip_failed_shards: bool = False,
     ) -> pl.DataFrame:
         ...
 
@@ -3140,6 +3141,7 @@ https://docs.chalk.ai/cli/apply
         ignore_errors: bool,
         query_inputs: bool,
         return_type: Literal["polars_lazyframe"],
+        skip_failed_shards: bool = False,
     ) -> pl.LazyFrame:
         ...
 
@@ -3155,6 +3157,7 @@ https://docs.chalk.ai/cli/apply
         ignore_errors: bool,
         query_inputs: bool,
         return_type: Literal["pandas"],
+        skip_failed_shards: bool = False,
     ) -> pd.DataFrame:
         ...
 
@@ -3170,6 +3173,7 @@ https://docs.chalk.ai/cli/apply
         ignore_errors: bool,
         query_inputs: bool,
         return_type: Literal["pyarrow"],
+        skip_failed_shards: bool = False,
     ) -> pa.Table:
         ...
 
@@ -3184,12 +3188,14 @@ https://docs.chalk.ai/cli/apply
         ignore_errors: bool,
         query_inputs: bool,
         return_type: Literal["polars_dataframe", "polars_lazyframe", "pandas", "pyarrow"],
+        skip_failed_shards: bool = False,
     ) -> pa.Table | pl.LazyFrame | pl.DataFrame | pd.DataFrame:
         status = self.get_job_status_v4(
             request=DatasetJobStatusRequest(
                 job_id=str(job_id),
                 ignore_errors=ignore_errors,
                 query_inputs=query_inputs,
+                skip_failed_shards=skip_failed_shards,
             ),
             environment=context and context.environment,
             branch=branch,

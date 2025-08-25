@@ -16,18 +16,20 @@ from inspect_ai.model._generate_config import GenerateConfig
 from inspect_ai.model._model import get_model
 from inspect_ai.solver._prompt import user_message
 from inspect_ai.solver._solver import generate
+from inspect_ai.tool._tool import Tool
+from inspect_ai.tool._tool_choice import ToolChoice
 
 
 @pytest.mark.asyncio
 @skip_if_no_together
 async def test_reasoning_content_together():
-    await check_reasoning_content("together/Qwen/Qwen3-235B-A22B-Thinking-2507")
+    await check_reasoning_content("together/openai/gpt-oss-20b")
 
 
 @pytest.mark.asyncio
 @skip_if_no_groq
 async def test_reasoning_content_groq():
-    await check_reasoning_content("groq/deepseek-r1-distill-llama-70b")
+    await check_reasoning_content("groq/openai/gpt-oss-20b")
 
 
 @pytest.mark.asyncio
@@ -62,14 +64,21 @@ def test_reasoning_history_last():
 
 
 async def check_reasoning_content(
-    model_name: str, config: GenerateConfig = GenerateConfig()
+    model_name: str,
+    config: GenerateConfig = GenerateConfig(),
+    tools: list[Tool] = [],
+    tool_choice: ToolChoice | None = None,
 ):
     model = get_model(model_name)
     output = await model.generate(
         "Solve 3*x^3-5*x=1",
         config=config.merge(
-            GenerateConfig(reasoning_effort="low", reasoning_tokens=1024)
+            GenerateConfig(
+                reasoning_effort="low", reasoning_tokens=1024, max_tokens=8192
+            )
         ),
+        tools=tools,
+        tool_choice=tool_choice,
     )
     assert "<think>" not in output.completion
     content = output.choices[0].message.content

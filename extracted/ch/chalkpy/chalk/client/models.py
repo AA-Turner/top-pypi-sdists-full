@@ -950,6 +950,7 @@ class DatasetJobStatusRequest(BaseModel):
     dataset_id: Optional[str] = None
     dataset_name: Optional[str] = None
     ignore_errors: bool = False
+    skip_failed_shards: bool = False
     query_inputs: bool = False
 
 

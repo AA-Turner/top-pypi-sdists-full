@@ -6,6 +6,7 @@ import os
 import random
 import warnings
 import string
+import itertools
 from dataclasses import asdict
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
@@ -61,6 +62,9 @@ from simpletransformers.custom_models.retrieval_autoencoder import Autoencoder
 from simpletransformers.retrieval.beir_evaluation import BeirRetrievalModel
 from simpletransformers.retrieval.retrieval_utils import (
     KLDivLossForTriplets,
+    MultiNegativesLoss,
+    QuartetLossV1,
+    QuartetLossV3,
     calculate_mrr,
     convert_beir_columns_to_trec_format,
     get_clustered_passage_dataset,
@@ -84,6 +88,7 @@ from simpletransformers.retrieval.pytrec_eval_utils import (
     convert_qrels_dataset_to_pytrec_format,
     convert_metric_dict_to_scores_list,
 )
+from simpletransformers.utils.utils import ChunkSampler
 
 from simpletransformers.custom_models.models import ColBERTModel
 
@@ -230,6 +235,7 @@ class RetrievalModel:
                 )
             )
 
+        # Using autoencoder
         if self.args.use_autoencoder:
             self.autoencoder_model = Autoencoder()
             if autoencoder_model is not None:
@@ -273,6 +279,7 @@ class RetrievalModel:
         #     self.reranking_config = None
         #     self.reranking_model = None
 
+        # Using standard DPR
         if context_encoder_name:
             self.context_config = config_class.from_pretrained(
                 context_encoder_name, **self.args.context_config
@@ -392,7 +399,7 @@ class RetrievalModel:
             except Exception:
                 self.clustering_tokenizer = AutoTokenizer.from_pretrained(
                     "bert-base-multilingual-cased",
-                    max_len=args.max_seq_length
+                    max_len=args.max_seq_length,
                     # clustering_model
                 )
         else:
@@ -474,11 +481,18 @@ class RetrievalModel:
             disable_caching()
 
         if prediction_passages is not None:
-            self.prediction_passages = self.get_updated_prediction_passages(
-                prediction_passages
-            )
+            if self.args.multi_head_vectors:
+                (
+                    self.prediction_passages,
+                    self.id_to_vec_dataset,
+                ) = self.get_updated_prediction_passages(prediction_passages)
+            else:
+                self.prediction_passages = self.get_updated_prediction_passages(
+                    prediction_passages
+                )
         else:
             self.prediction_passages = None
+        self.id_to_vec_dataset = None
 
         if self.args.ance_training and not self.args.hard_negatives:
             self.args.hard_negatives = True
@@ -668,7 +682,16 @@ class RetrievalModel:
         args = self.args
 
         tb_writer = SummaryWriter(log_dir=args.tensorboard_dir)
-        train_sampler = RandomSampler(train_dataset)
+        if self.args.batch_chunk_size is not None:
+            if clustered_training or args.tas_clustering:
+                raise ValueError(
+                    "Chunked training is not supported with clustered training or TAS clustering."
+                )
+            train_sampler = ChunkSampler(
+                train_dataset, self.args.batch_chunk_size, self.args.train_batch_size
+            )
+        else:
+            train_sampler = RandomSampler(train_dataset)
 
         if clustered_training or args.tas_clustering:
             train_dataloader = train_dataset
@@ -893,9 +916,7 @@ class RetrievalModel:
                     context_inputs,
                     query_inputs,
                     labels,
-                    margins,
-                    true_p_scores,
-                    true_n_scores,
+                    teacher_scores,
                 ) = self._get_inputs_dict(batch)
 
                 high_loss_repeats = 0
@@ -909,9 +930,7 @@ class RetrievalModel:
                                 context_inputs,
                                 query_inputs,
                                 labels,
-                                margins=margins,
-                                true_p_scores=true_p_scores,
-                                true_n_scores=true_n_scores,
+                                teacher_scores=teacher_scores,
                             )
                             loss = retrieval_output.loss
                             correct_predictions_percentage = (
@@ -924,9 +943,7 @@ class RetrievalModel:
                             context_inputs,
                             query_inputs,
                             labels,
-                            margins=margins,
-                            true_p_scores=true_p_scores,
-                            true_n_scores=true_n_scores,
+                            teacher_scores=teacher_scores,
                         )
                         loss = retrieval_output.loss
                         correct_predictions_percentage = (
@@ -994,9 +1011,14 @@ class RetrievalModel:
                             f"Epochs {epoch_number + 1}/{args.num_train_epochs}. Running Loss: {current_loss:9.4f} Correct percentage: {correct_predictions_percentage:4.1f} High loss repeats: {high_loss_repeats}"
                         )
                     else:
-                        batch_iterator.set_description(
-                            f"Epochs {epoch_number + 1}/{args.num_train_epochs}. Running Loss: {current_loss:9.4f} Correct percentage: {correct_predictions_percentage:4.1f}"
-                        )
+                        if args.include_quartet_loss:
+                            batch_iterator.set_description(
+                                f"Epochs {epoch_number + 1}/{args.num_train_epochs}. Running Loss: {current_loss:9.4f} Quartet loss: {retrieval_output.quartet_loss:9.4f} Correct percentage: {correct_predictions_percentage:4.1f}"
+                            )
+                        else:
+                            batch_iterator.set_description(
+                                f"Epochs {epoch_number + 1}/{args.num_train_epochs}. Running Loss: {current_loss:9.4f} Correct percentage: {correct_predictions_percentage:4.1f}"
+                            )
 
                 if args.gradient_accumulation_steps > 1:
                     loss = loss / args.gradient_accumulation_steps
@@ -1043,43 +1065,50 @@ class RetrievalModel:
                         )
                         logging_loss = tr_loss
                         if args.wandb_project or self.is_sweeping:
-                            if self.unified_rr:
-                                logging_dict = {
-                                    "Training loss": current_loss,
-                                    "lr": scheduler.get_last_lr()[0],
-                                    "global_step": self.global_step,
-                                    "correct_predictions_percentage": correct_predictions_percentage,
-                                    "reranking_loss": retrieval_output.reranking_loss,
-                                    "nll_loss": retrieval_output.nll_loss,
-                                }
-                            else:
-                                if args.reranking_kl_div_loss or args.mse_loss:
-                                    logging_dict = {
-                                        "Training loss": current_loss,
-                                        "lr": scheduler.get_last_lr()[0],
-                                        "global_step": self.global_step,
-                                        "correct_predictions_percentage": correct_predictions_percentage,
-                                        "teacher_correct_predictions_percentage": colbert_percentage,
-                                    }
-                                    if args.include_nll_loss:
-                                        logging_dict[
-                                            "nll_loss"
-                                        ] = retrieval_output.nll_loss
-                                        if args.reranking_kl_div_loss:
-                                            logging_dict["kl_div_loss"] = (
-                                                current_loss - retrieval_output.nll_loss
-                                            )
-                                        elif args.mse_loss:
-                                            logging_dict["mse_loss"] = (
-                                                current_loss - retrieval_output.nll_loss
-                                            )
-                                else:
-                                    logging_dict = {
-                                        "Training loss": current_loss,
-                                        "lr": scheduler.get_last_lr()[0],
-                                        "global_step": self.global_step,
-                                        "correct_predictions_percentage": correct_predictions_percentage,
-                                    }
+                            # if args.reranking_kl_div_loss or args.mse_loss:
+                            #     # Deprecated
+                            #     logging_dict = {
+                            #         "Training loss": current_loss,
+                            #         "lr": scheduler.get_last_lr()[0],
+                            #         "global_step": self.global_step,
+                            #         "correct_predictions_percentage": correct_predictions_percentage,
+                            #         "teacher_correct_predictions_percentage": colbert_percentage,
+                            #     }
+                            #     if args.include_nll_loss:
+                            #         logging_dict[
+                            #             "nll_loss"
+                            #         ] = retrieval_output.nll_loss
+                            #         if args.reranking_kl_div_loss:
+                            #             logging_dict["kl_div_loss"] = (
+                            #                 current_loss - retrieval_output.nll_loss
+                            #             )
+                            #         elif args.mse_loss:
+                            #             logging_dict["mse_loss"] = (
+                            #                 current_loss - retrieval_output.nll_loss
+                            #             )
+
+                            logging_dict = {
+                                "Training loss": current_loss,
+                                "lr": scheduler.get_last_lr()[0],
+                                "global_step": self.global_step,
+                                "correct_predictions_percentage": correct_predictions_percentage,
+                            }
+
+                            if retrieval_output.nll_loss is not None:
+                                logging_dict["nll_loss"] = retrieval_output.nll_loss
+                            if retrieval_output.kl_div_loss is not None:
+                                logging_dict["kl_div_loss"] = (
+                                    retrieval_output.kl_div_loss
+                                )
+                            if retrieval_output.margin_mse_loss is not None:
+                                logging_dict["margin_mse_loss"] = (
+                                    retrieval_output.margin_mse_loss
+                                )
+                            if retrieval_output.quartet_loss is not None:
+                                logging_dict["quartet_loss"] = (
+                                    retrieval_output.quartet_loss
+                                )
+
                             wandb.log(logging_dict)
 
                     if args.save_steps > 0 and self.global_step % args.save_steps == 0:
@@ -1120,9 +1149,9 @@ class RetrievalModel:
                                     )
 
                                     for key in results_default_names:
-                                        results[
-                                            f"{eval_name}_{key}"
-                                        ] = results_default_names[key]
+                                        results[f"{eval_name}_{key}"] = (
+                                            results_default_names[key]
+                                        )
                             else:
                                 results = self.eval_model(
                                     eval_data,
@@ -1235,9 +1264,11 @@ class RetrievalModel:
                                             train_iterator.close()
                                         return (
                                             self.global_step,
-                                            tr_loss / self.global_step
-                                            if not self.args.evaluate_during_training
-                                            else training_progress_scores,
+                                            (
+                                                tr_loss / self.global_step
+                                                if not self.args.evaluate_during_training
+                                                else training_progress_scores
+                                            ),
                                         )
                         else:
                             if (
@@ -1281,9 +1312,11 @@ class RetrievalModel:
                                             train_iterator.close()
                                         return (
                                             self.global_step,
-                                            tr_loss / self.global_step
-                                            if not self.args.evaluate_during_training
-                                            else training_progress_scores,
+                                            (
+                                                tr_loss / self.global_step
+                                                if not self.args.evaluate_during_training
+                                                else training_progress_scores
+                                            ),
                                         )
                         context_model.train()
                         query_model.train()
@@ -1303,11 +1336,11 @@ class RetrievalModel:
                     clustered_training=clustered_training,
                     evaluate=False,
                     additional_eval_passages=additional_eval_passages,
-                    clustered_batch_randomize_percentage=randomize_percentage[
-                        epoch_number
-                    ]
-                    if clustered_training
-                    else None,
+                    clustered_batch_randomize_percentage=(
+                        randomize_percentage[epoch_number]
+                        if clustered_training
+                        else None
+                    ),
                     epoch_number=epoch_number,
                     dataset=train_dataset,
                 )
@@ -1450,9 +1483,11 @@ class RetrievalModel:
                                     train_iterator.close()
                                 return (
                                     self.global_step,
-                                    tr_loss / self.global_step
-                                    if not self.args.evaluate_during_training
-                                    else training_progress_scores,
+                                    (
+                                        tr_loss / self.global_step
+                                        if not self.args.evaluate_during_training
+                                        else training_progress_scores
+                                    ),
                                 )
                 else:
                     if (
@@ -1496,16 +1531,20 @@ class RetrievalModel:
                                     train_iterator.close()
                                 return (
                                     self.global_step,
-                                    tr_loss / self.global_step
-                                    if not self.args.evaluate_during_training
-                                    else training_progress_scores,
+                                    (
+                                        tr_loss / self.global_step
+                                        if not self.args.evaluate_during_training
+                                        else training_progress_scores
+                                    ),
                                 )
 
         return (
             self.global_step,
-            tr_loss / self.global_step
-            if not self.args.evaluate_during_training
-            else training_progress_scores,
+            (
+                tr_loss / self.global_step
+                if not self.args.evaluate_during_training
+                else training_progress_scores
+            ),
         )
 
     def eval_model(
@@ -1641,14 +1680,22 @@ class RetrievalModel:
                     device=self.device,
                     autoencoder=self.autoencoder_model,
                 )
+                if self.args.multi_head_vectors:
+                    passage_index, id_to_vec_dataset = passage_index
+                else:
+                    id_to_vec_dataset = None
                 self.prediction_passages = passage_index
+            else:
+                id_to_vec_dataset = None
 
             query_text_column = (
                 "text" if self.args.data_format == "beir" else "query_text"
             )
 
             predicted_doc_ids, scores = self.predict(
-                to_predict=query_dataset[query_text_column], doc_ids_only=True
+                to_predict=query_dataset[query_text_column],
+                doc_ids_only=True,
+                id_to_vec_dataset=id_to_vec_dataset,
             )
 
             run_dict = convert_predictions_to_pytrec_format(
@@ -1721,7 +1768,6 @@ class RetrievalModel:
                 ) as f:
                     json.dump(result_report, f)
 
-            if save_as_experiment:
                 # Save run_dict
                 with open(
                     os.path.join(
@@ -1874,10 +1920,12 @@ class RetrievalModel:
             all_query_embeddings = np.zeros(
                 (
                     len(eval_dataset),
-                    self.query_config.hidden_size
-                    if "projection_dim" not in self.query_config.to_dict()
-                    or not self.query_config.projection_dim
-                    else self.query_config.projection_dim,
+                    (
+                        self.query_config.hidden_size
+                        if "projection_dim" not in self.query_config.to_dict()
+                        or not self.query_config.projection_dim
+                        else self.query_config.projection_dim
+                    ),
                 )
             )
         for i, batch in enumerate(
@@ -2069,6 +2117,7 @@ class RetrievalModel:
         passages_only=False,
         doc_ids_only=False,
         is_training=False,
+        id_to_vec_dataset=None,
     ):
         """
         Retrieve the relevant documents from the prediction passages for a list of queries.
@@ -2126,14 +2175,20 @@ class RetrievalModel:
                         * (1 + self.args.extra_cls_token_count),
                     )
                 )
+        elif self.args.multi_head_vectors:
+            num_heads = 12
+            head_dim = 64
+            all_query_embeddings = torch.zeros((len(to_predict), num_heads, head_dim))
         else:
             all_query_embeddings = np.zeros(
                 (
                     len(to_predict),
-                    self.query_config.hidden_size
-                    if "projection_dim" not in self.query_config.to_dict()
-                    or not self.query_config.projection_dim
-                    else self.query_config.projection_dim,
+                    (
+                        self.query_config.hidden_size
+                        if "projection_dim" not in self.query_config.to_dict()
+                        or not self.query_config.projection_dim
+                        else self.query_config.projection_dim
+                    ),
                 )
             )
 
@@ -2212,12 +2267,21 @@ class RetrievalModel:
 
             all_query_embeddings[
                 i * self.args.eval_batch_size : (i + 1) * self.args.eval_batch_size
-            ] = (query_outputs.cpu().detach().numpy())
+            ] = (
+                (query_outputs.cpu().detach().numpy())
+                if not self.args.multi_head_vectors
+                else query_outputs.cpu().detach()
+            )
 
             if self.unified_rr:
                 all_reranking_query_embeddings[
                     i * self.args.eval_batch_size : (i + 1) * self.args.eval_batch_size
                 ] = (reranking_query_outputs.cpu().detach().numpy())
+
+        if self.args.multi_head_vectors:
+            # Right now, shape is (n_queries, 12, 64)
+            # Need to convert to (n_queries * 12, 64)
+            all_query_embeddings = all_query_embeddings.reshape(-1, head_dim)
 
         if passages_only:
             passages = self.retrieve_docs_from_query_embeddings(
@@ -2377,9 +2441,9 @@ class RetrievalModel:
             top_k_accuracy_dict[f"top_{k}_accuracy"] = np.mean(
                 top_k_accuracy_each_query
             )
-            top_k_accuracy_each_query_dict[
-                f"top_{k}_accuracy"
-            ] = top_k_accuracy_each_query.tolist()
+            top_k_accuracy_each_query_dict[f"top_{k}_accuracy"] = (
+                top_k_accuracy_each_query.tolist()
+            )
 
             if relevant_docs is not None:
                 recall_at_k, recall_at_k_each_query = get_recall_at_k(
@@ -2495,10 +2559,12 @@ class RetrievalModel:
                     (
                         len(query_embeddings),
                         retrieve_n_docs,
-                        self.context_config.hidden_size
-                        if "projection_dim" not in self.context_config.to_dict()
-                        or not self.context_config.projection_dim
-                        else self.context_config.projection_dim,
+                        (
+                            self.context_config.hidden_size
+                            if "projection_dim" not in self.context_config.to_dict()
+                            or not self.context_config.projection_dim
+                            else self.context_config.projection_dim
+                        ),
                     )
                 )
             doc_dicts = []
@@ -2669,9 +2735,11 @@ class RetrievalModel:
                     self.context_tokenizer,
                     self.query_tokenizer,
                     self.args,
-                    teacher_tokenizer=None
-                    if self.args.teacher_type == "colbert"
-                    else self.teacher_tokenizer,
+                    teacher_tokenizer=(
+                        None
+                        if self.args.teacher_type == "colbert"
+                        else self.teacher_tokenizer
+                    ),
                     clustered_training=clustered_training,
                 )
 
@@ -2684,9 +2752,11 @@ class RetrievalModel:
                     args=self.args,
                     device=self.device,
                     teacher_model=self.teacher_model,
-                    teacher_tokenizer=None
-                    if self.args.teacher_type == "colbert"
-                    else self.teacher_tokenizer,
+                    teacher_tokenizer=(
+                        None
+                        if self.args.teacher_type == "colbert"
+                        else self.teacher_tokenizer
+                    ),
                     clustered_batch_randomize_percentage=clustered_batch_randomize_percentage,
                     epoch_number=epoch_number,
                 )
@@ -2865,6 +2935,10 @@ class RetrievalModel:
             self.device,
         )
 
+        if self.args.multi_head_vectors:
+            prediction_passages, id_to_vec_dataset = prediction_passages
+            return prediction_passages, id_to_vec_dataset
+
         return prediction_passages
 
     def _calculate_loss(
@@ -2874,9 +2948,7 @@ class RetrievalModel:
         context_inputs,
         query_inputs,
         labels,
-        margins=None,
-        true_p_scores=None,
-        true_n_scores=None,
+        teacher_scores=None,
     ):
         # if self.args.larger_representations:
         #     context_outputs_all = context_model(**context_inputs)
@@ -2894,9 +2966,11 @@ class RetrievalModel:
         #     query_outputs = query_cls_embeddings.view(query_cls_embeddings.size(0), -1)
         # else:
 
-        with torch.no_grad() if not (
-            self.args.train_context_encoder or self.args.train_query_encoder
-        ) else nullcontext():
+        with (
+            torch.no_grad()
+            if not (self.args.train_context_encoder or self.args.train_query_encoder)
+            else nullcontext()
+        ):
             if self.args.external_embeddings:
                 context_outputs = context_inputs["external_embeddings"]
             else:
@@ -2925,12 +2999,12 @@ class RetrievalModel:
             if self.args.multi_vector_query:
                 query_outputs = query_outputs[0]
 
-            context_outputs = torch.nn.functional.dropout(
-                context_outputs, p=self.args.output_dropout
-            )
-            query_outputs = torch.nn.functional.dropout(
-                query_outputs, p=self.args.output_dropout
-            )
+            # context_outputs = torch.nn.functional.dropout(
+            #     context_outputs, p=self.args.output_dropout
+            # )
+            # query_outputs = torch.nn.functional.dropout(
+            #     query_outputs, p=self.args.output_dropout
+            # )
 
         if self.args.include_triplet_loss:
             nll_criterion = torch.nn.NLLLoss(reduction="mean")
@@ -2975,7 +3049,28 @@ class RetrievalModel:
                     context_outputs[: context_outputs.size(0) // 2, :].t(),
                 )
             else:
-                similarity_score = torch.matmul(query_outputs, context_outputs.t())
+                if self.args.similarity_function == "cosine":
+                    similarity_score = torch.nn.functional.cosine_similarity(
+                        query_outputs.unsqueeze(1),
+                        context_outputs.unsqueeze(0),
+                        dim=-1,
+                    )
+                elif self.args.similarity_function == "dot_product":
+                    if self.args.multi_head_vectors:
+                        # context_outputs: (batch_size, num_heads, hidden_size)
+                        # query_outputs: (batch_size, num_heads, hidden_size)
+                        # similarity_score: (batch_size, num_heads, num_heads)
+
+                        similarity_score = compute_multi_head_similarity(
+                            query_outputs,
+                            context_outputs,
+                            strategy=self.args.multi_head_vector_strategy,
+                        )
+                    else:
+                        similarity_score = torch.matmul(
+                            query_outputs,
+                            context_outputs.t(),
+                        )
             softmax_score = torch.nn.functional.log_softmax(similarity_score, dim=-1)
 
             if self.args.include_bce_loss and self.context_encoder.training:
@@ -3005,15 +3100,16 @@ class RetrievalModel:
                     nll_loss,
                     nll_labels,
                     label_scores,
+                    margin_mse_loss,
+                    kl_div_loss,
+                    quartet_loss,
                 ) = self._get_loss(
                     similarity_score,
                     softmax_score,
                     labels,
                     query_outputs=query_outputs,
                     context_outputs=context_outputs,
-                    margins=margins,
-                    true_p_scores=true_p_scores,
-                    true_n_scores=true_n_scores,
+                    teacher_scores=teacher_scores,
                 )
 
         (
@@ -3034,6 +3130,9 @@ class RetrievalModel:
             correct_predictions_percentage=correct_predictions_percentage,
             nll_loss=nll_loss,
             teacher_correct_predictions_percentage=teacher_correct_predictions_percentage,
+            margine_mse_loss=margin_mse_loss,
+            kl_div_loss=kl_div_loss,
+            quartet_loss=quartet_loss,
         )
 
         return retrieval_output
@@ -3119,7 +3218,7 @@ class RetrievalModel:
     #             ]
 
     #             reranking_dot_score = torch.bmm(
-    #                 reranking_query_outputs.unsqueeze(1),
+    #                 reranking_query_outputs.unsqueeze(1),pairwise_dot_score(query_outputs, context_outputs)
     #                 reranking_context_outputs.transpose(-1, -2),
     #             )
     #             reranking_softmax_score = torch.nn.functional.log_softmax(
@@ -3188,10 +3287,13 @@ class RetrievalModel:
         label_scores=None,
         query_outputs=None,
         context_outputs=None,
-        margins=None,
-        true_p_scores=None,
-        true_n_scores=None,
+        teacher_scores=None,
     ):
+        margin_mse_loss = None
+        kl_div_loss = None
+        nll_loss = None
+        quartet_loss = None
+
         if self.args.mse_loss:
             mse_criterion = torch.nn.MSELoss()
 
@@ -3211,7 +3313,7 @@ class RetrievalModel:
             positive_outputs = context_outputs[:half, :]
 
             mmse_loss = mmse_criterion(
-                query_outputs, positive_outputs, hn_outputs, margins
+                query_outputs, positive_outputs, hn_outputs, teacher_scores["margins"]
             )
         if self.args.include_kl_div_loss:
             kl_criterion = KLDivLossForTriplets()
@@ -3223,20 +3325,54 @@ class RetrievalModel:
                 query_outputs,
                 positive_outputs,
                 hn_outputs,
-                true_p_scores,
-                true_n_scores,
+                teacher_scores["true_p_scores"],
+                teacher_scores["true_n_scores"],
             )
 
         # This is where the quartet loss will go
+        if self.args.include_quartet_loss:
+            half = context_outputs.size(0) // 2
+            context_outputs_a = context_outputs[:half, :]
+            context_outputs_b = context_outputs[half:, :]
+            query_outputs_a = query_outputs[:half, :]
+            query_outputs_b = query_outputs[half:, :]
+
+            quartet_criterion = QuartetLossV3()
+
+            quartet_loss = quartet_criterion(
+                query_outputs_a,
+                query_outputs_b,
+                context_outputs_a,
+                context_outputs_b,
+                similarity_score,
+                softmax_score,
+                teacher_scores,
+                similarity_function=self.args.similarity_function,
+            )
+
+        if self.args.include_multi_negatives_loss:
+            multi_negatives_criterion = MultiNegativesLoss()
+            multi_negatives_loss = multi_negatives_criterion(
+                similarity_score,
+                labels,
+            )
 
         if not (
             self.args.include_nll_loss
             or self.args.mse_loss
             or self.args.reranking_kl_div_loss
             or self.args.include_margin_mse_loss
+            or self.args.include_quartet_loss
+            or self.args.include_multi_negatives_loss
         ):
             raise ValueError(
-                "One of include_nll_loss, mse_loss, include_margin_mse_loss or reranking_kl_div_loss must be True."
+                """One of the following must be True:
+                - include_nll_loss
+                - include_margin_mse_loss
+                - include_kl_div_loss
+                - include_quartet_loss
+                - include_multi_negatives_loss
+                """
             )
 
         nll_labels = labels
@@ -3256,18 +3392,32 @@ class RetrievalModel:
                     nll_lambda = self.args.nll_lambda
 
             if self.args.include_margin_mse_loss:
-                loss = nll_lambda * nll_loss + self.args.margin_mse_lambda * mmse_loss
-            elif self.args.include_kl_div_loss:
-                loss = nll_lambda * nll_loss + self.args.kl_div_lambda * kl_div_loss
+                loss = loss + self.args.margin_mse_lambda * mmse_loss
+            if self.args.include_kl_div_loss:
+                loss = loss + self.args.kl_div_lambda * kl_div_loss
+            if self.args.include_quartet_loss:
+                loss = loss + self.args.quartet_lambda * quartet_loss
         elif self.args.include_margin_mse_loss:
             loss = mmse_loss
         elif self.args.include_kl_div_loss:
             loss = kl_div_loss
+        elif self.args.include_quartet_loss:
+            loss = quartet_loss
+        elif self.args.include_multi_negatives_loss:
+            loss = multi_negatives_loss
         else:
             loss = nll_loss
 
         nll_loss = nll_loss.item() if self.args.include_nll_loss else None
-        return loss, nll_loss, nll_labels, label_scores
+        return (
+            loss,
+            nll_loss,
+            nll_labels,
+            label_scores,
+            margin_mse_loss,
+            kl_div_loss,
+            quartet_loss,
+        )
 
     def _get_running_stats(
         self,
@@ -3308,62 +3458,140 @@ class RetrievalModel:
     def _get_inputs_dict(self, batch, evaluate=False):
         device = self.device
 
-        labels = [i for i in range(len(batch["context_ids"]))]
-        labels = torch.tensor(labels, dtype=torch.long).to(device)
+        if "labels" in batch:
+            labels = batch["labels"].to(device)
+        else:
+            if self.args.include_quartet_loss or self.args.quartet_training_format:
+                labels = [
+                    i if a > b else i + batch["context_ids_a"].size(0)
+                    for i, (a, b) in enumerate(
+                        zip(batch["aa_score"], batch["ab_score"])
+                    )
+                ]
+                labels += [
+                    i + batch["context_ids_a"].size(0) if a > b else i
+                    for i, (a, b) in enumerate(
+                        zip(batch["bb_score"], batch["ba_score"])
+                    )
+                ]
+            else:
+                labels = [i for i in range(len(batch["context_ids"]))]
+            labels = torch.tensor(labels, dtype=torch.long).to(device)
         margins = None
         true_p_scores = None
         true_n_scores = None
+        aa_scores = None
+        ab_scores = None
+        ba_scores = None
+        bb_scores = None
+        teacher_scores = {}
 
         if not evaluate:
             # Training
             # labels = labels.to(device)
-            if self.args.hard_negatives:
-                if self.args.n_hard_negatives == 1:
-                    context_ids = torch.cat(
-                        [
-                            batch["context_ids"],
-                            batch["hard_negative_ids"],
-                        ],
-                        dim=0,
-                    )
-                    context_masks = torch.cat(
-                        [
-                            batch["context_mask"],
-                            batch["hard_negatives_mask"],
-                        ],
-                        dim=0,
-                    )
-                else:
-                    context_ids = torch.cat(
-                        [
-                            batch["context_ids"],
-                        ]
-                        + [
-                            batch[f"hard_negative_{i}_ids"]
-                            for i in range(self.args.n_hard_negatives)
-                        ],
-                        dim=0,
-                    )
+            if self.args.include_quartet_loss or self.args.quartet_training_format:
+                context_ids = torch.cat(
+                    [
+                        batch["context_ids_a"],
+                        batch["context_ids_b"],
+                    ],
+                    dim=0,
+                )
+                context_masks = torch.cat(
+                    [
+                        batch["context_mask_a"],
+                        batch["context_mask_b"],
+                    ],
+                    dim=0,
+                )
 
-                    context_masks = torch.cat(
-                        [
-                            batch["context_mask"],
-                        ]
-                        + [
-                            batch[f"hard_negative_{i}_mask"]
-                            for i in range(self.args.n_hard_negatives)
-                        ],
-                        dim=0,
-                    )
-                if self.args.include_margin_mse_loss:
-                    margins = batch["margin"].to(device)
+                query_ids = torch.cat(
+                    [
+                        batch["query_ids_a"],
+                        batch["query_ids_b"],
+                    ],
+                    dim=0,
+                )
+                query_masks = torch.cat(
+                    [
+                        batch["query_mask_a"],
+                        batch["query_mask_b"],
+                    ],
+                    dim=0,
+                )
+                if self.args.include_quartet_loss:
+                    aa_scores = batch["aa_score"].to(device)
+                    ab_scores = batch["ab_score"].to(device)
+                    ba_scores = batch["ba_score"].to(device)
+                    bb_scores = batch["bb_score"].to(device)
 
-                if self.args.include_kl_div_loss:
-                    true_p_scores = batch["true_p_scores"].to(device)
-                    true_n_scores = batch["true_n_scores"].to(device)
+                teacher_scores["aa_scores"] = aa_scores
+                teacher_scores["ab_scores"] = ab_scores
+                teacher_scores["ba_scores"] = ba_scores
+                teacher_scores["bb_scores"] = bb_scores
             else:
-                context_ids = batch["context_ids"]
-                context_masks = batch["context_mask"]
+                if self.args.hard_negatives:
+                    if self.args.n_hard_negatives == 1:
+                        context_ids = torch.cat(
+                            [
+                                batch["context_ids"],
+                                batch["hard_negative_ids"],
+                            ],
+                            dim=0,
+                        )
+                        context_masks = torch.cat(
+                            [
+                                batch["context_mask"],
+                                batch["hard_negatives_mask"],
+                            ],
+                            dim=0,
+                        )
+                    else:
+                        context_ids = torch.cat(
+                            [
+                                batch["context_ids"],
+                            ]
+                            + [
+                                batch[f"hard_negative_{i}_ids"]
+                                for i in range(self.args.n_hard_negatives)
+                            ],
+                            dim=0,
+                        )
+
+                        context_masks = torch.cat(
+                            [
+                                batch["context_mask"],
+                            ]
+                            + [
+                                batch[f"hard_negative_{i}_mask"]
+                                for i in range(self.args.n_hard_negatives)
+                            ],
+                            dim=0,
+                        )
+                    if self.args.include_margin_mse_loss:
+                        margins = batch["margin"].to(device)
+
+                    if self.args.include_kl_div_loss:
+                        true_p_scores = batch["true_p_scores"].to(device)
+                        true_n_scores = batch["true_n_scores"].to(device)
+                    if (
+                        self.args.include_quartet_loss
+                        or self.args.quartet_training_format
+                    ):
+                        aa_scores = batch["aa_scores"].to(device)
+                        ab_scores = batch["ab_scores"].to(device)
+                        ba_scores = batch["ba_scores"].to(device)
+                        bb_scores = batch["bb_scores"].to(device)
+
+                    teacher_scores["true_p_scores"] = true_p_scores
+                    teacher_scores["true_n_scores"] = true_n_scores
+                    teacher_scores["margins"] = margins
+                else:
+                    context_ids = batch["context_ids"]
+                    context_masks = batch["context_mask"]
+
+                query_ids = batch["query_ids"]
+                query_masks = batch["query_mask"]
 
             if self.args.external_embeddings:
                 external_embeddings = batch["embeddings"].to(device)
@@ -3383,8 +3611,8 @@ class RetrievalModel:
                 "attention_mask": context_masks.to(device),
             }
             query_input = {
-                "input_ids": batch["query_ids"].to(device),
-                "attention_mask": batch["query_mask"].to(device),
+                "input_ids": query_ids.to(device),
+                "attention_mask": query_masks.to(device),
             }
         else:
             # Evaluation
@@ -3427,7 +3655,7 @@ class RetrievalModel:
         ):
             labels = batch["labels"].to(device), labels  # BCELabels, NLLLabels
 
-        return context_input, query_input, labels, margins, true_p_scores, true_n_scores
+        return context_input, query_input, labels, teacher_scores
 
     def _create_training_progress_scores(
         self, calculate_recall=False, top_k_values=None, **kwargs
@@ -3581,3 +3809,148 @@ class RetrievalModel:
         return [n for n, p in self.context_encoder.named_parameters()] + [
             n for n, p in self.query_encoder.named_parameters()
         ]
+
+    def get_multi_head_predictions(
+        self,
+        doc_ids,
+        scores,
+        all_query_embeddings,
+        id_to_vec_dataset,
+        num_heads=12,
+        head_dim=64,
+    ):
+        logger.info("Reranking documents using multi-head similarity scores.")
+        all_query_embeddings = all_query_embeddings.reshape(-1, num_heads, head_dim)
+
+        # Build id_to_vec_dict
+        # all_doc_ids = set(itertools.chain(*doc_ids))
+        # id_to_vec_dict = id_to_vec_dataset.filter(
+        #     lambda x: x["passage_id"] in all_doc_ids
+        # ).to_dict()
+        # id_to_vec_dict = {
+        #     pid: vector
+        #     for pid, vector in zip(
+        #         id_to_vec_dict["passage_id"], id_to_vec_dict["embeddings"]
+        #     )
+        # }
+
+        ids_to_idx_map = {
+            id: idx
+            for idx, id in zip(
+                range(len(id_to_vec_dataset)), id_to_vec_dataset["passage_id"]
+            )
+        }
+
+        reranked_doc_ids = np.zeros(
+            (len(all_query_embeddings), self.args.retrieve_n_docs), dtype=int
+        ).tolist()
+        reranked_scores = np.zeros(
+            (len(all_query_embeddings), self.args.retrieve_n_docs)
+        )
+
+        with torch.no_grad():
+            # Now we need to combine doc_ids into groups of num_heads and dedupe in the process
+            query_i = 0
+            for i in tqdm(
+                range(0, len(doc_ids), num_heads), desc="Reranking documents"
+            ):
+                doc_group = doc_ids[i : i + num_heads]
+                doc_group = list(set(itertools.chain(*doc_group)))
+
+                query_outputs = (
+                    all_query_embeddings[query_i].unsqueeze(0).to(self.device)
+                )
+
+                # Get doc head vectors
+                doc_group_vectors = []
+                for doc_id in doc_group:
+                    # doc_group_vectors.append(torch.tensor(id_to_vec_dict[doc_id]))
+                    doc_group_vectors.append(
+                        torch.tensor(
+                            id_to_vec_dataset[ids_to_idx_map[doc_id]]["embeddings"]
+                        )
+                    )
+
+                doc_group_vectors = torch.stack(doc_group_vectors).to(self.device)
+
+                similarity_scores = compute_multi_head_similarity(
+                    query_outputs,
+                    doc_group_vectors,
+                    strategy=self.args.multi_head_vector_strategy,
+                )
+                ranked_values, ranked_ids = torch.topk(
+                    similarity_scores, self.args.retrieve_n_docs, sorted=True
+                )
+
+                reranked_doc_ids[query_i] = [
+                    doc_group[ranked_id]
+                    for ranked_id in ranked_ids.squeeze().cpu().numpy()
+                ]
+                reranked_scores[query_i] = ranked_values.cpu().numpy()
+
+                query_i += 1
+
+        logger.info("Finished reranking documents.")
+        return reranked_doc_ids, reranked_scores
+
+
+def compute_multi_head_similarity(
+    query_outputs,
+    context_outputs,
+    strategy="maxsim",
+):
+    """
+    Compute multi-head similarity scores for each query vs. every document.
+    Each query and document has multiple vectors (heads).
+    The similarity score between a query  and a doc is computed as follows:
+        1. For each query head, compute the similarity score with each document head for that document.
+        2. Take the max sim for each query head.
+        3. Sum the max sims for all query heads.
+
+    Parameters:
+    - query_outputs: Tensor of shape (num_queries, num_heads, hidden_dim), query embeddings.
+    - context_outputs: Tensor of shape (num_docs, num_heads, hidden_dim), document embeddings.
+
+    Returns:
+    - similarity_scores: Tensor of shape (num_queries, num_docs), similarity scores for each query-doc pair.
+    """
+    num_queries, num_heads, hidden_dim = query_outputs.shape
+    num_docs = context_outputs.shape[0]
+
+    # Compute similarity scores for each query head with each document head.
+    # similarity_scores: Tensor of shape (num_queries, num_docs, num_heads, num_heads)
+
+    similarity_scores = torch.zeros(
+        (num_queries, num_docs, num_heads, num_heads), device=query_outputs.device
+    )
+
+    for i in range(num_heads):
+        for j in range(num_heads):
+            similarity_scores[:, :, i, j] = torch.matmul(
+                query_outputs[:, :, i].unsqueeze(1),
+                context_outputs[:, :, j].transpose(-1, -2),
+            ).squeeze(1)
+
+    # Take the max similarity score for each query head.
+    # max_similarities: Tensor of shape (num_queries, num_docs, num_heads)
+    max_similarities = torch.max(similarity_scores, dim=3).values
+
+    if strategy == "maxsim":
+        # Sum the max similarities for all query heads.
+        # similarity_scores: Tensor of shape (num_queries, num_docs)
+        similarity_scores = torch.sum(max_similarities, dim=2)
+    elif strategy == "minmax":
+        min_similarities = torch.min(similarity_scores, dim=3).values
+        similarity_scores = torch.sum(max_similarities, dim=2) + torch.sum(
+            min_similarities, dim=2
+        )
+    elif strategy == "max":
+        # Take the max similarity of all query heads.
+        # similarity_scores: Tensor of shape (num_queries, num_docs)
+        similarity_scores = torch.max(max_similarities, dim=2).values
+    elif strategy == "mean":
+        # Take the mean similarity of all query heads versus all doc heads.
+        # similarity_scores: Tensor of shape (num_queries, num_docs)
+        pass
+
+    return similarity_scores

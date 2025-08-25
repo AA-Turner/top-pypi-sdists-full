@@ -31,7 +31,6 @@ def get_char(tty_fd, timeout: float = 0.2) -> int:
     if rlist:
         # key = ord(tty_fd.read(1))
         key = ord(os.read(tty_fd, 1))
-        # os.system(f"notify-send { key }")
     else:
         key = -1
     return key
@@ -125,10 +124,8 @@ def input_field(
     offscreen_x, offscreen_y = False, False
     orig_x, orig_y = x, y
 
-    # tty_fd = open('/dev/tty')
-    # tty_fd = os.open('/dev/tty', os.O_RDONLY)
-    # tty.setraw(tty_fd)
     tty_fd = open_tty()
+
     # Input field loop
     while True:
 
@@ -230,28 +227,13 @@ def input_field(
 
 
         stdscr.refresh()
-        # timeout = 0.05
-        # rlist, _, _ = select.select([tty_fd], [], [], timeout)
-        # if rlist:
-        #     # key = ord(tty_fd.read(1))
-        #     key = ord(os.read(tty_fd, 1))
-        #     os.system(f"notify-send { key }")
-        # else:
-        #     key = -1
         key = get_char(tty_fd, timeout=0.5)
-        # key = ord(tty.read(1))
         # key = stdscr.getch()
 
         if key in [27, 7]:                                                           # ESC/ALT key or Ctrl+g
             # For Alt-key combinations: set nodelay and get the second key
             # stdscr.nodelay(True)
             # key2 = stdscr.getch()
-            # rlist, _, _ = select.select([tty_fd], [], [], timeout)
-            # if rlist:
-            #     key2 = ord(os.read(tty_fd, 1))
-            #     os.system(f"notify-send 'metakey { key }'")
-            # else:
-            #     key2 = -1
             key2 = get_char(tty_fd, timeout=0.05)
 
             if key2 == -1:                  # ESCAPE key (no key-combination)

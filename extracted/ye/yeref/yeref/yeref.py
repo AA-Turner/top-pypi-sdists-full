@@ -11622,7 +11622,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
         # region podcast
         try:
-            if result and BASE_S and result.chat.username and POST_CHKBOX.get('POST_ISPODCAST', False) and int(
+            if result and BASE_S and getattr(result, 'chat', None) and result.chat.username and POST_CHKBOX.get('POST_ISPODCAST', False) and int(
                     chat_id) == int(
                 ENT_TID) and len(POST_MEDIA):
                 member_ = await bot.get_chat_member(chat_id=int(ENT_TID), user_id=bot.id)

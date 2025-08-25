@@ -8,17 +8,18 @@ import duckdb
 import pytest
 import pyodbc
 
-from typing import List, Any
+from typing import Any, Sequence
 from subprocess import check_output
 
 from pytest import raises
 
 from arrow_odbc import (
+    connect,
+    Connection,
     insert_into_table,
     from_table_to_db,
     read_arrow_batches_from_odbc,
     log_to_stderr,
-    enable_odbc_connection_pooling,
     Error,
     TextEncoding,
 )
@@ -27,10 +28,10 @@ MSSQL = "Driver={ODBC Driver 18 for SQL Server};Server=localhost;UID=SA;PWD=My@T
     TrustServerCertificate=yes;"
 
 log_to_stderr()
-enable_odbc_connection_pooling()
+Connection.enable_connection_pooling()
 
 
-def setup_table(table: str, column_type: str, values: List[Any]):
+def setup_table(table: str, column_type: str, values: Sequence[Any]):
     connection = pyodbc.connect(MSSQL)
     connection.execute(f"DROP TABLE IF EXISTS {table};")
     connection.execute(f"CREATE TABLE {table} (a {column_type});")
@@ -574,7 +575,7 @@ def test_query_with_int_parameter():
     connection = pyodbc.connect(MSSQL)
     connection.execute(f"DROP TABLE IF EXISTS {table};")
     connection.execute(f"CREATE TABLE {table} (a CHAR(1), b INTEGER);")
-    connection.execute(f"INSERT INTO {table} (a,b) VALUES ('A', 1),('B',2),('C',3),('D',4);")
+    connection.execute(f"INSERT INTO {table} (a,b) VALUES ('A',1),('B',2),('C',3),('D',4);")
     connection.commit()
     connection.close()
 
@@ -971,35 +972,25 @@ def test_reinitalizing_logger_should_raise():
     ):
         log_to_stderr()
 
-def test_umlaut_in_parameter_utf_16_encoding():
+
+def test_chinese_paramter_utf_16_encoding():
     """
     Query a row with an umlaut in it. The column name should be unchanged in the arrow schema
     """
     # Given
-    table = "UmlautInParameterUTF16Encoding"
-    connection = pyodbc.connect(MSSQL)
-    connection.execute(f"DROP TABLE IF EXISTS {table};")
-    connection.execute(
-        f"CREATE TABLE {table} (a VARCHAR(50));"
-    )
-    connection.execute(f"INSERT INTO {table} (a) VALUES ('Hällo');")
-    connection.commit()
-    connection.close()
-
-    query = f"SELECT a FROM {table} WHERE a=?;"
+    query = "SELECT ? as a;"
     reader = read_arrow_batches_from_odbc(
         query=query,
         batch_size=1,
         connection_string=MSSQL,
-        # parameters=["您好"],
-        parameters=["Hällo"],
+        parameters=["您好"],
         payload_text_encoding=TextEncoding.UTF16,
     )
     it = iter(reader)
     batch = next(it)
 
     actual = batch.to_pydict()
-    expected = {"a": ["Hällo"]}
+    expected = {"a": ["您好"]}
 
     assert expected == actual
 
@@ -1093,6 +1084,34 @@ def test_query_timeout():
         _arrow_reader = read_arrow_batches_from_odbc(
             query=long_running_query, connection_string=MSSQL, query_timeout_sec=1
         )
+
+
+def test_reuse_connection_for_other_reader():
+    """
+    Reuse the same ODBC connection for multiple readers.
+    """
+    query = "SELECT 42 as a"
+
+    connection = connect(connection_string=MSSQL)
+
+    second_reader = connection.read_arrow_batches(
+        query=query,
+        batch_size=10,
+    )
+    it = iter(second_reader)
+    batch_from_first_reader = next(it)
+
+    second_reader = connection.read_arrow_batches(
+        query=query,
+        batch_size=10,
+    )
+    it = iter(second_reader)
+    batch_from_second_reader = next(it)
+
+    schema = pa.schema([("a", pa.int32(), False)])
+    expected = pa.RecordBatch.from_pydict({"a": [42]}, schema)
+    assert expected == batch_from_first_reader
+    assert expected == batch_from_second_reader
 
 
 @pytest.mark.slow

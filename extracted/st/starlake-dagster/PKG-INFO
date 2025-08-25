@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: starlake-dagster
-Version: 0.4.0
+Version: 0.4.1.1
 Summary: Starlake Python Distribution For Dagster
 Author: Stéphane Manciot
 Author-email: stephane.manciot@gmail.com

@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  codecov: codecov/codecov@4.1.0
+  codecov: codecov/codecov@5.3.0
 
 executors:
   cpython_executor:
@@ -56,6 +56,11 @@ jobs:
     steps:
       - checkout
       - run: uv tool run mypy src/aiosmtplib
+      - run: uv tool run --with . mypy tests/type_usage.py
+      - run: uv tool run pyright src/aiosmtplib
+      - run: uv tool run --with . pyright tests/type_usage.py
+      - run: uv tool run ty check src/aiosmtplib
+      - run: uv tool run --with . ty check tests/type_usage.py
 
   security:
     executor:
@@ -114,9 +119,9 @@ jobs:
       - run: |
           uv run --with aiosmtplib --no-project -- python -m pytest \
             --cov \
-            --cov-report= \
+            --cov-report=xml:coverage-results/coverage-cpython<<parameters.python_version>>-<<parameters.event_loop>>.xml \
             --cov-config=pyproject.toml \
-            --junitxml=test-results/$CIRCLE_JOB/results.xml \
+            --junitxml=test-results/junit-cpython<<parameters.python_version>>-<<parameters.event_loop>>.xml \
             --override-ini=pythonpath= \
             --event-loop=<<parameters.event_loop>> \
             --bind-addr=$BIND_ADDR \
@@ -129,11 +134,22 @@ jobs:
           root: coverage-results
           paths:
             - .coverage.*
+      - codecov/upload:
+          report_type: test_results
+          disable_search: true
+          files: "test-results/junit-cpython<<parameters.python_version>>-<<parameters.event_loop>>.xml"
+          flags: "cpython<<parameters.python_version>>,<<parameters.event_loop>>"
+      - codecov/upload:
+          report_type: coverage
+          disable_search: true
+          files: "coverage-results/coverage-cpython<<parameters.python_version>>-<<parameters.event_loop>>.xml"
+          flags: "cpython<<parameters.python_version>>,<<parameters.event_loop>>"
+
   test-pypy:
     executor:
       name: pypy_executor
     environment:
-      COVERAGE_FILE: "coverage-results/.coverage.pypyn3.10-asyncio"
+      COVERAGE_FILE: "coverage-results/.coverage.pypy3.10-asyncio"
       HYPOTHESIS_PROFILE: "ci"
       BIND_ADDR: "127.0.0.1"
     steps:
@@ -143,9 +159,10 @@ jobs:
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m pip install dist/*.whl
       - run: |
-          python -m pytest --cov --cov-report= \
+          python -m pytest --cov \
+            --cov-report=xml:coverage-results/coverage-pypy3.10-asyncio.xml \
             --cov-config=pyproject.toml \
-            --junitxml=test-results/$CIRCLE_JOB/results.xml \
+            --junitxml=test-results/junit-pypy3.10-asyncio.xml \
             --override-ini=pythonpath= \
             --event-loop=asyncio \
             --bind-addr=$BIND_ADDR \
@@ -158,6 +175,16 @@ jobs:
           root: coverage-results
           paths:
             - .coverage.*
+      - codecov/upload:
+          report_type: test_results
+          disable_search: true
+          files: "test-results/junit-pypy3.10-asyncio.xml"
+          flags: "pypy3.10,asyncio"
+      - codecov/upload:
+          report_type: coverage
+          disable_search: true
+          files: "coverage-results/coverage-pypy3.10-asyncio.xml"
+          flags: "pypy3.10,asyncio"
 
   coverage:
     executor:
@@ -172,13 +199,11 @@ jobs:
       - run: uv tool run coverage combine
       - run: uv tool run coverage xml
       - run: uv tool run coverage html
-      - run: uv tool run coverage report --fail-under=90
       - store_artifacts:
           path: coverage.xml
       - store_artifacts:
           path: htmlcov
-      - codecov/upload:
-          file: coverage.xml
+      - run: uv tool run coverage report --fail-under=100
 
   deploy:
     executor:
@@ -259,5 +284,4 @@ workflows:
           <<: *base-job
       - security:
           <<: *base-job
-
 # VS Code Extension Version: 1.5.1

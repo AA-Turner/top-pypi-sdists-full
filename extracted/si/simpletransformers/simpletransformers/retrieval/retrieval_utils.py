@@ -17,7 +17,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import transformers
 import numpy as np
-import faiss
+
+# import faiss  ## Trying to make faiss optional
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.model_selection import train_test_split
 
@@ -91,9 +92,11 @@ def load_hf_dataset(
                 data_files=data,
                 hard_negatives=args.hard_negatives,
                 include_title=args.include_title,
-                download_mode="force_redownload"
-                if args.reprocess_input_data
-                else "reuse_dataset_if_exists",
+                download_mode=(
+                    "force_redownload"
+                    if args.reprocess_input_data
+                    else "reuse_dataset_if_exists"
+                ),
             )
             dataset = dataset["train"]
         # If data is a directory, then it should be a HF dataset
@@ -108,9 +111,11 @@ def load_hf_dataset(
                 "csv",
                 data_files=data,
                 delimiter="\t",
-                download_mode="force_redownload"
-                if args.reprocess_input_data
-                else "reuse_dataset_if_exists",
+                download_mode=(
+                    "force_redownload"
+                    if args.reprocess_input_data
+                    else "reuse_dataset_if_exists"
+                ),
                 cache_dir=args.dataset_cache_dir,
             )
             dataset = dataset["train"]
@@ -143,18 +148,32 @@ def load_hf_dataset(
 
     n_hard_negatives = args.n_hard_negatives
 
-    dataset = dataset.map(
-        lambda x: preprocess_batch_for_hf_dataset(
-            x,
-            context_tokenizer=context_tokenizer,
-            query_tokenizer=query_tokenizer,
-            args=args,
-            evaluate=evaluate,
-            teacher_tokenizer=teacher_tokenizer,
-            n_hard_negatives=n_hard_negatives,
-        ),
-        batched=True,
-    )
+    if args.include_quartet_loss or args.quartet_training_format:
+        dataset = dataset.map(
+            lambda x: preprocess_quartet_batch_for_hf_dataset(
+                x,
+                context_tokenizer=context_tokenizer,
+                query_tokenizer=query_tokenizer,
+                args=args,
+                evaluate=evaluate,
+                teacher_tokenizer=teacher_tokenizer,
+                n_hard_negatives=n_hard_negatives,
+            ),
+            batched=True,
+        )
+    else:
+        dataset = dataset.map(
+            lambda x: preprocess_batch_for_hf_dataset(
+                x,
+                context_tokenizer=context_tokenizer,
+                query_tokenizer=query_tokenizer,
+                args=args,
+                evaluate=evaluate,
+                teacher_tokenizer=teacher_tokenizer,
+                n_hard_negatives=n_hard_negatives,
+            ),
+            batched=True,
+        )
 
     if args.hard_negatives and (args.hard_negatives_in_eval or not evaluate):
         if n_hard_negatives == 1:
@@ -178,6 +197,21 @@ def load_hf_dataset(
             for i in range(n_hard_negatives):
                 column_names.append(f"hard_negative_{i}_ids")
                 column_names.append(f"hard_negative_{i}_mask")
+    elif args.include_quartet_loss or args.quartet_training_format:
+        column_names = [
+            "context_ids_a",
+            "context_ids_b",
+            "query_ids_a",
+            "query_ids_b",
+            "context_mask_a",
+            "context_mask_b",
+            "query_mask_a",
+            "query_mask_b",
+            "aa_score",
+            "ab_score",
+            "ba_score",
+            "bb_score",
+        ]
     else:
         if args.cluster_concatenated:
             column_names = [
@@ -196,6 +230,8 @@ def load_hf_dataset(
                 "query_mask",
                 # "passage_id",
             ]
+            if args.batch_chunk_size is not None:
+                column_names.append("labels")
 
     if args.include_margin_mse_loss and not evaluate:
         column_names += ["margin"]
@@ -229,6 +265,133 @@ def load_hf_dataset(
         #     dataset = ClusteredDataset(batch_datasets, len(batch_datasets))
 
         return dataset
+
+
+def preprocess_quartet_batch_for_hf_dataset(
+    dataset,
+    context_tokenizer,
+    query_tokenizer,
+    args,
+    evaluate=False,
+    teacher_tokenizer=None,
+    n_hard_negatives=1,
+):
+    try:
+        context_inputs_a = context_tokenizer(
+            dataset["passage_text_a"],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
+    except (TypeError, ValueError) as e:
+        logger.warn(e)
+        logger.warn(
+            """Error encountered while converting passage_text_a.
+        All passage_text_a values have been manually cast to String as a workaround.
+        This may have been caused by NaN values present in the data."""
+        )
+        dataset["passage_text_a"] = [str(p) for p in dataset["passage_text_a"]]
+        context_inputs_a = context_tokenizer(
+            dataset["passage_text_a"],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
+
+    try:
+        context_inputs_b = context_tokenizer(
+            dataset["passage_text_b"],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
+    except (TypeError, ValueError) as e:
+        logger.warn(e)
+        logger.warn(
+            """Error encountered while converting passage_text_b.
+        All passage_text_b values have been manually cast to String as a workaround.
+        This may have been caused by NaN values present in the data."""
+        )
+        dataset["passage_text_b"] = [str(p) for p in dataset["passage_text_b"]]
+        context_inputs_b = context_tokenizer(
+            dataset["passage_text_b"],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
+
+    try:
+        query_inputs_a = query_tokenizer(
+            dataset["query_text_a"],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
+    except (TypeError, ValueError) as e:
+        logger.warn(e)
+        logger.warn(
+            """Error encountered while converting query_text_a.
+        All query_text_a values have been manually cast to String as a workaround.
+        This may have been caused by NaN values present in the data."""
+        )
+        dataset["query_text_a"] = [str(p) for p in dataset["query_text_a"]]
+        query_inputs_a = query_tokenizer(
+            dataset["query_text_a"],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
+
+    try:
+        query_inputs_b = query_tokenizer(
+            dataset["query_text_b"],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
+    except (TypeError, ValueError) as e:
+        logger.warn(e)
+        logger.warn(
+            """Error encountered while converting query_text_b.
+        All query_text_b values have been manually cast to String as a workaround.
+        This may have been caused by NaN values present in the data."""
+        )
+        dataset["query_text_b"] = [str(p) for p in dataset["query_text_b"]]
+        query_inputs_b = query_tokenizer(
+            dataset["query_text_b"],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
+
+    context_ids_a = context_inputs_a["input_ids"].squeeze()
+    context_ids_b = context_inputs_b["input_ids"].squeeze()
+    query_ids_a = query_inputs_a["input_ids"].squeeze()
+    query_ids_b = query_inputs_b["input_ids"].squeeze()
+
+    context_mask_a = context_inputs_a["attention_mask"].squeeze()
+    context_mask_b = context_inputs_b["attention_mask"].squeeze()
+    query_mask_a = query_inputs_a["attention_mask"].squeeze()
+    query_mask_b = query_inputs_b["attention_mask"].squeeze()
+
+    return {
+        "context_ids_a": context_ids_a,
+        "context_ids_b": context_ids_b,
+        "query_ids_a": query_ids_a,
+        "query_ids_b": query_ids_b,
+        "context_mask_a": context_mask_a,
+        "context_mask_b": context_mask_b,
+        "query_mask_a": query_mask_a,
+        "query_mask_b": query_mask_b,
+    }
 
 
 def preprocess_batch_for_hf_dataset(
@@ -428,6 +591,15 @@ def get_output_embeddings(
         return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
             input_mask_expanded.sum(1), min=1e-9
         )
+    elif args is not None and args.multi_head_vectors:
+        batch_size = embeddings[0].shape[0]
+        num_heads = 12
+        head_size = 64
+
+        attention_output = embeddings.attention_output
+        attention_output = attention_output.view(batch_size, -1, num_heads, head_size)
+
+        return attention_output[:, 0, :, :]
     else:
         if use_pooler_output:
             return embeddings.pooler_output
@@ -553,6 +725,7 @@ def embed(
                         concatenate_embeddings=concatenate_embeddings,
                         n_cls_tokens=(1 + extra_cls_token_count),
                         return_all_embeddings=use_autoencoder,
+                        args=args,
                     )
                     if use_autoencoder:
                         embeddings = autoencoder.encode(embeddings)
@@ -643,9 +816,11 @@ def get_evaluation_passage_dataset(
                     data_files=eval_data,
                     hard_negatives=args.hard_negatives,
                     include_title=args.include_title_in_corpus,
-                    download_mode="force_redownload"
-                    if args.reprocess_input_data
-                    else "reuse_dataset_if_exists",
+                    download_mode=(
+                        "force_redownload"
+                        if args.reprocess_input_data
+                        else "reuse_dataset_if_exists"
+                    ),
                 )
                 passage_dataset = passage_dataset["train"]
             else:
@@ -653,9 +828,11 @@ def get_evaluation_passage_dataset(
                     "csv",
                     data_files=eval_data,
                     delimiter="\t",
-                    download_mode="force_redownload"
-                    if args.reprocess_input_data
-                    else "reuse_dataset_if_exists",
+                    download_mode=(
+                        "force_redownload"
+                        if args.reprocess_input_data
+                        else "reuse_dataset_if_exists"
+                    ),
                     cache_dir=args.dataset_cache_dir,
                 )
                 passage_dataset = passage_dataset["train"]
@@ -897,6 +1074,11 @@ def get_prediction_passage_dataset(
     if isinstance(prediction_passages, str):
         if os.path.isdir(prediction_passages):
             prediction_passages_dataset = load_from_disk(prediction_passages)
+
+            if args.multi_head_vectors:
+                id_to_vec_dataset = load_from_disk(
+                    os.path.join(prediction_passages, "id_to_vec_dataset")
+                )
         else:
             prediction_passages_dataset = load_dataset(
                 "csv",
@@ -972,7 +1154,7 @@ def get_prediction_passage_dataset(
             prediction_passages_dataset.save_to_disk(output_dataset_directory)
 
     index_added = False
-    index_path = None
+    # index_path = None
     if isinstance(prediction_passages, str):
         index_path = os.path.join(prediction_passages, "hf_dataset_index.faiss")
         if os.path.isfile(index_path):
@@ -998,6 +1180,10 @@ def get_prediction_passage_dataset(
             prediction_passages_dataset.save_faiss_index("embeddings", faiss_save_path)
 
     passage_index = DPRIndex(prediction_passages_dataset, context_config.hidden_size)
+
+    if args.multi_head_vectors:
+        return passage_index, id_to_vec_dataset
+
     return passage_index
 
 
@@ -1905,7 +2091,7 @@ def convert_beir_columns_to_trec_format(
     collection = collection.rename_column("_id", "passage_id")
     if include_titles:
         collection = collection.map(
-            lambda row: {"text": row["title"] + " " + row["text"]}
+            lambda row: {"text": str(row["title"]) + " " + row["text"]}
         )
     collection = collection.rename_column("text", "passage_text")
     # queries = queries.rename_column("_id", "query_id")
@@ -1917,6 +2103,27 @@ def convert_beir_columns_to_trec_format(
         pass
 
     return collection, queries, qrels
+
+
+def explode(batch):
+    return {
+        "passage_id": [
+            pid
+            for i, pid in enumerate(batch["passage_id"])
+            for _ in batch["embeddings"][i]
+        ],
+        "title": [
+            title
+            for i, title in enumerate(batch["title"])
+            for _ in batch["embeddings"][i]
+        ],
+        "passage_text": [
+            text
+            for i, text in enumerate(batch["passage_text"])
+            for _ in batch["embeddings"][i]
+        ],
+        "embeddings": [emb for emb_list in batch["embeddings"] for emb in emb_list],
+    }
 
 
 def embed_passages_trec_format(
@@ -1983,10 +2190,29 @@ def embed_passages_trec_format(
         )
         logger.info("Generating embeddings for evaluation passages completed.")
 
+        if args.multi_head_vectors:
+            logger.info("Exploding passage dataset for multi-head vectors")
+
+            id_to_vec_dataset = passage_dataset.remove_columns(
+                ["title", "passage_text"]
+            )
+            passage_dataset = passage_dataset.map(
+                explode, batched=True, remove_columns=passage_dataset.column_names
+            )
+
+            logger.info("Exploding passage dataset for multi-head vectors completed")
+
         if args.save_passage_dataset:
             output_dataset_directory = os.path.join(args.output_dir, "passage_dataset")
             os.makedirs(output_dataset_directory, exist_ok=True)
             passage_dataset.save_to_disk(output_dataset_directory)
+
+            if args.multi_head_vectors:
+                id_to_vec_path = os.path.join(
+                    output_dataset_directory, "id_to_vec_dataset"
+                )
+                os.makedirs(id_to_vec_path, exist_ok=True)
+                id_to_vec_dataset.save_to_disk(id_to_vec_path)
 
         logger.info("Adding FAISS index to evaluation passages")
         index = get_faiss_index(args)
@@ -2000,6 +2226,8 @@ def embed_passages_trec_format(
                 output_dataset_directory, "hf_dataset_index.faiss"
             )
             passage_dataset.save_faiss_index("embeddings", faiss_save_path)
+    if args.multi_head_vectors:
+        return passage_index, id_to_vec_dataset
     return passage_index
 
 
@@ -2026,6 +2254,9 @@ class RetrievalOutput:
         correct_predictions_percentage=None,
         nll_loss=None,
         teacher_correct_predictions_percentage=None,
+        margine_mse_loss=None,
+        kl_div_loss=None,
+        quartet_loss=None,
     ):
         self.loss = loss
         self.context_outputs = context_outputs
@@ -2036,9 +2267,18 @@ class RetrievalOutput:
         self.teacher_correct_predictions_percentage = (
             teacher_correct_predictions_percentage
         )
+        self.margin_mse_loss = margine_mse_loss
+        self.kl_div_loss = kl_div_loss
+        self.quartet_loss = quartet_loss
 
 
 def pairwise_dot_score(a, b):
+    return (a * b).sum(dim=-1)
+
+
+def pairwise_cosine_score(a, b):
+    a = F.normalize(a, p=2, dim=-1)
+    b = F.normalize(b, p=2, dim=-1)
     return (a * b).sum(dim=-1)
 
 
@@ -2047,14 +2287,299 @@ class MarginMSELoss(nn.Module):
         super(MarginMSELoss, self).__init__()
         self.mse = nn.MSELoss()
 
-    def forward(self, query_output, context_output, hard_negative_output, margins):
-        positive_scores = pairwise_dot_score(query_output, context_output)
-        negative_scores = pairwise_dot_score(query_output, hard_negative_output)
+    def forward(
+        self,
+        query_output=None,
+        context_output=None,
+        hard_negative_output=None,
+        margins=None,
+        positive_scores=None,
+        negative_scores=None,
+    ):
+        if positive_scores is None:
+            positive_scores = pairwise_dot_score(query_output, context_output)
+        if negative_scores is None:
+            negative_scores = pairwise_dot_score(query_output, hard_negative_output)
         predicted_margins = positive_scores - negative_scores
 
         loss = self.mse(predicted_margins, margins)
 
         return loss
+
+
+class QuartetLossV1(nn.Module):
+    def __init__(self):
+        super(QuartetLossV1, self).__init__()
+        self.mse = nn.MSELoss()
+
+    def forward(
+        self,
+        query_output_a,
+        context_output_a,
+        query_output_b,
+        context_output_b,
+        teacher_scores,
+        similarity_function="dot_product",
+    ):
+        if similarity_function == "dot_product":
+            aa_predicted_scores = pairwise_dot_score(query_output_a, context_output_a)
+            ab_predicted_scores = pairwise_dot_score(query_output_a, context_output_b)
+            ba_predicted_scores = pairwise_dot_score(query_output_b, context_output_a)
+            bb_predicted_scores = pairwise_dot_score(query_output_b, context_output_b)
+        elif similarity_function == "cosine":
+            aa_predicted_scores = pairwise_cosine_score(
+                query_output_a, context_output_a
+            )
+            ab_predicted_scores = pairwise_cosine_score(
+                query_output_a, context_output_b
+            )
+            ba_predicted_scores = pairwise_cosine_score(
+                query_output_b, context_output_a
+            )
+            bb_predicted_scores = pairwise_cosine_score(
+                query_output_b, context_output_b
+            )
+
+        aa_teacher_scores = teacher_scores["aa_scores"]
+        ab_teacher_scores = teacher_scores["ab_scores"]
+        ba_teacher_scores = teacher_scores["ba_scores"]
+        bb_teacher_scores = teacher_scores["bb_scores"]
+
+        # Apply softmax to each relevant pair individually
+        aa_ab_softmax = F.softmax(
+            torch.stack([aa_predicted_scores, ab_predicted_scores]), dim=0
+        )
+        bb_ba_softmax = F.softmax(
+            torch.stack([bb_predicted_scores, ba_predicted_scores]), dim=0
+        )
+
+        aa_predicted_scores, ab_predicted_scores = aa_ab_softmax[0], aa_ab_softmax[1]
+        bb_predicted_scores, ba_predicted_scores = bb_ba_softmax[0], bb_ba_softmax[1]
+
+        # We want to compare:
+        # aa - ab
+        # bb - ba
+        # aa - bb
+        # ba - ab
+
+        aa_ab = aa_predicted_scores - ab_predicted_scores
+        bb_ba = bb_predicted_scores - ba_predicted_scores
+        aa_bb = aa_predicted_scores - bb_predicted_scores
+        ba_ab = ba_predicted_scores - ab_predicted_scores
+
+        aa_ab_teacher = aa_teacher_scores - ab_teacher_scores
+        bb_ba_teacher = bb_teacher_scores - ba_teacher_scores
+        aa_bb_teacher = aa_teacher_scores - bb_teacher_scores
+        ba_ab_teacher = ba_teacher_scores - ab_teacher_scores
+
+        loss = (
+            self.mse(aa_ab, aa_ab_teacher)
+            + self.mse(bb_ba, bb_ba_teacher)
+            + self.mse(aa_bb, aa_bb_teacher)
+            + self.mse(ba_ab, ba_ab_teacher)
+        )
+
+        return loss
+
+
+class QuartetLossV2(nn.Module):
+    def __init__(self):
+        """
+        This version works for each query vs all contexts in a batch
+        """
+        super(QuartetLossV2, self).__init__()
+        self.mse = nn.MSELoss(reduction="mean")
+
+    def forward(
+        self,
+        query_output_a,
+        context_output_a,
+        query_output_b,
+        context_output_b,
+        predicted_scores,
+        softmax_scores,
+        teacher_scores,
+        similarity_function="dot_product",
+    ):
+        softmax_scores = F.softmax(predicted_scores, dim=1)
+
+        softmax_scores_diag = torch.diagonal(softmax_scores)
+        aa_scores, bb_scores = (
+            softmax_scores_diag[: len(query_output_a)],
+            softmax_scores_diag[len(query_output_a) :],
+        )
+
+        ab_scores = torch.diagonal(softmax_scores, offset=len(query_output_a))
+        ba_scores = torch.diagonal(softmax_scores[len(query_output_a) :, :])
+
+        aa_teacher_scores = teacher_scores["aa_scores"]
+        ab_teacher_scores = teacher_scores["ab_scores"]
+        ba_teacher_scores = teacher_scores["ba_scores"]
+        bb_teacher_scores = teacher_scores["bb_scores"]
+
+        aa_ab = aa_scores - ab_scores
+        bb_ba = bb_scores - ba_scores
+        aa_bb = aa_scores - bb_scores
+        ba_ab = ba_scores - ab_scores
+
+        # Maybe we should softmax the teacher scores as well
+        aa_ab_teacher = torch.stack(
+            (
+                torch.unsqueeze(aa_teacher_scores, 1),
+                torch.unsqueeze(ab_teacher_scores, 1),
+            ),
+            1,
+        ).squeeze()
+        bb_ba_teacher = torch.stack(
+            (
+                torch.unsqueeze(bb_teacher_scores, 1),
+                torch.unsqueeze(ba_teacher_scores, 1),
+            ),
+            1,
+        ).squeeze()
+        aa_bb_teacher = torch.stack(
+            (
+                torch.unsqueeze(aa_teacher_scores, 1),
+                torch.unsqueeze(bb_teacher_scores, 1),
+            ),
+            1,
+        ).squeeze()
+        ba_ab_teacher = torch.stack(
+            (
+                torch.unsqueeze(ba_teacher_scores, 1),
+                torch.unsqueeze(ab_teacher_scores, 1),
+            ),
+            1,
+        ).squeeze()
+
+        softmax_aa_ab_teacher = F.softmax(aa_ab_teacher, dim=1)
+        softmax_bb_ba_teacher = F.softmax(bb_ba_teacher, dim=1)
+        softmax_aa_bb_teacher = F.softmax(aa_bb_teacher, dim=1)
+        softmax_ba_ab_teacher = F.softmax(ba_ab_teacher, dim=1)
+
+        softmax_aa_ab_teacher_margin = (
+            softmax_aa_ab_teacher[:, 0] - softmax_aa_ab_teacher[:, 1]
+        )
+        softmax_bb_ba_teacher_margin = (
+            softmax_bb_ba_teacher[:, 0] - softmax_bb_ba_teacher[:, 1]
+        )
+        softmax_aa_bb_teacher_margin = (
+            softmax_aa_bb_teacher[:, 0] - softmax_aa_bb_teacher[:, 1]
+        )
+        softmax_ba_ab_teacher_margin = (
+            softmax_ba_ab_teacher[:, 0] - softmax_ba_ab_teacher[:, 1]
+        )
+
+        # Calculate regularization loss for all other softmax values
+        mask = torch.ones_like(softmax_scores)
+        num_queries = len(query_output_a)
+
+        # Zero out the relevant scores for set A
+        mask[torch.arange(num_queries), torch.arange(num_queries)] = 0
+        mask[torch.arange(num_queries), torch.arange(num_queries) + num_queries] = 0
+
+        # Zero out the relevant scores for set B
+        mask[
+            torch.arange(num_queries, 2 * num_queries),
+            torch.arange(num_queries, 2 * num_queries),
+        ] = 0
+        mask[torch.arange(num_queries, 2 * num_queries), torch.arange(num_queries)] = 0
+
+        remaining_softmax_scores = softmax_scores * mask
+        regularization_loss = torch.mean(remaining_softmax_scores**2)
+
+        loss = (
+            self.mse(aa_ab, softmax_aa_ab_teacher_margin)
+            + self.mse(bb_ba, softmax_bb_ba_teacher_margin)
+            # + self.mse(aa_bb, softmax_aa_bb_teacher_margin)
+            # + self.mse(ba_ab, softmax_ba_ab_teacher_margin)
+            + regularization_loss
+        )
+
+        return loss
+
+
+class QuartetLossV3(nn.Module):
+    def __init__(self):
+        super(QuartetLossV3, self).__init__()
+        self.kl_div = nn.KLDivLoss(
+            reduction="batchmean"
+        )  # Use KLDivLoss instead of MSELoss
+
+    def forward(
+        self,
+        query_output_a,
+        context_output_a,
+        query_output_b,
+        context_output_b,
+        predicted_scores,
+        log_softmax_scores,
+        teacher_scores,
+        similarity_function="dot_product",
+    ):
+        softmax_scores_diag = torch.diagonal(log_softmax_scores)
+        aa_scores, bb_scores = (
+            softmax_scores_diag[: len(query_output_a)],
+            softmax_scores_diag[len(query_output_a) :],
+        )
+        ab_scores = torch.diagonal(log_softmax_scores, offset=len(query_output_a))
+        ba_scores = torch.diagonal(log_softmax_scores[len(query_output_a) :, :])
+
+        aa_ab = torch.stack(
+            (aa_scores.unsqueeze(1), ab_scores.unsqueeze(1)), dim=1
+        ).squeeze()
+        bb_ba = torch.stack(
+            (bb_scores.unsqueeze(1), ba_scores.unsqueeze(1)), dim=1
+        ).squeeze()
+
+        aa_teacher_scores = teacher_scores["aa_scores"]
+        ab_teacher_scores = teacher_scores["ab_scores"]
+        ba_teacher_scores = teacher_scores["ba_scores"]
+        bb_teacher_scores = teacher_scores["bb_scores"]
+
+        # Prepare teacher scores for KL divergence, must be softmax probabilities
+        aa_ab_teacher = torch.stack([aa_teacher_scores, ab_teacher_scores], dim=1)
+        bb_ba_teacher = torch.stack([bb_teacher_scores, ba_teacher_scores], dim=1)
+
+        # Calculate KL divergence loss
+        loss_aa_ab = self.kl_div(aa_ab, F.softmax(aa_ab_teacher, dim=1))
+        loss_bb_ba = self.kl_div(bb_ba, F.softmax(bb_ba_teacher, dim=1))
+
+        # Calculate regularization loss for all other softmax values
+        mask = torch.ones_like(log_softmax_scores)
+        num_queries = len(query_output_a)
+
+        # Zero out the relevant scores for set A and set B
+        mask[torch.arange(num_queries), torch.arange(num_queries)] = 0
+        mask[torch.arange(num_queries), torch.arange(num_queries) + num_queries] = 0
+        mask[
+            torch.arange(num_queries, 2 * num_queries),
+            torch.arange(num_queries, 2 * num_queries),
+        ] = 0
+        mask[torch.arange(num_queries, 2 * num_queries), torch.arange(num_queries)] = 0
+
+        remaining_softmax_scores = log_softmax_scores * mask
+        regularization_loss = torch.mean(remaining_softmax_scores**2)
+
+        # Combine all losses
+        # total_loss = loss_aa_ab + loss_bb_ba + regularization_loss
+        total_loss = loss_aa_ab + loss_bb_ba
+
+        return total_loss
+
+
+class MultiNegativesLoss(nn.Module):
+    def __init__(self):
+        super(MultiNegativesLoss, self).__init__()
+        self.loss_fct = nn.BCEWithLogitsLoss()
+
+    def forward(
+        self,
+        predicted_scores,
+        labels,
+    ):
+        predicted_scores = torch.diagonal(predicted_scores)
+        return self.loss_fct(predicted_scores, labels)
 
 
 class KLDivLossForTriplets(nn.Module):

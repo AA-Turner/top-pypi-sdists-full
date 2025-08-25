@@ -197,6 +197,13 @@ class VehicleMonitoringUseCase(BaseProcessor):
         # print("---------------------PROCESSEDD-----------------------")
         # print(processed_data)
         # print("---------------------PROCESSEDD-----------------------")
+        print("------------------CONFIGS--------------------------------")
+        print(config.alert_config)
+        print(config.usecase_categories)
+        print(config.confidence_threshold)
+        print(config.target_categories)
+        print(config.zone_config)
+        print("------------------CONFIGS--------------------------------")
         zone_analysis = {}
         if config.zone_config and config.zone_config['zones']:
             # Convert single frame to format expected by count_objects_in_zones

@@ -57,7 +57,8 @@ def verify_token(token: Optional[str] = None, event_name: Optional[str] = "strin
         "accept": "application/json",
         "Content-Type": "application/json"
     }
-    url = "https://api.tushare.pro/dataapi/sdk-event"
+    # url = "http://api.tushare.pro/dataapi/sdk-event"
+    url = ct.verify_token_url
     data = {"user_token": token,
             "event_name": event_name,
             "event_detail": event_detail}

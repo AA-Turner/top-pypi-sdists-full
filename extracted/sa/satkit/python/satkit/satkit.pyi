@@ -135,6 +135,78 @@ class TLE:
         1 / Earth radius
         """
 
+    def to_2line(self) -> list[str]:
+        """
+        Output as 2 canonical TLE Lines
+
+        Returns:
+            list[str]: 2 canonical TLE Lines
+        """
+
+    def to_3line(self) -> list[str]:
+        """
+        Output as 2 canonical TLE lines preceded by a name line (3-line element set)
+
+        Returns:
+            list[str]: 3-line element set, name line then 2 canonical TLE lines
+        """
+
+    @staticmethod
+    def fit_from_states(
+        states: list[np.ndarray],
+        times: list[time] | list[datetime.datetime],
+        epoch: time | datetime.datetime,
+    ) -> tuple[TLE, dict]:
+        """
+        Perform non-linear least squares fit of TLE parameters to a list of GCRF states
+
+        Args:
+            states (list[np.ndarray]): List of GCRF states to fit to.  Each state is a 6-element vector.  The first 3
+            values are positions in meters.  The last 3 values are velocities in meters / second
+            times (list[time] | list[datetime.datetime]): List of times corresponding to the states
+            epoch (time|datetime.datetime): Epoch time for the TLE.  Must be within range of times
+
+        Returns:
+            tuple[TLE, dict]: Fitted TLE and fitting results in a dictionary
+
+        Notes:
+
+            * SGP4 propagator is used to match TLE to the states
+
+            * Input GCRF states are rotated into TEME frame used by SGP4
+
+            * First and second derivatives of mean motion are ignored, as they are not
+              used by SGP4
+
+            * Non-linear Levenberg-Marquardt optimization is performed to fit the TLE parameters to the provided states.
+            TLE parameters used in fit include:
+                * Inclination
+                * Eccentricity
+                * Right Ascension of Ascending Node
+                * Argument of Perigee
+                * Mean Anomaly
+                * Mean motion
+                * Drag (bstar)
+
+            * Rust crate "rmpfit" is used to perform the optimization
+              (https://crates.io/crates/rmpfit)
+
+            * Results dictionary includes the following keys:
+                * `success` : "mpsuccess" value describing result of minimization
+                * `best_norm`: Final chi-squared value
+                * `orig_norm`: Initial chi-squared value
+                * `n_iter`: Number of iterations performed
+                * `n_fev`: Number of function evaluations performed
+                * `n_par`: Total number of parameters being optimized
+                * `n_free`: Number of free parameters
+                * `n_pegged`: Number of pegged parameters
+                * `n_func`: Number of residuals
+                * `resid`: Final residuals
+                * `xerror`: Final parameter uncertanties (1-sigma)
+                * `covar`: Final parameter covariance matrix
+
+        """
+
 def sgp4(
     tle: TLE | list[TLE],
     tm: time | list[time] | npt.ArrayLike,
@@ -173,7 +245,7 @@ def sgp4(
         >>> lines = [
         >>>        "0 INTELSAT 902",
         >>>     "1 26900U 01039A   06106.74503247  .00000045  00000-0  10000-3 0  8290",
-        >>>     "2 26900   0.0164 266.5378 0003319  86.1794 182.2590  1.00273847 16981   9300."
+        >>>     "2 26900   0.0164 266.5378 0003319  86.1794 182.2590  1.00273847 16981"
         >>> ]
         >>>
         >>> tle = satkit.TLE.single_from_lines(lines)
@@ -415,6 +487,61 @@ class weekday:
     @static_property
     def Saturday(self) -> weekday:
         """Saturday"""
+
+class mpsuccess:
+    """
+    State of Levenberg-Marquardt optimization from the `rmpfit` rust library
+
+    For details see: https://docs.rs/rmpfit/latest/rmpfit/
+
+    Values:
+
+    * `NotDone`: Not finished iterations
+    * `Chi`: Convergence in chi-square value
+    * `Par`: Convergence in parameter value
+    * `Both`: Convergence in both chi-square and parameter values
+    * `Dir`: Convergence in orthogonality
+    * `MaxIter`: Maximum iterations reached
+    * `Ftol`: ftol is too small; no further improvement
+    * `Xtol`: xtol is too small; no further improvement
+    * `Gtol`: gtol is too small; no further improvement
+    """
+
+    @static_property
+    def NotDone(self) -> mpsuccess:
+        """Not finished iterations"""
+
+    @static_property
+    def Chi(self) -> mpsuccess:
+        """Convergence in chi-square value"""
+
+    @static_property
+    def Par(self) -> mpsuccess:
+        """Convergence in parameter value"""
+
+    @static_property
+    def Both(self) -> mpsuccess:
+        """Convergence in both chi-square and parameter values"""
+
+    @static_property
+    def Dir(self) -> mpsuccess:
+        """Convergence in orthogonality"""
+
+    @static_property
+    def MaxIter(self) -> mpsuccess:
+        """Maximum iterations reached"""
+
+    @static_property
+    def Ftol(self) -> mpsuccess:
+        """ftol is too small; no further improvement"""
+
+    @static_property
+    def Xtol(self) -> mpsuccess:
+        """xtol is too small; no further improvement"""
+
+    @static_property
+    def Gtol(self) -> mpsuccess:
+        """gtol is too small; no further improvement"""
 
 class timescale:
     """
@@ -665,13 +792,21 @@ class time:
             satkit.time: Time object representing input GPS week and second
         """
 
-        def weekday(self) -> weekday:
-            """
-            Return the day of the week
+    def weekday(self) -> weekday:
+        """
+        Return the day of the week
 
-            Returns:
-                satkit.weekday: Day of the week
-            """
+        Returns:
+            satkit.weekday: Day of the week
+        """
+
+    def day_of_year(self) -> int:
+        """
+        Return the 1-based Gregorian day of the year (1 = January 1, 365 = December 31)
+
+        Returns:
+            int: The 1-based day of the year
+        """
 
     @staticmethod
     def from_mjd(mjd: float, scale: timescale = timescale.UTC) -> time:
@@ -1338,7 +1473,7 @@ class quaternion:
         * Under the hood, this is using the "UnitQuaternion" object in the rust "nalgebra" crate.
     """
 
-    def __init__(self):
+    def __init__(self, w: float = 1.0, x: float = 0.0, y: float = 0.0, z: float = 0.0):
         """Return quaternion with input (w,x,y,z) values
 
         Optional Args:

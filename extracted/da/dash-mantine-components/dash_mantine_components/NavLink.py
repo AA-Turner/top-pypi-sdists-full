@@ -222,7 +222,7 @@ Keyword arguments:
 
 - opacity (optional)
 
-- opened (boolean; optional):
+- opened (boolean; default False):
     Controlled nested items collapse state.
 
 - p (number; optional):

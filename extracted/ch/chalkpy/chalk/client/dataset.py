@@ -862,6 +862,7 @@ class DatasetRevisionImpl(DatasetRevision):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        skip_failed_shards: bool = False,
         caller_name: str = "get_data_as_polars",
     ) -> pl.LazyFrame:
         context = OfflineQueryContext(environment=self.environment)
@@ -869,14 +870,15 @@ class DatasetRevisionImpl(DatasetRevision):
             self._hydrate(caller_method=caller_name, timeout=timeout, show_progress=show_progress)
         return self._client.load_dataset(
             job_id=self.revision_id,
-            context=context,
-            output_id=output_id,
             outputs=self.outputs,
+            output_id=output_id,
             output_ts=output_ts,
+            context=context,
             branch=self.branch,
             ignore_errors=ignore_errors,
             query_inputs=False,
             return_type="polars_lazyframe",
+            skip_failed_shards=skip_failed_shards,
         )
 
     def arrow_schema(

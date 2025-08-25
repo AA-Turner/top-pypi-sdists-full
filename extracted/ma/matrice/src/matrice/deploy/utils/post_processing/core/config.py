@@ -625,6 +625,7 @@ class ConfigManager:
             'human_activity_recognition': None,
             'gas_leak_detection': None,
             'license_plate_monitor' : None,
+            'dwell' : None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -1060,6 +1061,14 @@ class ConfigManager:
         try:
             from ..usecases.license_plate_monitoring import LicensePlateMonitorConfig
             return LicensePlateMonitorConfig
+        except ImportError:
+            return None
+        
+    def dwell_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.dwell_detection import DwellConfig
+            return DwellConfig
         except ImportError:
             return None
     
@@ -2145,6 +2154,22 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+
+        elif usecase == "dwell":
+            # Import here to avoid circular import
+            from ..usecases.dwell_detection import DwellConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = DwellConfig(
+                category=category or "general",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
         
         #Add IMAGE based usecases here::
         elif usecase == "blood_cancer_detection_img":
@@ -2638,6 +2663,12 @@ class ConfigManager:
             default_config = LicensePlateMonitorConfig()
             return default_config.to_dict()
 
+        elif usecase == "dwell":
+            # Import here to avoid circular import
+            from ..usecases.dwell_detection import DwellConfig
+            default_config = DwellConfig()
+            return default_config.to_dict()
+        
         #Add all image based usecases here
         elif usecase == "blood_cancer_detection_img":
             # Import here to avoid circular import

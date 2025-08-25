@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tavern
-Version: 2.16.0
+Version: 2.17.0
 Summary: Simple testing of RESTful APIs
 Keywords: testing,pytest
 Author: Michael Boulton

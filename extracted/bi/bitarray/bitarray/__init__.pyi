@@ -5,12 +5,23 @@
 from collections.abc import Iterable, Iterator, Sequence
 from unittest.runner import TextTestResult
 
-from typing import Any, BinaryIO, Dict, Union, overload
+from typing import Any, BinaryIO, Dict, Union, overload, NamedTuple
 
 
 CodeDict = Dict[Any, bitarray]
 # Python 3.12 has abc.Buffer which should be used instead
 BytesLike = Union[bytes, bytearray]
+
+
+class BufferInfo(NamedTuple):
+    address: int
+    nbytes: int
+    endian: str
+    padbits: int
+    alloc: int
+    readonly: bool
+    imported: bool
+    exports: int
 
 
 class decodetree:
@@ -29,7 +40,7 @@ class bitarray:
     def all(self) -> bool: ...
     def any(self) -> bool: ...
     def append(self, value: int) -> None: ...
-    def buffer_info(self) -> tuple: ...
+    def buffer_info(self) -> BufferInfo: ...
     def bytereverse(self,
                     start: int = ...,
                     stop: int = ...) -> None: ...
@@ -149,7 +160,7 @@ def bits2bytes(n: int) -> int: ...
 def get_default_endian() -> str: ...
 def test(verbosity: int = ...) -> TextTestResult: ...
 def _set_default_endian(endian: str) -> None: ...
-def _sysinfo() -> tuple: ...
+def _sysinfo(key: str) -> int: ...
 def _bitarray_reconstructor(cls: type,
                             buffer: bytes,
                             endian: str,

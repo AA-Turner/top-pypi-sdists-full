@@ -77,6 +77,7 @@ from .leak_detection import LeakDetectionConfig, LeakDetectionUseCase
 from .human_activity_recognition import HumanActivityConfig, HumanActivityUseCase
 from .gas_leak_detection import GasLeakDetectionConfig, GasLeakDetectionUseCase
 from .license_plate_monitoring import LicensePlateMonitorConfig,LicensePlateMonitorUseCase
+from .dwell_detection import DwellConfig,DwellUseCase
 
 #Put all IMAGE based usecases here
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -151,6 +152,7 @@ __all__ = [
     'HumanActivityUseCase',
     'GasLeakDetectionUseCase',
     'LicensePlateMonitorUseCase',
+    'DwellUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
@@ -220,6 +222,7 @@ __all__ = [
     'WaterBodyConfig',
     'LitterDetectionConfig',
     'AbandonedObjectConfig',
+    'DwellConfig',
 
     'LeakDetectionConfig',
     'HumanActivityConfig',

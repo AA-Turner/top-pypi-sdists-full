@@ -62,6 +62,7 @@ from .type_checking import (
     OUTPUT_KW,
     DEFAULT_OPTIONS,
     DEPENDENCIES_KW,
+    DEPENDENCY_KWS,
     DEPENDS_KW,
     DEPEND_FILES_KW,
     DEPFILE_KW,
@@ -426,6 +427,7 @@ class Interpreter(InterpreterBase, HoldableObject):
             build.Generator: OBJ.GeneratorHolder,
             build.GeneratedList: OBJ.GeneratedListHolder,
             build.ExtractedObjects: OBJ.GeneratedObjectsHolder,
+            build.OverrideExecutable: OBJ.OverrideExecutableHolder,
             build.RunTarget: OBJ.RunTargetHolder,
             build.AliasTarget: OBJ.AliasTargetHolder,
             build.Headers: OBJ.HeadersHolder,
@@ -522,6 +524,8 @@ class Interpreter(InterpreterBase, HoldableObject):
                     self.handle_meson_version(val.value, val)
 
     def get_build_def_files(self) -> mesonlib.OrderedSet[str]:
+        if self.environment.cargo:
+            self.build_def_files.update(self.environment.cargo.get_build_def_files())
         return self.build_def_files
 
     def add_build_def_file(self, f: mesonlib.FileOrString) -> None:
@@ -1058,6 +1062,7 @@ class Interpreter(InterpreterBase, HoldableObject):
         mlog.warning('Cargo subproject is an experimental feature and has no backwards compatibility guarantees.',
                      once=True, location=self.current_node)
         if self.environment.cargo is None:
+            self.add_languages(['rust'], True, MachineChoice.HOST)
             self.environment.cargo = cargo.Interpreter(self.environment)
         with mlog.nested(subp_name):
             ast = self.environment.cargo.interpret(subdir)
@@ -1599,7 +1604,7 @@ class Interpreter(InterpreterBase, HoldableObject):
 
     def program_from_overrides(self, command_names: T.List[mesonlib.FileOrString],
                                extra_info: T.List['mlog.TV_Loggable']
-                               ) -> T.Optional[T.Union[ExternalProgram, OverrideProgram, build.Executable]]:
+                               ) -> T.Optional[T.Union[ExternalProgram, OverrideProgram, build.OverrideExecutable]]:
         for name in command_names:
             if not isinstance(name, str):
                 continue
@@ -1614,7 +1619,7 @@ class Interpreter(InterpreterBase, HoldableObject):
             if isinstance(name, str):
                 self.build.searched_programs.add(name)
 
-    def add_find_program_override(self, name: str, exe: T.Union[build.Executable, ExternalProgram, 'OverrideProgram']) -> None:
+    def add_find_program_override(self, name: str, exe: T.Union[build.OverrideExecutable, ExternalProgram, 'OverrideProgram']) -> None:
         if name in self.build.searched_programs:
             raise InterpreterException(f'Tried to override finding of executable "{name}" which has already been found.')
         if name in self.build.find_overrides:
@@ -1639,7 +1644,7 @@ class Interpreter(InterpreterBase, HoldableObject):
                           search_dirs: T.Optional[T.List[str]] = None,
                           version_arg: T.Optional[str] = '',
                           version_func: T.Optional[ProgramVersionFunc] = None
-                          ) -> T.Union['ExternalProgram', 'build.Executable', 'OverrideProgram']:
+                          ) -> T.Union['ExternalProgram', 'build.OverrideExecutable', 'OverrideProgram']:
         args = mesonlib.listify(args)
 
         extra_info: T.List[mlog.TV_Loggable] = []
@@ -1785,8 +1790,8 @@ class Interpreter(InterpreterBase, HoldableObject):
     @disablerIfNotFound
     @permittedKwargs(permitted_dependency_kwargs)
     @typed_pos_args('dependency', varargs=str, min_varargs=1)
-    @typed_kwargs('dependency', DEFAULT_OPTIONS.evolve(since='0.38.0'), allow_unknown=True)
-    def func_dependency(self, node: mparser.BaseNode, args: T.Tuple[T.List[str]], kwargs) -> Dependency:
+    @typed_kwargs('dependency', *DEPENDENCY_KWS, allow_unknown=True)
+    def func_dependency(self, node: mparser.BaseNode, args: T.Tuple[T.List[str]], kwargs: kwtypes.FuncDependency) -> Dependency:
         # Replace '' by empty list of names
         names = [n for n in args[0] if n]
         if len(names) > 1:

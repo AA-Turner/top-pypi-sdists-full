@@ -1,16 +1,14 @@
 Metadata-Version: 2.1
 Name: sherpa-onnx
-Version: 1.12.9
-Summary: UNKNOWN
+Version: 1.12.10
 Home-page: https://github.com/k2-fsa/sherpa-onnx
 Author: The sherpa-onnx development team
 Author-email: dpovey@gmail.com
 License: Apache licensed, as found in the LICENSE file
-Platform: UNKNOWN
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 
@@ -60,6 +58,9 @@ License-File: LICENSE
 For Rust support, please see [sherpa-rs][sherpa-rs]
 
 It also supports WebAssembly.
+
+[Join our discord](https://discord.gg/fJdxzg2VbG)
+
 
 ## Introduction
 
@@ -562,5 +563,3 @@ A desktop text-to-speech application built using Kotlin Multiplatform.
 [kws-url]: https://k2-fsa.github.io/sherpa/onnx/kws/index.html
 [punct-url]: https://k2-fsa.github.io/sherpa/onnx/punctuation/index.html
 [se-url]: https://k2-fsa.github.io/sherpa/onnx/speech-enhancment/index.html
-
-

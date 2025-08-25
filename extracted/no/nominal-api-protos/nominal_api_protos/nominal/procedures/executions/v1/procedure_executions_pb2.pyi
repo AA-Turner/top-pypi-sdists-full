@@ -5,7 +5,6 @@ from google.api import annotations_pb2 as _annotations_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from nominal.gen.v1 import alias_pb2 as _alias_pb2
 from nominal.gen.v1 import error_pb2 as _error_pb2
-from nominal.procedures.v1 import procedures_pb2 as _procedures_pb2
 from nominal.types import types_pb2 as _types_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -364,14 +363,14 @@ class UpdateProcedureExecutionRequest(_message.Message):
     title: str
     description: str
     commit_id: str
-    labels: _procedures_pb2.LabelUpdateWrapper
-    properties: _procedures_pb2.PropertyUpdateWrapper
+    labels: _types_pb2.LabelUpdateWrapper
+    properties: _types_pb2.PropertyUpdateWrapper
     graph: ProcedureExecutionGraph
     variables: UpdateProcedureExecutionRequest.ProcedureExecutionVariablesUpdateWrapper
     is_aborted: bool
     started_at: _timestamp_pb2.Timestamp
     finished_at: _timestamp_pb2.Timestamp
-    def __init__(self, procedure_execution_rid: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., commit_id: _Optional[str] = ..., labels: _Optional[_Union[_procedures_pb2.LabelUpdateWrapper, _Mapping]] = ..., properties: _Optional[_Union[_procedures_pb2.PropertyUpdateWrapper, _Mapping]] = ..., graph: _Optional[_Union[ProcedureExecutionGraph, _Mapping]] = ..., variables: _Optional[_Union[UpdateProcedureExecutionRequest.ProcedureExecutionVariablesUpdateWrapper, _Mapping]] = ..., is_aborted: bool = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., finished_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, procedure_execution_rid: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., commit_id: _Optional[str] = ..., labels: _Optional[_Union[_types_pb2.LabelUpdateWrapper, _Mapping]] = ..., properties: _Optional[_Union[_types_pb2.PropertyUpdateWrapper, _Mapping]] = ..., graph: _Optional[_Union[ProcedureExecutionGraph, _Mapping]] = ..., variables: _Optional[_Union[UpdateProcedureExecutionRequest.ProcedureExecutionVariablesUpdateWrapper, _Mapping]] = ..., is_aborted: bool = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., finished_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class UpdateProcedureExecutionResponse(_message.Message):
     __slots__ = ("procedure_execution",)

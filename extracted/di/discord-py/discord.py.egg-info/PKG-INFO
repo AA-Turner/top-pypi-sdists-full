@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: discord.py
-Version: 2.6.0
+Version: 2.6.2
 Summary: A Python wrapper for the Discord API
 Author: Rapptz
 License: The MIT License (MIT)
@@ -77,7 +77,7 @@ Requires-Dist: pytest-mock; extra == "test"
 Requires-Dist: typing-extensions<5,>=4.3; extra == "test"
 Requires-Dist: tzdata; sys_platform == "win32" and extra == "test"
 Provides-Extra: dev
-Requires-Dist: black==22.6; extra == "dev"
+Requires-Dist: ruff==0.12; extra == "dev"
 Requires-Dist: typing_extensions<5,>=4.3; extra == "dev"
 Dynamic: license-file
 

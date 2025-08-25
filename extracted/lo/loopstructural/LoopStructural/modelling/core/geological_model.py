@@ -21,6 +21,7 @@ from ...modelling.features import (
     UnconformityFeature,
     StructuralFrame,
     GeologicalFeature,
+    BaseFeature,
     FeatureType,
 )
 from ...modelling.features.fold import (
@@ -341,7 +342,7 @@ class GeologicalModel:
         feature : GeologicalFeature
             the geological feature to set
         """
-        if not isinstance(feature, GeologicalFeature):
+        if not issubclass(type(feature), BaseFeature):
             raise TypeError("feature must be a GeologicalFeature")
         if feature.name != feature_name:
             raise ValueError("feature name does not match key")
@@ -616,7 +617,7 @@ class GeologicalModel:
         series_surface_name: str,
         *,
         index: Optional[int] = None,
-        series_surface_data: Optional[pd.DataFrame] = None,
+        data: Optional[pd.DataFrame] = None,
         interpolatortype: str = "FDI",
         nelements: int = LoopStructuralConfig.nelements,
         tol=None,
@@ -671,13 +672,13 @@ class GeologicalModel:
             **kwargs,
         )
         # add data
-        if series_surface_data is None:
-            series_surface_data = self.data.loc[self.data["feature_name"] == series_surface_name]
+        if data is None:
+            data = self.data.loc[self.data["feature_name"] == series_surface_name]
 
-        if series_surface_data.shape[0] == 0:
+        if data.shape[0] == 0:
             logger.warning("No data for {series_surface_data}, skipping")
             return
-        series_builder.add_data_from_data_frame(self.prepare_data(series_surface_data))
+        series_builder.add_data_from_data_frame(self.prepare_data(data))
         self._add_faults(series_builder, features=faults)
 
         # build feature
@@ -696,7 +697,7 @@ class GeologicalModel:
         fold_frame_name: str,
         *,
         index: Optional[int] = None,
-        fold_frame_data=None,
+        data=None,
         interpolatortype="FDI",
         nelements=LoopStructuralConfig.nelements,
         tol=None,
@@ -746,12 +747,12 @@ class GeologicalModel:
             **kwargs,
         )
         # add data
-        if fold_frame_data is None:
-            fold_frame_data = self.data.loc[self.data["feature_name"] == fold_frame_name]
-        if fold_frame_data.shape[0] == 0:
+        if data is None:
+            data = self.data.loc[self.data["feature_name"] == fold_frame_name]
+        if data.shape[0] == 0:
             logger.warning(f"No data for {fold_frame_name}, skipping")
             return
-        fold_frame_builder.add_data_from_data_frame(self.prepare_data(fold_frame_data))
+        fold_frame_builder.add_data_from_data_frame(self.prepare_data(data))
         self._add_faults(fold_frame_builder[0])
         self._add_faults(fold_frame_builder[1])
         self._add_faults(fold_frame_builder[2])
@@ -770,7 +771,7 @@ class GeologicalModel:
         foliation_name,
         *,
         index: Optional[int] = None,
-        foliation_data=None,
+        data=None,
         interpolatortype="DFI",
         nelements=LoopStructuralConfig.nelements,
         buffer=0.1,
@@ -816,7 +817,7 @@ class GeologicalModel:
             fold_frame = self.features[-1]
         assert isinstance(fold_frame, FoldFrame), "Please specify a FoldFrame"
 
-        fold = FoldEvent(fold_frame, name=f"Fold_{foliation_data}", invert_norm=invert_fold_norm)
+        fold = FoldEvent(fold_frame, name=f"Fold_{foliation_name}", invert_norm=invert_fold_norm)
 
         if interpolatortype != "DFI":
             logger.warning("Folded foliation only supports DFI interpolator, changing to DFI")
@@ -831,12 +832,12 @@ class GeologicalModel:
             model=self,
             **kwargs,
         )
-        if foliation_data is None:
-            foliation_data = self.data.loc[self.data["feature_name"] == foliation_name]
-        if foliation_data.shape[0] == 0:
+        if data is None:
+            data = self.data.loc[self.data["feature_name"] == foliation_name]
+        if data.shape[0] == 0:
             logger.warning(f"No data for {foliation_name}, skipping")
             return
-        series_builder.add_data_from_data_frame(self.prepare_data(foliation_data))
+        series_builder.add_data_from_data_frame(self.prepare_data(data))
 
         self._add_faults(series_builder)
         # series_builder.add_data_to_interpolator(True)
@@ -847,7 +848,7 @@ class GeologicalModel:
         # series_feature = series_builder.build(**kwargs)
         series_feature = series_builder.feature
         series_builder.update_build_arguments(kwargs)
-        series_feature.type = FeatureType.INTERPOLATED
+        series_feature.type = FeatureType.FOLDED
         series_feature.fold = fold
 
         self._add_feature(series_feature,index)
@@ -858,7 +859,7 @@ class GeologicalModel:
         fold_frame_name: str,
         *,
         index: Optional[int] = None,
-        fold_frame_data: Optional[pd.DataFrame] = None,
+        data: Optional[pd.DataFrame] = None,
         interpolatortype="FDI",
         nelements=LoopStructuralConfig.nelements,
         fold_frame=None,
@@ -913,7 +914,7 @@ class GeologicalModel:
             logger.info("Using last feature as fold frame")
             fold_frame = self.features[-1]
         assert isinstance(fold_frame, FoldFrame), "Please specify a FoldFrame"
-        fold = FoldEvent(fold_frame, name=f"Fold_{fold_frame_data}")
+        fold = FoldEvent(fold_frame, name=f"Fold_{fold_frame_name}")
 
         interpolatortypes = [
             "DFI",
@@ -930,9 +931,9 @@ class GeologicalModel:
             model=self,
             **kwargs,
         )
-        if fold_frame_data is None:
-            fold_frame_data = self.data[self.data["feature_name"] == fold_frame_name]
-        fold_frame_builder.add_data_from_data_frame(self.prepare_data(fold_frame_data))
+        if data is None:
+            data = self.data[self.data["feature_name"] == fold_frame_name]
+        fold_frame_builder.add_data_from_data_frame(self.prepare_data(data))
 
         for i in range(3):
             self._add_faults(fold_frame_builder[i])
@@ -1293,7 +1294,7 @@ class GeologicalModel:
         displacement: float,
         *,
         index: Optional[int] = None,
-        fault_data: Optional[pd.DataFrame] = None,
+        data: Optional[pd.DataFrame] = None,
         interpolatortype="FDI",
         tol=None,
         fault_slip_vector=None,
@@ -1387,9 +1388,9 @@ class GeologicalModel:
             model=self,
             **kwargs,
         )
-        if fault_data is None:
-            fault_data = self.data.loc[self.data["feature_name"] == fault_name]
-        if fault_data.shape[0] == 0:
+        if data is None:
+            data = self.data.loc[self.data["feature_name"] == fault_name]
+        if data.shape[0] == 0:
             logger.warning(f"No data for {fault_name}, skipping")
             return
 
@@ -1405,7 +1406,7 @@ class GeologicalModel:
         if intermediate_axis:
             intermediate_axis = intermediate_axis
         fault_frame_builder.create_data_from_geometry(
-            fault_frame_data=self.prepare_data(fault_data),
+            fault_frame_data=self.prepare_data(data),
             fault_center=fault_center,
             fault_normal_vector=fault_normal_vector,
             fault_slip_vector=fault_slip_vector,

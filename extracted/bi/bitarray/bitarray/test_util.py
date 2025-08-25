@@ -28,7 +28,7 @@ from bitarray.test_bitarray import (Util, skipIf, is_pypy, urandom_2,
 
 from bitarray.util import (
     zeros, ones, urandom, random_k, random_p, pprint, strip, count_n,
-    parity, sum_indices, xor_indices,
+    parity, gen_primes, sum_indices, xor_indices,
     count_and, count_or, count_xor, any_and, subset,
     correspond_all, byteswap, intervals,
     serialize, deserialize, ba2hex, hex2ba, ba2base, base2ba,
@@ -370,6 +370,91 @@ class Random_P_Tests(unittest.TestCase):
         r = _Random()
         limit = 1.0 / (r.K + 1)  # lower limit for p
         self.assertTrue(r.SMALL_P > limit)
+
+# ---------------------------------------------------------------------------
+
+class PrimeTests(unittest.TestCase):
+
+    primes = [
+        2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61,
+        67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
+        139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211,
+        223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283,
+        293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379,
+        383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461,
+    ]
+
+    def test_errors(self):
+        P = gen_primes
+        self.assertRaises(TypeError, P, 3, 1)
+        self.assertRaises(ValueError, P, "1.0")
+        self.assertRaises(ValueError, P, -1)
+        self.assertRaises(TypeError, P, 8, 4)
+        self.assertRaises(TypeError, P, 8, foo="big")
+        self.assertRaises(ValueError, P, 8, "foo")
+        self.assertRaises(ValueError, P, 8, endian="foo")
+
+    def test_explitcit(self):
+        for n in range(230):
+            default_endian = choice(['little', 'big'])
+            _set_default_endian(default_endian)
+            endian = choice(["little", "big", None])
+            odd = getrandbits(1)
+            a = gen_primes(n, endian, odd)
+            self.assertEqual(len(a), n)
+            self.assertEqual(a.endian, endian or default_endian)
+            if odd:
+                lst = [2] + [2 * i + 1 for i in a.search(1)]
+            else:
+                lst = [i for i in a.search(1)]
+            self.assertEqual(lst, self.primes[:len(lst)])
+
+    def test_cmp(self):
+        N = 10_000
+        c = ones(N)
+        c[:2] = 0
+        for i in range(int(math.sqrt(N) + 1.0)):
+            if c[i]:
+                c[i * i :: i] = 0
+        self.assertEqual(list(c.search(1, 0, 462)), self.primes)
+
+        for _ in range(20):
+            n = randrange(N)
+            endian = choice(["little", "big"])
+            a = gen_primes(n, endian=endian)
+            self.assertEqual(a, c[:n])
+            self.assertEqual(a.endian, endian)
+
+            b = gen_primes(n // 2, endian, odd=True)
+            self.assertEqual(b, a[1::2])
+            self.assertEqual(b, c[1:n:2])
+
+        for _ in range(20):
+            i = randrange(10, 100)
+            x = randint(-1, 1)
+            n = i * i + x
+            self.assertEqual(gen_primes(n), c[:n])
+            self.assertEqual(gen_primes(n // 2, odd=1), c[1:n:2])
+
+        self.assertEqual(gen_primes(N), c)
+        self.assertEqual(gen_primes(N // 2, odd=1), c[1::2])
+
+    def test_count(self):
+        for n, count, sum_p, sum_sqr_p in [
+                (    10,    4,        17,             87),
+                (   100,   25,     1_060,         65_796),
+                ( 1_000,  168,    76_127,     49_345_379),
+                (10_000, 1229, 5_736_396, 37_546_387_960),
+        ]:
+            a = gen_primes(n)
+            self.assertEqual(len(a), n)
+            self.assertEqual(a.count(), count)
+            self.assertEqual(sum_indices(a), sum_p)
+            self.assertEqual(sum_indices(a, 2), sum_sqr_p)
+            b = gen_primes(n // 2, odd=1)
+            self.assertEqual(len(b), n // 2)
+            self.assertEqual(b.count() + 1, count)
+            self.assertEqual(b, a[1::2])
 
 # ---------------------------------------------------------------------------
 
@@ -1121,6 +1206,9 @@ class SumIndicesTests(SumIndicesUtil):
 
     def test_explicit(self):
         self.check_explicit(sum_indices)
+        a = gen_primes(100)
+        self.assertEqual(sum_indices(a, mode=1),  1_060)
+        self.assertEqual(sum_indices(a, mode=2), 65_796)
 
     def test_wrong_args(self):
         self.check_wrong_args(sum_indices)
@@ -1170,6 +1258,17 @@ class XoredIndicesTests(unittest.TestCase, Util):
             self.assertEqual(xor_indices(a), x)
             if i < 19:
                 self.assertEqual(lst[i], x)
+
+    def test_primes(self):
+        # OEIS A126084
+        lst = [0, 2, 1, 4, 3, 8, 5, 20, 7, 16, 13, 18, 55, 30, 53, 26, 47]
+        primes = gen_primes(1000)
+        x = 0
+        for i, p in enumerate(primes.search(1)):
+            self.assertEqual(xor_indices(primes[:p]), x)
+            if i < 17:
+                self.assertEqual(lst[i], x)
+            x ^= p
 
     def test_large_random(self):
         n = 10_037
@@ -1478,34 +1577,17 @@ class BaseTests(unittest.TestCase, Util):
         self.assertRaises(TypeError, base2ba, None, '')
         self.assertRaises(TypeError, ba2base, 16.0, a)
         self.assertRaises(TypeError, base2ba, 16.0, '')
-        for i in range(-10, 100):
-            if i in (2, 4, 8, 16, 32, 64):
-                continue
-            self.assertRaises(ValueError, ba2base, i, a)
-            self.assertRaises(ValueError, base2ba, i, '')
+        for values, msg in [
+                ([-1023, -16, -1, 0, 3, 5, 31, 48, 63, 129, 511, 4123],
+                 "base must be a power of 2"),
+                ([1, 128, 256, 512, 1024, 2048, 4096, 8192],
+                 "base must be 2, 4, 8, 16, 32 or 64")]:
+            for i in values:
+                self.assertRaisesMessage(ValueError, msg, ba2base, i, a)
+                self.assertRaisesMessage(ValueError, msg, base2ba, i, '')
 
         self.assertRaises(TypeError, ba2base, 32, None)
         self.assertRaises(TypeError, base2ba, 32, None)
-
-    def test_binary(self):
-        a = base2ba(2, '1011')
-        self.assertEqual(a, bitarray('1011'))
-        self.assertEqual(ba2base(2, a), '1011')
-
-        for a in self.randombitarrays():
-            s = ba2base(2, a)
-            self.assertEqual(s, a.to01())
-            self.assertEQUAL(base2ba(2, s, a.endian), a)
-
-    def test_quaternary(self):
-        a = base2ba(4, '0123', 'big')
-        self.assertEqual(a, bitarray('00 01 10 11'))
-        self.assertEqual(ba2base(4, a), '0123')
-
-    def test_octal(self):
-        a = base2ba(8, '0147', 'big')
-        self.assertEqual(a, bitarray('000 001 100 111'))
-        self.assertEqual(ba2base(8, a), '0147')
 
     def test_hexadecimal(self):
         a = base2ba(16, 'F61', 'big')
@@ -1520,10 +1602,6 @@ class BaseTests(unittest.TestCase, Util):
             self.assertEqual(ba2base(16, a), ba2hex(a))
 
     def test_base32(self):
-        a = base2ba(32, '7SH', 'big')
-        self.assertEqual(a, bitarray('11111 10010 00111'))
-        self.assertEqual(ba2base(32, a), '7SH')
-
         msg = os.urandom(randint(10, 100) * 5)
         s = base64.b32encode(msg).decode()
         a = base2ba(32, s, 'big')
@@ -1531,15 +1609,36 @@ class BaseTests(unittest.TestCase, Util):
         self.assertEqual(ba2base(32, a), s)
 
     def test_base64(self):
-        a = base2ba(64, '/jH', 'big')
-        self.assertEqual(a, bitarray('111111 100011 000111'))
-        self.assertEqual(ba2base(64, a), '/jH')
-
         msg = os.urandom(randint(10, 100) * 3)
         s = base64.standard_b64encode(msg).decode()
         a = base2ba(64, s, 'big')
         self.assertEqual(a.tobytes(), msg)
         self.assertEqual(ba2base(64, a), s)
+
+    def test_primes(self):
+        primes = gen_primes(60, odd=True)
+        base_2 = primes.to01()
+        for n, endian, rep in [
+                ( 2, "little", base_2),
+                ( 2, "big",    base_2),
+                ( 4, "little", "232132030132012122122010132110"),
+                ( 4, "big",    "131231030231021211211020231220"),
+                ( 8, "little", "65554155441515405550"),
+                ( 8, "big",    "35551455114545105550"),
+                (16, "little", "e6bc4b46a921d61"),
+                (16, "big",    "76d32d265948b68"),
+                (32, "little", "O3SJLSJTSI3C"),
+                (32, "big",    "O3JS2JSZJC3I"),
+                (64, "little", "utMtkppEtF"),
+                (64, "big",    "dtMtJllIto"),
+        ]:
+            a = bitarray(primes, endian)
+            s = ba2base(n, a)
+            self.assertEqual(type(s), str)
+            self.assertEqual(s, rep)
+            b = base2ba(n, rep, endian)
+            self.assertEqual(b, a)
+            self.assertEqual(b.endian, endian)
 
     alphabets = [
     #    m   n  alphabet

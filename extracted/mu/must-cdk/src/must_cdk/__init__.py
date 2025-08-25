@@ -1275,6 +1275,7 @@ class CodeDeployConfig:
         "environment": "environment",
         "essential": "essential",
         "health_check": "healthCheck",
+        "logging": "logging",
         "memory_limit": "memoryLimit",
         "memory_reservation": "memoryReservation",
         "name": "name",
@@ -1295,6 +1296,7 @@ class ContainerProps:
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         essential: typing.Optional[builtins.bool] = None,
         health_check: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[_aws_cdk_aws_ecs_ceddda9d.LogDriver] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
         memory_reservation: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
@@ -1312,6 +1314,7 @@ class ContainerProps:
         :param environment: Environment variables to set in the container.
         :param essential: Whether this container is essential (default: true).
         :param health_check: Optional container health check configuration.
+        :param logging: Optional log driver configuration for the container.
         :param memory_limit: Hard memory limit in MiB for the task (default: 2048).
         :param memory_reservation: Soft memory reservation in MiB for the container (default: 1024).
         :param name: Optional container name (default: Container{index}).
@@ -1331,6 +1334,7 @@ class ContainerProps:
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument essential", value=essential, expected_type=type_hints["essential"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
+            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument memory_limit", value=memory_limit, expected_type=type_hints["memory_limit"])
             check_type(argname="argument memory_reservation", value=memory_reservation, expected_type=type_hints["memory_reservation"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -1353,6 +1357,8 @@ class ContainerProps:
             self._values["essential"] = essential
         if health_check is not None:
             self._values["health_check"] = health_check
+        if logging is not None:
+            self._values["logging"] = logging
         if memory_limit is not None:
             self._values["memory_limit"] = memory_limit
         if memory_reservation is not None:
@@ -1417,6 +1423,12 @@ class ContainerProps:
         '''Optional container health check configuration.'''
         result = self._values.get("health_check")
         return typing.cast(typing.Optional[_aws_cdk_aws_ecs_ceddda9d.HealthCheck], result)
+
+    @builtins.property
+    def logging(self) -> typing.Optional[_aws_cdk_aws_ecs_ceddda9d.LogDriver]:
+        '''Optional log driver configuration for the container.'''
+        result = self._values.get("logging")
+        return typing.cast(typing.Optional[_aws_cdk_aws_ecs_ceddda9d.LogDriver], result)
 
     @builtins.property
     def memory_limit(self) -> typing.Optional[jsii.Number]:
@@ -4176,6 +4188,7 @@ def _typecheckingstub__54ea2679bab87dfe8eb538ebc455f8d93200c1beb37ad6e093fa52678
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     essential: typing.Optional[builtins.bool] = None,
     health_check: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging: typing.Optional[_aws_cdk_aws_ecs_ceddda9d.LogDriver] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
     memory_reservation: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,

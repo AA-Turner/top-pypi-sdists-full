@@ -53,7 +53,8 @@ APP_NAME_TO_USECASE = {
     "gas_leak_detection": "gas_leak_detection",
     "color_detection": "color_detection",
     "License Plate Recognition" : "license_plate_monitor",
-    "cell_microscopy_segmentation": "cell_microscopy_segmentation"
+    "cell_microscopy_segmentation": "cell_microscopy_segmentation",
+    "Dwell Detection": "dwell",
     
 }
 
@@ -112,7 +113,8 @@ APP_NAME_TO_CATEGORY = {
     "gas_leak_detection": "oil_gas",
     "color_detection": "visual_appearance",
     "License Plate Recognition" : "license_plate_monitor",
-    "cell_microscopy_segmentation" : "healthcare"
+    "cell_microscopy_segmentation" : "healthcare",
+    "Dwell Detection": "general",
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

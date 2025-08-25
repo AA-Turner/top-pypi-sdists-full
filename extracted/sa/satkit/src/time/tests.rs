@@ -42,7 +42,7 @@ fn test_unixtime() {
     assert!(g.4 == 56);
     assert!(g.5 == 53.0);
 
-    let time = Instant::from_datetime(2016, 12, 31, 23, 59, 40.0);
+    let time = Instant::from_datetime(2016, 12, 31, 23, 59, 40.0).unwrap();
     assert!(time.as_unixtime() == 1483228780.0);
 
     let g = time.as_datetime();
@@ -98,15 +98,50 @@ fn test_leapsecond() {
 }
 
 #[test]
+fn test_day_of_year() {
+    // Following examples from google
+    let thedate = Instant::from_date(2025, 8, 16).unwrap();
+    assert_eq!(thedate.day_of_year(), 228);
+
+    let thedate = Instant::from_date(2024, 2, 29).unwrap();
+    assert_eq!(thedate.day_of_year(), 60);
+
+    let thedate = Instant::from_date(2023, 1, 1).unwrap();
+    assert_eq!(thedate.day_of_year(), 1);
+
+    // Include a time component
+    let thetime = Instant::from_datetime(2024, 12, 31, 23, 59, 59.999999).unwrap();
+    assert_eq!(thetime.day_of_year(), 366);
+
+    // Leap year test
+    let thedate = Instant::from_date(2024, 12, 31).unwrap();
+    assert_eq!(thedate.day_of_year(), 366);
+
+    // Check year modulo 100, but not 400 (Not a leap year!)
+    let thedate = Instant::from_date(2100, 12, 31).unwrap();
+    assert_eq!(thedate.day_of_year(), 365);
+
+    // Check year modulo 400 (Leap year!)
+    let thedate = Instant::from_date(2400, 12, 31).unwrap();
+    assert_eq!(thedate.day_of_year(), 366);
+}
+
+#[test]
 fn test_ops() {
-    let t1 = Instant::from_datetime(2024, 11, 13, 8, 0, 3.0);
-    let t2 = Instant::from_datetime(2024, 11, 13, 8, 0, 4.0);
+    let t1 = Instant::from_datetime(2024, 11, 13, 8, 0, 3.0).unwrap();
+    let t2 = Instant::from_datetime(2024, 11, 13, 8, 0, 4.0).unwrap();
+
+    assert!(t1 == t1);
+    assert!(t1 != t2);
+    assert!(t1 < t2);
+    assert!(t2 > t1);
+
     let dt = t2 - t1;
     assert!(dt.as_microseconds() == 1_000_000);
-    let t2 = Instant::from_datetime(2024, 11, 13, 8, 0, 2.0);
+    let t2 = Instant::from_datetime(2024, 11, 13, 8, 0, 2.0).unwrap();
     let dt = t2 - t1;
     assert!(dt.as_microseconds() == -1_000_000);
-    let t2 = Instant::from_datetime(2024, 11, 13, 8, 1, 3.0);
+    let t2 = Instant::from_datetime(2024, 11, 13, 8, 1, 3.0).unwrap();
     let dt = t2 - t1;
     assert!(dt.as_microseconds() == 60_000_000);
 
@@ -118,6 +153,15 @@ fn test_ops() {
     assert!(g.3 == 8);
     assert!(g.4 == 1);
     assert!(g.5 == 3.0);
+
+    let d1 = Duration::from_seconds(4.0);
+    let d2 = Duration::from_seconds(5.0);
+    assert!(d1 < d2);
+    assert!(d2 > d1);
+    assert!(d1 <= d2);
+    assert!(d2 >= d1);
+    assert!(d1 == d1);
+    assert!(d1 != d2);
 }
 
 #[test]
@@ -133,7 +177,7 @@ fn test_gps() {
 
 #[test]
 fn test_jd() {
-    let time = Instant::from_datetime(2024, 11, 24, 12, 0, 0.0);
+    let time = Instant::from_datetime(2024, 11, 24, 12, 0, 0.0).unwrap();
     assert!(time.as_jd() == 2_460_639.0);
     assert!(time.as_mjd() == 60_638.5);
 }
@@ -167,6 +211,29 @@ fn test_rfc3339() {
     assert!(g.3 == 12);
     assert!(g.4 == 3);
     assert!(g.5 == 45.123);
+}
+
+#[test]
+fn test_bounds() {
+    let tm = Instant::from_date(2024, 13, 4);
+    assert!(tm.is_err());
+
+    let tm = Instant::from_date(2024, 2, 29);
+    assert!(tm.is_ok());
+
+    let tm = Instant::from_date(2024, 2, 30);
+    assert!(tm.is_err());
+
+    let tm = Instant::from_datetime(2024, 2, 29, 23, 59, 59.999999);
+    assert!(tm.is_ok());
+
+    // Should be error ... not in leap second
+    let tm = Instant::from_datetime(2024, 2, 29, 23, 59, 60.5);
+    assert!(tm.is_err());
+
+    // Should be OK ... within a leap second
+    let tm = Instant::from_datetime(2008, 12, 31, 23, 59, 60.5);
+    assert!(tm.is_ok());
 }
 
 #[test]

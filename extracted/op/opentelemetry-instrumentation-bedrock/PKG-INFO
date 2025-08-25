@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-bedrock
-Version: 0.45.6
+Version: 0.46.1
 Summary: OpenTelemetry Bedrock instrumentation
 License: Apache-2.0
 Author: Gal Kleinman
@@ -15,9 +15,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: anthropic (>=0.17.0)
 Requires-Dist: opentelemetry-api (>=1.28.0,<2.0.0)
-Requires-Dist: opentelemetry-instrumentation (>=0.50b0)
-Requires-Dist: opentelemetry-semantic-conventions (>=0.50b0)
-Requires-Dist: opentelemetry-semantic-conventions-ai (>=0.4.12,<0.5.0)
+Requires-Dist: opentelemetry-instrumentation (>=0.55b0)
+Requires-Dist: opentelemetry-semantic-conventions (>=0.55b0)
+Requires-Dist: opentelemetry-semantic-conventions-ai (>=0.4.13,<0.5.0)
 Requires-Dist: tokenizers (>=0.13.0)
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-bedrock
 Description-Content-Type: text/markdown

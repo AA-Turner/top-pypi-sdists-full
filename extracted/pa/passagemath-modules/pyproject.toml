@@ -5,12 +5,12 @@
 # but it is not part of the install-requires.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-conf ~= 10.6.7.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.6.7.0',
+    'passagemath-conf ~= 10.6.8.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.6.8.0',
     'jinja2',
     'pkgconfig',
-    'passagemath-environment ~= 10.6.7.0',
-    'passagemath-categories ~= 10.6.7.0',
+    'passagemath-environment ~= 10.6.8.0',
+    'passagemath-categories ~= 10.6.8.0',
     'mpmath >=1.1.0, <1.4',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'gmpy2 ~=2.1.b999',
@@ -27,8 +27,8 @@ dependencies = [
     'gmpy2 ~=2.1.b999',
     'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator',
-    'passagemath-categories ~= 10.6.7.0',
-    'passagemath-environment ~= 10.6.7.0',
+    'passagemath-categories ~= 10.6.8.0',
+    'passagemath-environment ~= 10.6.8.0',
     'mpmath >=1.1.0, <1.4',
 ]
 dynamic = ["version"]

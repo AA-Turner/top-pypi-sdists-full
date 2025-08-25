@@ -11,7 +11,7 @@ import pandas as pd
 import torch
 from tokenizers.implementations import ByteLevelBPETokenizer
 from tokenizers.processors import BertProcessing
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Sampler
 from tqdm.auto import tqdm
 from transformers import PreTrainedTokenizer
 from datasets import load_dataset, load_from_disk
@@ -132,6 +132,7 @@ def load_hf_dataset(
                 if args.reprocess_input_data
                 else "reuse_dataset_if_exists",
                 features=features,
+                cache_dir=args.dataset_cache_dir,
             )
     else:
         dataset = HFDataset.from_pandas(data)

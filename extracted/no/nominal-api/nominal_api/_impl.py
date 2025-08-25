@@ -94313,6 +94313,8 @@ scout_chartdefinition_api_WorkbookVizDefinitionMap = Dict[scout_rids_api_VizId, 
 
 api_McapChannelId = int
 
+api_rids_ConnectAppRid = str
+
 scout_rids_api_CheckRid = str
 
 scout_rids_api_AssetRefName = str

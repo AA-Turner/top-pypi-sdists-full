@@ -120,6 +120,7 @@ from .usecases.litter_monitoring import LitterDetectionUseCase,LitterDetectionCo
 from .usecases.human_activity_recognition import HumanActivityUseCase, HumanActivityConfig
 from .usecases.gas_leak_detection import GasLeakDetectionConfig, GasLeakDetectionUseCase
 from .usecases.license_plate_monitoring import LicensePlateMonitorConfig,LicensePlateMonitorUseCase
+from .usecases.dwell_detection import DwellConfig,DwellUseCase
 
 #Put all IMAGE based usecases here
 from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -183,6 +184,8 @@ from .usecases import (
     LitterDetectionUseCase,
     AbandonedObjectDetectionUseCase,
     LicensePlateMonitorUseCase,
+    DwellUseCase,
+
 
     HumanActivityUseCase,
 
@@ -257,6 +260,7 @@ _abandoned_object_detection = AbandonedObjectDetectionUseCase()
 _human_activity_recognition = HumanActivityUseCase()
 _gas_leak_detection = GasLeakDetectionUseCase()
 _license_plate_monitor = LicensePlateMonitorUseCase()
+_dwell = DwellUseCase()
 
 
 #Put all IMAGE based usecases here
@@ -329,6 +333,7 @@ registry.register_use_case(_smoker_detection.category, _smoker_detection.name, S
 registry.register_use_case(_human_activity_recognition.category, _human_activity_recognition.name, HumanActivityUseCase)
 registry.register_use_case(_gas_leak_detection.category, _gas_leak_detection.name, GasLeakDetectionUseCase)
 registry.register_use_case(_license_plate_monitor.category, _license_plate_monitor.name, LicensePlateMonitorUseCase)
+registry.register_use_case(_dwell.category, _dwell.name, DwellUseCase)
 
 #Put all IMAGE based usecases here
 registry.register_use_case(_blood_cancer_detection.category, _blood_cancer_detection.name, BloodCancerDetectionUseCase)
@@ -525,6 +530,7 @@ __all__ = [
     'GasLeakDetectionConfig',
     'HumanActivityConfig',
     'LicensePlateMonitorConfig',
+    'DwellConfig',
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
@@ -590,6 +596,7 @@ __all__ = [
     'HumanActivityUseCase',
     'GasLeakDetectionUseCase',
     'LicensePlateMonitorUseCase',
+    'DwellUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',

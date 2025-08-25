@@ -388,25 +388,6 @@ class CreateProcedureResponse(_message.Message):
     procedure: Procedure
     def __init__(self, procedure: _Optional[_Union[Procedure, _Mapping]] = ...) -> None: ...
 
-class LabelUpdateWrapper(_message.Message):
-    __slots__ = ("labels",)
-    LABELS_FIELD_NUMBER: _ClassVar[int]
-    labels: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, labels: _Optional[_Iterable[str]] = ...) -> None: ...
-
-class PropertyUpdateWrapper(_message.Message):
-    __slots__ = ("properties",)
-    class PropertiesEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
-    properties: _containers.ScalarMap[str, str]
-    def __init__(self, properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
-
 class UpdateProcedureMetadataRequest(_message.Message):
     __slots__ = ("rid", "title", "description", "labels", "properties", "is_archived", "is_published")
     RID_FIELD_NUMBER: _ClassVar[int]
@@ -419,11 +400,11 @@ class UpdateProcedureMetadataRequest(_message.Message):
     rid: str
     title: str
     description: str
-    labels: LabelUpdateWrapper
-    properties: PropertyUpdateWrapper
+    labels: _types_pb2.LabelUpdateWrapper
+    properties: _types_pb2.PropertyUpdateWrapper
     is_archived: bool
     is_published: bool
-    def __init__(self, rid: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Union[LabelUpdateWrapper, _Mapping]] = ..., properties: _Optional[_Union[PropertyUpdateWrapper, _Mapping]] = ..., is_archived: bool = ..., is_published: bool = ...) -> None: ...
+    def __init__(self, rid: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Union[_types_pb2.LabelUpdateWrapper, _Mapping]] = ..., properties: _Optional[_Union[_types_pb2.PropertyUpdateWrapper, _Mapping]] = ..., is_archived: bool = ..., is_published: bool = ...) -> None: ...
 
 class UpdateProcedureMetadataResponse(_message.Message):
     __slots__ = ("procedure_metadata",)

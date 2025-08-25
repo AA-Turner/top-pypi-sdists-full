@@ -942,8 +942,8 @@ bitarray_all(bitarrayobject *self)
 PyDoc_STRVAR(all_doc,
 "all() -> bool\n\
 \n\
-Return True when all bits in bitarray are True.\n\
-Note that `a.all()` is faster than `all(a)`.");
+Return `True` when all bits in bitarray are 1.\n\
+`a.all()` is a faster version of `all(a)`.");
 
 
 static PyObject *
@@ -955,8 +955,8 @@ bitarray_any(bitarrayobject *self)
 PyDoc_STRVAR(any_doc,
 "any() -> bool\n\
 \n\
-Return True when any bit in bitarray is True.\n\
-Note that `a.any()` is faster than `any(a)`.");
+Return `True` when any bit in bitarray is 1.\n\
+`a.any()` is a faster version of `any(a)`.");
 
 
 static PyObject *
@@ -1008,7 +1008,7 @@ bitarray_bytereverse(bitarrayobject *self, PyObject *args)
 PyDoc_STRVAR(bytereverse_doc,
 "bytereverse(start=0, stop=<end of buffer>, /)\n\
 \n\
-For each byte in byte-range(start, stop) reverse bits in-place.\n\
+For each byte in byte-range(`start`, `stop`) reverse bits in-place.\n\
 The start and stop indices are given in terms of bytes (not bits).\n\
 Also note that this method only changes the buffer; it does not change the\n\
 bit-endianness of the bitarray object.  Pad bits are left unchanged such\n\
@@ -1018,38 +1018,51 @@ that two consecutive calls will always leave the bitarray unchanged.");
 static PyObject *
 bitarray_buffer_info(bitarrayobject *self)
 {
-    PyObject *res, *ptr;
+    static PyObject *info = NULL;   /* BufferInfo object */
+    PyObject *res, *args, *address, *readonly, *imported;
 
-    ptr = PyLong_FromVoidPtr((void *) self->ob_item);
-    if (ptr == NULL)
+    if (info == NULL) {
+        info = bitarray_module_attr("BufferInfo");
+        if (info == NULL)
+            return NULL;
+    }
+
+    address = PyLong_FromVoidPtr((void *) self->ob_item);
+    readonly = PyBool_FromLong(self->readonly);
+    imported = PyBool_FromLong(self->buffer ? 1 : 0);
+    if (address == NULL || readonly == NULL || imported == NULL)
         return NULL;
 
-    res = Py_BuildValue("Onsnniii",
-                        ptr,
-                        Py_SIZE(self),
-                        ENDIAN_STR(self->endian),
-                        PADBITS(self),
-                        self->allocated,
-                        self->readonly,
-                        self->buffer ? 1 : 0,
-                        self->ob_exports);
-    Py_DECREF(ptr);
+    args = Py_BuildValue("OnsnnOOi",
+                         address,
+                         Py_SIZE(self),
+                         ENDIAN_STR(self->endian),
+                         PADBITS(self),
+                         self->allocated,
+                         readonly,
+                         imported,
+                         self->ob_exports);
+    Py_DECREF(address);
+    Py_DECREF(readonly);
+    Py_DECREF(imported);
+    res = PyObject_CallObject(info, args);
+    Py_DECREF(args);
     return res;
 }
 
 PyDoc_STRVAR(buffer_info_doc,
-"buffer_info() -> tuple\n\
+"buffer_info() -> BufferInfo\n\
 \n\
-Return a tuple containing:\n\
+Return named tuple with following fields:\n\
 \n\
-0. memory address of buffer\n\
-1. buffer size (in bytes)\n\
-2. bit-endianness as a Unicode string\n\
-3. number of pad bits\n\
-4. allocated memory for the buffer (in bytes)\n\
-5. memory is read-only\n\
-6. buffer is imported\n\
-7. number of buffer exports");
+0. `address`: memory address of buffer\n\
+1. `nbytes`: buffer size (in bytes)\n\
+2. `endian`: bit-endianness as a string\n\
+3. `padbits`: number of pad bits\n\
+4. `alloc`: allocated memory for buffer (in bytes)\n\
+5. `readonly`: memory is read-only (bool)\n\
+6. `imported`: buffer is imported (bool)\n\
+7. `exports`: number of buffer exports");
 
 
 static PyObject *
@@ -1064,7 +1077,7 @@ bitarray_clear(bitarrayobject *self)
 PyDoc_STRVAR(clear_doc,
 "clear()\n\
 \n\
-Remove all items from the bitarray.");
+Remove all items from bitarray.");
 
 
 /* Set readonly member to 1 if self is an instance of frozenbitarray.
@@ -1077,12 +1090,7 @@ freeze_if_frozen(bitarrayobject *self)
 
     assert(self->ob_exports == 0 && self->buffer == NULL);
     if (frozen == NULL) {
-        PyObject *bitarray_module;
-
-        if ((bitarray_module = PyImport_ImportModule("bitarray")) == NULL)
-            return NULL;
-        frozen = PyObject_GetAttrString(bitarray_module, "frozenbitarray");
-        Py_DECREF(bitarray_module);
+        frozen = bitarray_module_attr("frozenbitarray");
         if (frozen == NULL)
             return NULL;
     }
@@ -1111,7 +1119,7 @@ bitarray_copy(bitarrayobject *self)
 PyDoc_STRVAR(copy_doc,
 "copy() -> bitarray\n\
 \n\
-Return a copy of the bitarray.");
+Return copy of bitarray (with same bit-endianness).");
 
 
 static PyObject *
@@ -1178,7 +1186,7 @@ PyDoc_STRVAR(extend_doc,
 "extend(iterable, /)\n\
 \n\
 Append items from to the end of the bitarray.\n\
-If `iterable` is a Unicode string, each `0` and `1` are appended as\n\
+If `iterable` is a (Unicode) string, each `0` and `1` are appended as\n\
 bits (ignoring whitespace and underscore).");
 
 
@@ -1259,7 +1267,7 @@ PyDoc_STRVAR(index_doc,
 \n\
 Return lowest (or rightmost when `right=True`) index where sub_bitarray\n\
 is found, such that sub_bitarray is contained within `[start:stop]`.\n\
-Raises `ValueError` when the sub_bitarray is not present.");
+Raises `ValueError` when sub_bitarray is not present.");
 
 
 static PyObject *
@@ -1340,7 +1348,7 @@ PyDoc_STRVAR(invert_doc,
 "invert(index=<all bits>, /)\n\
 \n\
 Invert all bits in bitarray (in-place).\n\
-When the optional `index` is given, only invert the single bit at index.");
+When the optional `index` is given, only invert the single bit at `index`.");
 
 
 static PyObject *
@@ -1350,13 +1358,7 @@ bitarray_reduce(bitarrayobject *self)
     PyObject *dict, *bytes, *result;
 
     if (reconstructor == NULL) {
-        PyObject *bitarray_module;
-
-        if ((bitarray_module = PyImport_ImportModule("bitarray")) == NULL)
-            return NULL;
-        reconstructor = PyObject_GetAttrString(bitarray_module,
-                                               "_bitarray_reconstructor");
-        Py_DECREF(bitarray_module);
+        reconstructor = bitarray_module_attr("_bitarray_reconstructor");
         if (reconstructor == NULL)
             return NULL;
     }
@@ -1575,7 +1577,7 @@ bitarray_tobytes(bitarrayobject *self)
 PyDoc_STRVAR(tobytes_doc,
 "tobytes() -> bytes\n\
 \n\
-Return the bitarray buffer in bytes (pad bits are set to zero).");
+Return the bitarray buffer (pad bits are set to zero).");
 
 
 /* Extend self with bytes from f.read(n).  Return number of bytes actually
@@ -1675,7 +1677,7 @@ bitarray_tofile(bitarrayobject *self, PyObject *f)
 PyDoc_STRVAR(tofile_doc,
 "tofile(f, /)\n\
 \n\
-Write byte representation of bitarray to file object f.");
+Write bitarray buffer to file object `f`.");
 
 
 static PyObject *
@@ -1720,7 +1722,7 @@ bitarray_to01(bitarrayobject *self, PyObject *args, PyObject *kwds)
 PyDoc_STRVAR(to01_doc,
 "to01(group=0, sep=' ') -> str\n\
 \n\
-Return bitarray as Unicode string of '0's and '1's.\n\
+Return bitarray as (Unicode) string of `0`s and `1`s.\n\
 The bits are grouped into `group` bits (default is no grouping).\n\
 When grouped, the string `sep` is inserted between groups\n\
 of `group` characters, default is a space.");
@@ -4161,39 +4163,44 @@ Set the default bit-endianness for new bitarray objects being created.");
 
 
 static PyObject *
-sysinfo(PyObject *module)
+sysinfo(PyObject *module, PyObject *args)
 {
-    return Py_BuildValue("iiiiiiiii",
-                         (int) sizeof(void *),
-                         (int) sizeof(size_t),
-                         (int) sizeof(bitarrayobject),
-                         (int) sizeof(decodetreeobject),
-                         (int) sizeof(binode),
-                         (int) HAVE_BUILTIN_BSWAP64,
-#ifndef NDEBUG
-                         1,
+    char *key;
+
+    if (!PyArg_ParseTuple(args, "s:_sysinfo", &key))
+        return NULL;
+
+#define R(k, v)                             \
+    if (strcmp(key, k) == 0)                \
+        return PyLong_FromLong((long) (v))
+
+    R("void*", sizeof(void *));
+    R("size_t", sizeof(size_t));
+    R("bitarrayobject", sizeof(bitarrayobject));
+    R("decodetreeobject", sizeof(decodetreeobject));
+    R("binode", sizeof(binode));
+    R("PY_LITTLE_ENDIAN", PY_LITTLE_ENDIAN);
+    R("PY_BIG_ENDIAN", PY_BIG_ENDIAN);
+    R("HAVE_BUILTIN_BSWAP64", HAVE_BUILTIN_BSWAP64);
+#ifdef Py_DEBUG          /* Python configured using --with-pydebug  */
+    R("Py_DEBUG", 1);
 #else
-                         0,
+    R("Py_DEBUG", 0);
 #endif
-                         (int) PY_LITTLE_ENDIAN,
-                         (int) PY_BIG_ENDIAN
-                         );
+#ifndef NDEBUG           /* bitarray compiled without -DNDEBUG */
+    R("DEBUG", 1);
+#else
+    R("DEBUG", 0);
+#endif
+
+    return PyErr_Format(PyExc_KeyError, "%s", key);
+#undef R
 }
 
 PyDoc_STRVAR(sysinfo_doc,
-"_sysinfo() -> tuple\n\
+"_sysinfo(key) -> int\n\
 \n\
-Return tuple containing:\n\
-\n\
-0. sizeof(void *)\n\
-1. sizeof(size_t)\n\
-2. sizeof(bitarrayobject)\n\
-3. sizeof(decodetreeobject)\n\
-4. sizeof(binode)\n\
-5. HAVE_BUILTIN_BSWAP64\n\
-6. NDEBUG not defined\n\
-7. PY_LITTLE_ENDIAN\n\
-8. PY_BIG_ENDIAN");
+Return system and compile specific information given a key.");
 
 
 static PyMethodDef module_functions[] = {
@@ -4206,7 +4213,7 @@ static PyMethodDef module_functions[] = {
      get_default_endian_doc},
     {"_set_default_endian", (PyCFunction) set_default_endian, METH_VARARGS,
      set_default_endian_doc},
-    {"_sysinfo",            (PyCFunction) sysinfo,            METH_NOARGS,
+    {"_sysinfo",            (PyCFunction) sysinfo,            METH_VARARGS,
      sysinfo_doc},
     {NULL,                  NULL}  /* sentinel */
 };

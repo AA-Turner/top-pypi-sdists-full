@@ -36,7 +36,7 @@ EMPTY_NOTICE = "⚛️ [QPU EMPTY RETURN NOTICE]:"
 # ───────────────────────────────────────────────────────────────────────────────
 # Functions to load environment variables
 # ───────────────────────────────────────────────────────────────────────────────
-def quantum_intelligent_seek():
+def _load_environment():
     load_dotenv()
     path = find_dotenv(usecwd=True)
     if path:
@@ -46,61 +46,10 @@ def quantum_intelligent_seek():
         if home.is_file():
             load_dotenv(home, override=True)
 
-# def quantum_intelligent_seek():
-#     """
-#     Load quantum environment variables intelligently at runtime.
-#     Priority:
-#     1) .env in folder
-#     2) .env in project root
-#     3) default.env in folder
-#     4) *.env anywhere (deep search & deep seek intelligence)
-#     """
-#     this_file = Path().resolve()  # CWD for notebook execution
-
-#     # 1️⃣ Search for .env in folder
-#     local_env = this_file / '.env'
-#     if local_env.is_file():
-#         print(f"✅ Using local env: {local_env}")
-#         load_dotenv(local_env, override=True)
-#         return
-
-#     # 2️⃣ Project root: use .env where your outermost .env is
-#     root_dir = this_file
-#     while root_dir.parent != root_dir:  # Climb up until /
-#         if (root_dir / '.env').is_file():
-#             print(f"✅ Using root env: {root_dir / '.env'}")
-#             load_dotenv(root_dir / '.env', override=True)
-#             return
-#         root_dir = root_dir.parent
-
-#     # 3️⃣ If default.env in notebook folder
-#     local_default = this_file / 'default.env'
-#     if local_default.is_file():
-#         print(f"✅ Using local default.env: {local_default}")
-#         load_dotenv(local_default, override=True)
-#         return
-
-#     # 4️⃣ Finally, deep search for any *.env anywhere
-#     any_envs = list(this_file.rglob("*.env"))
-#     if any_envs:
-#         print(f"✅ Using found env: {any_envs[0]}")
-#         load_dotenv(any_envs[0], override=True)
-#         return
-
-#     raise FileNotFoundError("❌ " \
-#     "No quantum account credential variable file found in your project root, or recursively. \n" \
-#     "Please create a .env file OR default.env file with your credentials, you can place it in \n" \
-#     "the project root directory where it can be accessed. Examples of location where it can be placed is shown below:\n" \
-#     "   - Option[1] /path/to/your/project/.env\n" \
-#     "   - Option[2] /path/to/your/project/folder1/.env\n" \
-#     "   - Option[3] /path/to/your/project/folder1/.env\n" \
-#     "   - Option[4] /path/to/your/project/folder1/subfolder/default.env\n" \
-#     "   - Option[5] /path/to/your/project/folder1/subfolder/.env\n")
-
 #################
 # LOADER:::::::::
 #################
-quantum_intelligent_seek()
+_load_environment()
 
 
 # ───────────────────────────────────────────────────────────────────────────────
@@ -116,6 +65,7 @@ def in_jupyter():
 # Functions to get the plan information::
 # ───────────────────────────────────────────────────────────────────────────────
 def _get_plan():
+    _load_environment()
     """
     Get the current plan from environment variables.
     Returns:
@@ -473,6 +423,7 @@ def get_qpu_processor_type(backend_name: str) -> dict:
 # Class to connect to Qiskit Runtime Service
 # ───────────────────────────────────────────────────────────────────────────────
 class QConnectorV2:
+    _load_environment()
     """
     QConnectorV2 is a class that connects to the IBM Quantum Qiskit Runtime Service
     and retrieves the least busy QPU backend based on the user's plan.

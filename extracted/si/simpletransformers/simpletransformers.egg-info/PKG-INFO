@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: simpletransformers
-Version: 0.70.1
+Version: 0.70.3
 Summary: An easy-to-use wrapper library for the Transformers library.
 Home-page: https://github.com/ThilinaRajapakse/simpletransformers/
 Author: Thilina Rajapakse
@@ -28,6 +28,16 @@ Requires-Dist: tokenizers
 Requires-Dist: wandb>=0.10.32
 Requires-Dist: streamlit
 Requires-Dist: sentencepiece
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Downloads](https://pepy.tech/badge/simpletransformers)](https://pepy.tech/project/simpletransformers)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
@@ -50,7 +60,29 @@ This library is based on the [Transformers](https://github.com/huggingface/trans
 - T5 Model
 - Seq2Seq Tasks
 - Multi-Modal Classification
-- Conversational AI.
+- Conversational AI
+
+# Citation
+
+If you use Simple Transformers in your work, please cite:
+
+```bibtex
+@inproceedings{Rajapakse2024SimpleTransformers,
+  author    = {Rajapakse, Thilina C. and Yates, Andrew and de Rijke, Maarten},
+  title     = {Simple Transformers: Open-source for All},
+  booktitle = {Proceedings of the 2024 Annual International ACM SIGIR
+               Conference on Research and Development in Information
+               Retrieval in the Asia Pacific Region},
+  series    = {SIGIR-AP 2024},
+  pages     = {209--215},
+  year      = {2024},
+  doi       = {10.1145/3673791.3698412},
+  url       = {https://doi.org/10.1145/3673791.3698412},
+  location  = {Tokyo, Japan}
+}
+```
+
+
 
 # Table of contents
 

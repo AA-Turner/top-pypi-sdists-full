@@ -1712,6 +1712,15 @@ l_document = {
     "zh": "文件",
     "ar": "وثيقة",
 }
+
+l_voice_restricted = {
+    "ru": "👩🏽‍💻 <b>Режим</b> отправки голосовых/телескопов заблокирован в настройках [Конфиденциальности]: будет использован режим [Авто-замена] для аудио/видео форматов",
+    "en": "Document",
+    "es": "Documento",
+    "fr": "Document",
+    "zh": "文件",
+    "ar": "وثيقة",
+}
 # endregion
 
 
@@ -3831,6 +3840,38 @@ l_btn_web = {
     "fr": "🌐 Web",
     "zh": "🌐 网络",
     "ar": "🌐 ويب"
+}
+l_btn_story = {
+    "ru": "🫥 Сториз",
+    "en": "🫥 Story",
+    "es": "🫥 Historia",
+    "fr": "🫥 Story",
+    "zh": "🫥 故事",
+    "ar": "🫥 القصة"
+}
+l_btn_copy = {
+    "ru": "📋 Копировать",
+    "en": "📋 Copy",
+    "es": "📋 Copiar",
+    "fr": "📋 Copier",
+    "zh": "📋 复制",
+    "ar": "📋 نسخ"
+}
+l_btn_pay = {
+    "ru": "⭐️ Оплата",
+    "en": "⭐️ Payment",
+    "es": "⭐️ Pago",
+    "fr": "⭐️ Paiement",
+    "zh": "⭐️ 支付",
+    "ar": "⭐️ الدفع"
+}
+l_btn_share = {
+    "ru": "↗️ Поделиться",
+    "en": "↗️ Share",
+    "es": "↗️ Compartir",
+    "fr": "↗️ Partager",
+    "zh": "↗️ 分享",
+    "ar": "↗️ مشاركة"
 }
 l_btn_button_kb = {
     "ru": "✅ Кнопка ↓",

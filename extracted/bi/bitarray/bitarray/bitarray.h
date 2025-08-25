@@ -4,7 +4,7 @@
 
    Author: Ilan Schnell
 */
-#define BITARRAY_VERSION  "3.6.1"
+#define BITARRAY_VERSION  "3.7.0"
 
 #ifdef STDC_HEADERS
 #  include <stddef.h>
@@ -333,4 +333,19 @@ ensure_eq_size_endian(bitarrayobject *a, bitarrayobject *b)
         return -1;
     }
     return 0;
+}
+
+/* Equivalent to: import bitarray; return getattr(bitarray, name) */
+static inline PyObject *
+bitarray_module_attr(char *name)
+{
+    PyObject *bitarray_module, *result;
+
+    bitarray_module = PyImport_ImportModule("bitarray");
+    if (bitarray_module == NULL)
+        return NULL;
+
+    result = PyObject_GetAttrString(bitarray_module, name);
+    Py_DECREF(bitarray_module);
+    return result;
 }

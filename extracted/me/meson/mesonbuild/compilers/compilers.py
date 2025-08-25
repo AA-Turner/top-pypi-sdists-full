@@ -42,7 +42,7 @@ _T = T.TypeVar('_T')
 about. To support a new compiler, add its information below.
 Also add corresponding autodetection code in detect.py."""
 
-header_suffixes = {'h', 'hh', 'hpp', 'hxx', 'H', 'ipp', 'moc', 'vapi', 'di'}
+header_suffixes = {'h', 'hh', 'hpp', 'hxx', 'H', 'ipp', 'moc', 'vapi', 'di', 'pxd', 'pxi'}
 obj_suffixes = {'o', 'obj', 'res'}
 # To the emscripten compiler, .js files are libraries
 lib_suffixes = {'a', 'lib', 'dll', 'dll.a', 'dylib', 'so', 'js'}
@@ -84,7 +84,7 @@ clib_langs = ('objcpp', 'cpp', 'objc', 'c', 'nasm', 'fortran')
 # List of languages that can be linked with C code directly by the linker
 # used in build.py:process_compilers() and build.py:get_dynamic_linker()
 # This must be sorted, see sort_clink().
-clink_langs = ('d', 'cuda') + clib_langs
+clink_langs = ('rust', 'd', 'cuda') + clib_langs
 
 SUFFIX_TO_LANG = dict(itertools.chain(*(
     [(suffix, lang) for suffix in v] for lang, v in lang_suffixes.items())))
@@ -153,6 +153,9 @@ def is_java(fname: mesonlib.FileOrString) -> bool:
         fname = fname.fname
     suffix = fname.split('.')[-1]
     return suffix in lang_suffixes['java']
+
+def is_separate_compile(fname: mesonlib.FileOrString) -> bool:
+    return not fname.endswith('.rs')
 
 def is_llvm_ir(fname: 'mesonlib.FileOrString') -> bool:
     if isinstance(fname, mesonlib.File):
@@ -749,7 +752,7 @@ class Compiler(HoldableObject, metaclass=abc.ABCMeta):
         return args.copy()
 
     def find_library(self, libname: str, env: 'Environment', extra_dirs: T.List[str],
-                     libtype: LibType = LibType.PREFER_SHARED, lib_prefix_warning: bool = True) -> T.Optional[T.List[str]]:
+                     libtype: LibType = LibType.PREFER_SHARED, lib_prefix_warning: bool = True, ignore_system_dirs: bool = False) -> T.Optional[T.List[str]]:
         raise EnvironmentException(f'Language {self.get_display_language()} does not support library finding.')
 
     def get_library_naming(self, env: 'Environment', libtype: LibType,
@@ -933,11 +936,10 @@ class Compiler(HoldableObject, metaclass=abc.ABCMeta):
         """
         return None
 
-    def build_rpath_args(self, env: 'Environment', build_dir: str, from_dir: str,
-                         rpath_paths: T.Tuple[str, ...], build_rpath: str,
-                         install_rpath: str) -> T.Tuple[T.List[str], T.Set[bytes]]:
+    def build_rpath_args(self, env: Environment, build_dir: str, from_dir: str,
+                         target: BuildTarget, extra_paths: T.Optional[T.List[str]] = None) -> T.Tuple[T.List[str], T.Set[bytes]]:
         return self.linker.build_rpath_args(
-            env, build_dir, from_dir, rpath_paths, build_rpath, install_rpath)
+            env, build_dir, from_dir, target, extra_paths)
 
     def get_archive_name(self, filename: str) -> str:
         return self.linker.get_archive_name(filename)
@@ -1199,6 +1201,23 @@ class Compiler(HoldableObject, metaclass=abc.ABCMeta):
         ```
         is good enough here.
         """
+
+    def run_sanity_check(self, environment: Environment, cmdlist: T.List[str], work_dir: str, use_exe_wrapper_for_cross: bool = True) -> T.Tuple[str, str]:
+        # Run sanity check
+        if self.is_cross and use_exe_wrapper_for_cross:
+            if not environment.has_exe_wrapper():
+                # Can't check if the binaries run so we have to assume they do
+                return ('', '')
+            cmdlist = environment.exe_wrapper.get_command() + cmdlist
+        mlog.debug('Running test binary command: ', mesonlib.join_args(cmdlist))
+        try:
+            pe, stdo, stde = Popen_safe_logged(cmdlist, 'Sanity check', cwd=work_dir)
+        except Exception as e:
+            raise mesonlib.EnvironmentException(f'Could not invoke sanity check executable: {e!s}.')
+
+        if pe.returncode != 0:
+            raise mesonlib.EnvironmentException(f'Executables created by {self.language} compiler {self.name_string()} are not runnable.')
+        return stdo, stde
 
     def split_shlib_to_parts(self, fname: str) -> T.Tuple[T.Optional[str], str]:
         return None, fname

@@ -10,6 +10,7 @@ Please find a description of this package at:
 Author: Ilan Schnell
 """
 from __future__ import absolute_import
+from collections import namedtuple
 
 from bitarray._bitarray import (bitarray, decodetree, _sysinfo,
                                 bits2bytes, _bitarray_reconstructor,
@@ -19,6 +20,9 @@ from bitarray._bitarray import (bitarray, decodetree, _sysinfo,
 
 __all__ = ['bitarray', 'frozenbitarray', 'decodetree', 'bits2bytes']
 
+BufferInfo = namedtuple('BufferInfo',
+                        ['address', 'nbytes', 'endian', 'padbits',
+                         'alloc', 'readonly', 'imported', 'exports'])
 
 class frozenbitarray(bitarray):
     """frozenbitarray(initializer=0, /, endian='big', buffer=None) -> \
@@ -57,7 +61,7 @@ and may therefore be used as a dictionary key.
 def test(verbosity=1):
     """test(verbosity=1) -> TextTestResult
 
-Run self-test, and return unittest.runner.TextTestResult object.
+Run self-test, and return `unittest.runner.TextTestResult` object.
 """
     from bitarray import test_bitarray
     return test_bitarray.run(verbosity=verbosity)
