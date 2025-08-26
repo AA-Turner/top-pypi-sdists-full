@@ -39,12 +39,14 @@ class Channel(_message.Message):
     def __init__(self, name: _Optional[str] = ...) -> None: ...
 
 class Points(_message.Message):
-    __slots__ = ("double_points", "string_points")
+    __slots__ = ("double_points", "string_points", "integer_points")
     DOUBLE_POINTS_FIELD_NUMBER: _ClassVar[int]
     STRING_POINTS_FIELD_NUMBER: _ClassVar[int]
+    INTEGER_POINTS_FIELD_NUMBER: _ClassVar[int]
     double_points: DoublePoints
     string_points: StringPoints
-    def __init__(self, double_points: _Optional[_Union[DoublePoints, _Mapping]] = ..., string_points: _Optional[_Union[StringPoints, _Mapping]] = ...) -> None: ...
+    integer_points: IntegerPoints
+    def __init__(self, double_points: _Optional[_Union[DoublePoints, _Mapping]] = ..., string_points: _Optional[_Union[StringPoints, _Mapping]] = ..., integer_points: _Optional[_Union[IntegerPoints, _Mapping]] = ...) -> None: ...
 
 class DoublePoints(_message.Message):
     __slots__ = ("points",)
@@ -57,6 +59,12 @@ class StringPoints(_message.Message):
     POINTS_FIELD_NUMBER: _ClassVar[int]
     points: _containers.RepeatedCompositeFieldContainer[StringPoint]
     def __init__(self, points: _Optional[_Iterable[_Union[StringPoint, _Mapping]]] = ...) -> None: ...
+
+class IntegerPoints(_message.Message):
+    __slots__ = ("points",)
+    POINTS_FIELD_NUMBER: _ClassVar[int]
+    points: _containers.RepeatedCompositeFieldContainer[IntegerPoint]
+    def __init__(self, points: _Optional[_Iterable[_Union[IntegerPoint, _Mapping]]] = ...) -> None: ...
 
 class DoublePoint(_message.Message):
     __slots__ = ("timestamp", "value")
@@ -73,3 +81,11 @@ class StringPoint(_message.Message):
     timestamp: _timestamp_pb2.Timestamp
     value: str
     def __init__(self, timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., value: _Optional[str] = ...) -> None: ...
+
+class IntegerPoint(_message.Message):
+    __slots__ = ("timestamp", "value")
+    TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    timestamp: _timestamp_pb2.Timestamp
+    value: int
+    def __init__(self, timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., value: _Optional[int] = ...) -> None: ...

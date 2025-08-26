@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ncclient
-Version: 0.6.19
+Version: 0.7.0
 Summary: Python library for NETCONF clients
 Home-page: https://github.com/ncclient/ncclient
 Author: Shikhar Bhushan, Leonidas Poulopoulos, Ebben Aries, Einar Nilsen-Nygaard
@@ -19,8 +19,10 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.5
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: paramiko>=1.15.0
+Requires-Dist: paramiko>=3.2.0
 Requires-Dist: lxml>=3.3.0
+Provides-Extra: libssh
+Requires-Dist: ssh-python>=1.1.1; extra == "libssh"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -28,7 +30,9 @@ Dynamic: description
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: platform
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

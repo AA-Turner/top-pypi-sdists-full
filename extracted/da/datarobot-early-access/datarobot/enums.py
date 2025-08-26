@@ -1092,6 +1092,12 @@ class DrDatabaseV1Types(StrEnum):
     DATABRICKS = "databricks-v1"
 
 
+class DataTypes(StrEnum):
+    STRUCTURED = "structured"
+    UNSTRUCTURED = "unstructured"
+    ALL = "all"
+
+
 class TrainingDataSubsets(StrEnum, metaclass=DRStrEnum):
     """Subsets of training data that can be scored via Batch Predictions."""
 

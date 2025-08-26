@@ -419,6 +419,9 @@ class Datafile:
 
     def validate(self):
         if self.kind == DatafileKind.pipe:
+            if len(self.nodes) == 0:
+                raise DatafileValidationError("Pipe data file must have at least one node")
+
             non_standard_nodes_count = 0
             for node in self.nodes:
                 node_type = node.get("type", "").lower()
@@ -2007,6 +2010,10 @@ def parse(
             "kafka_ssl_ca_pem": kafka_ssl_ca_pem,
             "kafka_security_protocol": assign_var("kafka_security_protocol"),
             "kafka_sasl_mechanism": assign_var("kafka_sasl_mechanism"),
+            "kafka_sasl_oauthbearer_provider": assign_var("kafka_sasl_oauthbearer_provider"),
+            "kafka_sasl_oauthbearer_aws_region": assign_var("kafka_sasl_oauthbearer_aws_region"),
+            "kafka_sasl_oauthbearer_aws_role_arn": assign_var("kafka_sasl_oauthbearer_aws_role_arn"),
+            "kafka_sasl_oauthbearer_aws_external_id": assign_var("kafka_sasl_oauthbearer_aws_external_id"),
             "kafka_key_avro_deserialization": kafka_key_avro_deserialization_deprecated,
             "s3_region": assign_var("s3_region"),
             "s3_arn": assign_var("s3_arn"),

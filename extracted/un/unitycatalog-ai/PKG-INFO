@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unitycatalog-ai
-Version: 0.3.1
+Version: 0.3.2
 Summary: Official Python library for Unity Catalog AI support
 Project-URL: homepage, https://www.unitycatalog.io/
 Project-URL: issues, https://github.com/unitycatalog/unitycatalog/issues
@@ -36,18 +36,18 @@ Requires-Dist: pydantic
 Requires-Dist: typing-extensions
 Requires-Dist: unitycatalog-client
 Provides-Extra: databricks
-Requires-Dist: databricks-connect<16.4,>=15.1.0; extra == 'databricks'
+Requires-Dist: databricks-connect<17.1,>=15.1.0; extra == 'databricks'
 Requires-Dist: databricks-sdk>=0.32.0; extra == 'databricks'
 Requires-Dist: pandas; extra == 'databricks'
 Provides-Extra: databricks-dev
-Requires-Dist: databricks-connect<16.4,>=15.1.0; extra == 'databricks-dev'
+Requires-Dist: databricks-connect<17.1,>=15.1.0; extra == 'databricks-dev'
 Requires-Dist: databricks-sdk>=0.32.0; extra == 'databricks-dev'
 Requires-Dist: hatch; extra == 'databricks-dev'
 Requires-Dist: pandas; extra == 'databricks-dev'
 Requires-Dist: pytest; extra == 'databricks-dev'
 Requires-Dist: ruff==0.9.3; extra == 'databricks-dev'
 Provides-Extra: dev
-Requires-Dist: databricks-connect<16.4; extra == 'dev'
+Requires-Dist: databricks-connect<17.1; extra == 'dev'
 Requires-Dist: databricks-sdk>=0.32.0; extra == 'dev'
 Requires-Dist: hatch; extra == 'dev'
 Requires-Dist: pandas; extra == 'dev'

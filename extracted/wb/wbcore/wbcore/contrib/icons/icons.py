@@ -54,6 +54,7 @@ class WBIcon(TextChoices, metaclass=WBIconMeta):
     BANK = "BANK", "Bank"
     BIRTHDAY = "BIRTHDAY", "Birthday"
     BOOKMARK = "BOOKMARK", "Bookmark"
+    BROADCAST = "BROADCAST", "Broadcast"
     CALENDAR = "CALENDAR", "Calendar"
     CHART_AREA = "CHART_AREA", "Chart area"
     CHART_BARS_HORIZONTAL = "CHART_BARS_HORIZONTAL", "Chart bars horizonal"

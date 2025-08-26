@@ -57,6 +57,7 @@ from .literals import (
     MessageUsefulnessType,
     NumberAttributeBoostingTypeType,
     OrchestrationControlType,
+    OutputFormatType,
     PersonalizationControlModeType,
     PluginBuildStatusType,
     PluginStateType,
@@ -924,7 +925,7 @@ class GetDocumentContentRequestTypeDef(TypedDict):
     indexId: str
     documentId: str
     dataSourceId: NotRequired[str]
-    outputFormat: NotRequired[Literal["RAW"]]
+    outputFormat: NotRequired[OutputFormatType]
 
 
 class GetGroupRequestTypeDef(TypedDict):

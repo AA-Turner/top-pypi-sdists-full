@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.7.12
+Version: 1.8.0
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -424,7 +424,7 @@ Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: uvicorn; extra == "dev"
 Provides-Extra: integration-tests
 Requires-Dist: exa_py; extra == "integration-tests"
-Requires-Dist: duckduckgo-search; extra == "integration-tests"
+Requires-Dist: ddgs; extra == "integration-tests"
 Requires-Dist: yfinance; extra == "integration-tests"
 Requires-Dist: sqlalchemy; extra == "integration-tests"
 Requires-Dist: Pillow; extra == "integration-tests"
@@ -493,7 +493,7 @@ Requires-Dist: cartesia; extra == "cartesia"
 Provides-Extra: confluence
 Requires-Dist: atlassian-python-api; extra == "confluence"
 Provides-Extra: ddg
-Requires-Dist: duckduckgo-search; extra == "ddg"
+Requires-Dist: ddgs; extra == "ddg"
 Provides-Extra: duckdb
 Requires-Dist: duckdb; extra == "duckdb"
 Provides-Extra: elevenlabs
@@ -525,6 +525,8 @@ Provides-Extra: mcp
 Requires-Dist: mcp; extra == "mcp"
 Provides-Extra: mem0
 Requires-Dist: mem0ai; extra == "mem0"
+Provides-Extra: memori
+Requires-Dist: memorisdk; extra == "memori"
 Provides-Extra: newspaper
 Requires-Dist: newspaper4k; extra == "newspaper"
 Requires-Dist: lxml_html_clean; extra == "newspaper"
@@ -664,6 +666,7 @@ Requires-Dist: agno[confluence]; extra == "tools"
 Requires-Dist: agno[oxylabs]; extra == "tools"
 Requires-Dist: agno[zep]; extra == "tools"
 Requires-Dist: agno[mem0]; extra == "tools"
+Requires-Dist: agno[memori]; extra == "tools"
 Requires-Dist: agno[google_bigquery]; extra == "tools"
 Requires-Dist: agno[psycopg]; extra == "tools"
 Requires-Dist: agno[trafilatura]; extra == "tools"
@@ -881,7 +884,7 @@ agent_team.print_response("What's the market outlook and financial performance o
 Install dependencies and run the Agent team:
 
 ```shell
-pip install duckduckgo-search yfinance
+pip install ddgs yfinance
 
 python agent_team.py
 ```

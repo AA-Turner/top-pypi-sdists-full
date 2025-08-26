@@ -45,6 +45,7 @@ from .type_defs import (
     CreatePresetResponseTypeDef,
     CreateQueueRequestTypeDef,
     CreateQueueResponseTypeDef,
+    CreateResourceShareRequestTypeDef,
     DeleteJobTemplateRequestTypeDef,
     DeletePresetRequestTypeDef,
     DeleteQueueRequestTypeDef,
@@ -200,6 +201,16 @@ class MediaConvertClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/create_queue.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconvert/client/#create_queue)
+        """
+
+    def create_resource_share(
+        self, **kwargs: Unpack[CreateResourceShareRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Create a new resource share request for MediaConvert resources with AWS Support.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/create_resource_share.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconvert/client/#create_resource_share)
         """
 
     def delete_job_template(

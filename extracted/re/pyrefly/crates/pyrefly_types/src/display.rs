@@ -324,7 +324,7 @@ impl<'a> TypeDisplayContext<'a> {
                             if literal_idx.is_none() {
                                 literal_idx = Some(i);
                             }
-                            literals.push(lit)
+                            literals.push(format!("{}", Fmt(|f| self.fmt_lit(lit, f))))
                         }
                         Type::Callable(_) | Type::Function(_) => {
                             display_types.push(format!("({})", self.display_internal(t)))
@@ -397,8 +397,8 @@ impl<'a> TypeDisplayContext<'a> {
                         self.fmt_qname(obj.qname(), f)?;
                         self.fmt_targs(obj.targs(), f)?;
                     }
-                    SuperObj::Class(obj) => {
-                        self.fmt_qname(obj.qname(), f)?;
+                    SuperObj::Class(cls) => {
+                        self.fmt_qname(cls.qname(), f)?;
                     }
                 }
                 write!(f, "]")

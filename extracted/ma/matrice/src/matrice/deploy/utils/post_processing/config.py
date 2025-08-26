@@ -1,5 +1,5 @@
 APP_NAME_TO_USECASE = {
-    "people_counting": "people_counting",
+    "People Counting": "people_counting",
     "intrusion_detection": "intrusion_detection",
     "proximity_detection": "proximity_detection",
     "mask_detection": "mask_detection",
@@ -59,7 +59,7 @@ APP_NAME_TO_USECASE = {
 }
 
 APP_NAME_TO_CATEGORY = {
-    "people_counting": "general",
+    "People Counting": "general",
     "intrusion_detection": "security",
     "proximity_detection": "security",
     "mask_detection": "mask_detection",

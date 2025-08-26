@@ -120,59 +120,6 @@ Pattern matching
 
 .. currentmodule:: wemake_python_styleguide.violations.naming
 
-Summary
--------
-
-.. autosummary::
-   :nosignatures:
-
-   WrongModuleNameViolation
-   WrongModuleMagicNameViolation
-   WrongModuleNamePatternViolation
-   WrongVariableNameViolation
-   TooShortNameViolation
-   PrivateNameViolation
-   SameAliasImportViolation
-   UnderscoredNumberNameViolation
-   UpperCaseAttributeViolation
-   ConsecutiveUnderscoresInNameViolation
-   ReservedArgumentNameViolation
-   TooLongNameViolation
-   UnicodeNameViolation
-   TrailingUnderscoreViolation
-   UnusedVariableIsUsedViolation
-   UnusedVariableIsDefinedViolation
-   WrongUnusedVariableNameViolation
-   UnreadableNameViolation
-   BuiltinShadowingViolation
-
-Module names
-------------
-
-.. autoclass:: WrongModuleNameViolation
-.. autoclass:: WrongModuleMagicNameViolation
-.. autoclass:: WrongModuleNamePatternViolation
-
-General names
--------------
-
-.. autoclass:: WrongVariableNameViolation
-.. autoclass:: TooShortNameViolation
-.. autoclass:: PrivateNameViolation
-.. autoclass:: SameAliasImportViolation
-.. autoclass:: UnderscoredNumberNameViolation
-.. autoclass:: UpperCaseAttributeViolation
-.. autoclass:: ConsecutiveUnderscoresInNameViolation
-.. autoclass:: ReservedArgumentNameViolation
-.. autoclass:: TooLongNameViolation
-.. autoclass:: UnicodeNameViolation
-.. autoclass:: TrailingUnderscoreViolation
-.. autoclass:: UnusedVariableIsUsedViolation
-.. autoclass:: UnusedVariableIsDefinedViolation
-.. autoclass:: WrongUnusedVariableNameViolation
-.. autoclass:: UnreadableNameViolation
-.. autoclass:: BuiltinShadowingViolation
-
 """
 
 from typing import final
@@ -500,6 +447,11 @@ class UpperCaseAttributeViolation(ASTViolation):
         Move your constants to the module level.
         Rename your variables so that they conform
         to ``snake_case`` convention.
+
+    Configuration:
+        This rule is configurable with ``--known-enum-bases``.
+        Default:
+        :str:`wemake_python_styleguide.options.defaults.KNOWN_ENUM_BASES`
 
     Example::
 

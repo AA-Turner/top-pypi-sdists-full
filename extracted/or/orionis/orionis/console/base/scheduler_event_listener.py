@@ -1,12 +1,5 @@
 from orionis.console.contracts.schedule_event_listener import IScheduleEventListener
-from orionis.console.entities.job_error import JobError
-from orionis.console.entities.job_executed import JobExecuted
-from orionis.console.entities.job_max_instances import JobMaxInstances
-from orionis.console.entities.job_missed import JobMissed
-from orionis.console.entities.job_pause import JobPause
-from orionis.console.entities.job_removed import JobRemoved
-from orionis.console.entities.job_resume import JobResume
-from orionis.console.entities.job_submitted import JobSubmitted
+from orionis.console.entities.event_job import EventJob
 
 class BaseScheduleEventListener(IScheduleEventListener):
     """
@@ -17,119 +10,155 @@ class BaseScheduleEventListener(IScheduleEventListener):
     specific behavior for each event type.
     """
 
-    async def before(self, event: JobSubmitted, schedule):
+    async def before(self, event: EventJob, schedule):
         """
         Called before processing a job submission event.
 
         Parameters
         ----------
-        event : JobSubmitted
-            The job submission event.
+        event : EventJob
+            The job submission event containing details about the job.
         schedule : ISchedule
-            The associated schedule.
-        """
-        pass
+            The associated schedule instance managing the job.
 
-    async def after(self, event: JobExecuted, schedule):
+        Returns
+        -------
+        None
+        """
+        pass  # Placeholder for pre-job submission logic
+
+    async def after(self, event: EventJob, schedule):
         """
         Called after processing a job execution event.
 
         Parameters
         ----------
-        event : JobExecuted
-            The job execution event.
+        event : EventJob
+            The job execution event containing details about the job.
         schedule : ISchedule
-            The associated schedule.
-        """
-        pass
+            The associated schedule instance managing the job.
 
-    async def onSuccess(self, event: JobExecuted, schedule):
+        Returns
+        -------
+        None
+        """
+        pass  # Placeholder for post-job execution logic
+
+    async def onSuccess(self, event: EventJob, schedule):
         """
         Called when a job is successfully executed.
 
         Parameters
         ----------
-        event : JobExecuted
-            The successful job execution event.
+        event : EventJob
+            The successful job execution event containing details about the job.
         schedule : ISchedule
-            The associated schedule.
-        """
-        pass
+            The associated schedule instance managing the job.
 
-    async def onFailure(self, event: JobError, schedule):
+        Returns
+        -------
+        None
+        """
+        pass  # Placeholder for logic to handle successful job execution
+
+    async def onFailure(self, event: EventJob, schedule):
         """
         Called when a job execution fails.
 
         Parameters
         ----------
-        event : JobError
-            The job error event.
+        event : EventJob
+            The job error event containing details about the failure.
         schedule : ISchedule
-            The associated schedule.
-        """
-        pass
+            The associated schedule instance managing the job.
 
-    async def onMissed(self, event: JobMissed, schedule):
+        Returns
+        -------
+        None
+        """
+        pass  # Placeholder for logic to handle job execution failure
+
+    async def onMissed(self, event: EventJob, schedule):
         """
         Called when a job execution is missed.
 
         Parameters
         ----------
-        event : JobMissed
-            The missed job event.
+        event : EventJob
+            The missed job event containing details about the missed execution.
         schedule : ISchedule
-            The associated schedule.
-        """
-        pass
+            The associated schedule instance managing the job.
 
-    async def onMaxInstances(self, event: JobMaxInstances, schedule):
+        Returns
+        -------
+        None
+        """
+        pass  # Placeholder for logic to handle missed job execution
+
+    async def onMaxInstances(self, event: EventJob, schedule):
         """
         Called when a job exceeds the maximum allowed instances.
 
         Parameters
         ----------
-        event : JobMaxInstances
-            The max instances event.
+        event : EventJob
+            The max instances event containing details about the job.
         schedule : ISchedule
-            The associated schedule.
-        """
-        pass
+            The associated schedule instance managing the job.
 
-    async def onPaused(self, event: JobPause, schedule):
+        Returns
+        -------
+        None
+        """
+        pass  # Placeholder for logic to handle max instances exceeded
+
+    async def onPaused(self, event: EventJob, schedule):
         """
         Called when the scheduler is paused.
 
         Parameters
         ----------
-        event : JobPause
-            The pause event.
+        event : EventJob
+            The pause event containing details about the scheduler state.
         schedule : ISchedule
-            The associated schedule.
-        """
-        pass
+            The associated schedule instance managing the jobs.
 
-    async def onResumed(self, event: JobResume, schedule):
+        Returns
+        -------
+        None
+        """
+        pass  # Placeholder for logic to handle scheduler pause
+
+    async def onResumed(self, event: EventJob, schedule):
         """
         Called when the scheduler is resumed.
 
         Parameters
         ----------
-        event : JobResume
-            The resume event.
+        event : EventJob
+            The resume event containing details about the scheduler state.
         schedule : ISchedule
-            The associated schedule.
-        """
-        pass
+            The associated schedule instance managing the jobs.
 
-    async def onRemoved(self, event: JobRemoved, schedule):
+        Returns
+        -------
+        None
+        """
+        pass  # Placeholder for logic to handle scheduler resume
+
+    async def onRemoved(self, event: EventJob, schedule):
         """
         Called when a job is removed from the scheduler.
 
         Parameters
         ----------
-        event : JobRemoved
-            The job removal event.
+        event : EventJob
+            The job removal event containing details about the removed job.
         schedule : ISchedule
-            The associated schedule.
+            The associated schedule instance managing the jobs.
+
+        Returns
+        -------
+        None
         """
-        pass
+        pass  # Placeholder for logic to handle job removal

@@ -1,12 +1,15 @@
 import platform
 import ctypes
 from typing import Tuple
+from scalene.scalene_accelerator import ScaleneAccelerator
 
 # ---------------------------------------------------------------------------
 # 1. Define the needed IOKit / CoreFoundation constants and function signatures
 # ---------------------------------------------------------------------------
 iokit = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/IOKit.framework/IOKit")
-corefoundation = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+corefoundation = ctypes.cdll.LoadLibrary(
+    "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+)
 
 CFTypeRef = ctypes.c_void_p
 CFAllocatorRef = ctypes.c_void_p
@@ -16,7 +19,7 @@ mach_port_t = ctypes.c_void_p
 
 try:
     # On Intel Macs, kIOMasterPortDefault might be defined; on Apple Silicon, it may just be 0.
-    kIOMasterPortDefault = ctypes.c_void_p.in_dll(iokit, 'kIOMasterPortDefault')
+    kIOMasterPortDefault = ctypes.c_void_p.in_dll(iokit, "kIOMasterPortDefault")
 except ValueError:
     kIOMasterPortDefault = mach_port_t(0)
 
@@ -37,9 +40,9 @@ IOObjectRelease.restype = ctypes.c_int  # kern_return_t
 IORegistryEntryCreateCFProperty = iokit.IORegistryEntryCreateCFProperty
 IORegistryEntryCreateCFProperty.argtypes = [
     io_registry_entry_t,  # entry
-    CFTypeRef,            # key
-    CFAllocatorRef,       # allocator
-    IOOptionBits,         # options
+    CFTypeRef,  # key
+    CFAllocatorRef,  # allocator
+    IOOptionBits,  # options
 ]
 IORegistryEntryCreateCFProperty.restype = CFTypeRef
 
@@ -84,12 +87,12 @@ def _find_apple_gpu_service() -> io_registry_entry_t:
     """
     matching = IOServiceMatching(b"IOAccelerator")
     if not matching:
-        return None
+        return None  # type: ignore[return-value]
 
     service_obj = IOServiceGetMatchingService(kIOMasterPortDefault, matching)
     # service_obj is automatically retained if found.
     # No need to release 'matching' (it is CFTypeRef, but handled by the system).
-    return service_obj
+    return service_obj  # type: ignore[no-any-return]
 
 
 def _read_gpu_core_count(service_obj: io_registry_entry_t) -> int:
@@ -99,14 +102,18 @@ def _read_gpu_core_count(service_obj: io_registry_entry_t) -> int:
     """
     if not service_obj:
         return 0
-    cf_core_count = IORegistryEntryCreateCFProperty(service_obj, cf_str_gpu_core_count, None, 0)
+    cf_core_count = IORegistryEntryCreateCFProperty(
+        service_obj, cf_str_gpu_core_count, None, 0
+    )
     if not cf_core_count or (CFGetTypeID(cf_core_count) != CFNumberGetTypeID()):
         if cf_core_count:
             IOObjectRelease(cf_core_count)
         return 0
 
     val_container_64 = ctypes.c_longlong(0)
-    success = CFNumberGetValue(cf_core_count, kCFNumberSInt64Type, ctypes.byref(val_container_64))
+    success = CFNumberGetValue(
+        cf_core_count, kCFNumberSInt64Type, ctypes.byref(val_container_64)
+    )
     IOObjectRelease(cf_core_count)
     return val_container_64.value if success else 0
 
@@ -120,7 +127,9 @@ def _read_perf_stats(service_obj: io_registry_entry_t) -> Tuple[float, float]:
         return (0.0, 0.0)
 
     # Grab the PerformanceStatistics dictionary
-    perf_dict_ref = IORegistryEntryCreateCFProperty(service_obj, cf_str_perf_stats, None, 0)
+    perf_dict_ref = IORegistryEntryCreateCFProperty(
+        service_obj, cf_str_perf_stats, None, 0
+    )
     if not perf_dict_ref or (CFGetTypeID(perf_dict_ref) != CFDictionaryGetTypeID()):
         if perf_dict_ref:
             IOObjectRelease(perf_dict_ref)
@@ -146,7 +155,7 @@ def _read_perf_stats(service_obj: io_registry_entry_t) -> Tuple[float, float]:
     return (device_util, in_use_mem)
 
 
-class ScaleneAppleGPU:
+class ScaleneAppleGPU(ScaleneAccelerator):
     """Wrapper for Apple integrated GPU stats, using direct IOKit calls."""
 
     def __init__(self) -> None:
@@ -180,11 +189,11 @@ class ScaleneAppleGPU:
         except Exception:
             return (0.0, 0.0)
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Release the service object if it exists."""
         if self._service_obj:
             IOObjectRelease(self._service_obj)
-            self._service_obj = None
+            self._service_obj = None  # type: ignore[assignment]
 
 
 if __name__ == "__main__":

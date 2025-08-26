@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ovsdbapp
-Version: 2.12.0
+Version: 2.13.0
 Summary: A library for creating OVSDB applications
 Home-page: https://pypi.org/project/ovsdbapp/
 Author: OpenStack

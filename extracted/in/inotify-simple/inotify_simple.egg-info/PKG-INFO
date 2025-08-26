@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inotify-simple
-Version: 2.0.0
+Version: 2.0.1
 Summary: A simple wrapper around inotify. No fancy bells and whistles, just a literal wrapper with ctypes. Under 100 lines of code!
 Author-email: Chris Billington <chrisjbillington@gmail.com>
 License-Expression: BSD-2-Clause

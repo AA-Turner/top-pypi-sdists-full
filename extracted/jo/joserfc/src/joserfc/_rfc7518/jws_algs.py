@@ -21,13 +21,14 @@ from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.exceptions import InvalidSignature
 from .._rfc7515.model import JWSAlgModel
+from ..errors import InvalidKeyCurveError
 from .oct_key import OctKey
 from .rsa_key import RSAKey
 from .ec_key import ECKey
 from .util import encode_int, decode_int
 
 
-class NoneAlgModel(JWSAlgModel):
+class NoneAlgorithm(JWSAlgModel):
     name = "none"
     description = "No digital signature or MAC performed"
     security_warning = 'JWS algorithm "none" is deprecated, via draft-ietf-jose-deprecate-none-rsa15-02'
@@ -39,7 +40,7 @@ class NoneAlgModel(JWSAlgModel):
         return sig == b""
 
 
-class HMACAlgModel(JWSAlgModel):
+class HMACAlgorithm(JWSAlgModel):
     """HMAC using SHA algorithms for JWS. Available algorithms:
 
     - HS256: HMAC using SHA-256
@@ -56,6 +57,7 @@ class HMACAlgModel(JWSAlgModel):
         self.description = f"HMAC using SHA-{sha_type}"
         self.recommended = recommended
         self.hash_alg = getattr(self, f"SHA{sha_type}")
+        self.algorithm_security = sha_type
 
     def sign(self, msg: bytes, key: OctKey) -> bytes:
         # it is faster than the one in cryptography
@@ -68,7 +70,7 @@ class HMACAlgModel(JWSAlgModel):
         return hmac.compare_digest(sig, v_sig)
 
 
-class RSAAlgModel(JWSAlgModel):
+class RSAAlgorithm(JWSAlgModel):
     """RSA using SHA algorithms for JWS. Available algorithms:
 
     - RS256: RSASSA-PKCS1-v1_5 using SHA-256
@@ -88,6 +90,7 @@ class RSAAlgModel(JWSAlgModel):
         self.description = f"RSASSA-PKCS1-v1_5 using SHA-{sha_type}"
         self.recommended = recommended
         self.hash_alg = getattr(self, f"SHA{sha_type}")
+        self.algorithm_security = sha_type
 
     def sign(self, msg: bytes, key: RSAKey) -> bytes:
         op_key = key.get_op_key("sign")
@@ -102,7 +105,7 @@ class RSAAlgModel(JWSAlgModel):
             return False
 
 
-class ECAlgModel(JWSAlgModel):
+class ESAlgorithm(JWSAlgModel):
     """ECDSA using SHA algorithms for JWS. Available algorithms:
 
     - ES256: ECDSA using P-256 and SHA-256
@@ -122,14 +125,14 @@ class ECAlgModel(JWSAlgModel):
         self.description = f"ECDSA using {self.curve} and SHA-{sha_type}"
         self.recommended = recommended
         self.hash_alg = getattr(self, f"SHA{sha_type}")
+        self.algorithm_security = sha_type
 
-    def _check_key(self, key: ECKey) -> ECKey:
+    def check_key(self, key: ECKey) -> None:
+        super().check_key(key)
         if key.curve_name != self.curve:
-            raise ValueError(f"Key for '{self.name}' not supported, only '{self.curve}' allowed")
-        return key
+            raise InvalidKeyCurveError(f"Key for '{self.name}' not supported, only '{self.curve}' allowed")
 
     def sign(self, msg: bytes, key: ECKey) -> bytes:
-        self._check_key(key)
         op_key = key.get_op_key("sign")
         der_sig = op_key.sign(msg, ECDSA(self.hash_alg()))
         r, s = decode_dss_signature(der_sig)
@@ -137,7 +140,6 @@ class ECAlgModel(JWSAlgModel):
         return encode_int(r, size) + encode_int(s, size)
 
     def verify(self, msg: bytes, sig: bytes, key: ECKey) -> bool:
-        self._check_key(key)
         key_size = key.curve_key_size
         length = (key_size + 7) // 8
 
@@ -156,7 +158,7 @@ class ECAlgModel(JWSAlgModel):
             return False
 
 
-class RSAPSSAlgModel(JWSAlgModel):
+class RSAPSSAlgorithm(JWSAlgModel):
     """RSASSA-PSS using SHA algorithms for JWS. Available algorithms:
 
     - PS256: RSASSA-PSS using SHA-256 and MGF1 with SHA-256
@@ -175,6 +177,7 @@ class RSAPSSAlgModel(JWSAlgModel):
         self.description = f"RSASSA-PSS using SHA-{sha_type} and MGF1 with SHA-{sha_type}"
         self.hash_alg = getattr(self, f"SHA{sha_type}")
         self.padding = padding.PSS(mgf=padding.MGF1(self.hash_alg()), salt_length=self.hash_alg.digest_size)
+        self.algorithm_security = sha_type
 
     def sign(self, msg: bytes, key: RSAKey) -> bytes:
         op_key = key.get_op_key("sign")
@@ -189,18 +192,25 @@ class RSAPSSAlgModel(JWSAlgModel):
             return False
 
 
-JWS_ALGORITHMS: t.List[JWSAlgModel] = [
-    NoneAlgModel(),  # none
-    HMACAlgModel(256, True),  # HS256
-    HMACAlgModel(384),  # HS384
-    HMACAlgModel(512),  # HS512
-    RSAAlgModel(256, True),  # RS256
-    RSAAlgModel(384),  # RS384
-    RSAAlgModel(512),  # RS512
-    ECAlgModel("ES256", "P-256", 256, True),
-    ECAlgModel("ES384", "P-384", 384),
-    ECAlgModel("ES512", "P-521", 512),
-    RSAPSSAlgModel(256),  # PS256
-    RSAPSSAlgModel(384),  # PS384
-    RSAPSSAlgModel(512),  # PS512
+JWS_ALGORITHMS: list[JWSAlgModel] = [
+    NoneAlgorithm(),  # none
+    HMACAlgorithm(256, True),  # HS256
+    HMACAlgorithm(384),  # HS384
+    HMACAlgorithm(512),  # HS512
+    RSAAlgorithm(256, True),  # RS256
+    RSAAlgorithm(384),  # RS384
+    RSAAlgorithm(512),  # RS512
+    ESAlgorithm("ES256", "P-256", 256, True),
+    ESAlgorithm("ES384", "P-384", 384),
+    ESAlgorithm("ES512", "P-521", 512),
+    RSAPSSAlgorithm(256),  # PS256
+    RSAPSSAlgorithm(384),  # PS384
+    RSAPSSAlgorithm(512),  # PS512
 ]
+
+# compatible
+NoneAlgModel = NoneAlgorithm
+HMACAlgModel = HMACAlgorithm
+RSAAlgModel = RSAAlgorithm
+ECAlgModel = ESAlgorithm
+RSAPSSAlgModel = RSAPSSAlgorithm

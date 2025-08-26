@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: construct-classes
-Version: 0.1.2
+Version: 0.2.1
 Summary: Parse your binary structs into dataclasses
 Home-page: https://github.com/matejcik/construct-classes
 License: MIT
@@ -12,13 +12,17 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.6
 Requires-Dist: construct (>=2.10,<3.0)
+Requires-Dist: dataclasses (>=0.8,<0.9) ; python_full_version >= "3.6.0" and python_full_version < "3.7.0"
 Project-URL: Repository, https://github.com/matejcik/construct-classes
 Description-Content-Type: text/x-rst
 
@@ -107,8 +111,21 @@ must match the names of the fields in the Construct struct.
 
 Use :code:`dataclasses.field()` to specify attributes on fields that are not subcons.
 
-There are currently no other features. In particular, the resulting class is a Python
-dataclass, but you cannot specify its parameters like :code:`frozen` etc.
+By default, subclasses of :code:`Struct` are :code:`kw_only`. This is specifically to
+allow setting default values on any fields regardless of order, so that your attributes
+can be listed in the subcon order.
+
+However, you can pass any valid dataclass parameters to the :code:`Struct` class via
+class attributes:
+
+.. code-block:: python
+
+    class MyStruct(Struct, kw_only=False, frozen=True):
+        a: int
+        b: int
+
+    my_struct = MyStruct(1, 2)  # ok
+    my_struct.a = 2  # FrozenInstanceError
 
 
 Installing

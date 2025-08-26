@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: canonmap
-Version: 0.4.87
+Version: 0.4.90
 Summary: A data matching and canonicalization library with multipl database connector support
 Project-URL: Homepage, https://github.com/vinceberry/canonmap
 Project-URL: Documentation, https://github.com/vinceberry/canonmap#readme

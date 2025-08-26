@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyconfs
-Version: 0.5.5
+Version: 0.5.7
 Summary: PyConfs, unified handling of configuration files for Python
 Home-page: https://github.com/gahjelle/pyconfs
 Keywords: configuration ini json toml yml
@@ -20,7 +20,11 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE
 Requires-Dist: importlib_resources; python_version < '3.7'
 Requires-Dist: pyplugs
 Requires-Dist: black ; extra == "dev"
@@ -57,6 +61,8 @@ _Unified handling of configuration files in Python_
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Interrogate DocStrings](https://github.com/gahjelle/pyconfs/blob/main/docs/images/interrogate_badge.svg)](https://interrogate.readthedocs.io/)
 [![unit_tests](https://github.com/gahjelle/pyconfs/workflows/unit_tests/badge.svg)](https://github.com/gahjelle/pyconfs/actions)
+
+> **Note:** For new projects, use [Configaroo](https://github.com/gahjelle/configaroo) instead.
 
 ## Installing PyConfs
 

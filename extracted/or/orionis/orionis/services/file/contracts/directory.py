@@ -17,14 +17,14 @@ class IDirectory(ABC):
         pass
 
     @abstractmethod
-    def commands(self) -> Path:
+    def console(self) -> Path:
         """
-        Get the commands directory path.
+        Get the console directory path.
 
         Returns
         -------
         Path
-            The path to the commands directory.
+            The path to the console directory.
         """
         pass
 

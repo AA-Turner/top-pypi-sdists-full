@@ -16,7 +16,6 @@ from _qwak_proto.qwak.feature_store.entities.entity_service_pb2_grpc import (
 )
 from _qwak_proto.qwak.feature_store.features.feature_set_pb2 import FeatureSetSpec
 from _qwak_proto.qwak.feature_store.features.feature_set_service_pb2 import (
-    CreateUploadURLRequest,
     CreateUploadURLRequestV1,
     DeleteFeatureSetRequest,
     DeleteFeatureSetResponse,
@@ -75,6 +74,7 @@ from dependency_injector.wiring import Provide
 from grpc import RpcError, StatusCode
 from qwak.exceptions import QwakException
 from qwak.inner.di_configuration import QwakContainer
+from qwak.inner.tool.grpc.grpc_try_wrapping import grpc_try_catch_wrapper
 
 
 class FeatureRegistryClient:
@@ -90,28 +90,27 @@ class FeatureRegistryClient:
             grpc_channel
         )
 
-    def get_datasource_source_code_presign_url(self, ds_name: str) -> str:
-        try:
-            response: GetDataSourceSourceCodeUploadResponse = (
-                self._internal_data_sources_service.GetDataSourceSourceCodeUploadURL(
-                    GetDataSourceSourceCodeUploadRequest(data_source_name=ds_name)
-                )
+    @grpc_try_catch_wrapper(
+        "Failed to get a presigned url", reraise_non_grpc_error_original_exception=True
+    )
+    def get_datasource_source_code_presign_url(
+        self, ds_name: str, repository_name: str
+    ) -> GetDataSourceSourceCodeUploadResponse:
+        return self._internal_data_sources_service.GetDataSourceSourceCodeUploadURL(
+            GetDataSourceSourceCodeUploadRequest(
+                data_source_name=ds_name, repository_name=repository_name
             )
-            return response.upload_url
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to get a presigned url, error is {e.details()}"
-            )
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to list features", reraise_non_grpc_error_original_exception=True
+    )
     def list_feature_sets(self) -> ListFeatureSetsResponse:
         """
         Returns:
             ListFeatureSetsResponse
         """
-        try:
-            return self._features_service.ListFeatureSets(ListFeatureSetsRequest())
-        except RpcError as e:
-            raise QwakException(f"Failed to list features, error is {e.details()}")
+        return self._features_service.ListFeatureSets(ListFeatureSetsRequest())
 
     def get_entity_by_name(self, entity_name: str) -> GetEntityByNameResponse:
         """
@@ -128,6 +127,9 @@ class FeatureRegistryClient:
             "entity",
         )
 
+    @grpc_try_catch_wrapper(
+        "Failed to delete feature", reraise_non_grpc_error_original_exception=True
+    )
     def delete_feature_set(self, feature_set_id: str) -> DeleteFeatureSetResponse:
         """
         Args:
@@ -135,13 +137,13 @@ class FeatureRegistryClient:
         Returns:
             DeleteFeatureSetResponse
         """
-        try:
-            return self._features_service.DeleteFeatureSet(
-                DeleteFeatureSetRequest(feature_set_id=feature_set_id)
-            )
-        except RpcError as e:
-            raise QwakException(f"Failed to delete feature, error is {e.details()}")
+        return self._features_service.DeleteFeatureSet(
+            DeleteFeatureSetRequest(feature_set_id=feature_set_id)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to delete entity", reraise_non_grpc_error_original_exception=True
+    )
     def delete_entity(self, entity_id: str) -> DeleteEntityResponse:
         """
         Args:
@@ -149,13 +151,13 @@ class FeatureRegistryClient:
         Returns:
             DeleteEntityResponse
         """
-        try:
-            return self._entity_service.DeleteEntity(
-                DeleteEntityRequest(entity_id=entity_id)
-            )
-        except RpcError as e:
-            raise QwakException(f"Failed to delete entity, error is {e.details()}")
+        return self._entity_service.DeleteEntity(
+            DeleteEntityRequest(entity_id=entity_id)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to delete data source", reraise_non_grpc_error_original_exception=True
+    )
     def delete_data_source(self, data_source_id: str) -> DeleteDataSourceResponse:
         """
         Args:
@@ -163,13 +165,13 @@ class FeatureRegistryClient:
         Returns:
             DeleteDataSourceResponse
         """
-        try:
-            return self._sources_service.DeleteDataSource(
-                DeleteDataSourceRequest(data_source_id=data_source_id)
-            )
-        except RpcError as e:
-            raise QwakException(f"Failed to delete data source, error is {e.details()}")
+        return self._sources_service.DeleteDataSource(
+            DeleteDataSourceRequest(data_source_id=data_source_id)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to run feature", reraise_non_grpc_error_original_exception=True
+    )
     def run_feature_set(self, feature_set_name: str) -> RunBatchFeatureSetResponse:
         """
         Trigger a single ETL run for that feature set name
@@ -178,13 +180,13 @@ class FeatureRegistryClient:
         Returns:
             :return RunBatchFeatureSetResponse with the execution id
         """
-        try:
-            return self._features_service.RunBatchFeatureSet(
-                RunBatchFeatureSetRequest(feature_set_name=feature_set_name)
-            )
-        except RpcError as e:
-            raise QwakException(f"Failed to run feature, error is {e.details()}")
+        return self._features_service.RunBatchFeatureSet(
+            RunBatchFeatureSetRequest(feature_set_name=feature_set_name)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to run feature", reraise_non_grpc_error_original_exception=True
+    )
     def run_parquet_batch_feature_set(
         self, feature_set_name: str, parquet_location: str, timestamp_column: str
     ):
@@ -197,17 +199,17 @@ class FeatureRegistryClient:
         Returns:
             None
         """
-        try:
-            self._features_service.RunParquetBatchFeatureSet(
-                RunParquetBatchFeatureSetRequest(
-                    feature_set_name=feature_set_name,
-                    parquet_location=parquet_location,
-                    timestamp_column=timestamp_column,
-                )
+        self._features_service.RunParquetBatchFeatureSet(
+            RunParquetBatchFeatureSetRequest(
+                feature_set_name=feature_set_name,
+                parquet_location=parquet_location,
+                timestamp_column=timestamp_column,
             )
-        except RpcError as e:
-            raise QwakException(f"Failed to run feature, error is {e.details()}")
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to update entity", reraise_non_grpc_error_original_exception=True
+    )
     def update_entity(
         self, entity_id: str, proto_entity_spec: EntitySpec
     ) -> UpdateEntityResponse:
@@ -218,13 +220,13 @@ class FeatureRegistryClient:
         Returns:
             UpdateEntityResponse
         """
-        try:
-            return self._entity_service.UpdateEntity(
-                UpdateEntityRequest(entity_id=entity_id, entity_spec=proto_entity_spec)
-            )
-        except RpcError as e:
-            raise QwakException(f"Failed to update entity, error is {e.details()}")
+        return self._entity_service.UpdateEntity(
+            UpdateEntityRequest(entity_id=entity_id, entity_spec=proto_entity_spec)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to create entity", reraise_non_grpc_error_original_exception=True
+    )
     def create_entity(self, proto_entity_spec: EntitySpec) -> CreateEntityResponse:
         """
         Args:
@@ -232,32 +234,29 @@ class FeatureRegistryClient:
         Returns:
             CreateEntityResponse
         """
-        try:
-            return self._entity_service.CreateEntity(
-                CreateEntityRequest(entity_spec=proto_entity_spec)
-            )
-        except RpcError as e:
-            raise QwakException(f"Failed to create entity, error is {e.details()}")
+        return self._entity_service.CreateEntity(
+            CreateEntityRequest(entity_spec=proto_entity_spec)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to list entities", reraise_non_grpc_error_original_exception=True
+    )
     def list_entities(self) -> ListEntitiesResponse:
         """
         Returns:
              ListEntitiesResponse
         """
-        try:
-            return self._entity_service.ListEntities(ListEntitiesRequest())
-        except RpcError as e:
-            raise QwakException(f"Failed to list entities, error is {e.details()}")
+        return self._entity_service.ListEntities(ListEntitiesRequest())
 
+    @grpc_try_catch_wrapper(
+        "Failed to list data sources", reraise_non_grpc_error_original_exception=True
+    )
     def list_data_sources(self) -> ListDataSourcesResponse:
         """
         Returns:
             ListDataSourcesResponse
         """
-        try:
-            return self._sources_service.ListDataSources(ListDataSourcesRequest())
-        except RpcError as e:
-            raise QwakException(f"Failed to list data sources, error is {e.details()}")
+        return self._sources_service.ListDataSources(ListDataSourcesRequest())
 
     def get_data_source_by_name(
         self, data_source_name: str
@@ -276,6 +275,9 @@ class FeatureRegistryClient:
             "data source",
         )
 
+    @grpc_try_catch_wrapper(
+        "Failed to update data source", reraise_non_grpc_error_original_exception=True
+    )
     def update_data_source(
         self,
         data_source_id,
@@ -288,16 +290,16 @@ class FeatureRegistryClient:
         Returns:
              UpdateDataSourceResponse
         """
-        try:
-            return self._sources_service.UpdateDataSource(
-                UpdateDataSourceRequest(
-                    data_source_id=data_source_id,
-                    data_source_spec=proto_data_source,
-                )
+        return self._sources_service.UpdateDataSource(
+            UpdateDataSourceRequest(
+                data_source_id=data_source_id,
+                data_source_spec=proto_data_source,
             )
-        except RpcError as e:
-            raise QwakException(f"Failed to update data source, error is {e.details()}")
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to create data source", reraise_non_grpc_error_original_exception=True
+    )
     def create_data_source(
         self, proto_data_source: FeatureSetSpec
     ) -> CreateDataSourceResponse:
@@ -307,12 +309,9 @@ class FeatureRegistryClient:
         Returns:
             CreateDataSourceResponse
         """
-        try:
-            return self._sources_service.CreateDataSource(
-                CreateDataSourceRequest(data_source_spec=proto_data_source)
-            )
-        except RpcError as e:
-            raise QwakException(f"Failed to create data source, error is {e.details()}")
+        return self._sources_service.CreateDataSource(
+            CreateDataSourceRequest(data_source_spec=proto_data_source)
+        )
 
     def get_feature_set_by_name(self, feature_set_name) -> GetFeatureSetByNameResponse:
         """
@@ -329,6 +328,9 @@ class FeatureRegistryClient:
             "feature set",
         )
 
+    @grpc_try_catch_wrapper(
+        "Failed to update feature set", reraise_non_grpc_error_original_exception=True
+    )
     def update_feature_set(
         self,
         feature_set_id: str,
@@ -341,16 +343,15 @@ class FeatureRegistryClient:
         Returns:
             UpdateFeatureSetResponse
         """
-
-        try:
-            return self._features_service.UpdateFeatureSet(
-                UpdateFeatureSetRequest(
-                    feature_set_id=feature_set_id, feature_set_spec=proto_feature_set
-                )
+        return self._features_service.UpdateFeatureSet(
+            UpdateFeatureSetRequest(
+                feature_set_id=feature_set_id, feature_set_spec=proto_feature_set
             )
-        except RpcError as e:
-            raise QwakException(f"Failed to update feature set, error is {e.details()}")
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to create feature set", reraise_non_grpc_error_original_exception=True
+    )
     def create_feature_set(
         self, proto_feature_set: FeatureSetSpec
     ) -> RegisterFeatureSetResponse:
@@ -360,13 +361,9 @@ class FeatureRegistryClient:
         Returns:
             RegisterFeatureSetResponse
         """
-
-        try:
-            return self._features_service.RegisterFeatureSet(
-                RegisterFeatureSetRequest(feature_set_spec=proto_feature_set)
-            )
-        except RpcError as e:
-            raise QwakException(f"Failed to create feature set, error is {e.details()}")
+        return self._features_service.RegisterFeatureSet(
+            RegisterFeatureSetRequest(feature_set_spec=proto_feature_set)
+        )
 
     @staticmethod
     def _fetch_by_name(extract_function, name, fs_object_type):
@@ -387,23 +384,6 @@ class FeatureRegistryClient:
                 raise QwakException(
                     f"Failed to fetch {fs_object_type} by name [{name}], error code: [{e.details()}]"
                 )
-
-    def get_presigned_url(self, feature_set_name: str):
-        """
-        get presigned url according feature set name
-        Args:
-            feature_set_name: name of the feature set
-        Returns:
-            presigned url
-        """
-        try:
-            return self._features_service.CreateUploadURL(
-                CreateUploadURLRequest(feature_set_name=feature_set_name)
-            ).upload_url
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to get presigned url for feature name: {feature_set_name} , error code: [{e.details()}]"
-            )
 
     def get_presigned_url_v1(
         self, feature_set_name: str, transformation: ProtoTransformation
@@ -430,28 +410,10 @@ class FeatureRegistryClient:
                 f"{type(transformation)}, error code: [{e.details()}]"
             )
 
-    def get_data_source_presigned_url(
-        self, data_source_name: str, object_name: str
-    ) -> str:
-        """
-        create a pre-sign url for data source according to qwak path convention
-        Args:
-            data_source_name: str:  data source name
-            object_name: str object name
-        Returns:
-            presigned url: str
-        """
-        try:
-            return self._sources_service.CreateDataSourceUploadURL(
-                CreateDataSourceUploadURLRequest(
-                    data_source_name=data_source_name, object_name=object_name
-                )
-            ).upload_url
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to get presigned url for data source: {data_source_name}, object name: {object_name} , error code: [{e.details()}]"
-            ) from e
-
+    @grpc_try_catch_wrapper(
+        "Failed to get presigned url for data source: {data_source_name}, object name: {object_name}",
+        reraise_non_grpc_error_original_exception=True,
+    )
     def get_data_source_presigned_url_v1(
         self, data_source_name: str, object_name: str
     ) -> str:
@@ -465,93 +427,81 @@ class FeatureRegistryClient:
         Returns:
             presigned url: str
         """
-        try:
-            return self._sources_service.CreateDataSourceUploadURLV1(
-                CreateDataSourceUploadURLRequest(
-                    data_source_name=data_source_name, object_name=object_name
-                )
-            ).upload_url
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to get presigned url for data source: {data_source_name}, object name: {object_name} , error code: [{e.details()}]"
+        return self._sources_service.CreateDataSourceUploadURLV1(
+            CreateDataSourceUploadURLRequest(
+                data_source_name=data_source_name, object_name=object_name
             )
+        ).upload_url
 
+    @grpc_try_catch_wrapper(
+        "Failed to query scheduling state for Featureset {feature_set_name}",
+        reraise_non_grpc_error_original_exception=True,
+    )
     def get_feature_set_scheduling_state(
         self, feature_set_name: str
     ) -> GetFeaturesetSchedulingStateResponse:
-        try:
-            return self._features_service.GetFeaturesetSchedulingState(
-                GetFeaturesetSchedulingStateRequest(featureset_name=feature_set_name)
-            )
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to query scheduling state for Featureset {feature_set_name}, nested exception: [{e.details()}]"
-            ) from e
+        return self._features_service.GetFeaturesetSchedulingState(
+            GetFeaturesetSchedulingStateRequest(featureset_name=feature_set_name)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to pause Featureset {feature_set_name}",
+        reraise_non_grpc_error_original_exception=True,
+    )
     def pause_feature_set(self, feature_set_name: str):
-        try:
-            self._features_service.PauseFeatureset(
-                PauseFeaturesetRequest(featureset_name=feature_set_name)
-            )
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to pause Featureset {feature_set_name}, nested exception: [{e.details()}]"
-            ) from e
+        self._features_service.PauseFeatureset(
+            PauseFeaturesetRequest(featureset_name=feature_set_name)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to resume Featureset {feature_set_name}",
+        reraise_non_grpc_error_original_exception=True,
+    )
     def resume_feature_set(self, feature_set_name: str):
-        try:
-            self._features_service.ResumeFeatureset(
-                ResumeFeaturesetRequest(featureset_name=feature_set_name)
-            )
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to resume Featureset {feature_set_name}, nested exception: [{e.details()}]"
-            ) from e
+        self._features_service.ResumeFeatureset(
+            ResumeFeaturesetRequest(featureset_name=feature_set_name)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed list Featureset versions for Featureset: {featureset_name}",
+        reraise_non_grpc_error_original_exception=True,
+    )
     def list_featureset_versions(
         self, featureset_name: str
     ) -> ListFeaturesetVersionsByNameResponse:
-        try:
-            return self._features_service.ListFeaturesetVersionsByName(
-                ListFeaturesetVersionsByNameRequest(featureset_name=featureset_name)
-            )
-        except RpcError as e:
-            raise QwakException(
-                f"Failed list Featureset versions for Featureset: {featureset_name}, nested exception: [{e.details()}]"
-            ) from e
+        return self._features_service.ListFeaturesetVersionsByName(
+            ListFeaturesetVersionsByNameRequest(featureset_name=featureset_name)
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to set active version: {version_number} for Featureset: {featureset_name}",
+        reraise_non_grpc_error_original_exception=True,
+    )
     def set_active_featureset_version(self, featureset_name: str, version_number: int):
-        try:
-            self._features_service.SetActiveFeaturesetVersion(
-                SetActiveFeaturesetVersionRequest(
-                    featureset_name=featureset_name,
-                    featureset_version_number=version_number,
-                )
+        self._features_service.SetActiveFeaturesetVersion(
+            SetActiveFeaturesetVersionRequest(
+                featureset_name=featureset_name,
+                featureset_version_number=version_number,
             )
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to set active version: {version_number} for Featureset: {featureset_name}, nested exception: [{e.details()}]"
-            ) from e
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to delete version: {version_number} for Featureset: {featureset_name}",
+        reraise_non_grpc_error_original_exception=True,
+    )
     def delete_featureset_version(self, featureset_name: str, version_number: int):
-        try:
-            self._features_service.DeleteFeaturesetVersion(
-                DeleteFeaturesetVersionRequest(
-                    featureset_name=featureset_name,
-                    featureset_version_number=version_number,
-                )
+        self._features_service.DeleteFeaturesetVersion(
+            DeleteFeaturesetVersionRequest(
+                featureset_name=featureset_name,
+                featureset_version_number=version_number,
             )
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to delete version: {version_number} for Featureset: {featureset_name}, nested exception: [{e.details()}]"
-            ) from e
+        )
 
+    @grpc_try_catch_wrapper(
+        "Failed to get env to featuresets mapping",
+        reraise_non_grpc_error_original_exception=True,
+    )
     def get_env_to_featuresets_mapping(self) -> GetEnvToFeatureSetsMappingResponse:
-        try:
-            return self._features_service.GetEnvToFeatureSetsMapping(
-                GetEnvToFeatureSetsMappingRequest()
-            )
-        except RpcError as e:
-            raise QwakException(
-                f"Failed to get env to featuresets mapping, nested exception: [{e.details()}]"
-            ) from e
+        return self._features_service.GetEnvToFeatureSetsMapping(
+            GetEnvToFeatureSetsMappingRequest()
+        )

@@ -500,6 +500,7 @@ class OpenAIModel(Model):
             timestamp=timestamp,
             provider_details=vendor_details,
             provider_request_id=response.id,
+            provider_name=self._provider.name,
         )
 
     async def _process_streamed_response(
@@ -519,6 +520,7 @@ class OpenAIModel(Model):
             _model_profile=self.profile,
             _response=peekable_response,
             _timestamp=number_to_datetime(first_chunk.created),
+            _provider_name=self._provider.name,
         )
 
     def _get_tools(self, model_request_parameters: ModelRequestParameters) -> list[chat.ChatCompletionToolParam]:
@@ -571,6 +573,8 @@ class OpenAIModel(Model):
                     # Note: model responses from this model should only have one text item, so the following
                     # shouldn't merge multiple texts into one unless you switch models between runs:
                     message_param['content'] = '\n\n'.join(texts)
+                else:
+                    message_param['content'] = None
                 if tool_calls:
                     message_param['tool_calls'] = tool_calls
                 openai_messages.append(message_param)
@@ -803,6 +807,7 @@ class OpenAIResponsesModel(Model):
             model_name=response.model,
             provider_request_id=response.id,
             timestamp=timestamp,
+            provider_name=self._provider.name,
         )
 
     async def _process_streamed_response(
@@ -822,6 +827,7 @@ class OpenAIResponsesModel(Model):
             _model_name=self._model_name,
             _response=peekable_response,
             _timestamp=number_to_datetime(first_chunk.response.created_at),
+            _provider_name=self._provider.name,
         )
 
     @overload
@@ -1137,6 +1143,7 @@ class OpenAIStreamedResponse(StreamedResponse):
     _model_profile: ModelProfile
     _response: AsyncIterable[ChatCompletionChunk]
     _timestamp: datetime
+    _provider_name: str
 
     async def _get_event_iterator(self) -> AsyncIterator[ModelResponseStreamEvent]:
         async for chunk in self._response:
@@ -1181,6 +1188,11 @@ class OpenAIStreamedResponse(StreamedResponse):
         return self._model_name
 
     @property
+    def provider_name(self) -> str:
+        """Get the provider name."""
+        return self._provider_name
+
+    @property
     def timestamp(self) -> datetime:
         """Get the timestamp of the response."""
         return self._timestamp
@@ -1193,6 +1205,7 @@ class OpenAIResponsesStreamedResponse(StreamedResponse):
     _model_name: OpenAIModelName
     _response: AsyncIterable[responses.ResponseStreamEvent]
     _timestamp: datetime
+    _provider_name: str
 
     async def _get_event_iterator(self) -> AsyncIterator[ModelResponseStreamEvent]:  # noqa: C901
         async for chunk in self._response:
@@ -1312,6 +1325,11 @@ class OpenAIResponsesStreamedResponse(StreamedResponse):
     def model_name(self) -> OpenAIModelName:
         """Get the model name of the response."""
         return self._model_name
+
+    @property
+    def provider_name(self) -> str:
+        """Get the provider name."""
+        return self._provider_name
 
     @property
     def timestamp(self) -> datetime:

@@ -1,39 +1,62 @@
 import enum
+from datetime import datetime, timezone
+from functools import cached_property
 from typing import Any, Dict, List, Optional, Union
 
 import msgspec
 
-Attachments = Union[Dict[str, Any], List[Any]]
+JsonObject = Union[Dict[str, Any], List[Any]]
+Attachments = JsonObject
+ExtraValues = JsonObject
 
 
-class BaseEventObject(msgspec.Struct, omit_defaults=True, array_like=True):
+class BaseEventObject(msgspec.Struct, omit_defaults=True, array_like=True, dict=True):
     pass
 
 
 class MessageObject(BaseEventObject):
     message_id: Optional[int] = None
-    mask: Optional[int] = None
+    flags: Optional[int] = None
     peer_id: Optional[int] = None
     timestamp: Optional[int] = None
-    chat_title: Optional[str] = ""
-    new_text: Optional[str] = ""
+    text: Optional[str] = None
+    extra_values: Optional[ExtraValues] = None
     attachments: Optional[Attachments] = None
+    random_id: Optional[int] = None
+
+    @cached_property
+    def date(self) -> Optional[datetime]:
+        if not self.timestamp:
+            return None
+        return datetime.fromtimestamp(timestamp=self.timestamp, tz=timezone.utc)
+
+    @property
+    def message(self) -> Optional[str]:
+        if not self.text:
+            return None
+        return (
+            self.text.replace("<br>", "\n")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", '"')
+            .replace("&amp;", "&")
+        )
 
 
-class ReplaceMessageFlagsObject(MessageObject):
-    flags: Optional[int] = None
+class MessageFlagsReplaceObject(MessageObject):
+    pass
 
 
-class InstallMessageFlagsObject(MessageObject):
-    flags: Optional[int] = None
+class MessageSetFlagsObject(MessageObject):
+    pass
 
 
-class ResetMessageFlagsObject(MessageObject):
-    flags: Optional[int] = None
+class MessageResetFlagsObject(MessageObject):
+    pass
 
 
 class MessageNewObject(MessageObject):
-    random_id: Optional[int] = None
+    pass
 
 
 class MessageEditObject(MessageObject):
@@ -61,17 +84,17 @@ class FriendOfflineObject(BaseEventObject):
     timestamp: Optional[int] = None
 
 
-class ResetDialogFlagsObject(BaseEventObject):
+class DialogResetFlagsObject(BaseEventObject):
     peer_id: Optional[int] = None
     mask: Optional[int] = None
 
 
-class ReplaceDialogFlagsObject(BaseEventObject):
+class DialogFlagsReplaceObject(BaseEventObject):
     peer_id: Optional[int] = None
     flags: Optional[int] = None
 
 
-class InstallDialogFlagsObject(ResetDialogFlagsObject):
+class DialogSetFlagsObject(DialogResetFlagsObject):
     pass
 
 
@@ -201,17 +224,23 @@ __all__ = (
     "FriendOfflineObject",
     "FriendOnlineObject",
     "InReadObject",
-    "InstallDialogFlagsObject",
-    "InstallMessageFlagsObject",
+    "MessageEditObject",
+    "MessageNewObject",
+    "MessageObject",
+    "MessageResetFlagsObject",
+    "MessageFlagsReplaceObject",
+    "MessageSetFlagsObject",
     "MessagesDeleteObject",
     "MessagesRestoreObject",
     "NotificationsSettingsChangedObject",
     "OutReadObject",
     "RemoveConversationsFromFolderObject",
     "RenameFolderObject",
-    "ReplaceDialogFlagsObject",
-    "ReplaceMessageFlagsObject",
-    "ResetDialogFlagsObject",
-    "ResetMessageFlagsObject",
+    "DialogSetFlagsObject",
+    "DialogFlagsReplaceObject",
+    "DialogResetFlagsObject",
+    "MessageFlagsReplaceObject",
+    "MessageSetFlagsObject",
+    "MessageResetFlagsObject",
     "UsersTypingStateObject",
 )

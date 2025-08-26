@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: fireblocks_sdk
-Version: 2.16.1
+Version: 2.17.0
 Summary: Fireblocks python SDK
 Home-page: https://github.com/fireblocks/fireblocks-sdk-py
-Download-URL: https://github.com/fireblocks/fireblocks-sdk-py/archive/v2.16.1.tar.gz
+Download-URL: https://github.com/fireblocks/fireblocks-sdk-py/archive/v2.17.0.tar.gz
 License: MIT
 Keywords: Fireblocks,SDK
 Classifier: Development Status :: 5 - Production/Stable

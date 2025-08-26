@@ -151,6 +151,6 @@ class DataStore(BaseDataStore):
         super().__init__(
             data_store_id, data_store_type, canonical_name, creator, updated, params, role
         )
-        print("")
+
         if driver_class_type == DATABRICKS_DRIVER_CLASS:
             self.get_spark_session = types.MethodType(get_spark_session, self)

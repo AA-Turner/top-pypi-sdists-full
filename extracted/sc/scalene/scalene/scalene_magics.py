@@ -1,23 +1,37 @@
 import contextlib
 import sys
 import textwrap
-from typing import Any
+from typing import Any, Callable, TYPE_CHECKING, TypeVar
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+if TYPE_CHECKING:
+    # Minimal stubs so mypy doesn't see Anys
+    class Magics:  # pragma: no cover - type-checking only
+        pass
+
+    def line_cell_magic(func: F) -> F: ...  # type: ignore[override,unused-ignore]
+    def line_magic(func: F) -> F: ...  # type: ignore[override,unused-ignore]
+    def magics_class(cls: type) -> type: ...  # type: ignore[override,unused-ignore]
+
 
 with contextlib.suppress(Exception):
-
-    from IPython.core.magic import (
-        Magics,
-        line_cell_magic,
-        line_magic,
-        magics_class,
-    )
 
     from scalene import scalene_profiler
     from scalene.scalene_arguments import ScaleneArguments
     from scalene.scalene_parseargs import ScaleneParseArgs
 
+    if not TYPE_CHECKING:
+        with contextlib.suppress(Exception):
+            from IPython.core.magic import (
+                Magics,
+                line_cell_magic,
+                line_magic,
+                magics_class,
+            )
+
     @magics_class
-    class ScaleneMagics(Magics):
+    class ScaleneMagics(Magics):  # type: ignore[no-any-unimported,unused-ignore]
         """IPython (Jupyter) support for magics for Scalene (%scrun and %%scalene)."""
 
         def run_code(self, args: ScaleneArguments, code: str) -> None:
@@ -26,14 +40,14 @@ with contextlib.suppress(Exception):
             # Create a file to hold the supplied code.
             # We encode the cell number in the string for later recovery.
             # The length of the history buffer lets us find the most recent string (this one).
-            filename = f"_ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"
+            filename = f"_ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"  # type: ignore[no-untyped-call,unused-ignore]
             with open(filename, "w+") as tmpfile:
                 tmpfile.write(code)
-            args.memory = False  # full Scalene is not yet working, force to not profile memory
-            scalene_profiler.Scalene.set_initialized()
-            scalene_profiler.Scalene.run_profiler(
-                args, [filename], is_jupyter=True
+            args.memory = (
+                False  # full Scalene is not yet working, force to not profile memory
             )
+            scalene_profiler.Scalene.set_initialized()
+            scalene_profiler.Scalene.run_profiler(args, [filename], is_jupyter=True)
 
         @line_cell_magic
         def scalene(self, line: str, cell: str = "") -> None:

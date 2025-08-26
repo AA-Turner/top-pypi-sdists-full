@@ -1,4 +1,5 @@
-from .._rfc7519.claims import *  # noqa: F403
+from .._rfc7519.claims import convert_claims  # noqa: F401
+from .._rfc7519.security import check_sensitive_data  # noqa: F401
 import warnings
 
 warnings.warn(

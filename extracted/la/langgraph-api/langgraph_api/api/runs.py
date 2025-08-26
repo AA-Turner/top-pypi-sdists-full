@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from typing import Literal, cast
+from uuid import uuid4
 
 import orjson
 from starlette.exceptions import HTTPException
@@ -100,7 +101,7 @@ async def stream_run(
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
+    sub = asyncio.create_task(Runs.Stream.subscribe(run_id, thread_id))
 
     try:
         async with connect() as conn:
@@ -138,19 +139,21 @@ async def stream_run_stateless(
 ):
     """Create a stateless run."""
     payload = await request.json(RunCreateStateless)
+    payload["if_not_exists"] = "create"
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
-
+    thread_id = uuid4()
+    sub = asyncio.create_task(Runs.Stream.subscribe(run_id, thread_id))
     try:
         async with connect() as conn:
             run = await create_valid_run(
                 conn,
-                None,
+                str(thread_id),
                 payload,
                 request.headers,
                 run_id=run_id,
                 request_start_time=request.scope.get("request_start_time_ms"),
+                temporary=True,
             )
     except Exception:
         if not sub.cancelled():
@@ -181,7 +184,7 @@ async def wait_run(request: ApiRequest):
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
+    sub = asyncio.create_task(Runs.Stream.subscribe(run_id, thread_id))
 
     try:
         async with connect() as conn:
@@ -263,26 +266,28 @@ async def wait_run(request: ApiRequest):
 async def wait_run_stateless(request: ApiRequest):
     """Create a stateless run, wait for the output."""
     payload = await request.json(RunCreateStateless)
+    payload["if_not_exists"] = "create"
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
+    thread_id = uuid4()
+    sub = asyncio.create_task(Runs.Stream.subscribe(run_id, thread_id))
 
     try:
         async with connect() as conn:
             run = await create_valid_run(
                 conn,
-                None,
+                str(thread_id),
                 payload,
                 request.headers,
                 run_id=run_id,
                 request_start_time=request.scope.get("request_start_time_ms"),
+                temporary=True,
             )
     except Exception:
         if not sub.cancelled():
             handle = await sub
             await handle.__aexit__(None, None, None)
         raise
-
     last_chunk = ValueEvent()
 
     async def consume():

@@ -438,6 +438,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, LicensePlateMonitorUseCase):
                 result = use_case.process(data, parsed_config, input_bytes,context, stream_info)
+            elif isinstance(use_case, DwellUseCase):
+                result = use_case.process(data, parsed_config,context, stream_info)
             
             #Put all IMAGE based usecases here
             elif isinstance(use_case, BloodCancerDetectionUseCase):

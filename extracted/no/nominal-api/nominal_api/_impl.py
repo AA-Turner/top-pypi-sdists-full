@@ -31007,6 +31007,38 @@ scout_chartdefinition_api_Scatter3dTraceComputeConfig.__qualname__ = "Scatter3dT
 scout_chartdefinition_api_Scatter3dTraceComputeConfig.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_StalenessCellConfig(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'visualisation': ConjureFieldDefinition('visualisation', OptionalTypeWrapper[scout_chartdefinition_api_StalenessVisualisation]),
+            'group_by_sort': ConjureFieldDefinition('groupBySort', OptionalTypeWrapper[scout_chartdefinition_api_NumericGroupBySort])
+        }
+
+    __slots__: List[str] = ['_visualisation', '_group_by_sort']
+
+    def __init__(self, group_by_sort: Optional["scout_chartdefinition_api_NumericGroupBySort"] = None, visualisation: Optional["scout_chartdefinition_api_StalenessVisualisation"] = None) -> None:
+        self._visualisation = visualisation
+        self._group_by_sort = group_by_sort
+
+    @builtins.property
+    def visualisation(self) -> Optional["scout_chartdefinition_api_StalenessVisualisation"]:
+        return self._visualisation
+
+    @builtins.property
+    def group_by_sort(self) -> Optional["scout_chartdefinition_api_NumericGroupBySort"]:
+        """Sorting configuration for grouped data rendering in a cell.
+If undefined, will sort alphabetically by grouping.
+        """
+        return self._group_by_sort
+
+
+scout_chartdefinition_api_StalenessCellConfig.__name__ = "StalenessCellConfig"
+scout_chartdefinition_api_StalenessCellConfig.__qualname__ = "StalenessCellConfig"
+scout_chartdefinition_api_StalenessCellConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_StalenessConfiguration(ConjureBeanType):
 
     @builtins.classmethod
@@ -31040,6 +31072,83 @@ scout_chartdefinition_api_StalenessConfiguration.__qualname__ = "StalenessConfig
 scout_chartdefinition_api_StalenessConfiguration.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_StalenessVisualisation(ConjureUnionType):
+    _raw: Optional["scout_chartdefinition_api_NumericRawVisualisationV2"] = None
+    _bar: Optional["scout_chartdefinition_api_NumericBarVisualisationV2"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'raw': ConjureFieldDefinition('raw', scout_chartdefinition_api_NumericRawVisualisationV2),
+            'bar': ConjureFieldDefinition('bar', scout_chartdefinition_api_NumericBarVisualisationV2)
+        }
+
+    def __init__(
+            self,
+            raw: Optional["scout_chartdefinition_api_NumericRawVisualisationV2"] = None,
+            bar: Optional["scout_chartdefinition_api_NumericBarVisualisationV2"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (raw is not None) + (bar is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if raw is not None:
+                self._raw = raw
+                self._type = 'raw'
+            if bar is not None:
+                self._bar = bar
+                self._type = 'bar'
+
+        elif type_of_union == 'raw':
+            if raw is None:
+                raise ValueError('a union value must not be None')
+            self._raw = raw
+            self._type = 'raw'
+        elif type_of_union == 'bar':
+            if bar is None:
+                raise ValueError('a union value must not be None')
+            self._bar = bar
+            self._type = 'bar'
+
+    @builtins.property
+    def raw(self) -> Optional["scout_chartdefinition_api_NumericRawVisualisationV2"]:
+        return self._raw
+
+    @builtins.property
+    def bar(self) -> Optional["scout_chartdefinition_api_NumericBarVisualisationV2"]:
+        return self._bar
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_StalenessVisualisationVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_StalenessVisualisationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'raw' and self.raw is not None:
+            return visitor._raw(self.raw)
+        if self._type == 'bar' and self.bar is not None:
+            return visitor._bar(self.bar)
+
+
+scout_chartdefinition_api_StalenessVisualisation.__name__ = "StalenessVisualisation"
+scout_chartdefinition_api_StalenessVisualisation.__qualname__ = "StalenessVisualisation"
+scout_chartdefinition_api_StalenessVisualisation.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_StalenessVisualisationVisitor:
+
+    @abstractmethod
+    def _raw(self, raw: "scout_chartdefinition_api_NumericRawVisualisationV2") -> Any:
+        pass
+
+    @abstractmethod
+    def _bar(self, bar: "scout_chartdefinition_api_NumericBarVisualisationV2") -> Any:
+        pass
+
+
+scout_chartdefinition_api_StalenessVisualisationVisitor.__name__ = "StalenessVisualisationVisitor"
+scout_chartdefinition_api_StalenessVisualisationVisitor.__qualname__ = "StalenessVisualisationVisitor"
+scout_chartdefinition_api_StalenessVisualisationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_Threshold(ConjureBeanType):
 
     @builtins.classmethod
@@ -31059,7 +31168,7 @@ class scout_chartdefinition_api_Threshold(ConjureBeanType):
 
     @builtins.property
     def value(self) -> float:
-        """The minimum value a number must be to .
+        """The minimum value a number must be to trigger the threshold color. If used in a staleness cell, this value is in milliseconds.
         """
         return self._value
 
@@ -31859,6 +31968,7 @@ class scout_chartdefinition_api_ValueTableCellConfig(ConjureUnionType):
     _enum: Optional["scout_chartdefinition_api_EnumCellConfig"] = None
     _range: Optional["scout_chartdefinition_api_RangeCellConfig"] = None
     _bit_flag_map: Optional["scout_chartdefinition_api_BitFlagMapCellConfig"] = None
+    _staleness: Optional["scout_chartdefinition_api_StalenessCellConfig"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -31866,7 +31976,8 @@ class scout_chartdefinition_api_ValueTableCellConfig(ConjureUnionType):
             'numeric': ConjureFieldDefinition('numeric', scout_chartdefinition_api_NumericCellConfig),
             'enum': ConjureFieldDefinition('enum', scout_chartdefinition_api_EnumCellConfig),
             'range': ConjureFieldDefinition('range', scout_chartdefinition_api_RangeCellConfig),
-            'bit_flag_map': ConjureFieldDefinition('bitFlagMap', scout_chartdefinition_api_BitFlagMapCellConfig)
+            'bit_flag_map': ConjureFieldDefinition('bitFlagMap', scout_chartdefinition_api_BitFlagMapCellConfig),
+            'staleness': ConjureFieldDefinition('staleness', scout_chartdefinition_api_StalenessCellConfig)
         }
 
     def __init__(
@@ -31875,10 +31986,11 @@ class scout_chartdefinition_api_ValueTableCellConfig(ConjureUnionType):
             enum: Optional["scout_chartdefinition_api_EnumCellConfig"] = None,
             range: Optional["scout_chartdefinition_api_RangeCellConfig"] = None,
             bit_flag_map: Optional["scout_chartdefinition_api_BitFlagMapCellConfig"] = None,
+            staleness: Optional["scout_chartdefinition_api_StalenessCellConfig"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (numeric is not None) + (enum is not None) + (range is not None) + (bit_flag_map is not None) != 1:
+            if (numeric is not None) + (enum is not None) + (range is not None) + (bit_flag_map is not None) + (staleness is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if numeric is not None:
@@ -31893,6 +32005,9 @@ class scout_chartdefinition_api_ValueTableCellConfig(ConjureUnionType):
             if bit_flag_map is not None:
                 self._bit_flag_map = bit_flag_map
                 self._type = 'bitFlagMap'
+            if staleness is not None:
+                self._staleness = staleness
+                self._type = 'staleness'
 
         elif type_of_union == 'numeric':
             if numeric is None:
@@ -31914,6 +32029,11 @@ class scout_chartdefinition_api_ValueTableCellConfig(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._bit_flag_map = bit_flag_map
             self._type = 'bitFlagMap'
+        elif type_of_union == 'staleness':
+            if staleness is None:
+                raise ValueError('a union value must not be None')
+            self._staleness = staleness
+            self._type = 'staleness'
 
     @builtins.property
     def numeric(self) -> Optional["scout_chartdefinition_api_NumericCellConfig"]:
@@ -31931,6 +32051,10 @@ class scout_chartdefinition_api_ValueTableCellConfig(ConjureUnionType):
     def bit_flag_map(self) -> Optional["scout_chartdefinition_api_BitFlagMapCellConfig"]:
         return self._bit_flag_map
 
+    @builtins.property
+    def staleness(self) -> Optional["scout_chartdefinition_api_StalenessCellConfig"]:
+        return self._staleness
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_chartdefinition_api_ValueTableCellConfigVisitor):
             raise ValueError('{} is not an instance of scout_chartdefinition_api_ValueTableCellConfigVisitor'.format(visitor.__class__.__name__))
@@ -31942,6 +32066,8 @@ class scout_chartdefinition_api_ValueTableCellConfig(ConjureUnionType):
             return visitor._range(self.range)
         if self._type == 'bitFlagMap' and self.bit_flag_map is not None:
             return visitor._bit_flag_map(self.bit_flag_map)
+        if self._type == 'staleness' and self.staleness is not None:
+            return visitor._staleness(self.staleness)
 
 
 scout_chartdefinition_api_ValueTableCellConfig.__name__ = "ValueTableCellConfig"
@@ -31965,6 +32091,10 @@ class scout_chartdefinition_api_ValueTableCellConfigVisitor:
 
     @abstractmethod
     def _bit_flag_map(self, bit_flag_map: "scout_chartdefinition_api_BitFlagMapCellConfig") -> Any:
+        pass
+
+    @abstractmethod
+    def _staleness(self, staleness: "scout_chartdefinition_api_StalenessCellConfig") -> Any:
         pass
 
 
@@ -32462,15 +32592,17 @@ for a row, for a column, or for the entire grid.
         return {
             'range': ConjureFieldDefinition('range', OptionalTypeWrapper[scout_chartdefinition_api_RangeCellConfig]),
             'enum': ConjureFieldDefinition('enum', OptionalTypeWrapper[scout_chartdefinition_api_EnumCellConfig]),
-            'numeric': ConjureFieldDefinition('numeric', OptionalTypeWrapper[scout_chartdefinition_api_NumericCellConfig])
+            'numeric': ConjureFieldDefinition('numeric', OptionalTypeWrapper[scout_chartdefinition_api_NumericCellConfig]),
+            'staleness': ConjureFieldDefinition('staleness', OptionalTypeWrapper[scout_chartdefinition_api_StalenessCellConfig])
         }
 
-    __slots__: List[str] = ['_range', '_enum', '_numeric']
+    __slots__: List[str] = ['_range', '_enum', '_numeric', '_staleness']
 
-    def __init__(self, enum: Optional["scout_chartdefinition_api_EnumCellConfig"] = None, numeric: Optional["scout_chartdefinition_api_NumericCellConfig"] = None, range: Optional["scout_chartdefinition_api_RangeCellConfig"] = None) -> None:
+    def __init__(self, enum: Optional["scout_chartdefinition_api_EnumCellConfig"] = None, numeric: Optional["scout_chartdefinition_api_NumericCellConfig"] = None, range: Optional["scout_chartdefinition_api_RangeCellConfig"] = None, staleness: Optional["scout_chartdefinition_api_StalenessCellConfig"] = None) -> None:
         self._range = range
         self._enum = enum
         self._numeric = numeric
+        self._staleness = staleness
 
     @builtins.property
     def range(self) -> Optional["scout_chartdefinition_api_RangeCellConfig"]:
@@ -32483,6 +32615,10 @@ for a row, for a column, or for the entire grid.
     @builtins.property
     def numeric(self) -> Optional["scout_chartdefinition_api_NumericCellConfig"]:
         return self._numeric
+
+    @builtins.property
+    def staleness(self) -> Optional["scout_chartdefinition_api_StalenessCellConfig"]:
+        return self._staleness
 
 
 scout_chartdefinition_api_ValueTableMultiCellConfig.__name__ = "ValueTableMultiCellConfig"
@@ -88609,6 +88745,7 @@ message Points {
   oneof points_type {
     DoublePoints double_points = 1;
     StringPoints string_points = 2;
+    IntegerPoints integer_points = 3;
   }
 }
 
@@ -88620,6 +88757,10 @@ message StringPoints {
   repeated StringPoint points = 1;
 }
 
+message IntegerPoints {
+  repeated IntegerPoint points = 1;
+}
+
 message DoublePoint {
   google.protobuf.Timestamp timestamp = 1;
   double value = 2;
@@ -88628,6 +88769,11 @@ message DoublePoint {
 message StringPoint {
   google.protobuf.Timestamp timestamp = 1;
   string value = 2;
+}
+
+message IntegerPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  int64 value = 2;
 }
 ```
 

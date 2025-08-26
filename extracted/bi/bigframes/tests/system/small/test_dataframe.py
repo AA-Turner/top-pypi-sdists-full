@@ -1591,9 +1591,24 @@ def test_itertuples(scalars_df_index, index, name):
         assert bf_tuple == pd_tuple
 
 
-def test_df_isin_list(scalars_dfs):
+def test_df_isin_list_w_null(scalars_dfs):
     scalars_df, scalars_pandas_df = scalars_dfs
     values = ["Hello, World!", 55555, 2.51, pd.NA, True]
+    bf_result = (
+        scalars_df[["int64_col", "float64_col", "string_col", "bool_col"]]
+        .isin(values)
+        .to_pandas()
+    )
+    pd_result = scalars_pandas_df[
+        ["int64_col", "float64_col", "string_col", "bool_col"]
+    ].isin(values)
+
+    pandas.testing.assert_frame_equal(bf_result, pd_result.astype("boolean"))
+
+
+def test_df_isin_list_wo_null(scalars_dfs):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    values = ["Hello, World!", 55555, 2.51, True]
     bf_result = (
         scalars_df[["int64_col", "float64_col", "string_col", "bool_col"]]
         .isin(values)
@@ -2068,6 +2083,32 @@ def test_reset_index(scalars_df_index, scalars_pandas_df_index, drop):
 
     # reset_index should maintain the original ordering.
     pandas.testing.assert_frame_equal(bf_result, pd_result)
+
+
+def test_reset_index_allow_duplicates(scalars_df_index, scalars_pandas_df_index):
+    scalars_df_index = scalars_df_index.copy()
+    scalars_df_index.index.name = "int64_col"
+    df = scalars_df_index.reset_index(allow_duplicates=True, drop=False)
+    assert df.index.name is None
+
+    bf_result = df.to_pandas()
+
+    scalars_pandas_df_index = scalars_pandas_df_index.copy()
+    scalars_pandas_df_index.index.name = "int64_col"
+    pd_result = scalars_pandas_df_index.reset_index(allow_duplicates=True, drop=False)
+
+    # Pandas uses int64 instead of Int64 (nullable) dtype.
+    pd_result.index = pd_result.index.astype(pd.Int64Dtype())
+
+    # reset_index should maintain the original ordering.
+    pandas.testing.assert_frame_equal(bf_result, pd_result)
+
+
+def test_reset_index_duplicates_error(scalars_df_index):
+    scalars_df_index = scalars_df_index.copy()
+    scalars_df_index.index.name = "int64_col"
+    with pytest.raises(ValueError):
+        scalars_df_index.reset_index(allow_duplicates=False, drop=False)
 
 
 @pytest.mark.parametrize(

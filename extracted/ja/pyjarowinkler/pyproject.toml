@@ -1,11 +1,7 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "pyjarowinkler"
-dynamic = ["version"]
-description = "Find the Jaro Winkler Distance indicating a distance or similarity score between two strings."
+version = "2.1.1"
+description = "Finds the Jaro Winkler Distance indicating a distance or similarity score between two strings."
 readme = { file = "README.md", content-type = "text/markdown" }
 license = { file = "LICENSE" }
 requires-python = ">= 3.9"
@@ -30,7 +26,7 @@ classifiers = [
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: Apache Software License",
-  "Operating System :: POSIX :: Linux",
+  "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
@@ -43,7 +39,7 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["hatch", "mypy", "ruff"]
+dev = ["mypy", "ruff", "coverage", "coverage[toml]"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/pyjarowinkler/"
@@ -52,48 +48,18 @@ Issues = "https://github.com/nap/jaro-winkler-distance/issues"
 Source = "https://github.com/nap/jaro-winkler-distance"
 Repository = "https://github.com/nap/jaro-winkler-distance.git"
 
-[tool.hatch.version]
-path = "pyjarowinkler/__about__.py"
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
 
-[tool.hatch.build]
-ignore-vcs = true
-exclude = [".*", "*.sh"]
-
-[tool.hatch.build.targets.wheel]
-only-packages = true
-packages = ["pyjarowinkler"]
-
-[tool.hatch.envs.default]
-platforms = ["linux", "macos"]
-installer = "uv"
-
-[tool.hatch.envs.lint]
-detached = true
-skip-install = true
-dependencies = ["mypy", "ruff"]
-
-[tool.hatch.envs.lint.scripts]
-type = ["mypy {args:pyjarowinkler}"]
-lint = ["ruff check --diff {args:.}"]
-fmt = ["ruff format --diff {args:.}"]
-all = ["lint", "fmt", "type"]
-
-[tool.hatch.envs.test]
-skip-install = true
-dependencies = ["coverage", "coverage[toml]"]
-
-[[tool.hatch.envs.test.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
-
-[tool.hatch.envs.test.scripts]
-unit = "python{env:HATCH_TEST_ARGS:} {args:-m unittest discover -s tests/}"
-cov-test = "coverage run -m unittest discover -s tests/"
-cov-report = "coverage report"
-all = ["cov-test", "cov-report"]
+[tool.uv.build-backend]
+module-root = ""
+module-name = ["pyjarowinkler"]
+source-exclude = [".*", "*.sh"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = [".github"]
+extend-exclude = [".github", "*.pyi"]
 
 [tool.ruff.lint]
 select = ["E", "F", "N", "D", "B", "Q", "I", "PL", "ARG", "RUF"]
@@ -103,6 +69,8 @@ ignore = ["D212", "D203"]
 "tests/**/*" = ["D", "PT"]
 
 [tool.ruff.lint.isort]
+case-sensitive = true
+lines-after-imports = 1
 known-local-folder = ["pyjarowinkler"]
 
 [tool.mypy]
@@ -115,5 +83,13 @@ warn_no_return = true
 
 [tool.coverage.run]
 dynamic_context = "test_function"
-source = ["pyjarowinkler"]
+source = ["pyjarowinkler", "tests"]
 branch = true
+
+[tool.coverage.report]
+omit = ["tests/*"]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

@@ -804,6 +804,7 @@ class ConfigLoader:
     gridsearch: bool
     auto_exclude_defective_hosts: bool
     debug: bool
+    debug_stack_trace_regex: Optional[str]
     num_restarts: int
     raw_samples: int
     show_generate_time_table: bool
@@ -991,6 +992,8 @@ class ConfigLoader:
         debug.add_argument('--prettyprint', help='Shows stdout and stderr in a pretty printed format', action='store_true', default=False)
         debug.add_argument('--runtime_debug', help='Logs which functions use most of the time', action='store_true', default=False)
         debug.add_argument('--debug_stack_regex', help='Only print debug messages if call stack matches any regex', type=str, default='')
+        debug.add_argument('--debug_stack_trace_regex', help='Show compact call stack with arrows if any function in stack matches regex', type=str, default=None)
+
         debug.add_argument('--show_func_name', help='Show func name before each execution and when it is done', action='store_true', default=False)
 
     def load_config(self: Any, config_path: str, file_format: str) -> dict:
@@ -2130,72 +2133,31 @@ def try_saving_to_db() -> None:
     except Exception as e:
         print_debug(f"Failed trying to save sqlite3-DB: {e}")
 
-def merge_with_job_infos(pd_frame: pd.DataFrame) -> pd.DataFrame:
+def merge_with_job_infos(df: pd.DataFrame) -> pd.DataFrame:
     job_infos_path = os.path.join(get_current_run_folder(), "job_infos.csv")
     if not os.path.exists(job_infos_path):
-        return pd_frame
+        return df
 
     job_df = pd.read_csv(job_infos_path)
 
-    if 'trial_index' not in pd_frame.columns or 'trial_index' not in job_df.columns:
+    if 'trial_index' not in df.columns or 'trial_index' not in job_df.columns:
         raise ValueError("Both DataFrames must contain a 'trial_index' column.")
 
-    job_df_filtered = job_df[job_df['trial_index'].isin(pd_frame['trial_index'])]
+    job_df_filtered = job_df[job_df['trial_index'].isin(df['trial_index'])]
 
-    new_cols = [col for col in job_df_filtered.columns if col != 'trial_index' and col not in pd_frame.columns]
+    new_cols = [col for col in job_df_filtered.columns if col != 'trial_index' and col not in df.columns]
 
     job_df_reduced = job_df_filtered[['trial_index'] + new_cols]
 
-    merged = pd.merge(pd_frame, job_df_reduced, on='trial_index', how='left')
+    merged = pd.merge(df, job_df_reduced, on='trial_index', how='left')
 
-    old_cols = [col for col in pd_frame.columns if col != 'trial_index']
+    old_cols = [col for col in df.columns if col != 'trial_index']
 
     new_order = ['trial_index'] + new_cols + old_cols
 
     merged = merged[new_order]
 
     return merged
-
-def reindex_trials(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Ensure trial_index is sequential and arm_name unique.
-    Keep arm_name unless all parameters except 'order', 'hostname', 'queue_time' match.
-    """
-    if "trial_index" not in df.columns or "arm_name" not in df.columns:
-        return df
-
-    # Sort by something stable (queue_time if available)
-    sort_cols = ["queue_time"] if "queue_time" in df.columns else df.columns.tolist()
-    df = df.sort_values(by=sort_cols, ignore_index=True)
-
-    # Mapping from "parameter signature" to assigned arm_name
-    seen_signatures = {}
-    new_arm_names = []
-
-    for new_idx, row in df.iterrows():
-        # Create signature without 'order', 'hostname', 'queue_time', 'trial_index', 'arm_name'
-        ignore_cols = {"order", "hostname", "queue_time", "trial_index", "arm_name"}
-        signature = tuple((col, row[col]) for col in df.columns if col not in ignore_cols)
-
-        if signature in seen_signatures:
-            # Collision → make a unique name
-            base_name = seen_signatures[signature]
-            suffix = 1
-            new_name = f"{base_name}_{suffix}"
-            while new_name in new_arm_names:
-                suffix += 1
-                new_name = f"{base_name}_{suffix}"
-            new_arm_names.append(new_name)
-        else:
-            # First occurrence → use new_idx as trial index in name
-            new_name = f"{new_idx}_0"
-            seen_signatures[signature] = f"{new_idx}_0"
-            new_arm_names.append(new_name)
-
-        df.at[new_idx, "trial_index"] = new_idx
-        df.at[new_idx, "arm_name"] = new_name
-
-    return df
 
 def save_results_csv() -> Optional[str]:
     if args.dryrun:
@@ -2211,8 +2173,8 @@ def save_results_csv() -> Optional[str]:
     save_checkpoint()
 
     try:
-        pd_frame = fetch_and_prepare_trials()
-        write_csv(pd_frame, pd_csv)
+        df = fetch_and_prepare_trials()
+        write_csv(df, pd_csv)
         write_json_snapshot(pd_json)
         save_experiment_to_file()
 
@@ -2234,10 +2196,21 @@ def get_results_paths() -> tuple[str, str]:
 def fetch_and_prepare_trials() -> pd.DataFrame:
     ax_client.experiment.fetch_data()
     df = ax_client.get_trials_data_frame()
+
+    #print("========================")
+    #print("BEFORE merge_with_job_infos:")
+    #print(df["generation_node"])
     df = merge_with_job_infos(df)
-    return reindex_trials(df)
+    #print("AFTER merge_with_job_infos:")
+    #print(df["generation_node"])
+
+    return df
 
 def write_csv(df, path: str) -> None:
+    try:
+        df = df.sort_values(by=["trial_index"], kind="stable").reset_index(drop=True)
+    except KeyError:
+        pass
     df.to_csv(path, index=False, float_format="%.30f")
 
 def write_json_snapshot(path: str) -> None:
@@ -5048,8 +5021,6 @@ def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None)
 
     abandon_all_jobs()
 
-    save_results_csv()
-
     if exit_code:
         _exit = exit_code
 
@@ -7270,11 +7241,9 @@ def finish_previous_jobs(new_msgs: List[str] = []) -> None:
 
     print_debug(f"Finishing jobs took {finishing_jobs_runtime} second(s)")
 
-    save_results_csv()
-
-    save_checkpoint()
-
     if this_jobs_finished > 0:
+        save_results_csv()
+        save_checkpoint()
         progressbar_description([*new_msgs, f"finished {this_jobs_finished} {'job' if this_jobs_finished == 1 else 'jobs'}"])
 
     JOBS_FINISHED += this_jobs_finished
@@ -7589,8 +7558,6 @@ def execute_evaluation(_params: list) -> Optional[int]:
         trial_counter += 1
 
         progressbar_description("started new job")
-
-        save_results_csv()
     except submitit.core.utils.FailedJobError as error:
         handle_failed_job(error, trial_index, new_job)
         trial_counter += 1
@@ -7881,8 +7848,6 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
 
     print_debug(f"get_batched_arms: Finished with {len(batched_arms)} arm(s) after {attempts} attempt(s).")
 
-    save_results_csv()
-
     return batched_arms
 
 def fetch_next_trials(nr_of_jobs_to_get: int, recursion: bool = False) -> Tuple[Dict[int, Any], bool]:
@@ -7936,8 +7901,6 @@ def generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
                 if trial_successful:
                     cnt += 1
                     trials_dict[trial_index] = arm.parameters
-
-        save_results_csv()
 
         return _finalize_generation(trials_dict, cnt, n, start_time)
 
@@ -8819,10 +8782,6 @@ def execute_trials(
         index_param_list.append(_args)
         i += 1
 
-        save_results_csv()
-
-    save_results_csv()
-
     start_time = time.time()
 
     cnt = 0
@@ -9654,7 +9613,6 @@ def load_experiment_state() -> None:
     state_path = get_current_run_folder("experiment_state.json")
 
     if not os.path.exists(state_path):
-        print(f"State file {state_path} does not exist, starting fresh")
         return
 
     if args.worker_generator_path:
@@ -10478,7 +10436,7 @@ def main() -> None:
 
             set_global_generation_strategy()
 
-        start_worker_generators()
+        #start_worker_generators()
 
         try:
             run_search_with_progress_bar()
@@ -11171,6 +11129,29 @@ def main_outside() -> None:
             else:
                 end_program(True)
 
+def stack_trace_wrapper(func: Any, regex: Any = None) -> Any:
+    pattern = re.compile(regex) if regex else None
+
+    def wrapped(*args, **kwargs):
+        # nur prüfen ob diese Funktion den Trigger erfüllt
+        if pattern and not pattern.search(func.__name__):
+            return func(*args, **kwargs)
+
+        stack = inspect.stack()
+        chain = []
+        for frame in stack[1:]:
+            fn = frame.function
+            if fn in ("wrapped", "<module>"):
+                continue
+            chain.append(fn)
+
+        if chain:
+            sys.stderr.write(" ⇒ ".join(reversed(chain)) + "\n")
+
+        return func(*args, **kwargs)
+
+    return wrapped
+
 def auto_wrap_namespace(namespace: Any) -> Any:
     enable_beartype = any(os.getenv(v) for v in ("ENABLE_BEARTYPE", "CI"))
 
@@ -11199,6 +11180,9 @@ def auto_wrap_namespace(namespace: Any) -> Any:
 
             if args.show_func_name:
                 wrapped = show_func_name_wrapper(wrapped)
+
+            if args.debug_stack_trace_regex:
+                wrapped = stack_trace_wrapper(wrapped, args.debug_stack_trace_regex)
 
             namespace[name] = wrapped
 

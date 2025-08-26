@@ -6,12 +6,13 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from _qwak_proto.qwak.feature_store.sources.data_source_pb2 import (
     DataSourceSpec as ProtoDataSourceSpec,
 )
+from _qwak_proto.qwak.feature_store.v1.internal.data_source.data_source_service_pb2 import (
+    GetDataSourceSourceCodeUploadResponse,
+)
 from qwak.clients.feature_store import FeatureRegistryClient
 from qwak.exceptions import QwakException
 from qwak.feature_store._common.artifact_utils import ArtifactSpec, ArtifactsUploader
-from qwak.feature_store._common.source_code_spec import (
-    SourceCodeSpec,
-)
+from qwak.feature_store._common.source_code_spec import SourceCodeSpec
 from qwak.feature_store._common.source_code_spec_factory import SourceCodeSpecFactory
 from qwak.feature_store.data_sources.attributes import DataSourceAttributes
 from qwak.feature_store.validations.validation_options import (
@@ -63,14 +64,16 @@ class BaseSource(ABC):
             uploaded_artifact_url = self._upload_artifact()
 
         if source_definition_path:
-            presign_url: (
-                str
+            code_upload_args: (
+                GetDataSourceSourceCodeUploadResponse
             ) = FeatureRegistryClient().get_datasource_source_code_presign_url(
-                ds_name=self.name
+                ds_name=self.name, repository_name=getattr(self, "repository")
             )
             source_code_spec: SourceCodeSpec = (
                 SourceCodeSpecFactory.get_zip_source_code_spec(
-                    main_entity_path=source_definition_path, presign_url=presign_url
+                    main_entity_path=source_definition_path,
+                    url=code_upload_args.upload_url,
+                    extra_headers=code_upload_args.extra_headers,
                 )
             )
 
@@ -113,6 +116,7 @@ class BaseSource(ABC):
             data_source=self,
             sample_size=number_of_rows,
             validation_options=validation_options,
+            silence_specific_exceptions=False,
         )
 
         if isinstance(response, SuccessValidationResponse):

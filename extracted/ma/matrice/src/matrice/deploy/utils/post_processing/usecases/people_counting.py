@@ -345,7 +345,7 @@ class PeopleCountingUseCase(BaseProcessor):
             elif self.current_incident_end_timestamp!='Incident still active' and self.current_incident_end_timestamp!='N/A':
                 self.current_incident_end_timestamp = 'N/A'
             
-            if config.alert_config and config.alert_config.count_thresholds:
+            if config.alert_config and hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 10)
                 intensity = min(10.0, (total_people / threshold) * 10)
                 
@@ -663,7 +663,7 @@ class PeopleCountingUseCase(BaseProcessor):
             pass
         
         # Zone occupancy threshold alerts
-        if config.alert_config.occupancy_thresholds:
+        if hasattr(config.alert_config, 'occupancy_thresholds') and config.alert_config.occupancy_thresholds:
             for zone_name, threshold in config.alert_config.occupancy_thresholds.items():
                 if zone_name in zone_analysis:
                     # Calculate zone_count robustly (supports int, list, dict values)

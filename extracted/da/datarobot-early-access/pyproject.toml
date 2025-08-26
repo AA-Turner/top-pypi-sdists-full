@@ -7,7 +7,6 @@ exclude = [
     ".venv",
     "docs/conf.py",
     "tests",
-    "sdk_docs",
     "drx",
 ]
 # TODO replace with project.requires-python
@@ -15,6 +14,7 @@ target-version = "py37"
 
 [tool.ruff.per-file-target-version]
 "datarobot/auth/*.py" = "py39"
+"sdk_docs/*.py" = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -30,6 +30,11 @@ select = [
     "U",
     # isort, since we are using isort
     "I",
+    # pygrep-hooks
+    # don't blanket noqa something
+    "PGH",
+    # refurb
+    "FURB"
 ]
 
 ignore = [
@@ -44,6 +49,8 @@ ignore = [
     # UP038: https://docs.astral.sh/ruff/rules/non-pep604-isinstance/
     "UP038", # deprecated and will be removed in the future
     "UP045", # TODO lot of errors
+    "PGH004", # TODO 23 errors, need to review each noqa
+    "FURB122", # TODO 10 errors, needs stronger testing
 ]
 
 [tool.ruff.lint.isort]

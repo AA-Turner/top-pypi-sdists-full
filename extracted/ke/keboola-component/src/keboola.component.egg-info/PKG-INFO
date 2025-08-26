@@ -1,12 +1,12 @@
 Metadata-Version: 2.1
 Name: keboola.component
-Version: 1.6.11
+Version: 1.6.12
 Summary: General library for Python applications running in Keboola Connection environment
 Home-page: https://github.com/keboola/python-component
 Author: Keboola KDS Team
 Author-email: support@keboola.com
 Project-URL: Documentation, https://keboola.github.io/python-component/interface.html
-Project-URL: Component Template project, https://bitbucket.org/kds_consulting_team/cookiecutter-python-component
+Project-URL: Component Template project, https://github.com/keboola/cookiecutter-python-component
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -16,7 +16,7 @@ Classifier: Intended Audience :: Education
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Development Status :: 5 - Production/Stable
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 

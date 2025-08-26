@@ -1,5 +1,6 @@
 import argparse
 import os
+from pathlib import Path
 import re
 from typing import Any, List, Optional
 from orionis.console.args.argument import CLIArgument
@@ -64,7 +65,8 @@ class Reactor(IReactor):
         self.__commands: dict[str, Command] = {}
 
         # Automatically discover and load command classes from the console commands directory
-        self.__loadCommands(self.__app.path('commands'), self.__root)
+        cli_commands_path = (Path(self.__app.path('console')) / 'commands').resolve()
+        self.__loadCommands(cli_commands_path, self.__root)
 
         # Load core command classes provided by the Orionis framework
         self.__loadCoreCommands()
@@ -112,6 +114,7 @@ class Reactor(IReactor):
         from orionis.console.commands.cache import CacheClearCommand
         from orionis.console.commands.scheduler_work import ScheduleWorkCommand
         from orionis.console.commands.scheduler_list import ScheduleListCommand
+        from orionis.console.commands.make_listener import MakeListenerCommand
 
         # List of core command classes to load (extend this list as more core commands are added)
         core_commands = [
@@ -122,7 +125,8 @@ class Reactor(IReactor):
             WorkFlowGithubCommand,
             CacheClearCommand,
             ScheduleWorkCommand,
-            ScheduleListCommand
+            ScheduleListCommand,
+            MakeListenerCommand
         ]
 
         # Iterate through the core command classes and register them

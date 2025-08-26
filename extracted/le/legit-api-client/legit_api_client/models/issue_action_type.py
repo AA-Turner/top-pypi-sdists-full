@@ -101,6 +101,7 @@ class IssueActionType(str, Enum):
     APPROVALREQUESTSTEPAPPROVED = 'ApprovalRequestStepApproved'
     USERSNOOZEDISSUEUNTILFIXAVAILABLE = 'UserSnoozedIssueUntilFixAvailable'
     ISSUECREATEDFROMMANUALUPLOAD = 'IssueCreatedFromManualUpload'
+    PULLREQUESTOPENED = 'PullRequestOpened'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

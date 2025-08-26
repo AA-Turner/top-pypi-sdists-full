@@ -9,6 +9,9 @@ from qwak.clients.feature_store.operator_client import FeaturesOperatorClient
 from qwak.exceptions import QwakException
 from qwak.feature_store.data_sources.base import BaseSource
 from qwak.feature_store.feature_sets.base_feature_set import BaseFeatureSet
+from qwak.feature_store.validations.validation_decorators import (
+    silence_backend_specific_validation_exceptions,
+)
 from qwak.feature_store.validations.validation_options import (
     DataSourceValidationOptions,
     FeatureSetValidationOptions,
@@ -52,13 +55,16 @@ class FeaturesOperatorValidator(Validator):
         self._operator_client = FeaturesOperatorClient()
         self._registry_client = FeatureRegistryClient()
 
+    @silence_backend_specific_validation_exceptions(
+        "Validating DataSource is not supported for self-hosted environments"
+    )
     def validate_data_source(
         self,
         data_source: BaseSource,
         sample_size: int = 10,
         validation_options: Optional[DataSourceValidationOptions] = None,
     ) -> Tuple[ValidationResponse, Optional[str]]:
-        if 0 >= sample_size > 1000:
+        if sample_size <= 0 or 1_000 < sample_size:
             raise ValueError(
                 f"sample_size must be under 1000 and positive, got: {sample_size}"
             )
@@ -76,18 +82,20 @@ class FeaturesOperatorValidator(Validator):
 
         return ValidationResponseFactory.from_proto(proto_response), artifact_url
 
+    @silence_backend_specific_validation_exceptions(
+        "Validating FeatureSet is not supported for self-hosted environments"
+    )
     def validate_featureset(
         self,
         featureset: BaseFeatureSet,
         sample_size: int = 10,
         validation_options: Optional[FeatureSetValidationOptions] = None,
     ) -> Tuple[ValidationResponse, Optional[str]]:
-        if 0 >= sample_size > 1000:
+        if sample_size <= 0 or 1_000 < sample_size:
             raise ValueError(
                 f"sample_size must be under 1000 and positive, got: {sample_size}"
             )
         artifact_url: Optional[str] = None
-
         featureset_spec, artifact_url = featureset._to_proto(
             feature_registry=self._registry_client, features=None, git_commit=None
         )

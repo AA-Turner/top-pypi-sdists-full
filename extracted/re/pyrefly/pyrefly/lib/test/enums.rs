@@ -62,6 +62,7 @@ def bar(member: int) -> None:
 def foo(member: MyEnum) -> None:
     assert_type(member.name, str)
     assert_type(member.value, int)
+    assert_type(member._value_, int)
 "#,
 );
 
@@ -162,6 +163,23 @@ class MyEnum(Enum):
 def test(e: MyEnum):
     # the inferred type use promoted types, for performance reasons
     assert_type(e.value, int | str)
+"#,
+);
+
+testcase!(
+    test_mutate_value,
+    r#"
+from enum import Enum
+class MyEnumAnnotated(Enum):
+    _value_: int
+    X = 1
+class MyEnumUnannotated(Enum):
+    X = 1
+def mutate(ea: MyEnumAnnotated, eu: MyEnumUnannotated) -> None:
+    ea._value_ = 2  # Allowed for now, because it must be permitted in `__init__`
+    ea.value = 2  # E: Cannot set field `value`
+    eu._value_ = 2  # Allowed for now, because it must be permitted in `__init__`
+    eu.value = 2  # E: Cannot set field `value`
 "#,
 );
 
@@ -484,5 +502,18 @@ testcase!(
     r#"
 from enum import Enum
 E = Enum('E', [])
+    "#,
+);
+
+testcase!(
+    test_empty_enum,
+    r#"
+from typing import Any, assert_type
+from enum import Enum
+class EmptyEnum(Enum):
+    # in real code there might be dynamic logic here, e.g. `vars()[key] = value`.
+    pass
+def test(x: EmptyEnum):
+    assert_type(x.value, Any)
     "#,
 );

@@ -37,6 +37,7 @@ from sqlmesh.core.model.kind import (
 )
 from sqlmesh.core.state_sync.db.snapshot import _snapshot_to_json
 from sqlmesh.dbt.builtin import _relation_info_to_relation
+from sqlmesh.dbt.common import Dependencies
 from sqlmesh.dbt.column import (
     ColumnConfig,
     column_descriptions_to_sqlmesh,
@@ -50,6 +51,7 @@ from sqlmesh.dbt.seed import SeedConfig, Integer
 from sqlmesh.dbt.target import BigQueryConfig, DuckDbConfig, SnowflakeConfig, ClickhouseConfig
 from sqlmesh.dbt.test import TestConfig
 from sqlmesh.utils.errors import ConfigError, MacroEvalError, SQLMeshError
+from sqlmesh.utils.jinja import MacroReference
 
 pytestmark = [pytest.mark.dbt, pytest.mark.slow]
 
@@ -685,6 +687,33 @@ def test_seed_column_inference(tmp_path):
         "boolean_col": exp.DataType.build("boolean"),
         "text_col": exp.DataType.build("text"),
     }
+
+
+def test_seed_single_whitespace_is_na(tmp_path):
+    seed_csv = tmp_path / "seed.csv"
+    with open(seed_csv, "w", encoding="utf-8") as fd:
+        fd.write("col_a, col_b\n")
+        fd.write(" ,1\n")
+        fd.write("2, \n")
+
+    seed = SeedConfig(
+        name="test_model",
+        package="foo",
+        path=Path(seed_csv),
+    )
+
+    context = DbtContext()
+    context.project_name = "foo"
+    context.target = DuckDbConfig(name="target", schema="test")
+    sqlmesh_seed = seed.to_sqlmesh(context)
+    assert sqlmesh_seed.columns_to_types == {
+        "col_a": exp.DataType.build("int"),
+        "col_b": exp.DataType.build("int"),
+    }
+
+    df = next(sqlmesh_seed.render_seed())
+    assert df["col_a"].to_list() == [None, 2]
+    assert df["col_b"].to_list() == [1, None]
 
 
 def test_seed_partial_column_inference(tmp_path):
@@ -1344,6 +1373,29 @@ def test_is_incremental(sushi_test_project: Project, assert_exp_eq, mocker):
         'SELECT 1 AS "one" FROM "tbl_a" AS "tbl_a" WHERE "ds" > (SELECT MAX("ds") FROM "model" AS "model")',
     )
 
+    # If the snapshot_table_exists flag was set to False, intervals should be ignored
+    assert_exp_eq(
+        model_config.to_sqlmesh(context)
+        .render_query_or_raise(snapshot=snapshot, snapshot_table_exists=False)
+        .sql(),
+        'SELECT 1 AS "one" FROM "tbl_a" AS "tbl_a"',
+    )
+
+    # If the snapshot_table_exists flag was set to True, intervals should be taken into account
+    assert_exp_eq(
+        model_config.to_sqlmesh(context)
+        .render_query_or_raise(snapshot=snapshot, snapshot_table_exists=True)
+        .sql(),
+        'SELECT 1 AS "one" FROM "tbl_a" AS "tbl_a" WHERE "ds" > (SELECT MAX("ds") FROM "model" AS "model")',
+    )
+    snapshot.intervals = []
+    assert_exp_eq(
+        model_config.to_sqlmesh(context)
+        .render_query_or_raise(snaspshot=snapshot, snapshot_table_exists=True)
+        .sql(),
+        'SELECT 1 AS "one" FROM "tbl_a" AS "tbl_a"',
+    )
+
 
 @pytest.mark.xdist_group("dbt_manifest")
 def test_is_incremental_non_incremental_model(sushi_test_project: Project, assert_exp_eq, mocker):
@@ -1530,6 +1582,9 @@ def test_dbt_package_macros(sushi_test_project: Project):
 @pytest.mark.xdist_group("dbt_manifest")
 def test_dbt_vars(sushi_test_project: Project):
     context = sushi_test_project.context
+    context.set_and_render_variables(
+        sushi_test_project.packages["customers"].variables, "customers"
+    )
 
     assert context.render("{{ var('some_other_var') }}") == "5"
     assert context.render("{{ var('some_other_var', 0) }}") == "5"
@@ -1854,3 +1909,65 @@ def test_on_run_start_end():
             "CREATE OR REPLACE TABLE schema_table_sushi__dev_nested_package AS SELECT 'sushi__dev' AS schema",
         ]
     )
+
+
+@pytest.mark.xdist_group("dbt_manifest")
+def test_dynamic_var_names(sushi_test_project: Project, sushi_test_dbt_context: Context):
+    context = sushi_test_project.context
+    context.set_and_render_variables(sushi_test_project.packages["sushi"].variables, "sushi")
+    context.target = BigQueryConfig(name="production", database="main", schema="sushi")
+    model_config = ModelConfig(
+        name="model",
+        alias="model",
+        schema="test",
+        package_name="package",
+        materialized="table",
+        unique_key="ds",
+        partition_by={"field": "ds", "granularity": "month"},
+        sql="""
+        {% set var_name = "yet_" + "another_" + "var" %}
+        {% set results = run_query('select 1 as one') %}
+        {% if results %}
+        SELECT {{ results.columns[0].values()[0] }} AS one {{ var(var_name) }} AS var FROM {{ this.identifier }}
+        {% else %}
+        SELECT NULL AS one {{ var(var_name) }} AS var FROM {{ this.identifier }}
+        {% endif %}
+        """,
+        dependencies=Dependencies(has_dynamic_var_names=True),
+    )
+    converted_model = model_config.to_sqlmesh(context)
+    assert "yet_another_var" in converted_model.jinja_macros.global_objs["vars"]  # type: ignore
+
+    # Test the existing model in the sushi project
+    assert (
+        "dynamic_test_var"  # type: ignore
+        in sushi_test_dbt_context.get_model(
+            "sushi.waiter_revenue_by_day_v2"
+        ).jinja_macros.global_objs["vars"]
+    )
+
+
+@pytest.mark.xdist_group("dbt_manifest")
+def test_dynamic_var_names_in_macro(sushi_test_project: Project):
+    context = sushi_test_project.context
+    context.set_and_render_variables(sushi_test_project.packages["sushi"].variables, "sushi")
+    context.target = BigQueryConfig(name="production", database="main", schema="sushi")
+    model_config = ModelConfig(
+        name="model",
+        alias="model",
+        schema="test",
+        package_name="package",
+        materialized="table",
+        unique_key="ds",
+        partition_by={"field": "ds", "granularity": "month"},
+        sql="""
+        {% set var_name = "dynamic_" + "test_" + "var" %}
+        SELECT {{ sushi.dynamic_var_name_dependency(var_name) }} AS var
+        """,
+        dependencies=Dependencies(
+            macros=[MacroReference(package="sushi", name="dynamic_var_name_dependency")],
+            has_dynamic_var_names=True,
+        ),
+    )
+    converted_model = model_config.to_sqlmesh(context)
+    assert "dynamic_test_var" in converted_model.jinja_macros.global_objs["vars"]  # type: ignore

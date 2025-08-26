@@ -1339,3 +1339,11 @@ def delete_support_request_acknowledgement(
     return apiclient.user_api.delete_support_request_acknowledgement(
         support_request_acknowledgement_id, **kwargs
     )
+
+
+def list_org_upstream_user_identities(ctx, **kwargs):
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    query_results = apiclient.user_api.list_org_upstream_user_identity(**kwargs)
+    if query_results:
+        return query_results.org_upstream_user_identities
+    return []

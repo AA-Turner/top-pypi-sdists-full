@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 import trafaret as t
 
 from datarobot._compat import String, TypedDict
-from datarobot.enums import DATA_STORE_TABLE_TYPE, DataStoreListTypes, DataStoreTypes
+from datarobot.enums import DATA_STORE_TABLE_TYPE, DataStoreListTypes, DataStoreTypes, DataTypes
 from datarobot.errors import CredentialsError
 from datarobot.models.api_object import APIObject, ServerDataType
 from datarobot.models.credential import CredentialDataSchema
@@ -168,6 +168,7 @@ class DataStore(APIObject):
         typ: Optional[Union[str, DataStoreListTypes]] = None,
         name: Optional[str] = None,
         substitute_url_parameters: Optional[bool] = False,
+        data_type: Optional[DataTypes] = None,
     ) -> List[DataStore]:
         """
         Returns list of available data stores.
@@ -182,6 +183,9 @@ class DataStore(APIObject):
             The search is case-insensitive.
         substitute_url_parameters: bool
             If specified, dynamic parameters in the URL will be substituted.
+        data_type : DataTypes
+            If specified, filters data stores which support the specified data type. If not specified it will
+            default to DataTypes.ALL
 
         Returns
         -------
@@ -204,6 +208,8 @@ class DataStore(APIObject):
             params["name"] = name
         if substitute_url_parameters:
             params["substituteUrlParameters"] = "True"
+        if data_type is not None:
+            params["dataType"] = str(data_type)
 
         if params:
             r_data = cls._client.get(cls._path, params=params).json()

@@ -1,26 +1,32 @@
-Metadata-Version: 2.1
-Name: cron-descriptor
-Version: 1.4.5
+Metadata-Version: 2.4
+Name: cron_descriptor
+Version: 2.0.4
 Summary: A Python library that converts cron expressions into human readable strings.
-Home-page: https://github.com/Salamek/cron-descriptor
-Author: Adam Schubert
-Author-email: adam.schubert@sg1-game.net
+Author-email: Adam Schubert <adam.schubert@sg1-game.net>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/Salamek/cron-descriptor
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-Provides-Extra: dev
 License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: polib; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
 
 # Cron Descriptor
 
@@ -38,7 +44,7 @@ A Python library that converts cron expressions into human readable strings. Por
  * Supports 5, 6 (w/ seconds or year), or 7 (w/ seconds and year) part cron expressions
  * Provides casing options (Sentence, Title, Lower, etc.)
  * Localization with support for 17 languages
- * Supports Python 3.8 - 3.12
+ * Supports Python 3.8 - 3.13
 
 ## Installation
 Using PIP

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scalene
-Version: 1.5.53
+Version: 1.5.54
 Summary: Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python with AI-powered optimization suggestions
 Author-email: Emery Berger <emery@cs.umass.edu>, Sam Stern <jstern@umass.edu>, Juan Altmayer Pizzorno <juan@altmayer.com>
 Project-URL: Homepage, https://github.com/plasma-umass/scalene
@@ -16,7 +16,6 @@ Classifier: Topic :: Software Development :: Debuggers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -75,11 +74,12 @@ optimizations.
 
 > **Note**
 >
-> To enable AI-powered optimization suggestions, you need to enter an [OpenAI key](https://openai.com/api/) in the box under "Advanced options". _Your account will need to have a positive balance for this to work_ (check your balance at https://platform.openai.com/account/usage).
+> For optimization suggestions, Scalene supports a variety of AI providers, including [Amazon Bedrock](https://aws.amazon.com/bedrock), [Microsoft Azure](https://azure.microsoft.com/en-us/), [OpenAI](https://openai.com), and local models via [Ollama](https://ollama.com/). To enable AI-powered optimization suggestions from AI providers, you need to select a provider and, if needed, enter your credentials, in the box under "AI Optimization Options".
 >
-> <img width="487" alt="Scalene advanced options" src="https://user-images.githubusercontent.com/1612723/211639253-ec926b38-3efe-4a20-8514-e10dde94ec01.png">
+> <img width="607" height="316" alt="AI Optimization Options" src="https://github.com/user-attachments/assets/3c803237-063f-481a-8624-5c1d7f205c8a" />
 
-Once you've entered your OpenAI key (see above), click on the lightning bolt (⚡) beside any line or the explosion (💥) for an entire region of code to generate a proposed optimization. Click on a proposed optimization to copy it to the clipboard.
+
+Once you've entered your key and any other needed data, click on the lightning bolt (⚡) beside any line or the explosion (💥) for an entire region of code to generate a proposed optimization. Click on a proposed optimization to copy it to the clipboard.
 
 <img width="571" alt="example proposed optimization" src="https://user-images.githubusercontent.com/1612723/211639968-37cf793f-3290-43d1-9282-79e579558388.png">
 

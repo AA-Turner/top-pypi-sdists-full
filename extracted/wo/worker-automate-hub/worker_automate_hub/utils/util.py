@@ -3451,11 +3451,7 @@ async def check_nota_importada(xml_nota: str) -> RpaRetornoProcessoDTO:
                             "\nNota lançada com sucesso, processo finalizado...",
                             style="bold green",
                         )
-                        return RpaRetornoProcessoDTO(
-                            sucesso=True,
-                            retorno="Nota Lançada com sucesso!",
-                            status=RpaHistoricoStatusEnum.Sucesso,
-                        )
+                        break
                 except:
                     pass
                 

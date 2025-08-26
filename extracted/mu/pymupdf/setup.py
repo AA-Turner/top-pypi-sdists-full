@@ -176,6 +176,9 @@ Environmental variables:
         
         Any other prefix is an error.
 
+    PYMUPDF_SETUP_SWIG
+        If set, we use this instead of `swig`.
+    
     WDEV_VS_YEAR
         If set, we use as Visual Studio year, for example '2019' or '2022'.
 
@@ -204,22 +207,9 @@ import zipfile
 import pipcl
 
 
-_log_prefix = None
-def log( text):
-    global _log_prefix
-    if not _log_prefix:
-        # This typically sets _log_prefix to `PyMuPDF/setup.py`.
-        p = os.path.abspath( __file__)
-        p, p1 = os.path.split( p)
-        p, p0 = os.path.split( p)
-        _log_prefix = os.path.join( p0, p1)
-    print(f'{_log_prefix}: {text}', file=sys.stdout)
-    sys.stdout.flush()
+log = pipcl.log0
 
-
-def run(command, check=1):
-    log(f'Running: {command}')
-    return subprocess.run( command, shell=1, check=check)
+run = pipcl.run
 
 
 if 1:
@@ -254,6 +244,7 @@ log(f'{PYMUPDF_SETUP_URL_WHEEL=}')
 PYMUPDF_SETUP_DUMMY = os.environ.get('PYMUPDF_SETUP_DUMMY')
 log(f'{PYMUPDF_SETUP_DUMMY=}')
 
+PYMUPDF_SETUP_SWIG = os.environ.get('PYMUPDF_SETUP_SWIG')
 
 def _fs_remove(path):
     '''
@@ -478,7 +469,7 @@ def get_mupdf_internal(out, location=None, sha=None, local_tgz=None):
         local_dir = 'mupdf-git'
         
         # Try to update existing checkout.
-        e = run(f'cd {local_dir} && git pull && git submodule update --init', check=False).returncode
+        e = run(f'cd {local_dir} && git pull && git submodule update --init', check=False)
         if e:
             # No existing git checkout, so do a fresh clone.
             _fs_remove(local_dir)
@@ -583,18 +574,23 @@ darwin = sys.platform.startswith( 'darwin')
 windows = platform.system() == 'Windows' or platform.system().startswith('CYGWIN')
 msys2 = platform.system().startswith('MSYS_NT-')
 
+pyodide_flags = '-fwasm-exceptions'
+
 if os.environ.get('PYODIDE') == '1':
     if os.environ.get('OS') != 'pyodide':
         log('PYODIDE=1, setting OS=pyodide.')
         os.environ['OS'] = 'pyodide'
+        os.environ['XCFLAGS'] = pyodide_flags
+        os.environ['XCXXFLAGS'] = pyodide_flags
 
 pyodide = os.environ.get('OS') == 'pyodide'
-
 
 def build():
     '''
     pipcl.py `build_fn()` callback.
     '''
+    #pipcl.show_sysconfig()
+    
     if PYMUPDF_SETUP_DUMMY == '1':
         log(f'{PYMUPDF_SETUP_DUMMY=} Building dummy wheel with no files.')
         return list()
@@ -639,6 +635,7 @@ def build():
                     g_py_limited_api,
                     PYMUPDF_SETUP_MUPDF_REFCHECK_IF,
                     PYMUPDF_SETUP_MUPDF_TRACE_IF,
+                    PYMUPDF_SETUP_SWIG,
                     )
     log( f'build(): mupdf_build_dir={mupdf_build_dir!r}')
     
@@ -734,7 +731,32 @@ def build():
                         add('d', f'{header_abs}', f'{to_dir_d}/include/{header_rel}')
     
     # Add a .py file containing location of MuPDF.
-    text = f"mupdf_location='{mupdf_location}'\n"
+    try:
+        sha, comment, diff, branch = git_info(g_root)
+    except Exception as e:
+        log(f'Failed to get git information: {e}')
+        sha, comment, diff, branch = (None, None, None, None)
+    swig = PYMUPDF_SETUP_SWIG or 'swig'
+    swig_version_text = run(f'{swig} --version', capture=1)
+    m = re.search('\nSWIG Version ([^\n]+)', swig_version_text)
+    log(f'{swig_version_text=}')
+    assert m, f'Unrecognised {swig_version_text=}'
+    swig_version = m.group(1)
+    def int_or_0(text):
+        try:
+            return int(text)
+        except Exception:
+            return 0
+    swig_version_tuple = tuple(int_or_0(i) for i in swig_version.split('.'))
+    log(f'{swig_version=}')
+    text = ''
+    text += f'mupdf_location = {mupdf_location!r}\n'
+    text += f'pymupdf_version = {version_p!r}\n'
+    text += f'pymupdf_git_sha = {sha!r}\n'
+    text += f'pymupdf_git_diff = {diff!r}\n'
+    text += f'pymupdf_git_branch = {branch!r}\n'
+    text += f'swig_version = {swig_version!r}\n'
+    text += f'swig_version_tuple = {swig_version_tuple!r}\n'
     add('p', text.encode(), f'{to_dir}/_build.py')
     
     # Add single README file.
@@ -807,12 +829,11 @@ def build_mupdf_windows(
     devenv = os.environ.get('PYMUPDF_SETUP_DEVENV')
     if not devenv:
         try:
-            # Prefer VS-2019 as that is what MuPDF's project/solution files are
-            # written for.
-            log(f'Looking for Visual Studio 2019.')
-            vs = pipcl.wdev.WindowsVS(year=2019)
+            # Prefer VS-2022 as that is what Github provide in windows-2022.
+            log(f'Looking for Visual Studio 2022.')
+            vs = pipcl.wdev.WindowsVS(year=2022)
         except Exception as e:
-            log(f'Failed to find VS-2019:\n'
+            log(f'Failed to find VS-2022:\n'
                     f'{textwrap.indent(traceback.format_exc(), "    ")}'
                     )
             log(f'Looking for any Visual Studio.')
@@ -882,6 +903,7 @@ def build_mupdf_unix(
         g_py_limited_api,
         PYMUPDF_SETUP_MUPDF_REFCHECK_IF,
         PYMUPDF_SETUP_MUPDF_TRACE_IF,
+        PYMUPDF_SETUP_SWIG,
         ):
     '''
     Builds MuPDF.
@@ -995,13 +1017,20 @@ def build_mupdf_unix(
     if g_py_limited_api:
         build_prefix += f'Py_LIMITED_API_{pipcl.current_py_limited_api()}-'
     unix_build_dir = f'{mupdf_local}/build/{build_prefix}{build_type}'
+    PYMUPDF_SETUP_MUPDF_CLEAN = os.environ.get('PYMUPDF_SETUP_MUPDF_CLEAN')
+    if PYMUPDF_SETUP_MUPDF_CLEAN == '1':
+        log(f'{PYMUPDF_SETUP_MUPDF_CLEAN=}, deleting {unix_build_dir=}.')
+        shutil.rmtree(unix_build_dir, ignore_errors=1)
     # We need MuPDF's Python bindings, so we build MuPDF with
     # `mupdf/scripts/mupdfwrap.py` instead of running `make`.
     #
     command = f'cd {mupdf_local} &&'
     for n, v in env.items():
         command += f' {n}={shlex.quote(v)}'
-    command += f' {sys.executable} ./scripts/mupdfwrap.py -d build/{build_prefix}{build_type} -b'
+    command += f' {sys.executable} ./scripts/mupdfwrap.py'
+    if PYMUPDF_SETUP_SWIG:
+        command += f' --swig {shlex.quote(PYMUPDF_SETUP_SWIG)}'
+    command += f' -d build/{build_prefix}{build_type} -b'
     #command += f' --m-target libs'
     if PYMUPDF_SETUP_MUPDF_REFCHECK_IF:
         command += f' --refcheck-if "{PYMUPDF_SETUP_MUPDF_REFCHECK_IF}"'
@@ -1101,6 +1130,7 @@ def _build_extension( mupdf_local, mupdf_build_dir, build_type, g_py_limited_api
             prerequisites_compile = f'{mupdf_local}/include',
             prerequisites_link = libraries,
             py_limited_api = g_py_limited_api,
+            swig = PYMUPDF_SETUP_SWIG,
             )
     
     return path_so_leaf
@@ -1181,6 +1211,10 @@ def _extension_flags( mupdf_local, mupdf_build_dir, build_type):
         if cxxflags:
             compiler_extra += f' {cxxflags}'
 
+    if pyodide:
+        compiler_extra += f' {pyodide_flags}'
+        linker_extra += f' {pyodide_flags}'
+        
     return compiler_extra, linker_extra, includes, defines, optimise, debug, libpaths, libs, libraries, 
 
 
@@ -1246,9 +1280,9 @@ classifier = [
 #
 
 # PyMuPDF version.
-version_p = '1.26.3'
+version_p = '1.26.4'
 
-version_mupdf = '1.26.3'
+version_mupdf = '1.26.7'
 
 # PyMuPDFb version. This is the PyMuPDF version whose PyMuPDFb wheels we will
 # (re)use if generating separate PyMuPDFb wheels. Though as of PyMuPDF-1.24.11
@@ -1292,7 +1326,7 @@ else:
         readme_d = f.read()
 
     tag_python = None
-    requires_dist = None,
+    requires_dist = list()
     entry_points = None
     
     if 'p' in PYMUPDF_SETUP_FLAVOUR:
@@ -1301,7 +1335,7 @@ else:
         readme = readme_p
         summary = 'A high performance Python library for data extraction, analysis, conversion & manipulation of PDF (and other) documents.'
         if 'b' not in PYMUPDF_SETUP_FLAVOUR:
-            requires_dist = f'PyMuPDFb =={version_b}'
+            requires_dist.append(f'PyMuPDFb =={version_b}')
         # Create a `pymupdf` command.
         entry_points = textwrap.dedent('''
                 [console_scripts]
@@ -1321,6 +1355,10 @@ else:
         tag_python = 'py3'
     else:
         assert 0, f'Unrecognised {PYMUPDF_SETUP_FLAVOUR=}.'
+    
+    if os.environ.get('PYODIDE_ROOT'):
+        # We can't pip install pytest on pyodide, so specify it here.
+        requires_dist.append('pytest')
 
     p = pipcl.Package(
             name,

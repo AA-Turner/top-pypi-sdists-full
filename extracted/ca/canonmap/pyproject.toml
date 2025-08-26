@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "canonmap"
-version = "0.4.87"
+version = "0.4.90"
 description = "A data matching and canonicalization library with multipl database connector support"
 readme = "README.md"
 license = {text = "MIT"}

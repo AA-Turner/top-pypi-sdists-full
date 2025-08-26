@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-labs-dqx
-Version: 0.8.0
+Version: 0.9.1
 Dynamic: Description
 Dynamic: Description-Content-Type
 Summary: Data Quality eXtended (DQX) is a Python library for data quality checks and data quality monitoring
@@ -30,4 +30,8 @@ Requires-Dist: databricks-labs-blueprint<0.10,>=0.9.1
 Requires-Dist: databricks-labs-lsql<0.15,>=0.5
 Requires-Dist: databricks-sdk~=0.57
 Provides-Extra: cli
-Requires-Dist: pyspark~=3.5.0; extra == 'cli'
+Requires-Dist: databricks-connect~=15.4; extra == 'cli'
+Provides-Extra: pii
+Requires-Dist: numpy<2.0,>=1.20; extra == 'pii'
+Requires-Dist: presidio-analyzer~=2.2.359; extra == 'pii'
+Requires-Dist: spacy~=3.8; extra == 'pii'

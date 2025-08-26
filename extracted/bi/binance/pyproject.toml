@@ -11,7 +11,7 @@ only-include = ["src/binance"]
 
 [project]
 name = "binance"
-version = "0.3.64"
+version = "0.3.65"
 authors = [
     { name="CCXT", email="info@ccxt.trade" },
 ]

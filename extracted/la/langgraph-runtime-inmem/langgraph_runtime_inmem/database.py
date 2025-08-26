@@ -208,6 +208,6 @@ async def healthcheck() -> None:
     pass
 
 
-def pool_stats() -> dict[str, dict[str, int]]:
+def pool_stats(*args, **kwargs) -> dict[str, dict[str, int]]:
     # TODO??
     return {}

@@ -112,10 +112,13 @@ class JWSAlgModel(object, metaclass=ABCMeta):
     key_type = "oct"
     algorithm_type: Literal["JWS"] = "JWS"
     algorithm_location = "sig"
+    algorithm_security = 0
 
-    def check_key_type(self, key: Any) -> None:
+    def check_key(self, key: Any) -> None:
+        key.check_use("sig")
         if key.key_type != self.key_type:
             raise InvalidKeyTypeError(f"Algorithm '{self.name}' requires '{self.key_type}' key")
+        key.check_alg(self.name)
 
     @abstractmethod
     def sign(self, msg: bytes, key: Any) -> bytes:

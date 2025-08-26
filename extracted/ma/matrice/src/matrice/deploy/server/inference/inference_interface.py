@@ -127,11 +127,28 @@ class InferenceInterface:
                 if app_config:
                     # If we have both app config and original config dict, merge them
                     if config and isinstance(config, dict):
+                        self.logger.debug(f"Merging provided config into app config for {app_name}")
+                        self.logger.debug(f"Provided config keys: {list(config.keys())}")
                         # Apply the original config parameters to the app config
                         for key, value in config.items():
                             if hasattr(app_config, key) and value is not None:
-                                setattr(app_config, key, value)
-                                self.logger.debug(f"Applied config parameter {key}={value} to app config")
+                                # Handle nested dictionaries properly
+                                if isinstance(value, dict) and hasattr(app_config, key):
+                                    current_value = getattr(app_config, key)
+                                    if isinstance(current_value, dict):
+                                        # Merge dictionaries
+                                        merged_dict = {**(current_value or {}), **value}
+                                        setattr(app_config, key, merged_dict)
+                                        self.logger.debug(f"Merged nested dict for {key}: {merged_dict}")
+                                    else:
+                                        setattr(app_config, key, value)
+                                        self.logger.debug(f"Applied config parameter {key}={value} to app config")
+                                else:
+                                    setattr(app_config, key, value)
+                                    self.logger.debug(f"Applied config parameter {key}={value} to app config")
+                            elif value is not None:
+                                self.logger.warning(f"Config key '{key}' not found in app config, skipping")
+                        self.logger.debug(f"Final app config zone_config: {getattr(app_config, 'zone_config', None)}")
                     return app_config
                 else:
                     self.logger.warning(f"No config found for app: {app_name}")
@@ -147,6 +164,22 @@ class InferenceInterface:
                 config_params.pop("usecase", None)
                 config_params.pop("category", None)
                 category = config.get("category", "general")
+                
+                # Filter out parameters for use cases that don't need them
+                facial_recognition_usecases = {
+                    "face_recognition"
+                }
+                
+                # Remove facial_recognition_server_id if not needed
+                if usecase not in facial_recognition_usecases and "facial_recognition_server_id" in config_params:
+                    self.logger.debug(f"Removing facial_recognition_server_id from {usecase} config as it's not needed")
+                    config_params.pop("facial_recognition_server_id", None)
+                
+                # Remove session if not needed (only needed for face recognition use cases)
+                if usecase not in facial_recognition_usecases and "session" in config_params:
+                    self.logger.debug(f"Removing session from {usecase} config as it's not needed")
+                    config_params.pop("session", None)
+                
                 # Use generic config creation to avoid parameter conflicts
                 config = self.post_processor.create_config(
                     usecase, category, **config_params

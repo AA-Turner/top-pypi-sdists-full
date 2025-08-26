@@ -38,49 +38,51 @@ class EntityServiceMock(EntityServiceServicer):
         entity_id: str = request.entity_id
 
         if entity_id not in self._entity_id_name.keys():
+            context.set_details(f"Entity ID {request.entity_id} doesn't exist'")
             context.set_code(grpc.StatusCode.NOT_FOUND)
-        else:
-            entity_name: str = self._entity_id_name[entity_id]
-            del self._entity_id_name[entity_id]
-            del self._entities_spec[entity_name]
+            return
 
-            return DeleteEntityResponse()
+        entity_name: str = self._entity_id_name[entity_id]
+        del self._entity_id_name[entity_id]
+        del self._entities_spec[entity_name]
+
+        return DeleteEntityResponse()
 
     def GetEntityByName(self, request, context):
         if request.entity_name not in self._entities_spec:
             context.set_code(grpc.StatusCode.NOT_FOUND)
             return GetEntityByNameResponse()
-        else:
-            entity_key: str = list(self._entity_id_name.keys())[
-                list(self._entity_id_name.values()).index(request.entity_name)
-            ]
-            return GetEntityByNameResponse(
-                entity=Entity(
-                    entity_definition=EntityDefinition(
-                        entity_id=entity_key,
-                        entity_spec=self._entities_spec[request.entity_name],
-                    ),
-                    metadata=None,
-                    feature_sets=[],
-                )
+
+        entity_key: str = list(self._entity_id_name.keys())[
+            list(self._entity_id_name.values()).index(request.entity_name)
+        ]
+        return GetEntityByNameResponse(
+            entity=Entity(
+                entity_definition=EntityDefinition(
+                    entity_id=entity_key,
+                    entity_spec=self._entities_spec[request.entity_name],
+                ),
+                metadata=None,
+                feature_sets=[],
             )
+        )
 
     def GetEntityById(self, request, context):
         if request.entity_id not in self._entity_id_name:
             context.set_code(grpc.StatusCode.NOT_FOUND)
             return GetEntityByIdResponse()
-        else:
-            entity_name: str = self._entity_id_name[request.entity_id]
-            return GetEntityByIdResponse(
-                entity=Entity(
-                    entity_definition=EntityDefinition(
-                        entity_id=request.entity_id,
-                        entity_spec=self._entities_spec[entity_name],
-                    ),
-                    metadata=None,
-                    feature_sets=[],
-                )
+
+        entity_name: str = self._entity_id_name[request.entity_id]
+        return GetEntityByIdResponse(
+            entity=Entity(
+                entity_definition=EntityDefinition(
+                    entity_id=request.entity_id,
+                    entity_spec=self._entities_spec[entity_name],
+                ),
+                metadata=None,
+                feature_sets=[],
             )
+        )
 
     def ListEntities(self, request, context):
         return ListEntitiesResponse(

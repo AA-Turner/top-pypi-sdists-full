@@ -27,6 +27,7 @@ __all__ = (
     "CapabilityTypeType",
     "ConversionSourceFormatType",
     "ConversionTargetFormatType",
+    "ElementRequirementType",
     "FileFormatType",
     "FromFormatType",
     "LineTerminatorType",
@@ -58,6 +59,7 @@ CapabilityDirectionType = Literal["INBOUND", "OUTBOUND"]
 CapabilityTypeType = Literal["edi"]
 ConversionSourceFormatType = Literal["JSON", "XML"]
 ConversionTargetFormatType = Literal["X12"]
+ElementRequirementType = Literal["MANDATORY", "OPTIONAL"]
 FileFormatType = Literal["JSON", "NOT_USED", "XML"]
 FromFormatType = Literal["X12"]
 LineTerminatorType = Literal["CR", "CRLF", "LF"]
@@ -459,6 +461,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -470,8 +473,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

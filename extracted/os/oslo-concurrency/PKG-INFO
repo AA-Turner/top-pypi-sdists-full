@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: oslo.concurrency
-Version: 7.1.0
+Version: 7.2.0
 Summary: Oslo Concurrency library
 Home-page: https://docs.openstack.org/oslo.concurrency/latest/
 Author: OpenStack

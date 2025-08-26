@@ -14,11 +14,11 @@ class Paths(BaseEntity):
         }
     )
 
-    commands: str = field(
-        default_factory = lambda: str((Path.cwd() / 'app' / 'console' / 'commands').resolve()),
+    console: str = field(
+        default_factory = lambda: str((Path.cwd() / 'app' / 'console').resolve()),
         metadata = {
             'description': 'Directory containing subfolders for console commands and scheduler.py.',
-            'default': lambda: str((Path.cwd() / 'app' / 'console' / 'commands').resolve())
+            'default': lambda: str((Path.cwd() / 'app' / 'console').resolve())
         }
     )
 

@@ -424,6 +424,8 @@ async def consume(
     run_id: str | uuid.UUID,
     resumable: bool = False,
     stream_modes: set[StreamMode] | None = None,
+    *,
+    thread_id: str | uuid.UUID | None = None,
 ) -> None:
     stream_modes = stream_modes or set()
     if "messages-tuple" in stream_modes:
@@ -437,6 +439,7 @@ async def consume(
                     run_id,
                     mode,
                     await run_in_executor(None, json_dumpb, payload),
+                    thread_id=thread_id,
                     resumable=resumable and mode.split("|")[0] in stream_modes,
                 )
         except Exception as e:
@@ -446,6 +449,7 @@ async def consume(
                 run_id,
                 "error",
                 await run_in_executor(None, json_dumpb, e),
+                thread_id=thread_id,
             )
             raise e
 

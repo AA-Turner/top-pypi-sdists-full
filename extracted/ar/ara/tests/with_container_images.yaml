@@ -13,19 +13,19 @@
     images:
       # These are in chronological order of release so that we don't end up
       # running SQL migrations backwards during the tests.
-      - tag: fedora39-source-latest
+      - tag: fedora41-source-latest
         script: fedora-source.sh
         name: localhost/ara-api
       - tag: centos9-source-latest
         script: centos-source.sh
         name: localhost/ara-api
-      - tag: fedora39-pypi-latest
+      - tag: fedora41-pypi-latest
         script: fedora-pypi.sh
         name: localhost/ara-api
       - tag: centos9-pypi-latest
         script: centos-pypi.sh
         name: localhost/ara-api
-      - tag: fedora39-distribution-latest
+      - tag: fedora41-distribution-latest
         script: fedora-distribution.sh
         name: localhost/ara-api
   tasks:
@@ -50,9 +50,9 @@
     # Only attempt to elevate privileges if there are any missing packages
     # This lets us run this playbook without requiring elevated privileges
     - when: _missing_packages | length > 0
-      become: true
       block:
         - name: Install required packages
+          become: true
           package:
             name: "{{ required_test_packages }}"
             state: present

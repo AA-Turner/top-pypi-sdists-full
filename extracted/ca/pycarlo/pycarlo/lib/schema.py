@@ -71632,6 +71632,11 @@ class ReportArgumentsAlerts(sgqlc.types.Type, ReportArgumentsInterface):
     monitor_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorId")
 
 
+class ReportArgumentsConsumption(sgqlc.types.Type, ReportArgumentsInterface):
+    __schema__ = schema
+    __field_names__ = ()
+
+
 class ReportArgumentsEvents(sgqlc.types.Type, ReportArgumentsInterface):
     __schema__ = schema
     __field_names__ = ("alert_id",)

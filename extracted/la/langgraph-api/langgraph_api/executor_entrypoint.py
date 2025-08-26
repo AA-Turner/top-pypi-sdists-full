@@ -20,4 +20,7 @@ if __name__ == "__main__":
         uvloop.install()
     except ImportError:
         pass
+    from langgraph_api import config
+
+    config.IS_EXECUTOR_ENTRYPOINT = True
     asyncio.run(main(grpc_port=args.grpc_port, entrypoint_name="python-executor"))

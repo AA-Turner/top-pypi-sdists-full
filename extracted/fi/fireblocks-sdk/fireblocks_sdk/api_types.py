@@ -225,18 +225,21 @@ class FireblocksApiException(Exception):
         self.error_code = error_code
         super().__init__(self.message)
 
+
 class RescanTx:
     """
         Args
         asset_id (string): The asset symbol
         tx_hash (string): The hash of the transaction
     """
+
     def __init__(self, asset_id, tx_hash):
         self.asset_id = asset_id
         self.tx_hash = tx_hash
 
     def to_dict(self):
         return convert_class_to_dict(self.__dict__)
+
 
 class PagedVaultAccountsRequestFilters:
     """ Optional filters to apply for request
@@ -391,10 +394,12 @@ class NFTsWalletTypeValues(str, Enum):
     VAULT_ACCOUNT = "VAULT_ACCOUNT"
     END_USER_WALLET = "END_USER_WALLET"
 
+
 class SpamTokenOwnershipValues(str, Enum):
     TRUE = "true"
     FALSE = "false"
     ALL = "all"
+
 
 class TokenOwnershipSpamUpdatePayload:
     def __init__(self, asset_id: str, spam: bool):
@@ -408,12 +413,72 @@ class TokenOwnershipSpamUpdatePayload:
         }
 
 
+class AssetNoteRequest:
+    def __init__(self, text: Union[str, None, object] = object()):
+        """
+        Args:
+            text (str | None): Asset user note.
+        """
+        if text is not AssetNoteRequest.__init__.__defaults__[0]:
+            self.text = text
+
+    def to_dict(self):
+        result = {}
+        if hasattr(self, 'text'):
+            result['text'] = self.text
+        return result
+
+
+class AssetMetadataRequest:
+    def __init__(self, note: AssetNoteRequest):
+        self.note = note
+
+    def to_dict(self):
+        return convert_class_to_dict(self.__dict__)
+
+
+class UpdateAssetUserMetadataRequest:
+    def __init__(self, metadata: AssetMetadataRequest):
+        self.metadata = metadata
+
+    def to_dict(self):
+        return convert_class_to_dict(self.__dict__)
+
+
 class AssetClassValues(str, Enum):
     NATIVE = "NATIVE"
     FT = "FT"
     FIAT = "FIAT"
     NFT = "NFT"
     SFT = "SFT"
+
+
+class AmlVerdictValues(str, Enum):
+    ACCEPT = "ACCEPT"
+    REJECT = "REJECT"
+
+
+class ScreeningVerdictValues(str, Enum):
+    PASSED = "PASSED"
+    PASSED_WITH_ALERT = "PASSED_WITH_ALERT"
+    REJECTED = "REJECTED"
+    FAILED = "FAILED"
+    BYPASSED = "BYPASSED"
+
+
+class ScreeningStatusValues(str, Enum):
+    COMPLETED = "COMPLETED"
+    PENDING = "PENDING"
+    BYPASSED = "BYPASSED"
+    FAILED = "FAILED"
+    FROZEN = "FROZEN"
+
+
+class VaspReviewValues(str, Enum):
+    TRUSTED = "TRUSTED"
+    BLOCKED = "BLOCKED"
+    MANUAL = "MANUAL"
+    NULL = "NULL"
 
 
 class AssetScopeValues(str, Enum):

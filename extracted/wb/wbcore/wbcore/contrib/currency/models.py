@@ -65,7 +65,9 @@ class Currency(ImportMixin, LabelKeyMixin, WBModel):
                     raise CurrencyFXRates.DoesNotExist
             return (1 / base.value) * other.value
         except CurrencyFXRates.DoesNotExist:
-            return Decimal(1.0)
+            if exact_lookup:
+                return self.convert(valuation_date, other_currency, exact_lookup=False)
+            raise CurrencyFXRates.DoesNotExist
 
     @classmethod
     def get_endpoint_basename(cls) -> str:

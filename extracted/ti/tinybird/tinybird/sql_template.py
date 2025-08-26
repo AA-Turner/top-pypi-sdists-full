@@ -1411,7 +1411,7 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
     if TB_SECRET_IN_TEST_MODE in kwargs:
         template_execution_results[TB_SECRET_IN_TEST_MODE] = None
 
-    def set_tb_secret(x):
+    def set_tb_secret(x, default=None):
         try:
             key = secret_template_key(x)
             if key in template_execution_results.template_params:
@@ -1419,8 +1419,10 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
                 return Symbol("{" + sqlescape(x) + ": String}")
             else:
                 is_test_mode = TB_SECRET_IN_TEST_MODE in template_execution_results
-                if is_test_mode:
+                if is_test_mode and default is None:
                     return Symbol("{" + sqlescape(x) + ": String}")
+                elif default is not None:
+                    return default
                 else:
                     raise SQLTemplateException(
                         f"Cannot access secret '{x}'. Check the secret exists in the Workspace and the token has the required scope."
@@ -2266,6 +2268,18 @@ def render_sql_template(
     Traceback (most recent call last):
     ...
     tinybird.sql_template.SQLTemplateException: Template Syntax Error: Cannot access secret 'test'. Check the secret exists in the Workspace and the token has the required scope.
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', 'default_value')}}", secrets = [])
+    ("select * from table where str = 'default_value'", {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', 'default_value')}}", secrets = [ 'tb_secret_test' ])
+    ('select * from table where str = {test: String}', {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', '')}}")
+    ("select * from table where str = ''", {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', 'default_value')}}", test_mode=True)
+    ("select * from table where str = 'default_value'", {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', '')}}", test_mode=True)
+    ("select * from table where str = ''", {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', 'default_value')}}", secrets = [ 'tb_secret_test' ], test_mode=True)
+    ('select * from table where str = {test: String}', {}, [])
     >>> render_sql_template("select * from table where str = {{String(test)}} and category = {{String(category, 'shirts')}} and color = {{ Int32(color)}}", test_mode=False)
     Traceback (most recent call last):
     ...

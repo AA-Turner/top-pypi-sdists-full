@@ -23,6 +23,7 @@ from typing import Union
 from .literals import (
     CapabilityDirectionType,
     ConversionSourceFormatType,
+    ElementRequirementType,
     FileFormatType,
     LineTerminatorType,
     LoggingType,
@@ -52,7 +53,9 @@ else:
 
 
 __all__ = (
+    "AdvancedOptionsOutputTypeDef",
     "AdvancedOptionsTypeDef",
+    "AdvancedOptionsUnionTypeDef",
     "CapabilityConfigurationTypeDef",
     "CapabilityOptionsTypeDef",
     "CapabilitySummaryTypeDef",
@@ -91,7 +94,9 @@ __all__ = (
     "GetTransformerRequestTypeDef",
     "GetTransformerResponseTypeDef",
     "InboundEdiOptionsTypeDef",
+    "InputConversionOutputTypeDef",
     "InputConversionTypeDef",
+    "InputConversionUnionTypeDef",
     "InputFileSourceTypeDef",
     "ListCapabilitiesRequestPaginateTypeDef",
     "ListCapabilitiesRequestTypeDef",
@@ -109,7 +114,9 @@ __all__ = (
     "ListTransformersResponseTypeDef",
     "MappingTypeDef",
     "OutboundEdiOptionsTypeDef",
+    "OutputConversionOutputTypeDef",
     "OutputConversionTypeDef",
+    "OutputConversionUnionTypeDef",
     "OutputSampleFileSourceTypeDef",
     "PaginatorConfigTypeDef",
     "PartnershipSummaryTypeDef",
@@ -144,16 +151,29 @@ __all__ = (
     "WaiterConfigTypeDef",
     "WrapOptionsTypeDef",
     "X12AcknowledgmentOptionsTypeDef",
+    "X12AdvancedOptionsOutputTypeDef",
     "X12AdvancedOptionsTypeDef",
+    "X12AdvancedOptionsUnionTypeDef",
+    "X12CodeListValidationRuleOutputTypeDef",
+    "X12CodeListValidationRuleTypeDef",
+    "X12CodeListValidationRuleUnionTypeDef",
     "X12ControlNumbersTypeDef",
     "X12DelimitersTypeDef",
     "X12DetailsTypeDef",
+    "X12ElementLengthValidationRuleTypeDef",
+    "X12ElementRequirementValidationRuleTypeDef",
     "X12EnvelopeTypeDef",
     "X12FunctionalGroupHeadersTypeDef",
     "X12InboundEdiOptionsTypeDef",
     "X12InterchangeControlHeadersTypeDef",
     "X12OutboundEdiHeadersTypeDef",
     "X12SplitOptionsTypeDef",
+    "X12ValidationOptionsOutputTypeDef",
+    "X12ValidationOptionsTypeDef",
+    "X12ValidationOptionsUnionTypeDef",
+    "X12ValidationRuleOutputTypeDef",
+    "X12ValidationRuleTypeDef",
+    "X12ValidationRuleUnionTypeDef",
 )
 
 CapabilitySummaryTypeDef = TypedDict(
@@ -332,6 +352,18 @@ class X12SplitOptionsTypeDef(TypedDict):
     splitBy: X12SplitByType
 
 
+class X12CodeListValidationRuleOutputTypeDef(TypedDict):
+    elementId: str
+    codesToAdd: NotRequired[List[str]]
+    codesToRemove: NotRequired[List[str]]
+
+
+class X12CodeListValidationRuleTypeDef(TypedDict):
+    elementId: str
+    codesToAdd: NotRequired[Sequence[str]]
+    codesToRemove: NotRequired[Sequence[str]]
+
+
 class X12ControlNumbersTypeDef(TypedDict):
     startingInterchangeControlNumber: NotRequired[int]
     startingFunctionalGroupControlNumber: NotRequired[int]
@@ -342,6 +374,17 @@ class X12DelimitersTypeDef(TypedDict):
     componentSeparator: NotRequired[str]
     dataElementSeparator: NotRequired[str]
     segmentTerminator: NotRequired[str]
+
+
+class X12ElementLengthValidationRuleTypeDef(TypedDict):
+    elementId: str
+    maxLength: int
+    minLength: int
+
+
+class X12ElementRequirementValidationRuleTypeDef(TypedDict):
+    elementPosition: str
+    requirement: ElementRequirementType
 
 
 class X12FunctionalGroupHeadersTypeDef(TypedDict):
@@ -486,6 +529,7 @@ class TestMappingResponseTypeDef(TypedDict):
 class TestParsingResponseTypeDef(TypedDict):
     parsedFileContent: str
     parsedSplitFileContents: List[str]
+    validationMessages: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -546,8 +590,15 @@ class X12InboundEdiOptionsTypeDef(TypedDict):
     acknowledgmentOptions: NotRequired[X12AcknowledgmentOptionsTypeDef]
 
 
-class X12AdvancedOptionsTypeDef(TypedDict):
-    splitOptions: NotRequired[X12SplitOptionsTypeDef]
+X12CodeListValidationRuleUnionTypeDef = Union[
+    X12CodeListValidationRuleTypeDef, X12CodeListValidationRuleOutputTypeDef
+]
+
+
+class X12ValidationRuleOutputTypeDef(TypedDict):
+    codeListValidationRule: NotRequired[X12CodeListValidationRuleOutputTypeDef]
+    elementLengthValidationRule: NotRequired[X12ElementLengthValidationRuleTypeDef]
+    elementRequirementValidationRule: NotRequired[X12ElementRequirementValidationRuleTypeDef]
 
 
 class X12OutboundEdiHeadersTypeDef(TypedDict):
@@ -571,21 +622,10 @@ EdiConfigurationTypeDef = TypedDict(
 )
 
 
-class OutputConversionTypeDef(TypedDict):
-    toFormat: Literal["X12"]
-    formatOptions: NotRequired[FormatOptionsTypeDef]
-
-
 class CreateStarterMappingTemplateRequestTypeDef(TypedDict):
     mappingType: MappingTypeType
     templateDetails: TemplateDetailsTypeDef
     outputSampleLocation: NotRequired[S3LocationTypeDef]
-
-
-class ConversionTargetTypeDef(TypedDict):
-    fileFormat: Literal["X12"]
-    formatDetails: NotRequired[ConversionTargetFormatDetailsTypeDef]
-    outputSampleFile: NotRequired[OutputSampleFileSourceTypeDef]
 
 
 SampleDocumentsUnionTypeDef = Union[SampleDocumentsTypeDef, SampleDocumentsOutputTypeDef]
@@ -595,8 +635,14 @@ class InboundEdiOptionsTypeDef(TypedDict):
     x12: NotRequired[X12InboundEdiOptionsTypeDef]
 
 
-class AdvancedOptionsTypeDef(TypedDict):
-    x12: NotRequired[X12AdvancedOptionsTypeDef]
+class X12ValidationRuleTypeDef(TypedDict):
+    codeListValidationRule: NotRequired[X12CodeListValidationRuleUnionTypeDef]
+    elementLengthValidationRule: NotRequired[X12ElementLengthValidationRuleTypeDef]
+    elementRequirementValidationRule: NotRequired[X12ElementRequirementValidationRuleTypeDef]
+
+
+class X12ValidationOptionsOutputTypeDef(TypedDict):
+    validationRules: NotRequired[List[X12ValidationRuleOutputTypeDef]]
 
 
 class X12EnvelopeTypeDef(TypedDict):
@@ -608,22 +654,12 @@ class CapabilityConfigurationTypeDef(TypedDict):
     edi: NotRequired[EdiConfigurationTypeDef]
 
 
-class TestConversionRequestTypeDef(TypedDict):
-    source: ConversionSourceTypeDef
-    target: ConversionTargetTypeDef
+X12ValidationRuleUnionTypeDef = Union[X12ValidationRuleTypeDef, X12ValidationRuleOutputTypeDef]
 
 
-class InputConversionTypeDef(TypedDict):
-    fromFormat: Literal["X12"]
-    formatOptions: NotRequired[FormatOptionsTypeDef]
-    advancedOptions: NotRequired[AdvancedOptionsTypeDef]
-
-
-class TestParsingRequestTypeDef(TypedDict):
-    inputFile: S3LocationTypeDef
-    fileFormat: FileFormatType
-    ediType: EdiTypeTypeDef
-    advancedOptions: NotRequired[AdvancedOptionsTypeDef]
+class X12AdvancedOptionsOutputTypeDef(TypedDict):
+    splitOptions: NotRequired[X12SplitOptionsTypeDef]
+    validationOptions: NotRequired[X12ValidationOptionsOutputTypeDef]
 
 
 class OutboundEdiOptionsTypeDef(TypedDict):
@@ -693,101 +729,12 @@ UpdateCapabilityResponseTypeDef = TypedDict(
 )
 
 
-class CreateTransformerRequestTypeDef(TypedDict):
-    name: str
-    clientToken: NotRequired[str]
-    tags: NotRequired[Sequence[TagTypeDef]]
-    fileFormat: NotRequired[FileFormatType]
-    mappingTemplate: NotRequired[str]
-    ediType: NotRequired[EdiTypeTypeDef]
-    sampleDocument: NotRequired[str]
-    inputConversion: NotRequired[InputConversionTypeDef]
-    mapping: NotRequired[MappingTypeDef]
-    outputConversion: NotRequired[OutputConversionTypeDef]
-    sampleDocuments: NotRequired[SampleDocumentsUnionTypeDef]
+class X12ValidationOptionsTypeDef(TypedDict):
+    validationRules: NotRequired[Sequence[X12ValidationRuleUnionTypeDef]]
 
 
-class CreateTransformerResponseTypeDef(TypedDict):
-    transformerId: str
-    transformerArn: str
-    name: str
-    status: TransformerStatusType
-    createdAt: datetime
-    fileFormat: FileFormatType
-    mappingTemplate: str
-    ediType: EdiTypeTypeDef
-    sampleDocument: str
-    inputConversion: InputConversionTypeDef
-    mapping: MappingTypeDef
-    outputConversion: OutputConversionTypeDef
-    sampleDocuments: SampleDocumentsOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetTransformerResponseTypeDef(TypedDict):
-    transformerId: str
-    transformerArn: str
-    name: str
-    status: TransformerStatusType
-    createdAt: datetime
-    modifiedAt: datetime
-    fileFormat: FileFormatType
-    mappingTemplate: str
-    ediType: EdiTypeTypeDef
-    sampleDocument: str
-    inputConversion: InputConversionTypeDef
-    mapping: MappingTypeDef
-    outputConversion: OutputConversionTypeDef
-    sampleDocuments: SampleDocumentsOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class TransformerSummaryTypeDef(TypedDict):
-    transformerId: str
-    name: str
-    status: TransformerStatusType
-    createdAt: datetime
-    modifiedAt: NotRequired[datetime]
-    fileFormat: NotRequired[FileFormatType]
-    mappingTemplate: NotRequired[str]
-    ediType: NotRequired[EdiTypeTypeDef]
-    sampleDocument: NotRequired[str]
-    inputConversion: NotRequired[InputConversionTypeDef]
-    mapping: NotRequired[MappingTypeDef]
-    outputConversion: NotRequired[OutputConversionTypeDef]
-    sampleDocuments: NotRequired[SampleDocumentsOutputTypeDef]
-
-
-class UpdateTransformerRequestTypeDef(TypedDict):
-    transformerId: str
-    name: NotRequired[str]
-    status: NotRequired[TransformerStatusType]
-    fileFormat: NotRequired[FileFormatType]
-    mappingTemplate: NotRequired[str]
-    ediType: NotRequired[EdiTypeTypeDef]
-    sampleDocument: NotRequired[str]
-    inputConversion: NotRequired[InputConversionTypeDef]
-    mapping: NotRequired[MappingTypeDef]
-    outputConversion: NotRequired[OutputConversionTypeDef]
-    sampleDocuments: NotRequired[SampleDocumentsUnionTypeDef]
-
-
-class UpdateTransformerResponseTypeDef(TypedDict):
-    transformerId: str
-    transformerArn: str
-    name: str
-    status: TransformerStatusType
-    createdAt: datetime
-    modifiedAt: datetime
-    fileFormat: FileFormatType
-    mappingTemplate: str
-    ediType: EdiTypeTypeDef
-    sampleDocument: str
-    inputConversion: InputConversionTypeDef
-    mapping: MappingTypeDef
-    outputConversion: OutputConversionTypeDef
-    sampleDocuments: SampleDocumentsOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class AdvancedOptionsOutputTypeDef(TypedDict):
+    x12: NotRequired[X12AdvancedOptionsOutputTypeDef]
 
 
 class CapabilityOptionsTypeDef(TypedDict):
@@ -795,10 +742,21 @@ class CapabilityOptionsTypeDef(TypedDict):
     inboundEdi: NotRequired[InboundEdiOptionsTypeDef]
 
 
-class ListTransformersResponseTypeDef(TypedDict):
-    transformers: List[TransformerSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+X12ValidationOptionsUnionTypeDef = Union[
+    X12ValidationOptionsTypeDef, X12ValidationOptionsOutputTypeDef
+]
+
+
+class InputConversionOutputTypeDef(TypedDict):
+    fromFormat: Literal["X12"]
+    formatOptions: NotRequired[FormatOptionsTypeDef]
+    advancedOptions: NotRequired[AdvancedOptionsOutputTypeDef]
+
+
+class OutputConversionOutputTypeDef(TypedDict):
+    toFormat: Literal["X12"]
+    formatOptions: NotRequired[FormatOptionsTypeDef]
+    advancedOptions: NotRequired[AdvancedOptionsOutputTypeDef]
 
 
 class CreatePartnershipRequestTypeDef(TypedDict):
@@ -874,7 +832,160 @@ class UpdatePartnershipResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class X12AdvancedOptionsTypeDef(TypedDict):
+    splitOptions: NotRequired[X12SplitOptionsTypeDef]
+    validationOptions: NotRequired[X12ValidationOptionsUnionTypeDef]
+
+
+class CreateTransformerResponseTypeDef(TypedDict):
+    transformerId: str
+    transformerArn: str
+    name: str
+    status: TransformerStatusType
+    createdAt: datetime
+    fileFormat: FileFormatType
+    mappingTemplate: str
+    ediType: EdiTypeTypeDef
+    sampleDocument: str
+    inputConversion: InputConversionOutputTypeDef
+    mapping: MappingTypeDef
+    outputConversion: OutputConversionOutputTypeDef
+    sampleDocuments: SampleDocumentsOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetTransformerResponseTypeDef(TypedDict):
+    transformerId: str
+    transformerArn: str
+    name: str
+    status: TransformerStatusType
+    createdAt: datetime
+    modifiedAt: datetime
+    fileFormat: FileFormatType
+    mappingTemplate: str
+    ediType: EdiTypeTypeDef
+    sampleDocument: str
+    inputConversion: InputConversionOutputTypeDef
+    mapping: MappingTypeDef
+    outputConversion: OutputConversionOutputTypeDef
+    sampleDocuments: SampleDocumentsOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class TransformerSummaryTypeDef(TypedDict):
+    transformerId: str
+    name: str
+    status: TransformerStatusType
+    createdAt: datetime
+    modifiedAt: NotRequired[datetime]
+    fileFormat: NotRequired[FileFormatType]
+    mappingTemplate: NotRequired[str]
+    ediType: NotRequired[EdiTypeTypeDef]
+    sampleDocument: NotRequired[str]
+    inputConversion: NotRequired[InputConversionOutputTypeDef]
+    mapping: NotRequired[MappingTypeDef]
+    outputConversion: NotRequired[OutputConversionOutputTypeDef]
+    sampleDocuments: NotRequired[SampleDocumentsOutputTypeDef]
+
+
+class UpdateTransformerResponseTypeDef(TypedDict):
+    transformerId: str
+    transformerArn: str
+    name: str
+    status: TransformerStatusType
+    createdAt: datetime
+    modifiedAt: datetime
+    fileFormat: FileFormatType
+    mappingTemplate: str
+    ediType: EdiTypeTypeDef
+    sampleDocument: str
+    inputConversion: InputConversionOutputTypeDef
+    mapping: MappingTypeDef
+    outputConversion: OutputConversionOutputTypeDef
+    sampleDocuments: SampleDocumentsOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListPartnershipsResponseTypeDef(TypedDict):
     partnerships: List[PartnershipSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+X12AdvancedOptionsUnionTypeDef = Union[X12AdvancedOptionsTypeDef, X12AdvancedOptionsOutputTypeDef]
+
+
+class ListTransformersResponseTypeDef(TypedDict):
+    transformers: List[TransformerSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class AdvancedOptionsTypeDef(TypedDict):
+    x12: NotRequired[X12AdvancedOptionsUnionTypeDef]
+
+
+AdvancedOptionsUnionTypeDef = Union[AdvancedOptionsTypeDef, AdvancedOptionsOutputTypeDef]
+
+
+class InputConversionTypeDef(TypedDict):
+    fromFormat: Literal["X12"]
+    formatOptions: NotRequired[FormatOptionsTypeDef]
+    advancedOptions: NotRequired[AdvancedOptionsTypeDef]
+
+
+class OutputConversionTypeDef(TypedDict):
+    toFormat: Literal["X12"]
+    formatOptions: NotRequired[FormatOptionsTypeDef]
+    advancedOptions: NotRequired[AdvancedOptionsTypeDef]
+
+
+class ConversionTargetTypeDef(TypedDict):
+    fileFormat: Literal["X12"]
+    formatDetails: NotRequired[ConversionTargetFormatDetailsTypeDef]
+    outputSampleFile: NotRequired[OutputSampleFileSourceTypeDef]
+    advancedOptions: NotRequired[AdvancedOptionsUnionTypeDef]
+
+
+class TestParsingRequestTypeDef(TypedDict):
+    inputFile: S3LocationTypeDef
+    fileFormat: FileFormatType
+    ediType: EdiTypeTypeDef
+    advancedOptions: NotRequired[AdvancedOptionsUnionTypeDef]
+
+
+InputConversionUnionTypeDef = Union[InputConversionTypeDef, InputConversionOutputTypeDef]
+OutputConversionUnionTypeDef = Union[OutputConversionTypeDef, OutputConversionOutputTypeDef]
+
+
+class TestConversionRequestTypeDef(TypedDict):
+    source: ConversionSourceTypeDef
+    target: ConversionTargetTypeDef
+
+
+class CreateTransformerRequestTypeDef(TypedDict):
+    name: str
+    clientToken: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    fileFormat: NotRequired[FileFormatType]
+    mappingTemplate: NotRequired[str]
+    ediType: NotRequired[EdiTypeTypeDef]
+    sampleDocument: NotRequired[str]
+    inputConversion: NotRequired[InputConversionUnionTypeDef]
+    mapping: NotRequired[MappingTypeDef]
+    outputConversion: NotRequired[OutputConversionUnionTypeDef]
+    sampleDocuments: NotRequired[SampleDocumentsUnionTypeDef]
+
+
+class UpdateTransformerRequestTypeDef(TypedDict):
+    transformerId: str
+    name: NotRequired[str]
+    status: NotRequired[TransformerStatusType]
+    fileFormat: NotRequired[FileFormatType]
+    mappingTemplate: NotRequired[str]
+    ediType: NotRequired[EdiTypeTypeDef]
+    sampleDocument: NotRequired[str]
+    inputConversion: NotRequired[InputConversionUnionTypeDef]
+    mapping: NotRequired[MappingTypeDef]
+    outputConversion: NotRequired[OutputConversionUnionTypeDef]
+    sampleDocuments: NotRequired[SampleDocumentsUnionTypeDef]

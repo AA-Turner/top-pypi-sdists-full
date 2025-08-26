@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flexget
-Version: 3.17.16
+Version: 3.17.17
 Summary: FlexGet is a program aimed to automate downloading or processing content (torrents, podcasts, etc.) from different sources like RSS-feeds, html-pages, various sites and more.
 Project-URL: Forum, https://github.com/Flexget/Flexget/discussions
 Project-URL: Homepage, https://flexget.com
@@ -65,9 +65,9 @@ Requires-Dist: async-timeout==5.0.1; (python_full_version < '3.11') and extra ==
 Requires-Dist: attrs==25.3.0; extra == 'all'
 Requires-Dist: babelfish==0.6.1; extra == 'all'
 Requires-Dist: bcrypt==4.3.0; extra == 'all'
-Requires-Dist: beautifulsoup4==4.13.4; extra == 'all'
-Requires-Dist: boto3==1.40.11; extra == 'all'
-Requires-Dist: botocore==1.40.11; extra == 'all'
+Requires-Dist: beautifulsoup4==4.13.5; extra == 'all'
+Requires-Dist: boto3==1.40.16; extra == 'all'
+Requires-Dist: botocore==1.40.16; extra == 'all'
 Requires-Dist: certifi==2025.8.3; extra == 'all'
 Requires-Dist: cffi==1.17.1; extra == 'all'
 Requires-Dist: chardet==5.2.0; extra == 'all'
@@ -85,7 +85,7 @@ Requires-Dist: frozenlist==1.7.0; extra == 'all'
 Requires-Dist: ftputil==5.1.0; extra == 'all'
 Requires-Dist: guessit==3.8.0; extra == 'all'
 Requires-Dist: h11==0.16.0; extra == 'all'
-Requires-Dist: h2==4.2.0; extra == 'all'
+Requires-Dist: h2==4.3.0; extra == 'all'
 Requires-Dist: hpack==4.1.0; extra == 'all'
 Requires-Dist: httpcore==1.0.9; extra == 'all'
 Requires-Dist: httpx==0.28.1; extra == 'all'
@@ -93,12 +93,12 @@ Requires-Dist: hyperframe==6.1.0; extra == 'all'
 Requires-Dist: idna==3.10; extra == 'all'
 Requires-Dist: jmespath==1.0.1; extra == 'all'
 Requires-Dist: jsonschema-specifications==2025.4.1; extra == 'all'
-Requires-Dist: jsonschema==4.25.0; extra == 'all'
+Requires-Dist: jsonschema==4.25.1; extra == 'all'
 Requires-Dist: matrix-nio==0.25.2; extra == 'all'
 Requires-Dist: multidict==6.6.4; extra == 'all'
 Requires-Dist: packaging==25.0; extra == 'all'
 Requires-Dist: paramiko==3.5.1; extra == 'all'
-Requires-Dist: pbr==7.0.0; extra == 'all'
+Requires-Dist: pbr==7.0.1; extra == 'all'
 Requires-Dist: pillow==11.3.0; extra == 'all'
 Requires-Dist: platformdirs==4.3.8; extra == 'all'
 Requires-Dist: plexapi==4.17.0; extra == 'all'
@@ -115,7 +115,7 @@ Requires-Dist: qbittorrent-api==2025.7.0; extra == 'all'
 Requires-Dist: rarfile==4.2; extra == 'all'
 Requires-Dist: rebulk==3.2.0; extra == 'all'
 Requires-Dist: referencing==0.36.2; extra == 'all'
-Requires-Dist: requests==2.32.4; extra == 'all'
+Requires-Dist: requests==2.32.5; extra == 'all'
 Requires-Dist: rpds-py==0.27.0; extra == 'all'
 Requires-Dist: s3transfer==0.13.1; extra == 'all'
 Requires-Dist: setuptools==80.9.0; extra == 'all'
@@ -134,8 +134,8 @@ Requires-Dist: urllib3==1.26.20; (platform_python_implementation == 'PyPy') and 
 Requires-Dist: urllib3==2.5.0; (platform_python_implementation != 'PyPy') and extra == 'all'
 Requires-Dist: yarl==1.20.1; extra == 'all'
 Provides-Extra: boto3
-Requires-Dist: boto3==1.40.11; extra == 'boto3'
-Requires-Dist: botocore==1.40.11; extra == 'boto3'
+Requires-Dist: boto3==1.40.16; extra == 'boto3'
+Requires-Dist: botocore==1.40.16; extra == 'boto3'
 Requires-Dist: jmespath==1.0.1; extra == 'boto3'
 Requires-Dist: python-dateutil==2.9.0.post0; extra == 'boto3'
 Requires-Dist: s3transfer==0.13.1; extra == 'boto3'
@@ -153,7 +153,7 @@ Requires-Dist: attrs==25.3.0; extra == 'locked'
 Requires-Dist: autocommand==2.2.2; extra == 'locked'
 Requires-Dist: babelfish==0.6.1; extra == 'locked'
 Requires-Dist: backports-tarfile==1.2.0; (python_full_version < '3.12') and extra == 'locked'
-Requires-Dist: beautifulsoup4==4.13.4; extra == 'locked'
+Requires-Dist: beautifulsoup4==4.13.5; extra == 'locked'
 Requires-Dist: blinker==1.9.0; extra == 'locked'
 Requires-Dist: brotli==1.1.0; (platform_python_implementation != 'PyPy') and extra == 'locked'
 Requires-Dist: brotlicffi==1.1.0.0; (platform_python_implementation == 'PyPy') and extra == 'locked'
@@ -165,7 +165,7 @@ Requires-Dist: cheroot==10.0.1; extra == 'locked'
 Requires-Dist: cherrypy==18.10.0; extra == 'locked'
 Requires-Dist: click==8.2.1; extra == 'locked'
 Requires-Dist: colorama==0.4.6; (sys_platform == 'win32') and extra == 'locked'
-Requires-Dist: coverage==7.10.4; extra == 'locked'
+Requires-Dist: coverage==7.10.5; extra == 'locked'
 Requires-Dist: distlib==0.4.0; extra == 'locked'
 Requires-Dist: exceptiongroup==1.3.0; (python_full_version < '3.11') and extra == 'locked'
 Requires-Dist: execnet==2.1.1; extra == 'locked'
@@ -175,7 +175,7 @@ Requires-Dist: flask-compress==1.18; extra == 'locked'
 Requires-Dist: flask-cors==6.0.1; extra == 'locked'
 Requires-Dist: flask-login==0.6.3; extra == 'locked'
 Requires-Dist: flask-restx==1.3.0; extra == 'locked'
-Requires-Dist: flask==3.1.1; extra == 'locked'
+Requires-Dist: flask==3.1.2; extra == 'locked'
 Requires-Dist: greenlet==3.2.4; ((python_full_version < '3.14' and platform_machine == 'AMD64') or (python_full_version < '3.14' and platform_machine == 'WIN32') or (python_full_version < '3.14' and platform_machine == 'aarch64') or (python_full_version < '3.14' and platform_machine == 'amd64') or (python_full_version < '3.14' and platform_machine == 'ppc64le') or (python_full_version < '3.14' and platform_machine == 'win32') or (python_full_version < '3.14' and platform_machine == 'x86_64')) and extra == 'locked'
 Requires-Dist: guessit==3.8.0; extra == 'locked'
 Requires-Dist: html5lib==1.1; extra == 'locked'
@@ -186,11 +186,11 @@ Requires-Dist: iniconfig==2.1.0; extra == 'locked'
 Requires-Dist: itsdangerous==2.2.0; extra == 'locked'
 Requires-Dist: jaraco-collections==5.2.1; extra == 'locked'
 Requires-Dist: jaraco-context==6.0.1; extra == 'locked'
-Requires-Dist: jaraco-functools==4.2.1; extra == 'locked'
+Requires-Dist: jaraco-functools==4.3.0; extra == 'locked'
 Requires-Dist: jaraco-text==4.0.0; extra == 'locked'
 Requires-Dist: jinja2==3.1.6; extra == 'locked'
 Requires-Dist: jsonschema-specifications==2025.4.1; extra == 'locked'
-Requires-Dist: jsonschema==4.25.0; extra == 'locked'
+Requires-Dist: jsonschema==4.25.1; extra == 'locked'
 Requires-Dist: loguru==0.7.3; extra == 'locked'
 Requires-Dist: markdown-it-py==4.0.0; extra == 'locked'
 Requires-Dist: markupsafe==3.0.2; extra == 'locked'
@@ -223,11 +223,11 @@ Requires-Dist: pyyaml==6.0.2; extra == 'locked'
 Requires-Dist: pyzstd==0.17.0; (python_full_version < '3.14') and extra == 'locked'
 Requires-Dist: rebulk==3.2.0; extra == 'locked'
 Requires-Dist: referencing==0.36.2; extra == 'locked'
-Requires-Dist: requests==2.32.4; extra == 'locked'
+Requires-Dist: requests==2.32.5; extra == 'locked'
 Requires-Dist: rich==14.1.0; extra == 'locked'
 Requires-Dist: rpds-py==0.27.0; extra == 'locked'
 Requires-Dist: rpyc==6.0.2; extra == 'locked'
-Requires-Dist: ruff==0.12.9; extra == 'locked'
+Requires-Dist: ruff==0.12.10; extra == 'locked'
 Requires-Dist: setuptools==80.9.0; extra == 'locked'
 Requires-Dist: sgmllib3k==1.0.0; extra == 'locked'
 Requires-Dist: six==1.17.0; extra == 'locked'
@@ -259,12 +259,12 @@ Requires-Dist: async-timeout==5.0.1; (python_full_version < '3.11') and extra ==
 Requires-Dist: attrs==25.3.0; extra == 'matrix'
 Requires-Dist: frozenlist==1.7.0; extra == 'matrix'
 Requires-Dist: h11==0.16.0; extra == 'matrix'
-Requires-Dist: h2==4.2.0; extra == 'matrix'
+Requires-Dist: h2==4.3.0; extra == 'matrix'
 Requires-Dist: hpack==4.1.0; extra == 'matrix'
 Requires-Dist: hyperframe==6.1.0; extra == 'matrix'
 Requires-Dist: idna==3.10; extra == 'matrix'
 Requires-Dist: jsonschema-specifications==2025.4.1; extra == 'matrix'
-Requires-Dist: jsonschema==4.25.0; extra == 'matrix'
+Requires-Dist: jsonschema==4.25.1; extra == 'matrix'
 Requires-Dist: matrix-nio==0.25.2; extra == 'matrix'
 Requires-Dist: multidict==6.6.4; extra == 'matrix'
 Requires-Dist: propcache==0.3.2; extra == 'matrix'
@@ -280,7 +280,7 @@ Requires-Dist: certifi==2025.8.3; extra == 'plexapi'
 Requires-Dist: charset-normalizer==3.4.3; extra == 'plexapi'
 Requires-Dist: idna==3.10; extra == 'plexapi'
 Requires-Dist: plexapi==4.17.0; extra == 'plexapi'
-Requires-Dist: requests==2.32.4; extra == 'plexapi'
+Requires-Dist: requests==2.32.5; extra == 'plexapi'
 Requires-Dist: urllib3==1.26.20; (platform_python_implementation == 'PyPy') and extra == 'plexapi'
 Requires-Dist: urllib3==2.5.0; (platform_python_implementation != 'PyPy') and extra == 'plexapi'
 Provides-Extra: qbittorrent
@@ -289,7 +289,7 @@ Requires-Dist: charset-normalizer==3.4.3; extra == 'qbittorrent'
 Requires-Dist: idna==3.10; extra == 'qbittorrent'
 Requires-Dist: packaging==25.0; extra == 'qbittorrent'
 Requires-Dist: qbittorrent-api==2025.7.0; extra == 'qbittorrent'
-Requires-Dist: requests==2.32.4; extra == 'qbittorrent'
+Requires-Dist: requests==2.32.5; extra == 'qbittorrent'
 Requires-Dist: urllib3==1.26.20; (platform_python_implementation == 'PyPy') and extra == 'qbittorrent'
 Requires-Dist: urllib3==2.5.0; (platform_python_implementation != 'PyPy') and extra == 'qbittorrent'
 Provides-Extra: rarfile
@@ -304,7 +304,7 @@ Requires-Dist: pynacl==1.5.0; extra == 'sftp'
 Requires-Dist: pysftp==0.2.9; extra == 'sftp'
 Provides-Extra: subliminal
 Requires-Dist: babelfish==0.6.1; extra == 'subliminal'
-Requires-Dist: beautifulsoup4==4.13.4; extra == 'subliminal'
+Requires-Dist: beautifulsoup4==4.13.5; extra == 'subliminal'
 Requires-Dist: certifi==2025.8.3; extra == 'subliminal'
 Requires-Dist: chardet==5.2.0; extra == 'subliminal'
 Requires-Dist: charset-normalizer==3.4.3; extra == 'subliminal'
@@ -316,13 +316,13 @@ Requires-Dist: dogpile-cache==1.4.0; extra == 'subliminal'
 Requires-Dist: enzyme==0.5.2; extra == 'subliminal'
 Requires-Dist: guessit==3.8.0; extra == 'subliminal'
 Requires-Dist: idna==3.10; extra == 'subliminal'
-Requires-Dist: pbr==7.0.0; extra == 'subliminal'
+Requires-Dist: pbr==7.0.1; extra == 'subliminal'
 Requires-Dist: platformdirs==4.3.8; extra == 'subliminal'
 Requires-Dist: pysubs2==1.8.0; extra == 'subliminal'
 Requires-Dist: python-dateutil==2.9.0.post0; extra == 'subliminal'
 Requires-Dist: rarfile==4.2; extra == 'subliminal'
 Requires-Dist: rebulk==3.2.0; extra == 'subliminal'
-Requires-Dist: requests==2.32.4; extra == 'subliminal'
+Requires-Dist: requests==2.32.5; extra == 'subliminal'
 Requires-Dist: setuptools==80.9.0; extra == 'subliminal'
 Requires-Dist: six==1.17.0; extra == 'subliminal'
 Requires-Dist: soupsieve==2.7; extra == 'subliminal'
@@ -338,7 +338,7 @@ Requires-Dist: anyio==4.10.0; extra == 'telegram'
 Requires-Dist: certifi==2025.8.3; extra == 'telegram'
 Requires-Dist: exceptiongroup==1.3.0; (python_full_version < '3.11') and extra == 'telegram'
 Requires-Dist: h11==0.16.0; extra == 'telegram'
-Requires-Dist: h2==4.2.0; extra == 'telegram'
+Requires-Dist: h2==4.3.0; extra == 'telegram'
 Requires-Dist: hpack==4.1.0; extra == 'telegram'
 Requires-Dist: httpcore==1.0.9; extra == 'telegram'
 Requires-Dist: httpx==0.28.1; extra == 'telegram'
@@ -353,7 +353,7 @@ Provides-Extra: transmission
 Requires-Dist: certifi==2025.8.3; extra == 'transmission'
 Requires-Dist: charset-normalizer==3.4.3; extra == 'transmission'
 Requires-Dist: idna==3.10; extra == 'transmission'
-Requires-Dist: requests==2.32.4; extra == 'transmission'
+Requires-Dist: requests==2.32.5; extra == 'transmission'
 Requires-Dist: transmission-rpc==7.0.11; extra == 'transmission'
 Requires-Dist: typing-extensions==4.14.1; extra == 'transmission'
 Requires-Dist: urllib3==1.26.20; (platform_python_implementation == 'PyPy') and extra == 'transmission'
@@ -367,16 +367,16 @@ Description-Content-Type: text/x-rst
 
 |
 
-.. image:: https://img.shields.io/pypi/v/flexget?logo=pypi&labelColor=EEEEEE
+.. image:: https://img.shields.io/pypi/v/flexget?logo=pypi&labelColor=F3F3F3
    :target: https://pypi.org/project/flexget/
 
-.. image:: https://img.shields.io/docker/v/flexget/flexget/latest?logo=docker&label=docker&labelColor=EEEEEE
+.. image:: https://img.shields.io/docker/v/flexget/flexget/latest?logo=docker&label=docker&labelColor=F3F3F3
    :target: https://hub.docker.com/r/flexget/flexget
 
-.. image:: https://img.shields.io/pypi/pyversions/flexget?logo=python&labelColor=EEEEEE
+.. image:: https://img.shields.io/pypi/pyversions/flexget?logo=python&labelColor=F3F3F3
    :target: https://pypi.org/project/flexget/
 
-.. image:: https://img.shields.io/codecov/c/github/flexget/flexget?logo=codecov&labelColor=EEEEEE
+.. image:: https://img.shields.io/codecov/c/github/flexget/flexget?logo=codecov&labelColor=F3F3F3
    :target: https://codecov.io/gh/Flexget/Flexget
 
 ..
@@ -384,13 +384,13 @@ Description-Content-Type: text/x-rst
    .. image:: https://api.codacy.com/project/badge/Grade/86bb847efe984c12948bdeccabcbccad
       :target: https://www.codacy.com/app/Flexget/Flexget?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Flexget/Flexget&amp;utm_campaign=Badge_Grade
 
-.. image:: https://img.shields.io/github/actions/workflow/status/flexget/flexget/test.yml?logo=github&logoColor=222222&label=tests&labelColor=EEEEEE
+.. image:: https://img.shields.io/github/actions/workflow/status/flexget/flexget/test.yml?logo=github&logoColor=222222&label=tests&labelColor=F3F3F3
    :target: https://github.com/Flexget/Flexget/actions/workflows/test.yml?query=branch%3Adevelop
 
-.. image:: https://img.shields.io/readthedocs/flexget?logo=readthedocs&labelColor=EEEEEE
+.. image:: https://img.shields.io/readthedocs/flexget?logo=readthedocs&labelColor=F3F3F3
    :target: https://flexget.readthedocs.io/en/latest/
 
-.. image:: https://img.shields.io/discord/536690097056120833?logo=discord&label=discord&labelColor=EEEEEE
+.. image:: https://img.shields.io/discord/536690097056120833?logo=discord&label=discord&labelColor=F3F3F3
    :target: https://discord.gg/W6CQrJx
 
 `FlexGet`_ is a multipurpose automation tool for content like torrents, nzbs,

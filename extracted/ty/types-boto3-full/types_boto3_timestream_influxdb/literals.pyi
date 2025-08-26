@@ -45,7 +45,9 @@ __all__ = (
 )
 
 ClusterDeploymentTypeType = Literal["MULTI_NODE_READ_REPLICAS"]
-ClusterStatusType = Literal["AVAILABLE", "CREATING", "DELETED", "DELETING", "FAILED", "UPDATING"]
+ClusterStatusType = Literal[
+    "AVAILABLE", "CREATING", "DELETED", "DELETING", "FAILED", "MAINTENANCE", "UPDATING"
+]
 DbInstanceTypeType = Literal[
     "db.influx.12xlarge",
     "db.influx.16xlarge",
@@ -74,6 +76,7 @@ StatusType = Literal[
     "DELETED",
     "DELETING",
     "FAILED",
+    "MAINTENANCE",
     "MODIFYING",
     "UPDATING",
     "UPDATING_DEPLOYMENT_TYPE",

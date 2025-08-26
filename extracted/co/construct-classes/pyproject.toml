@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "construct-classes"
-version = "0.1.2"
+version = "0.2.1"
 authors = ["matejcik <ja@matejcik.cz>"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
@@ -14,17 +14,25 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 description = "Parse your binary structs into dataclasses"
 homepage = "https://github.com/matejcik/construct-classes"
 license = "MIT"
 repository = "https://github.com/matejcik/construct-classes"
 readme = "README.rst"
-include = ["CHANGELOG.rst", "LICENSE", "README.rst"]
+include = [
+  { path = "CHANGELOG.rst", format = "sdist" },
+  { path = "LICENSE", format = "sdist" },
+  { path = "README.rst", format = "sdist" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.6.2,<4.0"
 construct = "^2.10"
+dataclasses = { version = "^0.8", python = "~3.6.0" }
 
 [tool.poetry.dev-dependencies]
 pytest = ">5"

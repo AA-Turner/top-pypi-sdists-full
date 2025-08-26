@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: hassil
-Version: 3.1.0
+Version: 3.2.0
 Summary: The Home Assistant Intent Language parser
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License: Apache-2.0
-Project-URL: Source Code, http://github.com/OHF-Voice/hassil
+Project-URL: Source Code, https://github.com/OHF-Voice/hassil
 Keywords: home,assistant,intent,recognition
 Platform: any
 Classifier: Development Status :: 3 - Alpha
@@ -34,8 +34,9 @@ Dynamic: license-file
 
 # HassIL
 
-The Home Assistant Intent Language (HassIL) parser for [intents](https://github.com/home-assistant/intents).
+The Home Assistant Intent Language (HassIL) parser for [intents](https://github.com/OHF-Voice/intents).
 
+[Template syntax](docs/template_syntax.md)
 
 ## Dependencies
 

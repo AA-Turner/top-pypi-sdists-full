@@ -9,8 +9,6 @@ from ._rfc7516.models import (
     CompactEncryption as CompactEncryption,
     GeneralJSONEncryption as GeneralJSONEncryption,
     FlattenedJSONEncryption as FlattenedJSONEncryption,
-    JWEEncModel,
-    JWEZipModel,
 )
 from ._rfc7516.registry import (
     JWERegistry as JWERegistry,
@@ -24,9 +22,7 @@ from ._rfc7516.json import (
     extract_general_json,
     extract_flattened_json,
 )
-from ._rfc7518.jwe_algs import JWE_ALG_MODELS
-from ._rfc7518.jwe_encs import JWE_ENC_MODELS
-from ._rfc7518.jwe_zips import JWE_ZIP_MODELS
+from .jwa import setup_jwe_algorithms
 from .jwk import Key, KeySet, ECKey, OKPKey, KeyFlexible, guess_key
 from .util import to_bytes
 from .registry import Header
@@ -37,8 +33,6 @@ __all__ = [
     "FlattenedJSONSerialization",
     # modules
     "JWERegistry",
-    "JWEEncModel",
-    "JWEZipModel",
     "Recipient",
     "CompactEncryption",
     "GeneralJSONEncryption",
@@ -50,30 +44,8 @@ __all__ = [
     "decrypt_json",
     # consts
     "default_registry",
-    "JWE_ALG_MODELS",
-    "JWE_ENC_MODELS",
-    "JWE_ZIP_MODELS",
 ]
-
-
-def register_key_set() -> None:
-    for _alg in JWE_ALG_MODELS:
-        KeySet.algorithm_keys[_alg.name] = _alg.key_types
-
-
-def register_algorithms() -> None:
-    for _alg in JWE_ALG_MODELS:
-        JWERegistry.register(_alg)
-
-    for _enc in JWE_ENC_MODELS:
-        JWERegistry.register(_enc)
-
-    for _zip in JWE_ZIP_MODELS:
-        JWERegistry.register(_zip)
-
-
-register_key_set()
-register_algorithms()
+setup_jwe_algorithms()
 
 
 def encrypt_compact(

@@ -1,4 +1,4 @@
-.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start check-version
+.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start check-version check-base-imports
 
 # lint commands
 
@@ -10,6 +10,9 @@ lint:
 format:
 	uv run ruff check --fix .
 	uv run ruff format .
+
+check-base-imports:
+	LANGGRAPH_RUNTIME_EDITION=inmem DATABASE_URI=:memory: REDIS_URI=_FAKE uv run python -c "from langgraph_api.config import *; from langgraph_runtime import *"
 
 # test commands
 

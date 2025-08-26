@@ -5,7 +5,7 @@ from typing import Any, Optional, List, Literal, Dict, Generator
 from langchain_core.documents import Document
 from pydantic import create_model, Field, SecretStr
 
-from .utils.content_parser import process_content_by_type
+from .utils.content_parser import file_extension_by_chunker, process_content_by_type
 from .vector_adapters.VectorStoreAdapter import VectorStoreAdapterFactory
 from ..runtime.tools.vectorstore_base import VectorStoreWrapperBase
 from ..runtime.utils.utils import IndexerKeywords
@@ -34,7 +34,7 @@ BaseSearchParams = create_model(
         default={},
         examples=["{\"key\": \"value\"}", "{\"status\": \"active\"}"]
     )),
-    cut_off=(Optional[float], Field(description="Cut-off score for search results", default=0.5)),
+    cut_off=(Optional[float], Field(description="Cut-off score for search results", default=0.5, ge=0, le=1)),
     search_top=(Optional[int], Field(description="Number of top results to return", default=10)),
     full_text_search=(Optional[Dict[str, Any]], Field(
         description="Full text search parameters. Can be a dictionary with search options.",
@@ -64,7 +64,7 @@ BaseStepbackSearchParams = create_model(
         default={},
         examples=["{\"key\": \"value\"}", "{\"status\": \"active\"}"]
     )),
-    cut_off=(Optional[float], Field(description="Cut-off score for search results", default=0.5)),
+    cut_off=(Optional[float], Field(description="Cut-off score for search results", default=0.5, ge=0, le=1)),
     search_top=(Optional[int], Field(description="Number of top results to return", default=10)),
     reranker=(Optional[dict], Field(
         description="Reranker configuration. Can be a dictionary with reranking parameters.",
@@ -100,11 +100,8 @@ class BaseIndexerToolkit(VectorStoreWrapperBase):
 
     doctype: str = "document"
 
-    llm: Any = None
     connection_string: Optional[SecretStr] = None
     collection_name: Optional[str] = None
-    embedding_model: Optional[str] = "HuggingFaceEmbeddings"
-    vectorstore_type: Optional[str] = "PGVector"
     _embedding: Optional[Any] = None
     alita: Any = None # Elitea client, if available
 
@@ -113,8 +110,8 @@ class BaseIndexerToolkit(VectorStoreWrapperBase):
         connection_string = conn.get_secret_value() if isinstance(conn, SecretStr) else conn
         collection_name = kwargs.get('collection_name')
         
-        if 'embedding_model' not in kwargs:
-            kwargs['embedding_model'] = 'HuggingFaceEmbeddings'
+        if not kwargs.get('embedding_model'):
+            kwargs['embedding_model'] = 'text-embedding-ada-002'
         if 'vectorstore_type' not in kwargs:
             kwargs['vectorstore_type'] = 'PGVector'
         vectorstore_type = kwargs.get('vectorstore_type')
@@ -173,19 +170,26 @@ class BaseIndexerToolkit(VectorStoreWrapperBase):
         chunking_config['llm'] = self.llm
         
         for document in documents:
-            if content_type := document.metadata.get('loader_content_type', None):
+            if content_type := document.metadata.get(IndexerKeywords.CONTENT_FILE_NAME.value, None):
                 # apply parsing based on content type and chunk if chunker was applied to parent doc
-                content = document.metadata.pop('loader_content', None)
+                content = document.metadata.pop(IndexerKeywords.CONTENT_IN_BYTES.value, None)
                 yield from process_content_by_type(
                     document=document,
                     content=content,
+                    extension_source=content_type, llm=self.llm, chunking_config=chunking_config)
+            elif chunking_tool and (content_in_bytes := document.metadata.pop(IndexerKeywords.CONTENT_IN_BYTES.value, None)):
+                # apply parsing based on content type resolved from chunking_tool
+                content_type = file_extension_by_chunker(chunking_tool)
+                yield from process_content_by_type(
+                    document=document,
+                    content=content_in_bytes,
                     extension_source=content_type, llm=self.llm, chunking_config=chunking_config)
             elif chunking_tool:
                 # apply default chunker from toolkit config. No parsing.
                 chunker = chunkers.get(chunking_tool)
                 yield from chunker(file_content_generator=iter([document]), config=chunking_config)
             else:
-                # return as is if neither chunker or content typa are specified
+                # return as is if neither chunker nor content type are specified
                 yield document
     
     def _extend_data(self, documents: Generator[Document, None, None]):

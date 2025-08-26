@@ -10,7 +10,7 @@ from tobikodata.pydantic import ForwardCompatiblePydanticModel
 
 class V1AuditEvaluation(ForwardCompatiblePydanticModel):
     name: str
-    execution_time: datetime
+    execution_time: t.Optional[datetime] = None
     interval_start: datetime
     interval_end: datetime
     status: t.Literal[V1Status.SUCCESS, V1Status.FAILED]

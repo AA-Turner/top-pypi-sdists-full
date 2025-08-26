@@ -73,6 +73,7 @@ from .type_defs import (
     AddPolicyGrantInputTypeDef,
     AddPolicyGrantOutputTypeDef,
     AssociateEnvironmentRoleInputTypeDef,
+    AssociateGovernedTermsInputTypeDef,
     CancelMetadataGenerationRunInputTypeDef,
     CancelSubscriptionInputTypeDef,
     CancelSubscriptionOutputTypeDef,
@@ -159,6 +160,7 @@ from .type_defs import (
     DeleteSubscriptionTargetInputTypeDef,
     DeleteTimeSeriesDataPointsInputTypeDef,
     DisassociateEnvironmentRoleInputTypeDef,
+    DisassociateGovernedTermsInputTypeDef,
     EmptyResponseMetadataTypeDef,
     GetAccountPoolInputTypeDef,
     GetAccountPoolOutputTypeDef,
@@ -473,6 +475,16 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/associate_environment_role.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#associate_environment_role)
+        """
+
+    def associate_governed_terms(
+        self, **kwargs: Unpack[AssociateGovernedTermsInputTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Associates governed terms with an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/associate_governed_terms.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#associate_governed_terms)
         """
 
     def cancel_metadata_generation_run(
@@ -1006,6 +1018,16 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/disassociate_environment_role.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#disassociate_environment_role)
+        """
+
+    def disassociate_governed_terms(
+        self, **kwargs: Unpack[DisassociateGovernedTermsInputTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Disassociates restricted terms from an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/disassociate_governed_terms.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#disassociate_governed_terms)
         """
 
     def get_account_pool(

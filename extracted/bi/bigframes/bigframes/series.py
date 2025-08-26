@@ -414,6 +414,7 @@ class Series(bigframes.operations.base.SeriesMethods, vendored_pandas_series.Ser
         name: typing.Optional[str] = ...,
         drop: Literal[False] = ...,
         inplace: Literal[False] = ...,
+        allow_duplicates: Optional[bool] = ...,
     ) -> bigframes.dataframe.DataFrame:
         ...
 
@@ -425,6 +426,7 @@ class Series(bigframes.operations.base.SeriesMethods, vendored_pandas_series.Ser
         name: typing.Optional[str] = ...,
         drop: Literal[True] = ...,
         inplace: Literal[False] = ...,
+        allow_duplicates: Optional[bool] = ...,
     ) -> Series:
         ...
 
@@ -436,6 +438,7 @@ class Series(bigframes.operations.base.SeriesMethods, vendored_pandas_series.Ser
         name: typing.Optional[str] = ...,
         drop: bool = ...,
         inplace: Literal[True] = ...,
+        allow_duplicates: Optional[bool] = ...,
     ) -> None:
         ...
 
@@ -447,8 +450,11 @@ class Series(bigframes.operations.base.SeriesMethods, vendored_pandas_series.Ser
         name: typing.Optional[str] = None,
         drop: bool = False,
         inplace: bool = False,
+        allow_duplicates: Optional[bool] = None,
     ) -> bigframes.dataframe.DataFrame | Series | None:
-        block = self._block.reset_index(level, drop)
+        if allow_duplicates is None:
+            allow_duplicates = False
+        block = self._block.reset_index(level, drop, allow_duplicates=allow_duplicates)
         if drop:
             if inplace:
                 self._set_block(block)
@@ -2107,13 +2113,8 @@ class Series(bigframes.operations.base.SeriesMethods, vendored_pandas_series.Ser
         )
 
     def mask(self, cond, other=None) -> Series:
-        if callable(cond):
-            if hasattr(cond, "bigframes_bigquery_function"):
-                cond = self.apply(cond)
-            else:
-                # For non-BigQuery function assume that it is applicable on Series
-                cond = self.apply(cond, by_row=False)
-
+        cond = self._apply_callable(cond)
+        other = self._apply_callable(other)
         if not isinstance(cond, Series):
             raise TypeError(
                 f"Only bigframes series condition is supported, received {type(cond).__name__}. "

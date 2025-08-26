@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 0.10.34
+Version: 0.10.35
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@innoq.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@innoq.com>
 License-Expression: MIT
@@ -42,7 +42,7 @@ Provides-Extra: databricks
 Requires-Dist: soda-core-spark-df<3.6.0,>=3.3.20; extra == "databricks"
 Requires-Dist: soda-core-spark[databricks]<3.6.0,>=3.3.20; extra == "databricks"
 Requires-Dist: databricks-sql-connector<4.1.0,>=3.7.0; extra == "databricks"
-Requires-Dist: databricks-sdk<0.61.0; extra == "databricks"
+Requires-Dist: databricks-sdk<0.64.0; extra == "databricks"
 Requires-Dist: pyspark<4.0.0,>=3.5.5; extra == "databricks"
 Provides-Extra: iceberg
 Requires-Dist: pyiceberg==0.9.1; extra == "iceberg"
@@ -54,7 +54,7 @@ Provides-Extra: postgres
 Requires-Dist: soda-core-postgres<3.6.0,>=3.3.20; extra == "postgres"
 Provides-Extra: s3
 Requires-Dist: s3fs<2026.0.0,>=2025.2.0; extra == "s3"
-Requires-Dist: aiobotocore<2.24.0,>=2.17.0; extra == "s3"
+Requires-Dist: aiobotocore<2.25.0,>=2.17.0; extra == "s3"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python[pandas]<3.17,>=3.6; extra == "snowflake"
 Requires-Dist: soda-core-snowflake<3.6.0,>=3.3.20; extra == "snowflake"
@@ -83,15 +83,15 @@ Provides-Extra: dev
 Requires-Dist: datacontract-cli[all]; extra == "dev"
 Requires-Dist: httpx==0.28.1; extra == "dev"
 Requires-Dist: kafka-python; extra == "dev"
-Requires-Dist: moto==5.1.8; extra == "dev"
+Requires-Dist: moto==5.1.10; extra == "dev"
 Requires-Dist: pandas>=2.1.0; extra == "dev"
-Requires-Dist: pre-commit<4.3.0,>=3.7.1; extra == "dev"
+Requires-Dist: pre-commit<4.4.0,>=3.7.1; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pymssql==2.3.7; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: testcontainers[kafka,minio,mssql,postgres]==4.12.0; extra == "dev"
-Requires-Dist: trino==0.335.0; extra == "dev"
+Requires-Dist: trino==0.336.0; extra == "dev"
 Dynamic: license-file
 
 # Data Contract CLI
@@ -256,6 +256,14 @@ if not run.has_passed():
 ## Installation
 
 Choose the most appropriate installation method for your needs:
+
+### uv
+
+If you have [uv](https://docs.astral.sh/uv/) installed, you can run datacontract-cli directly without installing:
+
+```
+uv run --with 'datacontract-cli[all]' datacontract --version
+```
 
 ### pip
 Python 3.10, 3.11, and 3.12 are supported. We recommend to use Python 3.11.
@@ -1011,7 +1019,7 @@ models:
 │                      terraform|avro-idl|sql|sql-query|mer                                        │
 │                      maid|html|go|bigquery|dbml|spark|sql                                        │
 │                      alchemy|data-caterer|dcs|markdown|ic                                        │
-│                      eberg|custom|excel]                                                         │
+│                      eberg|custom|excel|dqx]                                                         │
 │    --output          PATH                                  Specify the file path where the       │
 │                                                            exported data will be saved. If no    │
 │                                                            path is provided, the output will be  │
@@ -1057,35 +1065,36 @@ datacontract export --format html --output datacontract.html
 
 Available export options:
 
-| Type                 | Description                                             | Status |
-|----------------------|---------------------------------------------------------|--------|
-| `html`               | Export to HTML                                          | ✅      |
-| `jsonschema`         | Export to JSON Schema                                   | ✅      |
-| `odcs`               | Export to Open Data Contract Standard (ODCS) V3         | ✅      |
-| `sodacl`             | Export to SodaCL quality checks in YAML format          | ✅      |
-| `dbt`                | Export to dbt models in YAML format                     | ✅      |
-| `dbt-sources`        | Export to dbt sources in YAML format                    | ✅      |
-| `dbt-staging-sql`    | Export to dbt staging SQL models                        | ✅      |
-| `rdf`                | Export data contract to RDF representation in N3 format | ✅      |
-| `avro`               | Export to AVRO models                                   | ✅      |
-| `protobuf`           | Export to Protobuf                                      | ✅      |
-| `terraform`          | Export to terraform resources                           | ✅      |
-| `sql`                | Export to SQL DDL                                       | ✅      |
-| `sql-query`          | Export to SQL Query                                     | ✅      |
-| `great-expectations` | Export to Great Expectations Suites in JSON Format      | ✅      |
-| `bigquery`           | Export to BigQuery Schemas                              | ✅      |
-| `go`                 | Export to Go types                                      | ✅      |
-| `pydantic-model`     | Export to pydantic models                               | ✅      |
-| `DBML`               | Export to a DBML Diagram description                    | ✅      |
-| `spark`              | Export to a Spark StructType                            | ✅      |
-| `sqlalchemy`         | Export to SQLAlchemy Models                             | ✅      |
-| `data-caterer`       | Export to Data Caterer in YAML format                   | ✅      |
-| `dcs`                | Export to Data Contract Specification in YAML format    | ✅      |
-| `markdown`           | Export to Markdown                                      | ✅      |
+| Type                 | Description                                             | Status  |
+|----------------------|---------------------------------------------------------|---------|
+| `html`               | Export to HTML                                          | ✅       |
+| `jsonschema`         | Export to JSON Schema                                   | ✅       |
+| `odcs`               | Export to Open Data Contract Standard (ODCS) V3         | ✅       |
+| `sodacl`             | Export to SodaCL quality checks in YAML format          | ✅       |
+| `dbt`                | Export to dbt models in YAML format                     | ✅       |
+| `dbt-sources`        | Export to dbt sources in YAML format                    | ✅       |
+| `dbt-staging-sql`    | Export to dbt staging SQL models                        | ✅       |
+| `rdf`                | Export data contract to RDF representation in N3 format | ✅       |
+| `avro`               | Export to AVRO models                                   | ✅       |
+| `protobuf`           | Export to Protobuf                                      | ✅       |
+| `terraform`          | Export to terraform resources                           | ✅       |
+| `sql`                | Export to SQL DDL                                       | ✅       |
+| `sql-query`          | Export to SQL Query                                     | ✅       |
+| `great-expectations` | Export to Great Expectations Suites in JSON Format      | ✅       |
+| `bigquery`           | Export to BigQuery Schemas                              | ✅       |
+| `go`                 | Export to Go types                                      | ✅       |
+| `pydantic-model`     | Export to pydantic models                               | ✅       |
+| `DBML`               | Export to a DBML Diagram description                    | ✅       |
+| `spark`              | Export to a Spark StructType                            | ✅       |
+| `sqlalchemy`         | Export to SQLAlchemy Models                             | ✅       |
+| `data-caterer`       | Export to Data Caterer in YAML format                   | ✅       |
+| `dcs`                | Export to Data Contract Specification in YAML format    | ✅       |
+| `markdown`           | Export to Markdown                                      | ✅       |
 | `iceberg`            | Export to an Iceberg JSON Schema Definition             | partial |
-| `excel`              | Export to ODCS Excel Template                           | ✅      |
-| `custom`             | Export to Custom format with Jinja                      | ✅      |
-| Missing something?   | Please create an issue on GitHub                        | TBD    |
+| `excel`              | Export to ODCS Excel Template                           | ✅       |
+| `custom`             | Export to Custom format with Jinja                      | ✅       |
+| `dqx`                | Export to DQX in YAML format                            | ✅       |
+| Missing something?   | Please create an issue on GitHub                        | TBD     |
 
 #### SQL
 

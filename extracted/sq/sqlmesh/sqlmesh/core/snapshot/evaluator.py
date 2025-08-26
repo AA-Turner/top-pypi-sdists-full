@@ -773,7 +773,8 @@ class SnapshotEvaluator:
                         allow_destructive_snapshots=allow_destructive_snapshots,
                         allow_additive_snapshots=allow_additive_snapshots,
                     )
-                    common_render_kwargs["runtime_stage"] = RuntimeStage.EVALUATING
+                    runtime_stage = RuntimeStage.EVALUATING
+                    target_table_exists = True
                 elif model.annotated or model.is_seed or model.kind.is_scd_type_2:
                     self._execute_create(
                         snapshot=snapshot,
@@ -785,7 +786,14 @@ class SnapshotEvaluator:
                         dry_run=False,
                         run_pre_post_statements=False,
                     )
-                    common_render_kwargs["runtime_stage"] = RuntimeStage.EVALUATING
+                    runtime_stage = RuntimeStage.EVALUATING
+                    target_table_exists = True
+
+            evaluate_render_kwargs = {
+                **common_render_kwargs,
+                "runtime_stage": runtime_stage,
+                "snapshot_table_exists": target_table_exists,
+            }
 
             wap_id: t.Optional[str] = None
             if snapshot.is_materialized and (
@@ -801,7 +809,7 @@ class SnapshotEvaluator:
                 execution_time=execution_time,
                 snapshot=snapshot,
                 snapshots=snapshots,
-                render_kwargs=common_render_kwargs,
+                render_kwargs=evaluate_render_kwargs,
                 create_render_kwargs=create_render_kwargs,
                 rendered_physical_properties=rendered_physical_properties,
                 deployability_index=deployability_index,
@@ -2378,14 +2386,19 @@ class ViewStrategy(PromotableStrategy):
     def delete(self, name: str, **kwargs: t.Any) -> None:
         cascade = kwargs.pop("cascade", False)
         try:
-            self.adapter.drop_view(name, cascade=cascade)
+            # Some engines (e.g., RisingWave) don’t fail when dropping a materialized view with a DROP VIEW statement,
+            # because views and materialized views don’t share the same namespace. Therefore, we should not ignore if the
+            # view doesn't exist and let the exception handler attempt to drop the materialized view.
+            self.adapter.drop_view(name, cascade=cascade, ignore_if_not_exists=False)
         except Exception:
             logger.debug(
                 "Failed to drop view '%s'. Trying to drop the materialized view instead",
                 name,
                 exc_info=True,
             )
-            self.adapter.drop_view(name, materialized=True, cascade=cascade)
+            self.adapter.drop_view(
+                name, materialized=True, cascade=cascade, ignore_if_not_exists=True
+            )
         logger.info("Dropped view '%s'", name)
 
     def _is_materialized_view(self, model: Model) -> bool:

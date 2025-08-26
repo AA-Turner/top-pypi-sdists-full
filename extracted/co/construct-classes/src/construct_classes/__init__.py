@@ -6,10 +6,13 @@ import construct as c
 if t.TYPE_CHECKING:
     from typing_extensions import dataclass_transform
 else:
+
     def dataclass_transform(**kwargs: t.Any) -> t.Any:
         def inner(cls: t.Any) -> t.Any:
             return cls
+
         return inner
+
 
 # workaround for mypy self type bug
 Self = t.TypeVar("Self", bound="Struct")
@@ -27,13 +30,24 @@ def subcon(
     return dataclasses.field(metadata=metadata, **kwargs)
 
 
-@dataclass_transform(field_specifiers=(subcon,))
+@dataclass_transform(field_specifiers=(subcon,), kw_only_default=True)
 class _StructMeta(type):
     def __new__(
-        cls, name: str, bases: t.Tuple[type, ...], namespace: t.Dict[str, t.Any]
+        cls,
+        name: str,
+        bases: t.Tuple[type, ...],
+        namespace: t.Dict[str, t.Any],
+        *,
+        kw_only: bool = True,
+        **kwargs: t.Any,
     ) -> type:
         new_cls = super().__new__(cls, name, bases, namespace)
-        return dataclasses.dataclass()(new_cls)  # type: ignore # pyright is bad with metaclasses
+        if any(isinstance(b, _StructMeta) for b in bases):
+            # skip over `Struct` itself, which does not have a StructMeta class in its
+            # bases.
+            return dataclasses.dataclass(kw_only=kw_only, **kwargs)(new_cls)
+        else:
+            return new_cls
 
 
 class Struct(metaclass=_StructMeta):
@@ -77,3 +91,7 @@ class Struct(metaclass=_StructMeta):
     def parse(cls: t.Type[Self], data: bytes) -> Self:
         result = cls.SUBCON.parse(data)
         return cls.from_parsed(result)
+
+
+# check that `Struct` itself is not transformed
+assert not dataclasses.is_dataclass(Struct)

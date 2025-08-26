@@ -24,6 +24,7 @@ from orionis.foundation.config.testing.entities.testing import Testing
 from orionis.foundation.contracts.application import IApplication
 from orionis.foundation.exceptions import OrionisTypeError, OrionisRuntimeError, OrionisValueError
 from orionis.foundation.providers.logger_provider import LoggerProvider
+from orionis.services.asynchrony.coroutines import Coroutine
 from orionis.services.log.contracts.log_service import ILogger
 
 class Application(Container, IApplication):
@@ -342,7 +343,7 @@ class Application(Container, IApplication):
             # Register the provider in the container
             # Check if register is a coroutine function
             if asyncio.iscoroutinefunction(class_provider.register):
-                asyncio.run(class_provider.register())
+                Coroutine(class_provider.register).run()
             else:
                 class_provider.register()
 
@@ -379,7 +380,7 @@ class Application(Container, IApplication):
             if hasattr(provider, 'boot') and callable(getattr(provider, 'boot')):
                 # Check if boot is a coroutine function
                 if asyncio.iscoroutinefunction(provider.boot):
-                    asyncio.run(provider.boot())
+                    Coroutine(provider.boot).run()
                 else:
                     provider.boot()
 
@@ -626,62 +627,89 @@ class Application(Container, IApplication):
         configuration system.
         """
 
+        # Convert dataclass instances to dictionaries
+        from orionis.services.introspection.dataclass.attributes import attributes
+
         # Load app configurator
+        if (isinstance(app, type) and issubclass(app, App)):
+            app = attributes(app)
         if not isinstance(app, (App, dict)):
             raise OrionisTypeError(f"Expected App instance or dict, got {type(app).__name__}")
         self.loadConfigApp(app)
 
         # Load auth configurator
+        if (isinstance(auth, type) and issubclass(auth, Auth)):
+            auth = attributes(auth)
         if not isinstance(auth, (Auth, dict)):
             raise OrionisTypeError(f"Expected Auth instance or dict, got {type(auth).__name__}")
         self.loadConfigAuth(auth)
 
         # Load cache configurator
+        if (isinstance(cache, type) and issubclass(cache, Cache)):
+            cache = attributes(cache)
         if not isinstance(cache, (Cache, dict)):
             raise OrionisTypeError(f"Expected Cache instance or dict, got {type(cache).__name__}")
         self.loadConfigCache(cache)
 
         # Load cors configurator
+        if (isinstance(cors, type) and issubclass(cors, Cors)):
+            cors = attributes(cors)
         if not isinstance(cors, (Cors, dict)):
             raise OrionisTypeError(f"Expected Cors instance or dict, got {type(cors).__name__}")
         self.loadConfigCors(cors)
 
         # Load database configurator
+        if (isinstance(database, type) and issubclass(database, Database)):
+            database = attributes(database)
         if not isinstance(database, (Database, dict)):
             raise OrionisTypeError(f"Expected Database instance or dict, got {type(database).__name__}")
         self.loadConfigDatabase(database)
 
         # Load filesystems configurator
+        if (isinstance(filesystems, type) and issubclass(filesystems, Filesystems)):
+            filesystems = attributes(filesystems)
         if not isinstance(filesystems, (Filesystems, dict)):
             raise OrionisTypeError(f"Expected Filesystems instance or dict, got {type(filesystems).__name__}")
         self.loadConfigFilesystems(filesystems)
 
         # Load logging configurator
+        if (isinstance(logging, type) and issubclass(logging, Logging)):
+            logging = attributes(logging)
         if not isinstance(logging, (Logging, dict)):
             raise OrionisTypeError(f"Expected Logging instance or dict, got {type(logging).__name__}")
         self.loadConfigLogging(logging)
 
         # Load mail configurator
+        if (isinstance(mail, type) and issubclass(mail, Mail)):
+            mail = attributes(mail)
         if not isinstance(mail, (Mail, dict)):
             raise OrionisTypeError(f"Expected Mail instance or dict, got {type(mail).__name__}")
         self.loadConfigMail(mail)
 
         # Load paths configurator
+        if (isinstance(path, type) and issubclass(path, Paths)):
+            path = attributes(path)
         if not isinstance(path, (Paths, dict)):
             raise OrionisTypeError(f"Expected Paths instance or dict, got {type(path).__name__}")
         self.loadPaths(path)
 
         # Load queue configurator
+        if (isinstance(queue, type) and issubclass(queue, Queue)):
+            queue = attributes(queue)
         if not isinstance(queue, (Queue, dict)):
             raise OrionisTypeError(f"Expected Queue instance or dict, got {type(queue).__name__}")
         self.loadConfigQueue(queue)
 
         # Load session configurator
+        if (isinstance(session, type) and issubclass(session, Session)):
+            session = attributes(session)
         if not isinstance(session, (Session, dict)):
             raise OrionisTypeError(f"Expected Session instance or dict, got {type(session).__name__}")
         self.loadConfigSession(session)
 
         # Load testing configurator
+        if (isinstance(testing, type) and issubclass(testing, Testing)):
+            testing = attributes(testing)
         if not isinstance(testing, (Testing, dict)):
             raise OrionisTypeError(f"Expected Testing instance or dict, got {type(testing).__name__}")
         self.loadConfigTesting(testing)
@@ -767,7 +795,9 @@ class Application(Container, IApplication):
 
         # If app is a dict, convert it to App instance
         if isinstance(app, dict):
-            app = App(**app)
+            app = App(**app).toDict()
+        elif isinstance(app, App):
+            app = app.toDict()
 
         # Store the configuration
         self.__configurators['app'] = app
@@ -853,7 +883,9 @@ class Application(Container, IApplication):
 
         # If auth is a dict, convert it to Auth instance
         if isinstance(auth, dict):
-            auth = Auth(**auth)
+            auth = Auth(**auth).toDict()
+        elif isinstance(auth, Auth):
+            auth = auth.toDict()
 
         # Store the configuration
         self.__configurators['auth'] = auth
@@ -939,7 +971,9 @@ class Application(Container, IApplication):
 
         # If cache is a dict, convert it to Cache instance
         if isinstance(cache, dict):
-            cache = Cache(**cache)
+            cache = Cache(**cache).toDict()
+        elif isinstance(cache, Cache):
+            cache = cache.toDict()
 
         # Store the configuration
         self.__configurators['cache'] = cache
@@ -1025,7 +1059,9 @@ class Application(Container, IApplication):
 
         # If cors is a dict, convert it to Cors instance
         if isinstance(cors, dict):
-            cors = Cors(**cors)
+            cors = Cors(**cors).toDict()
+        elif isinstance(cors, Cors):
+            cors = cors.toDict()
 
         # Store the configuration
         self.__configurators['cors'] = cors
@@ -1111,7 +1147,9 @@ class Application(Container, IApplication):
 
         # If database is a dict, convert it to Database instance
         if isinstance(database, dict):
-            database = Database(**database)
+            database = Database(**database).toDict()
+        elif isinstance(database, Database):
+            database = database.toDict()
 
         # Store the configuration
         self.__configurators['database'] = database
@@ -1197,7 +1235,9 @@ class Application(Container, IApplication):
 
         # If filesystems is a dict, convert it to Filesystems instance
         if isinstance(filesystems, dict):
-            filesystems = Filesystems(**filesystems)
+            filesystems = Filesystems(**filesystems).toDict()
+        elif isinstance(filesystems, Filesystems):
+            filesystems = filesystems.toDict()
 
         # Store the configuration
         self.__configurators['filesystems'] = filesystems
@@ -1283,7 +1323,9 @@ class Application(Container, IApplication):
 
         # If logging is a dict, convert it to Logging instance
         if isinstance(logging, dict):
-            logging = Logging(**logging)
+            logging = Logging(**logging).toDict()
+        elif isinstance(logging, Logging):
+            logging = logging.toDict()
 
         # Store the configuration
         self.__configurators['logging'] = logging
@@ -1369,7 +1411,9 @@ class Application(Container, IApplication):
 
         # If mail is a dict, convert it to Mail instance
         if isinstance(mail, dict):
-            mail = Mail(**mail)
+            mail = Mail(**mail).toDict()
+        elif isinstance(mail, Mail):
+            mail = mail.toDict()
 
         # Store the configuration
         self.__configurators['mail'] = mail
@@ -1380,7 +1424,7 @@ class Application(Container, IApplication):
     def setPaths(
         self,
         *,
-        commands: str | Path = (Path.cwd() / 'app' / 'console' / 'commands').resolve(),
+        console: str | Path = (Path.cwd() / 'app' / 'console').resolve(),
         controllers: str | Path = (Path.cwd() / 'app' / 'http' / 'controllers').resolve(),
         middleware: str | Path = (Path.cwd() / 'app' / 'http' / 'middleware').resolve(),
         requests: str | Path = (Path.cwd() / 'app' / 'http' / 'requests').resolve(),
@@ -1417,8 +1461,8 @@ class Application(Container, IApplication):
 
         Parameters
         ----------
-        commands : str or Path, optional
-            Directory for console command classes. Defaults to 'app/console/commands'.
+        console : str or Path, optional
+            Directory for console command classes. Defaults to 'app/console'.
         controllers : str or Path, optional
             Directory for HTTP controller classes. Defaults to 'app/http/controllers'.
         middleware : str or Path, optional
@@ -1484,7 +1528,7 @@ class Application(Container, IApplication):
         # Ensure 'paths' exists in configurators
         self.__configurators['path'] = {
             'root' : self.__bootstrap_base_path or str(Path.cwd().resolve()),
-            'commands' : str(commands),
+            'console' : str(console),
             'controllers' : str(controllers),
             'middleware' : str(middleware),
             'requests' : str(requests),
@@ -1558,7 +1602,12 @@ class Application(Container, IApplication):
             paths.update({
                 'root': self.__bootstrap_base_path or str(Path.cwd().resolve())
             })
-            paths = Paths(**paths)
+            paths = Paths(**paths).toDict()
+        elif isinstance(paths, Paths):
+            paths = paths.toDict()
+            paths.update({
+                'root': self.__bootstrap_base_path or str(Path.cwd().resolve())
+            })
 
         # Store the configuration
         self.__configurators['path'] = paths
@@ -1690,7 +1739,9 @@ class Application(Container, IApplication):
 
         # If queue is a dict, convert it to Queue instance
         if isinstance(queue, dict):
-            queue = Queue(**queue)
+            queue = Queue(**queue).toDict()
+        elif isinstance(queue, Queue):
+            queue = queue.toDict()
 
         # Store the configuration
         self.__configurators['queue'] = queue
@@ -1776,7 +1827,9 @@ class Application(Container, IApplication):
 
         # If session is a dict, convert it to Session instance
         if isinstance(session, dict):
-            session = Session(**session)
+            session = Session(**session).toDict()
+        elif isinstance(session, Session):
+            session = session.toDict()
 
         # Store the configuration
         self.__configurators['session'] = session
@@ -1862,7 +1915,9 @@ class Application(Container, IApplication):
 
         # If testing is a dict, convert it to Testing instance
         if isinstance(testing, dict):
-            testing = Testing(**testing)
+            testing = Testing(**testing).toDict()
+        elif isinstance(testing, Testing):
+            testing = testing.toDict()
 
         # Store the configuration
         self.__configurators['testing'] = testing

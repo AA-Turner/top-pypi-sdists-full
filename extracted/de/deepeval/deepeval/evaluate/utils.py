@@ -1,3 +1,5 @@
+import ast
+import inspect
 from typing import Optional, List, Callable, Union, Dict
 import os, time
 
@@ -25,6 +27,10 @@ from deepeval.evaluate.types import TestResult
 from deepeval.tracing.api import TraceApi, BaseApiSpan
 from deepeval.tracing.tracing import BaseSpan, Trace
 from deepeval.constants import PYTEST_RUN_TEST_NAME
+from deepeval.tracing.utils import (
+    perf_counter_to_datetime,
+    to_zod_compatible_iso,
+)
 
 
 def create_metric_data(metric: BaseMetric) -> MetricData:
@@ -215,6 +221,35 @@ def create_api_test_case(
         return api_test_case
 
 
+def create_api_trace(trace: Trace, golden: Golden) -> TraceApi:
+    return TraceApi(
+        uuid=trace.uuid,
+        baseSpans=[],
+        agentSpans=[],
+        llmSpans=[],
+        retrieverSpans=[],
+        toolSpans=[],
+        startTime=(
+            to_zod_compatible_iso(perf_counter_to_datetime(trace.start_time))
+            if trace.start_time
+            else None
+        ),
+        endTime=(
+            to_zod_compatible_iso(perf_counter_to_datetime(trace.end_time))
+            if trace.end_time
+            else None
+        ),
+        input=trace.input,
+        output=trace.output,
+        expected_output=trace.expected_output,
+        context=trace.context,
+        retrieval_context=trace.retrieval_context,
+        tools_called=trace.tools_called,
+        expected_tools=trace.expected_tools,
+        metadata=golden.additional_metadata,
+    )
+
+
 def validate_assert_test_inputs(
     golden: Optional[Golden] = None,
     observed_callback: Optional[Callable] = None,
@@ -288,14 +323,6 @@ def validate_evaluate_inputs(
     ):
         raise ValueError(
             "If using 'goldens', you must also provide a 'observed_callback'."
-        )
-    if (test_cases and not metrics) or (metrics and not test_cases):
-        raise ValueError(
-            "If using 'test_cases', you must also provide 'metrics'."
-        )
-    if not ((goldens and observed_callback) or (test_cases and metrics)):
-        raise ValueError(
-            "You must provide either goldens with a 'observed_callback', or test_cases with 'metrics'."
         )
 
     if test_cases and metrics:
@@ -486,6 +513,9 @@ def write_test_result_to_file(
 
 
 def aggregate_metric_pass_rates(test_results: List[TestResult]) -> dict:
+    if not test_results:
+        return {}
+
     metric_counts = {}
     metric_successes = {}
 
@@ -577,3 +607,21 @@ def extract_span_test_results(span_api: BaseApiSpan) -> List[TestResult]:
             )
         )
     return test_results
+
+
+def count_observe_decorators_in_module(func: Callable) -> int:
+    mod = inspect.getmodule(func)
+    if mod is None or not hasattr(mod, "__file__"):
+        raise RuntimeError("Cannot locate @observe function.")
+    module_source = inspect.getsource(mod)
+    tree = ast.parse(module_source)
+    count = 0
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for deco in node.decorator_list:
+                if (
+                    isinstance(deco, ast.Call)
+                    and getattr(deco.func, "id", "") == "observe"
+                ):
+                    count += 1
+    return count

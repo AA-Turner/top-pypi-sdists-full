@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: DafnyRuntimePython
-Version: 4.10.0
+Version: 4.11.0
 Summary: Dafny runtime for Python
 Author-email: The Dafny core team <core-team@dafny.org>
 Project-URL: Homepage, https://github.com/dafny-lang/dafny

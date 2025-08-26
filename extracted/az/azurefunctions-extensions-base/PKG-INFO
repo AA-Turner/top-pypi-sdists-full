@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azurefunctions-extensions-base
-Version: 1.0.0b2
+Version: 1.0.0
 Summary: Base Python worker extension for Azure Functions.
 Author-email: "Azure Functions team at Microsoft Corp." <azurefunctions@microsoft.com>
 License: MIT License
@@ -20,14 +20,20 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: pytest-instafail; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
+Dynamic: license-file
 
 # Azure Functions Extensions Base library for Python
 This is the base library for allowing Python Function Apps to recognize and bind to SDk-types and HttpV2-types. It is not to be used directly.
 Instead, please reference one of the extending packages:
-* azurefunctions-extensions-bindings-blob
 * azurefunctions-extensions-http-fastapi
+* azurefunctions-extensions-bindings-blob
+* azurefunctions-extensions-bindings-cosmosdb
+* azurefunctions-extensions-bindings-eventhub
+* azurefunctions-extensions-bindings-servicebus

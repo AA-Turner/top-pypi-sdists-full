@@ -25,7 +25,7 @@ from ..utils import (
     BBoxSmoothingTracker
 )
 from ..utils.geometry_utils import get_bbox_center, point_in_polygon, get_bbox_bottom25_center
-
+#from turbojpeg import TurboJPEG, TJPF_RGB
 
 @dataclass
 class ColorDetectionConfig(BaseConfig):
@@ -62,13 +62,13 @@ class ColorDetectionConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    zone_config: Optional[Dict[str, List[List[float]]]] = None #field(
-#     default_factory=lambda: {
-#         "zones": {
-#             "Entrance": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
-#         }
-#     }
-# )
+    zone_config: Optional[Dict[str, List[List[float]]]] = field(
+    default_factory=lambda: {
+        "zones": {
+            "Entrance": [[148, 474], [1207, 486], [1914, 882], [1910, 1070], [151, 1075]],
+        }
+    }
+)
 
     def validate(self) -> List[str]:
         errors = super().validate()
@@ -134,6 +134,7 @@ class ColorDetectionUseCase(BaseProcessor):
         self._zone_current_counts = {}  # zone_name -> current count in zone
         self._zone_total_counts = {}  # zone_name -> total count that have been in zone
         self.logger.info("Initialized ColorDetectionUseCase with zone tracking")
+        #self.jpeg = TurboJPEG()
 
     def reset_tracker(self) -> None:
         """Reset the advanced tracker instance."""
@@ -724,6 +725,7 @@ class ColorDetectionUseCase(BaseProcessor):
     ) -> List[Dict[str, Any]]:
         image_array = np.frombuffer(image_bytes, np.uint8)
         image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        #image = self.jpeg.decode(image_bytes, pixel_format=TJPF_RGB)
         
         if image is None:
             raise RuntimeError("Failed to decode image from bytes")
@@ -1003,7 +1005,7 @@ class ColorDetectionUseCase(BaseProcessor):
         if total_detections > 0:
             level = "info"
             intensity = min(10.0, total_detections / 5.0)
-            if config.alert_config and config.alert_config.count_thresholds:
+            if config.alert_config and hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 20)
                 intensity = min(10.0, (total_detections / threshold) * 10)
                 level = "critical" if intensity >= 7 else "warning" if intensity >= 5 else "info"
@@ -1350,7 +1352,7 @@ class ColorDetectionUseCase(BaseProcessor):
             elif self.current_incident_end_timestamp!='Incident still active' and self.current_incident_end_timestamp!='N/A':
                 self.current_incident_end_timestamp = 'N/A'
                 
-            if config.alert_config and config.alert_config.count_thresholds:
+            if config.alert_config and hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 15)
                 intensity = min(10.0, (total_detections / threshold) * 10)
 

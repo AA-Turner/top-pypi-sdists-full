@@ -1,5 +1,5 @@
 from orionis.console.contracts.schedule import ISchedule
-from orionis.console.tasks.schedule import Scheduler
+from orionis.console.tasks.schedule import Schedule
 from orionis.container.providers.service_provider import ServiceProvider
 
 class ScheduleProvider(ServiceProvider):
@@ -33,7 +33,7 @@ class ScheduleProvider(ServiceProvider):
             This method does not return any value.
         """
         # Bind Scheduler as a singleton to the ISchedule interface with an alias
-        self.app.singleton(ISchedule, Scheduler, alias="x-orionis.console.contracts.schedule")
+        self.app.singleton(ISchedule, Schedule, alias="x-orionis.console.contracts.schedule")
 
     def boot(self) -> None:
         """

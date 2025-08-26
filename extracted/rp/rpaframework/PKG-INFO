@@ -1,84 +1,82 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: rpaframework
-Version: 30.0.2
+Version: 31.0.0
 Summary: A collection of tools and libraries for RPA
+Project-URL: homepage, https://rpaframework.org/
+Project-URL: documentation, https://rpaframework.org/
+Project-URL: repository, https://github.com/robocorp/rpaframework
+Author-email: RPA Framework <rpafw@robocorp.com>
 License: Apache-2.0
-Keywords: robotframework,rpa,automation
-Author: RPA Framework
-Author-email: rpafw@robocorp.com
-Requires-Python: >3.9.1,<3.14
+License-File: LICENSE
+Keywords: automation,robotframework,rpa
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Robot Framework
 Classifier: Framework :: Robot Framework :: Library
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: O365 (>=2.0.21,<2.0.27)
-Requires-Dist: PyJWT (>=2.6.0,<3.0.0)
-Requires-Dist: PySocks (>=1.5.6,!=1.5.7,<2.0.0)
-Requires-Dist: PyYAML (>=5.4.1,<7.0.0)
-Requires-Dist: beautifulsoup4 (>=4.7.0,<5.0.0)
-Requires-Dist: chardet (>=3.0.0,<4.0.0)
-Requires-Dist: click (>=8.1.2,<9.0.0)
-Requires-Dist: comtypes (>=1.1.11,<2.0.0) ; sys_platform == "win32"
-Requires-Dist: cryptography (>=44.0.1,<45)
-Requires-Dist: docutils (>=0.21.2,<0.22.0)
-Requires-Dist: exchangelib (>=5.1.0)
-Requires-Dist: graphviz (>=0.13.2,<0.14.0)
-Requires-Dist: holidays (>=0.45,<0.46)
-Requires-Dist: htmldocx (>=0.0.6,<0.0.7)
-Requires-Dist: importlib-metadata (>=4.13.0)
-Requires-Dist: java-access-bridge-wrapper (>=1.1.0,<2.0.0)
-Requires-Dist: jsonpath-ng (>=1.5.2,<2.0.0)
-Requires-Dist: mss (>=6.0.0,<7.0.0)
-Requires-Dist: netsuitesdk (>=1.1.0,<2.0.0)
-Requires-Dist: notifiers (>=1.3.3,<2.0.0)
-Requires-Dist: oauthlib (>=3.2.2,<4.0.0)
-Requires-Dist: openpyxl (>=3.0.9,<4.0.0)
-Requires-Dist: pendulum (>=3.0.0,<4.0.0)
-Requires-Dist: pillow (>=10.2.0,<11.0.0)
-Requires-Dist: psutil (>=5.7.0,<6.0.0) ; sys_platform == "win32"
-Requires-Dist: pynput-robocorp-fork (>=5.0.0,<6.0.0)
-Requires-Dist: pyotp (>=2.6.0,<3.0.0)
-Requires-Dist: pyperclip (>=1.8.0,<2.0.0)
-Requires-Dist: python-docx (>=0.8.11,<0.9.0)
-Requires-Dist: python-xlib (>=0.17) ; sys_platform == "linux"
-Requires-Dist: pywin32 (>=302,<307) ; python_full_version != "3.8.1" and sys_platform == "win32"
-Requires-Dist: pywinauto (>=0.6.8,<0.7.0) ; python_full_version != "3.8.1" and sys_platform == "win32"
-Requires-Dist: requests (>=2.28.1,<3.0.0)
-Requires-Dist: requests-oauthlib (>=1.3.1,<2.0.0)
-Requires-Dist: robocorp-storage (>=1.0.2,<2.0.0)
-Requires-Dist: robotframework (>=4.0.0,!=4.0.1,!=6.1.0,<8.0.0)
-Requires-Dist: robotframework-pythonlibcore (>=4.2.0,<5.0.0)
-Requires-Dist: robotframework-requests (>=0.9.1,<0.10.0)
-Requires-Dist: robotframework-sapguilibrary (>=1.1,<2.0) ; sys_platform == "win32"
-Requires-Dist: robotframework-seleniumlibrary (>=6.7.1,<7.0.0)
-Requires-Dist: robotframework-seleniumtestability (>=2.0.0,<3.0.0)
-Requires-Dist: rpaframework-core (>=12.0.1,<13.0.0)
-Requires-Dist: rpaframework-pdf (>=8.0.1,<9.0.0)
-Requires-Dist: rpaframework-windows (>=9.0.0,<10.0.0) ; sys_platform == "win32"
-Requires-Dist: selenium (==4.15.2)
-Requires-Dist: simple_salesforce (>=1.0.0,<2.0.0)
-Requires-Dist: smartsheet-python-sdk (==3.0.2)
-Requires-Dist: tenacity (>=8.0.1,<9.0.0)
-Requires-Dist: tweepy (>=3.8.0,<4.0.0)
-Requires-Dist: tzlocal (>=4.2,<5.0)
-Requires-Dist: validators (>=0.34.0,<0.35.0)
-Requires-Dist: wrapt (>=1.14.0,<2.0.0)
-Requires-Dist: xlrd (>=2.0.1,<3.0.0)
-Requires-Dist: xlutils (>=2.0.0,<3.0.0)
-Requires-Dist: xlwt (>=1.3.0,<2.0.0)
-Project-URL: Documentation, https://rpaframework.org/
-Project-URL: Homepage, https://rpaframework.org/
-Project-URL: Repository, https://github.com/robocorp/rpaframework
+Requires-Python: <3.14,>3.9.1
+Requires-Dist: beautifulsoup4>=4.7.0
+Requires-Dist: chardet>=3.0.0
+Requires-Dist: click>=8.1.2
+Requires-Dist: comtypes>=1.1.11; sys_platform == 'win32'
+Requires-Dist: cryptography<45,>=44.0.1
+Requires-Dist: docutils>=0.21.2
+Requires-Dist: exchangelib>=5.1.0
+Requires-Dist: graphviz>=0.13.2
+Requires-Dist: holidays>=0.45
+Requires-Dist: htmldocx>=0.0.6
+Requires-Dist: importlib-metadata>=4.13.0
+Requires-Dist: java-access-bridge-wrapper>=1.1.0
+Requires-Dist: jsonpath-ng>=1.5.2
+Requires-Dist: mss>=6.0.0
+Requires-Dist: netsuitesdk>=1.1.0
+Requires-Dist: notifiers>=1.3.3
+Requires-Dist: o365<2.0.27,>=2.0.21
+Requires-Dist: oauthlib>=3.2.2
+Requires-Dist: openpyxl>=3.0.9
+Requires-Dist: pendulum>=3.0.0
+Requires-Dist: pillow>=10.2.0
+Requires-Dist: psutil>=5.7.0; sys_platform == 'win32'
+Requires-Dist: pyjwt>=2.6.0
+Requires-Dist: pynput-robocorp-fork>=5.0.0
+Requires-Dist: pyotp>=2.6.0
+Requires-Dist: pyperclip>=1.8.0
+Requires-Dist: pysocks!=1.5.7,<2.0.0,>=1.5.6
+Requires-Dist: python-docx>=0.8.11
+Requires-Dist: python-xlib>=0.17; sys_platform == 'linux'
+Requires-Dist: pywin32<307,>=302; sys_platform == 'win32'
+Requires-Dist: pywinauto>=0.6.8; sys_platform == 'win32'
+Requires-Dist: pyyaml<7.0.0,>=5.4.1
+Requires-Dist: requests-oauthlib>=1.3.1
+Requires-Dist: requests>=2.28.1
+Requires-Dist: robocorp-storage>=1.0.2
+Requires-Dist: robotframework!=4.0.1,!=6.1.0,<8.0.0,>=4.0.0
+Requires-Dist: robotframework-pythonlibcore>=4.2.0
+Requires-Dist: robotframework-requests>=0.9.1
+Requires-Dist: robotframework-sapguilibrary>=1.1; sys_platform == 'win32'
+Requires-Dist: robotframework-seleniumlibrary>=6.7.1
+Requires-Dist: robotframework-seleniumtestability>=2.0.0
+Requires-Dist: rpaframework-core>=12.0.2
+Requires-Dist: rpaframework-pdf>=9.0.0
+Requires-Dist: rpaframework-windows>=10.0.0; sys_platform == 'win32'
+Requires-Dist: selenium==4.15.2
+Requires-Dist: simple-salesforce>=1.0.0
+Requires-Dist: smartsheet-python-sdk==3.0.2
+Requires-Dist: tenacity>=8.0.1
+Requires-Dist: tweepy>=3.8.0
+Requires-Dist: tzlocal>=4.2
+Requires-Dist: validators>=0.34.0
+Requires-Dist: wrapt<2.0.0,>=1.14.0
+Requires-Dist: xlrd>=2.0.1
+Requires-Dist: xlutils>=2.0.0
+Requires-Dist: xlwt>=1.3.0
 Description-Content-Type: text/x-rst
 
 RPA Framework
@@ -609,4 +607,3 @@ License
 
 This project is open-source and licensed under the terms of the
 `Apache License 2.0 <http://apache.org/licenses/LICENSE-2.0>`_.
-

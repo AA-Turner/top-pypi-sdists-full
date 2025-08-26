@@ -321,6 +321,7 @@ from .literals import (
     MovMpeg2FourCCControlType,
     MovPaddingControlType,
     MovReferenceType,
+    Mp2AudioDescriptionMixType,
     Mp3RateControlModeType,
     Mp4C2paManifestType,
     Mp4CslgAtomType,
@@ -397,6 +398,7 @@ from .literals import (
     SampleRangeConversionType,
     ScalingBehaviorType,
     SccDestinationFramerateType,
+    ShareStatusType,
     SimulateReservedQueueType,
     SrtStylePassthroughType,
     StatusUpdateIntervalType,
@@ -429,6 +431,7 @@ from .literals import (
     VideoCodecType,
     VideoOverlayPlayBackModeType,
     VideoOverlayUnitType,
+    VideoSelectorTypeType,
     VideoTimecodeInsertionType,
     Vp8FramerateControlType,
     Vp8FramerateConversionAlgorithmType,
@@ -544,6 +547,7 @@ __all__ = (
     "CreatePresetResponseTypeDef",
     "CreateQueueRequestTypeDef",
     "CreateQueueResponseTypeDef",
+    "CreateResourceShareRequestTypeDef",
     "DashAdditionalManifestOutputTypeDef",
     "DashAdditionalManifestTypeDef",
     "DashIsoEncryptionSettingsOutputTypeDef",
@@ -777,6 +781,7 @@ __all__ = (
     "VideoPreprocessorOutputTypeDef",
     "VideoPreprocessorTypeDef",
     "VideoPropertiesTypeDef",
+    "VideoSelectorOutputTypeDef",
     "VideoSelectorTypeDef",
     "VorbisSettingsTypeDef",
     "Vp8SettingsTypeDef",
@@ -905,6 +910,7 @@ class FlacSettingsTypeDef(TypedDict):
     SampleRate: NotRequired[int]
 
 class Mp2SettingsTypeDef(TypedDict):
+    AudioDescriptionMix: NotRequired[Mp2AudioDescriptionMixType]
     Bitrate: NotRequired[int]
     Channels: NotRequired[int]
     SampleRate: NotRequired[int]
@@ -1270,6 +1276,10 @@ class ReservationPlanSettingsTypeDef(TypedDict):
     Commitment: Literal["ONE_YEAR"]
     RenewalType: RenewalTypeType
     ReservedSlots: int
+
+class CreateResourceShareRequestTypeDef(TypedDict):
+    JobId: str
+    SupportCaseId: str
 
 class DashAdditionalManifestOutputTypeDef(TypedDict):
     ManifestNameModifier: NotRequired[str]
@@ -2060,6 +2070,21 @@ class ColorCorrectorTypeDef(TypedDict):
     Saturation: NotRequired[int]
     SdrReferenceWhiteLevel: NotRequired[int]
 
+class VideoSelectorOutputTypeDef(TypedDict):
+    AlphaBehavior: NotRequired[AlphaBehaviorType]
+    ColorSpace: NotRequired[ColorSpaceType]
+    ColorSpaceUsage: NotRequired[ColorSpaceUsageType]
+    EmbeddedTimecodeOverride: NotRequired[EmbeddedTimecodeOverrideType]
+    Hdr10Metadata: NotRequired[Hdr10MetadataTypeDef]
+    MaxLuminance: NotRequired[int]
+    PadVideo: NotRequired[PadVideoType]
+    Pid: NotRequired[int]
+    ProgramNumber: NotRequired[int]
+    Rotate: NotRequired[InputRotateType]
+    SampleRange: NotRequired[InputSampleRangeType]
+    SelectorType: NotRequired[VideoSelectorTypeType]
+    Streams: NotRequired[List[int]]
+
 class VideoSelectorTypeDef(TypedDict):
     AlphaBehavior: NotRequired[AlphaBehaviorType]
     ColorSpace: NotRequired[ColorSpaceType]
@@ -2072,6 +2097,8 @@ class VideoSelectorTypeDef(TypedDict):
     ProgramNumber: NotRequired[int]
     Rotate: NotRequired[InputRotateType]
     SampleRange: NotRequired[InputSampleRangeType]
+    SelectorType: NotRequired[VideoSelectorTypeType]
+    Streams: NotRequired[Sequence[int]]
 
 class CreateQueueRequestTypeDef(TypedDict):
     Name: str
@@ -3211,7 +3238,7 @@ class InputOutputTypeDef(TypedDict):
     TimecodeStart: NotRequired[str]
     VideoGenerator: NotRequired[InputVideoGeneratorTypeDef]
     VideoOverlays: NotRequired[List[VideoOverlayOutputTypeDef]]
-    VideoSelector: NotRequired[VideoSelectorTypeDef]
+    VideoSelector: NotRequired[VideoSelectorOutputTypeDef]
 
 class InputTemplateOutputTypeDef(TypedDict):
     AdvancedInputFilter: NotRequired[AdvancedInputFilterType]
@@ -3235,7 +3262,7 @@ class InputTemplateOutputTypeDef(TypedDict):
     TimecodeSource: NotRequired[InputTimecodeSourceType]
     TimecodeStart: NotRequired[str]
     VideoOverlays: NotRequired[List[VideoOverlayOutputTypeDef]]
-    VideoSelector: NotRequired[VideoSelectorTypeDef]
+    VideoSelector: NotRequired[VideoSelectorOutputTypeDef]
 
 class InputTemplateTypeDef(TypedDict):
     AdvancedInputFilter: NotRequired[AdvancedInputFilterType]
@@ -3493,12 +3520,14 @@ class JobTypeDef(TypedDict):
     JobEngineVersionUsed: NotRequired[str]
     JobPercentComplete: NotRequired[int]
     JobTemplate: NotRequired[str]
+    LastShareDetails: NotRequired[str]
     Messages: NotRequired[JobMessagesTypeDef]
     OutputGroupDetails: NotRequired[List[OutputGroupDetailTypeDef]]
     Priority: NotRequired[int]
     Queue: NotRequired[str]
     QueueTransitions: NotRequired[List[QueueTransitionTypeDef]]
     RetryCount: NotRequired[int]
+    ShareStatus: NotRequired[ShareStatusType]
     SimulateReservedQueue: NotRequired[SimulateReservedQueueType]
     Status: NotRequired[JobStatusType]
     StatusUpdateInterval: NotRequired[StatusUpdateIntervalType]

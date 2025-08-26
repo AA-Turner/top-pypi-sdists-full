@@ -29,7 +29,7 @@ class VehicleMonitoringConfig(BaseConfig):
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
     confidence_threshold: float = 0.6
-    zone_config: Optional[Dict[str, List[List[float]]]] = None #field(
+    zone_config: Optional[Dict[str, Dict[str, List[List[float]]]]] = None #field(
 #     default_factory=lambda: {
 #         "zones": {
 #             "Entrance": [[86, 328], [844, 317], [1277, 520], [1273, 707], [125, 713]]
@@ -213,15 +213,16 @@ class VehicleMonitoringUseCase(BaseProcessor):
             # print(zone_analysis)
             # print("-----------------------------ZONEEEE1-----------------------------------")
             # Update zone tracking with current frame data (always enhance to keep cumulative totals)
+            print("--------------------------__TRUE--------------------------------------")
             if zone_analysis:
                 enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, processed_data, config)
                 # Merge enhanced zone analysis with original zone analysis
                 for zone_name, enhanced_data in enhanced_zone_analysis.items():
                     zone_analysis[zone_name] = enhanced_data
                     
-        # print("-----------------------------ZONEEEE-----------------------------------")
-        # print(zone_analysis)
-        # print("-----------------------------ZONEEEE-----------------------------------")
+        print("-----------------------------ZONEEEE-----------------------------------")
+        print(zone_analysis)
+        print("-----------------------------ZONEEEE-----------------------------------")
 
         alerts = self._check_alerts(counting_summary,zone_analysis, frame_number, config)
         predictions = self._extract_predictions(processed_data)
@@ -489,7 +490,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
             elif self.current_incident_end_timestamp != 'Incident still active' and self.current_incident_end_timestamp != 'N/A':
                 self.current_incident_end_timestamp = 'N/A'
 
-            if config.alert_config and config.alert_config.count_thresholds:
+            if config.alert_config and hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 15)
                 intensity = min(10.0, (total_detections / threshold) * 10)
                 if intensity >= 9:
@@ -738,6 +739,9 @@ class VehicleMonitoringUseCase(BaseProcessor):
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
+        print("---------------------------------STREAM_INFO------------------------------")
+        print(stream_info)
+        print("---------------------------------STREAM_INFO------------------------------")
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:

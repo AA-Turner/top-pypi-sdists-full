@@ -8,6 +8,7 @@ import re
 import typing as t
 from argparse import Namespace
 from collections import defaultdict
+from functools import cached_property
 from pathlib import Path
 
 from dbt import constants as dbt_constants, flags
@@ -34,6 +35,7 @@ except ImportError:
 from dbt.tracking import do_not_track
 
 from sqlmesh.core import constants as c
+from sqlmesh.utils.errors import SQLMeshError
 from sqlmesh.core.config import ModelDefaultsConfig
 from sqlmesh.dbt.basemodel import Dependencies
 from sqlmesh.dbt.builtin import BUILTIN_FILTERS, BUILTIN_GLOBALS, OVERRIDDEN_MACROS
@@ -157,7 +159,7 @@ class ManifestHelper:
                 result[package_name][macro_name] = macro_config.info
         return result
 
-    @property
+    @cached_property
     def flat_graph(self) -> t.Dict[str, t.Any]:
         return {
             "exposures": {
@@ -387,7 +389,10 @@ class ManifestHelper:
     @property
     def _manifest(self) -> Manifest:
         if not self.__manifest:
-            self.__manifest = self._load_manifest()
+            try:
+                self.__manifest = self._load_manifest()
+            except Exception as ex:
+                raise SQLMeshError(f"Failed to load dbt manifest: {ex}") from ex
         return self.__manifest
 
     def _load_manifest(self) -> Manifest:
@@ -550,6 +555,9 @@ class ManifestHelper:
                 args = [jinja_call_arg_name(arg) for arg in node.args]
                 if args and args[0]:
                     dependencies.variables.add(args[0])
+                else:
+                    # We couldn't determine the var name statically
+                    dependencies.has_dynamic_var_names = True
                 dependencies.macros.append(MacroReference(name="var"))
             elif len(call_name) == 1:
                 macro_name = call_name[0]

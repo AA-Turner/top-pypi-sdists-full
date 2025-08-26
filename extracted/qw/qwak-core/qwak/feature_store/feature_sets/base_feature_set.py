@@ -139,6 +139,7 @@ class BaseFeatureSet(ABC):
             featureset=self,
             sample_size=number_of_rows,
             validation_options=validation_options,
+            silence_specific_exceptions=False,
         )
 
         if isinstance(response, SuccessValidationResponse):

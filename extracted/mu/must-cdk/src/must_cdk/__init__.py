@@ -248,7 +248,7 @@ class AmplifyApp(
         :param custom_rules: Custom rules for the Amplify app. Used for redirects, rewrites, and other routing rules.
         :param environment_variables: Environment variables for the Amplify app. These will be available during the build process.
         :param platform: Platform for the Amplify app. Default: "WEB"
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__777b9bbab56e86272a20ea4d9e3f1efad25bb7fea282e210cf563e8923d584d0)
@@ -328,7 +328,7 @@ class ApiGatewayToLambda(
         :param log_group_props: CloudWatch Logs configuration.
         :param proxy: 
         :param rest_api_props: 
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88385340a9ac0a3d345bb5f8b9e0334655a117a97d92f90c383b720f4bbd4824)
@@ -418,93 +418,6 @@ class ApiGatewayToLambda(
     @jsii.member(jsii_name="usagePlan")
     def usage_plan(self) -> typing.Optional[_aws_cdk_aws_apigateway_ceddda9d.UsagePlan]:
         return typing.cast(typing.Optional[_aws_cdk_aws_apigateway_ceddda9d.UsagePlan], jsii.get(self, "usagePlan"))
-
-
-@jsii.data_type(
-    jsii_type="must-cdk.AutoScalingProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "max_capacity": "maxCapacity",
-        "min_capacity": "minCapacity",
-        "cpu_scale": "cpuScale",
-        "memory_scale": "memoryScale",
-    },
-)
-class AutoScalingProps:
-    def __init__(
-        self,
-        *,
-        max_capacity: jsii.Number,
-        min_capacity: jsii.Number,
-        cpu_scale: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.CpuUtilizationScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        memory_scale: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.MemoryUtilizationScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> None:
-        '''Configuration for ECS service auto-scaling.
-
-        :param max_capacity: Maximum number of tasks to run.
-        :param min_capacity: Minimum number of tasks to run.
-        :param cpu_scale: Scale task based on CPU utilization.
-        :param memory_scale: Scale task based on memory utilization.
-        '''
-        if isinstance(cpu_scale, dict):
-            cpu_scale = _aws_cdk_aws_ecs_ceddda9d.CpuUtilizationScalingProps(**cpu_scale)
-        if isinstance(memory_scale, dict):
-            memory_scale = _aws_cdk_aws_ecs_ceddda9d.MemoryUtilizationScalingProps(**memory_scale)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0ea30b15daf73de785b4991457443ee0ca220224fbd08155a17d86c67413930)
-            check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
-            check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
-            check_type(argname="argument cpu_scale", value=cpu_scale, expected_type=type_hints["cpu_scale"])
-            check_type(argname="argument memory_scale", value=memory_scale, expected_type=type_hints["memory_scale"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "max_capacity": max_capacity,
-            "min_capacity": min_capacity,
-        }
-        if cpu_scale is not None:
-            self._values["cpu_scale"] = cpu_scale
-        if memory_scale is not None:
-            self._values["memory_scale"] = memory_scale
-
-    @builtins.property
-    def max_capacity(self) -> jsii.Number:
-        '''Maximum number of tasks to run.'''
-        result = self._values.get("max_capacity")
-        assert result is not None, "Required property 'max_capacity' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def min_capacity(self) -> jsii.Number:
-        '''Minimum number of tasks to run.'''
-        result = self._values.get("min_capacity")
-        assert result is not None, "Required property 'min_capacity' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def cpu_scale(
-        self,
-    ) -> typing.Optional[_aws_cdk_aws_ecs_ceddda9d.CpuUtilizationScalingProps]:
-        '''Scale task based on CPU utilization.'''
-        result = self._values.get("cpu_scale")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ecs_ceddda9d.CpuUtilizationScalingProps], result)
-
-    @builtins.property
-    def memory_scale(
-        self,
-    ) -> typing.Optional[_aws_cdk_aws_ecs_ceddda9d.MemoryUtilizationScalingProps]:
-        '''Scale task based on memory utilization.'''
-        result = self._values.get("memory_scale")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ecs_ceddda9d.MemoryUtilizationScalingProps], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AutoScalingProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.data_type(
@@ -1065,7 +978,7 @@ class CloudFrontToOrigins(
         :param price_class: CloudFront distribution price class. Default: PRICE_CLASS_100
         :param s3_origins: S3 origins configuration.
         :param web_acl_id: Web Application Firewall (WAF) web ACL ID.
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5595cb0fd40f1755eb3336459cd050240b0464ea7a04fa1bf71ac0f843be019)
@@ -1198,58 +1111,32 @@ class CloudFrontToOrigins(
 
 
 @jsii.data_type(
-    jsii_type="must-cdk.CodeDeployConfig",
+    jsii_type="must-cdk.CodeDeployApplicationConfig",
     jsii_struct_bases=[],
-    name_mapping={
-        "termination_wait_time": "terminationWaitTime",
-        "traffic_routing_interval": "trafficRoutingInterval",
-        "traffic_routing_start_percent": "trafficRoutingStartPercent",
-    },
+    name_mapping={"application_name": "applicationName"},
 )
-class CodeDeployConfig:
+class CodeDeployApplicationConfig:
     def __init__(
         self,
         *,
-        termination_wait_time: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        traffic_routing_interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        traffic_routing_start_percent: typing.Optional[jsii.Number] = None,
+        application_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Configuration for CodeDeploy deployment.
+        '''CodeDeploy application configuration options.
 
-        :param termination_wait_time: The termination wait time after deployment (default: 30 minutes).
-        :param traffic_routing_interval: The interval between traffic shifting increments (default: 1 minute).
-        :param traffic_routing_start_percent: The percentage of traffic to shift initially (default: 10%).
+        :param application_name: The name of the application.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4640fd831648bbfe14ea1759ea6818ce3e7f8b8b6f90ce8ee28906a63a8eb12)
-            check_type(argname="argument termination_wait_time", value=termination_wait_time, expected_type=type_hints["termination_wait_time"])
-            check_type(argname="argument traffic_routing_interval", value=traffic_routing_interval, expected_type=type_hints["traffic_routing_interval"])
-            check_type(argname="argument traffic_routing_start_percent", value=traffic_routing_start_percent, expected_type=type_hints["traffic_routing_start_percent"])
+            type_hints = typing.get_type_hints(_typecheckingstub__0e5502fecaec2fcacb90758335131c1b764d3da7ff95d6f9252571099bb02703)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if termination_wait_time is not None:
-            self._values["termination_wait_time"] = termination_wait_time
-        if traffic_routing_interval is not None:
-            self._values["traffic_routing_interval"] = traffic_routing_interval
-        if traffic_routing_start_percent is not None:
-            self._values["traffic_routing_start_percent"] = traffic_routing_start_percent
+        if application_name is not None:
+            self._values["application_name"] = application_name
 
     @builtins.property
-    def termination_wait_time(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
-        '''The termination wait time after deployment (default: 30 minutes).'''
-        result = self._values.get("termination_wait_time")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
-
-    @builtins.property
-    def traffic_routing_interval(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
-        '''The interval between traffic shifting increments (default: 1 minute).'''
-        result = self._values.get("traffic_routing_interval")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
-
-    @builtins.property
-    def traffic_routing_start_percent(self) -> typing.Optional[jsii.Number]:
-        '''The percentage of traffic to shift initially (default: 10%).'''
-        result = self._values.get("traffic_routing_start_percent")
-        return typing.cast(typing.Optional[jsii.Number], result)
+    def application_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the application.'''
+        result = self._values.get("application_name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1258,215 +1145,52 @@ class CodeDeployConfig:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "CodeDeployConfig(%s)" % ", ".join(
+        return "CodeDeployApplicationConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
 
 @jsii.data_type(
-    jsii_type="must-cdk.ContainerProps",
+    jsii_type="must-cdk.ContainerConfig",
     jsii_struct_bases=[],
-    name_mapping={
-        "container_port": "containerPort",
-        "image": "image",
-        "command": "command",
-        "cpu": "cpu",
-        "entry_point": "entryPoint",
-        "environment": "environment",
-        "essential": "essential",
-        "health_check": "healthCheck",
-        "logging": "logging",
-        "memory_limit": "memoryLimit",
-        "memory_reservation": "memoryReservation",
-        "name": "name",
-        "secrets": "secrets",
-        "user": "user",
-        "working_directory": "workingDirectory",
-    },
+    name_mapping={"name": "name", "options": "options"},
 )
-class ContainerProps:
+class ContainerConfig:
     def __init__(
         self,
         *,
-        container_port: jsii.Number,
-        image: _aws_cdk_aws_ecs_ceddda9d.ContainerImage,
-        command: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cpu: typing.Optional[jsii.Number] = None,
-        entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
-        environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        essential: typing.Optional[builtins.bool] = None,
-        health_check: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[_aws_cdk_aws_ecs_ceddda9d.LogDriver] = None,
-        memory_limit: typing.Optional[jsii.Number] = None,
-        memory_reservation: typing.Optional[jsii.Number] = None,
-        name: typing.Optional[builtins.str] = None,
-        secrets: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_ecs_ceddda9d.Secret]] = None,
-        user: typing.Optional[builtins.str] = None,
-        working_directory: typing.Optional[builtins.str] = None,
+        name: builtins.str,
+        options: typing.Union[_aws_cdk_aws_ecs_ceddda9d.ContainerDefinitionOptions, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
-        '''Configuration for the ECS Fargate task definition and container.
+        '''Container configuration using native CDK interfaces.
 
-        :param container_port: The port number the container listens on.
-        :param image: Container image to deploy.
-        :param command: Command to run in the container.
-        :param cpu: CPU units for this container (default: uses task-level CPU allocation).
-        :param entry_point: Entry point for the container.
-        :param environment: Environment variables to set in the container.
-        :param essential: Whether this container is essential (default: true).
-        :param health_check: Optional container health check configuration.
-        :param logging: Optional log driver configuration for the container.
-        :param memory_limit: Hard memory limit in MiB for the task (default: 2048).
-        :param memory_reservation: Soft memory reservation in MiB for the container (default: 1024).
-        :param name: Optional container name (default: Container{index}).
-        :param secrets: Secrets to inject into the container from AWS Systems Manager Parameter Store or AWS Secrets Manager.
-        :param user: User to run the container as.
-        :param working_directory: Working directory inside the container.
+        :param name: Container name.
+        :param options: Native CDK container definition options.
         '''
-        if isinstance(health_check, dict):
-            health_check = _aws_cdk_aws_ecs_ceddda9d.HealthCheck(**health_check)
+        if isinstance(options, dict):
+            options = _aws_cdk_aws_ecs_ceddda9d.ContainerDefinitionOptions(**options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54ea2679bab87dfe8eb538ebc455f8d93200c1beb37ad6e093fa52678f8ac1fc)
-            check_type(argname="argument container_port", value=container_port, expected_type=type_hints["container_port"])
-            check_type(argname="argument image", value=image, expected_type=type_hints["image"])
-            check_type(argname="argument command", value=command, expected_type=type_hints["command"])
-            check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
-            check_type(argname="argument entry_point", value=entry_point, expected_type=type_hints["entry_point"])
-            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
-            check_type(argname="argument essential", value=essential, expected_type=type_hints["essential"])
-            check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
-            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
-            check_type(argname="argument memory_limit", value=memory_limit, expected_type=type_hints["memory_limit"])
-            check_type(argname="argument memory_reservation", value=memory_reservation, expected_type=type_hints["memory_reservation"])
+            type_hints = typing.get_type_hints(_typecheckingstub__e5a8f326881db7c040d8f4c23992dd449f63d8cd8f46a42695a34a87d6f822a7)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument secrets", value=secrets, expected_type=type_hints["secrets"])
-            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
-            check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "container_port": container_port,
-            "image": image,
+            "name": name,
+            "options": options,
         }
-        if command is not None:
-            self._values["command"] = command
-        if cpu is not None:
-            self._values["cpu"] = cpu
-        if entry_point is not None:
-            self._values["entry_point"] = entry_point
-        if environment is not None:
-            self._values["environment"] = environment
-        if essential is not None:
-            self._values["essential"] = essential
-        if health_check is not None:
-            self._values["health_check"] = health_check
-        if logging is not None:
-            self._values["logging"] = logging
-        if memory_limit is not None:
-            self._values["memory_limit"] = memory_limit
-        if memory_reservation is not None:
-            self._values["memory_reservation"] = memory_reservation
-        if name is not None:
-            self._values["name"] = name
-        if secrets is not None:
-            self._values["secrets"] = secrets
-        if user is not None:
-            self._values["user"] = user
-        if working_directory is not None:
-            self._values["working_directory"] = working_directory
 
     @builtins.property
-    def container_port(self) -> jsii.Number:
-        '''The port number the container listens on.'''
-        result = self._values.get("container_port")
-        assert result is not None, "Required property 'container_port' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def image(self) -> _aws_cdk_aws_ecs_ceddda9d.ContainerImage:
-        '''Container image to deploy.'''
-        result = self._values.get("image")
-        assert result is not None, "Required property 'image' is missing"
-        return typing.cast(_aws_cdk_aws_ecs_ceddda9d.ContainerImage, result)
-
-    @builtins.property
-    def command(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Command to run in the container.'''
-        result = self._values.get("command")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def cpu(self) -> typing.Optional[jsii.Number]:
-        '''CPU units for this container (default: uses task-level CPU allocation).'''
-        result = self._values.get("cpu")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def entry_point(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Entry point for the container.'''
-        result = self._values.get("entry_point")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def environment(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Environment variables to set in the container.'''
-        result = self._values.get("environment")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def essential(self) -> typing.Optional[builtins.bool]:
-        '''Whether this container is essential (default: true).'''
-        result = self._values.get("essential")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def health_check(self) -> typing.Optional[_aws_cdk_aws_ecs_ceddda9d.HealthCheck]:
-        '''Optional container health check configuration.'''
-        result = self._values.get("health_check")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ecs_ceddda9d.HealthCheck], result)
-
-    @builtins.property
-    def logging(self) -> typing.Optional[_aws_cdk_aws_ecs_ceddda9d.LogDriver]:
-        '''Optional log driver configuration for the container.'''
-        result = self._values.get("logging")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ecs_ceddda9d.LogDriver], result)
-
-    @builtins.property
-    def memory_limit(self) -> typing.Optional[jsii.Number]:
-        '''Hard memory limit in MiB for the task (default: 2048).'''
-        result = self._values.get("memory_limit")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def memory_reservation(self) -> typing.Optional[jsii.Number]:
-        '''Soft memory reservation in MiB for the container (default: 1024).'''
-        result = self._values.get("memory_reservation")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''Optional container name (default: Container{index}).'''
+    def name(self) -> builtins.str:
+        '''Container name.'''
         result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
-    def secrets(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_ecs_ceddda9d.Secret]]:
-        '''Secrets to inject into the container from AWS Systems Manager Parameter Store or AWS Secrets Manager.'''
-        result = self._values.get("secrets")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_ecs_ceddda9d.Secret]], result)
-
-    @builtins.property
-    def user(self) -> typing.Optional[builtins.str]:
-        '''User to run the container as.'''
-        result = self._values.get("user")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def working_directory(self) -> typing.Optional[builtins.str]:
-        '''Working directory inside the container.'''
-        result = self._values.get("working_directory")
-        return typing.cast(typing.Optional[builtins.str], result)
+    def options(self) -> _aws_cdk_aws_ecs_ceddda9d.ContainerDefinitionOptions:
+        '''Native CDK container definition options.'''
+        result = self._values.get("options")
+        assert result is not None, "Required property 'options' is missing"
+        return typing.cast(_aws_cdk_aws_ecs_ceddda9d.ContainerDefinitionOptions, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1475,7 +1199,7 @@ class ContainerProps:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "ContainerProps(%s)" % ", ".join(
+        return "ContainerConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1724,6 +1448,78 @@ class CustomRule:
         )
 
 
+@jsii.data_type(
+    jsii_type="must-cdk.DeploymentGroupConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "blue_green_deployment_config": "blueGreenDeploymentConfig",
+        "deployment_config": "deploymentConfig",
+        "deployment_group_name": "deploymentGroupName",
+    },
+)
+class DeploymentGroupConfig:
+    def __init__(
+        self,
+        *,
+        blue_green_deployment_config: typing.Optional[typing.Union[_aws_cdk_aws_codedeploy_ceddda9d.EcsBlueGreenDeploymentConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_config: typing.Optional[_aws_cdk_aws_codedeploy_ceddda9d.IEcsDeploymentConfig] = None,
+        deployment_group_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''CodeDeploy deployment group configuration options.
+
+        :param blue_green_deployment_config: Configuration for blue-green ECS deployments.
+        :param deployment_config: The deployment configuration to use.
+        :param deployment_group_name: The name of the deployment group.
+        '''
+        if isinstance(blue_green_deployment_config, dict):
+            blue_green_deployment_config = _aws_cdk_aws_codedeploy_ceddda9d.EcsBlueGreenDeploymentConfig(**blue_green_deployment_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03d1e7127aabea4ca4381fa09bc0557271913b6524f87fae49b42a73469e9a07)
+            check_type(argname="argument blue_green_deployment_config", value=blue_green_deployment_config, expected_type=type_hints["blue_green_deployment_config"])
+            check_type(argname="argument deployment_config", value=deployment_config, expected_type=type_hints["deployment_config"])
+            check_type(argname="argument deployment_group_name", value=deployment_group_name, expected_type=type_hints["deployment_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if blue_green_deployment_config is not None:
+            self._values["blue_green_deployment_config"] = blue_green_deployment_config
+        if deployment_config is not None:
+            self._values["deployment_config"] = deployment_config
+        if deployment_group_name is not None:
+            self._values["deployment_group_name"] = deployment_group_name
+
+    @builtins.property
+    def blue_green_deployment_config(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_codedeploy_ceddda9d.EcsBlueGreenDeploymentConfig]:
+        '''Configuration for blue-green ECS deployments.'''
+        result = self._values.get("blue_green_deployment_config")
+        return typing.cast(typing.Optional[_aws_cdk_aws_codedeploy_ceddda9d.EcsBlueGreenDeploymentConfig], result)
+
+    @builtins.property
+    def deployment_config(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_codedeploy_ceddda9d.IEcsDeploymentConfig]:
+        '''The deployment configuration to use.'''
+        result = self._values.get("deployment_config")
+        return typing.cast(typing.Optional[_aws_cdk_aws_codedeploy_ceddda9d.IEcsDeploymentConfig], result)
+
+    @builtins.property
+    def deployment_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the deployment group.'''
+        result = self._values.get("deployment_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentGroupConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class EcsCodeDeploy(
     _constructs_77d1e7e8.Construct,
     metaclass=jsii.JSIIMeta,
@@ -1740,45 +1536,45 @@ class EcsCodeDeploy(
         id: builtins.str,
         *,
         cluster: _aws_cdk_aws_ecs_ceddda9d.ICluster,
-        containers: typing.Sequence[typing.Union[ContainerProps, typing.Dict[builtins.str, typing.Any]]],
-        load_balancer: typing.Union["LoadBalancerConfig", typing.Dict[builtins.str, typing.Any]],
+        containers: typing.Sequence[typing.Union[ContainerConfig, typing.Dict[builtins.str, typing.Any]]],
         security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
         service_name: builtins.str,
         task_subnets: typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]],
         vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        assign_public_ip: typing.Optional[builtins.bool] = None,
-        auto_scaling: typing.Optional[typing.Union[AutoScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        code_deploy_config: typing.Optional[typing.Union[CodeDeployConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-        desired_count: typing.Optional[jsii.Number] = None,
-        health_check_grace_period: typing.Optional[jsii.Number] = None,
-        memory_limit: typing.Optional[jsii.Number] = None,
+        code_deploy_application: typing.Optional[typing.Union[CodeDeployApplicationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_group: typing.Optional[typing.Union[DeploymentGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        load_balancer: typing.Optional[typing.Union["LoadBalancerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        load_balancer_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        production_listener: typing.Optional[typing.Union["ListenerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        production_target_group: typing.Optional[typing.Union["TargetGroupConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        service: typing.Optional[typing.Union["ServiceConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         target_port: typing.Optional[jsii.Number] = None,
-        task_cpu: typing.Optional[jsii.Number] = None,
-        task_exec_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        task_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        task_definition: typing.Optional[typing.Union["TaskDefinitionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        test_listener: typing.Optional[typing.Union["ListenerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        test_target_group: typing.Optional[typing.Union["TargetGroupConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
         :param scope: -
         :param id: -
         :param cluster: ECS Cluster where the service will run.
-        :param containers: Configuration related to the task definition and container.
-        :param load_balancer: Load balancer configuration.
-        :param security_groups: Security group config for ECS service.
+        :param containers: Container configurations using native CDK interfaces.
+        :param security_groups: Security groups for ECS service (required).
         :param service_name: Base name used for resources like log groups, roles, services, etc.
-        :param task_subnets: Select which subnets the ECS tasks will be placed on.
+        :param task_subnets: Subnets for ECS tasks (required).
         :param vpc: VPC in which to deploy ECS and ALB resources.
-        :param assign_public_ip: Whether the Fargate tasks should be assigned public IP addresses (default: false). This is required if your tasks need to access the internet and are in a public subnet.
-        :param auto_scaling: Optional auto-scaling configuration.
-        :param code_deploy_config: CodeDeploy configuration.
-        :param desired_count: Desired count of tasks (default: 1).
-        :param health_check_grace_period: Health check grace period in seconds (default: 300).
-        :param memory_limit: Memory limit for the task in MiB (default: 2048).
+        :param code_deploy_application: CodeDeploy application configuration.
+        :param deployment_group: CodeDeploy deployment group configuration.
+        :param load_balancer: Load balancer configuration options.
+        :param load_balancer_subnets: Subnets for ALB (optional, defaults to taskSubnets).
+        :param production_listener: Production listener configuration.
+        :param production_target_group: Production target group configuration.
+        :param service: Service configuration options.
         :param target_port: The port to expose on the target group (defaults to first container's port).
-        :param task_cpu: CPU units for the task (default: 1024).
-        :param task_exec_role: Task execution role for the ECS task.
-        :param task_role: Task role for the ECS task.
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param task_definition: Task definition configuration options.
+        :param test_listener: Test listener configuration.
+        :param test_target_group: Test target group configuration.
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19ac4f77d3bba1391929b87d2d23b70fe61e21aa6809f43ed4283d6ecf350909)
@@ -1787,21 +1583,21 @@ class EcsCodeDeploy(
         props = EcsCodeDeployProps(
             cluster=cluster,
             containers=containers,
-            load_balancer=load_balancer,
             security_groups=security_groups,
             service_name=service_name,
             task_subnets=task_subnets,
             vpc=vpc,
-            assign_public_ip=assign_public_ip,
-            auto_scaling=auto_scaling,
-            code_deploy_config=code_deploy_config,
-            desired_count=desired_count,
-            health_check_grace_period=health_check_grace_period,
-            memory_limit=memory_limit,
+            code_deploy_application=code_deploy_application,
+            deployment_group=deployment_group,
+            load_balancer=load_balancer,
+            load_balancer_subnets=load_balancer_subnets,
+            production_listener=production_listener,
+            production_target_group=production_target_group,
+            service=service,
             target_port=target_port,
-            task_cpu=task_cpu,
-            task_exec_role=task_exec_role,
-            task_role=task_role,
+            task_definition=task_definition,
+            test_listener=test_listener,
+            test_target_group=test_target_group,
             tags=tags,
         )
 
@@ -1901,120 +1697,6 @@ class EcsCodeDeploy(
         self,
     ) -> _aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationTargetGroup:
         return typing.cast(_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationTargetGroup, jsii.get(self, "testTargetGroup"))
-
-
-@jsii.data_type(
-    jsii_type="must-cdk.HealthCheckConfig",
-    jsii_struct_bases=[],
-    name_mapping={
-        "healthy_http_codes": "healthyHttpCodes",
-        "healthy_threshold_count": "healthyThresholdCount",
-        "interval": "interval",
-        "path": "path",
-        "port": "port",
-        "timeout": "timeout",
-        "unhealthy_threshold_count": "unhealthyThresholdCount",
-    },
-)
-class HealthCheckConfig:
-    def __init__(
-        self,
-        *,
-        healthy_http_codes: typing.Optional[builtins.str] = None,
-        healthy_threshold_count: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        path: typing.Optional[builtins.str] = None,
-        port: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Health check configuration for target groups.
-
-        :param healthy_http_codes: The HTTP codes to consider healthy (default: "200").
-        :param healthy_threshold_count: The number of successful health checks before considering healthy (default: 3).
-        :param interval: The interval between health checks (default: 30 seconds).
-        :param path: The path for health checks (default: "/").
-        :param port: The port for health checks (default: "traffic-port").
-        :param timeout: The timeout for health checks (default: 5 seconds).
-        :param unhealthy_threshold_count: The number of failed health checks before considering unhealthy (default: 3).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3166fbcdece3243c3c2da85c5fc167b30269a043783531fe98d402388d32d269)
-            check_type(argname="argument healthy_http_codes", value=healthy_http_codes, expected_type=type_hints["healthy_http_codes"])
-            check_type(argname="argument healthy_threshold_count", value=healthy_threshold_count, expected_type=type_hints["healthy_threshold_count"])
-            check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
-            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument unhealthy_threshold_count", value=unhealthy_threshold_count, expected_type=type_hints["unhealthy_threshold_count"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if healthy_http_codes is not None:
-            self._values["healthy_http_codes"] = healthy_http_codes
-        if healthy_threshold_count is not None:
-            self._values["healthy_threshold_count"] = healthy_threshold_count
-        if interval is not None:
-            self._values["interval"] = interval
-        if path is not None:
-            self._values["path"] = path
-        if port is not None:
-            self._values["port"] = port
-        if timeout is not None:
-            self._values["timeout"] = timeout
-        if unhealthy_threshold_count is not None:
-            self._values["unhealthy_threshold_count"] = unhealthy_threshold_count
-
-    @builtins.property
-    def healthy_http_codes(self) -> typing.Optional[builtins.str]:
-        '''The HTTP codes to consider healthy (default: "200").'''
-        result = self._values.get("healthy_http_codes")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def healthy_threshold_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of successful health checks before considering healthy (default: 3).'''
-        result = self._values.get("healthy_threshold_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def interval(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
-        '''The interval between health checks (default: 30 seconds).'''
-        result = self._values.get("interval")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
-
-    @builtins.property
-    def path(self) -> typing.Optional[builtins.str]:
-        '''The path for health checks (default: "/").'''
-        result = self._values.get("path")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def port(self) -> typing.Optional[builtins.str]:
-        '''The port for health checks (default: "traffic-port").'''
-        result = self._values.get("port")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
-        '''The timeout for health checks (default: 5 seconds).'''
-        result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
-
-    @builtins.property
-    def unhealthy_threshold_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of failed health checks before considering unhealthy (default: 3).'''
-        result = self._values.get("unhealthy_threshold_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "HealthCheckConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.data_type(
@@ -2197,131 +1879,170 @@ class HttpOriginInfo:
 
 
 @jsii.data_type(
-    jsii_type="must-cdk.LoadBalancerConfig",
+    jsii_type="must-cdk.ListenerConfig",
     jsii_struct_bases=[],
     name_mapping={
         "certificates": "certificates",
-        "existing_load_balancer": "existingLoadBalancer",
-        "health_check": "healthCheck",
+        "default_action": "defaultAction",
+        "port": "port",
+        "protocol": "protocol",
+    },
+)
+class ListenerConfig:
+    def __init__(
+        self,
+        *,
+        certificates: typing.Optional[typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]] = None,
+        default_action: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ListenerAction] = None,
+        port: typing.Optional[jsii.Number] = None,
+        protocol: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationProtocol] = None,
+    ) -> None:
+        '''Listener configuration options.
+
+        :param certificates: Certificate list of ACM cert ARNs.
+        :param default_action: The default actions for the listener.
+        :param port: The port on which the listener listens for requests.
+        :param protocol: The protocol for connections from clients to the load balancer.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f5ab801b4e660224ccf6cf401be1529c61a4dfdb7a1404942a16c2517d178dd)
+            check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
+            check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if certificates is not None:
+            self._values["certificates"] = certificates
+        if default_action is not None:
+            self._values["default_action"] = default_action
+        if port is not None:
+            self._values["port"] = port
+        if protocol is not None:
+            self._values["protocol"] = protocol
+
+    @builtins.property
+    def certificates(
+        self,
+    ) -> typing.Optional[typing.List[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]]:
+        '''Certificate list of ACM cert ARNs.'''
+        result = self._values.get("certificates")
+        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]], result)
+
+    @builtins.property
+    def default_action(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ListenerAction]:
+        '''The default actions for the listener.'''
+        result = self._values.get("default_action")
+        return typing.cast(typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ListenerAction], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port on which the listener listens for requests.'''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def protocol(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationProtocol]:
+        '''The protocol for connections from clients to the load balancer.'''
+        result = self._values.get("protocol")
+        return typing.cast(typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationProtocol], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ListenerConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="must-cdk.LoadBalancerConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "idle_timeout_seconds": "idleTimeoutSeconds",
         "internet_facing": "internetFacing",
-        "production_port": "productionPort",
+        "load_balancer_name": "loadBalancerName",
         "security_groups": "securityGroups",
-        "subnets": "subnets",
-        "test_port": "testPort",
+        "vpc_subnets": "vpcSubnets",
     },
 )
 class LoadBalancerConfig:
     def __init__(
         self,
         *,
-        certificates: typing.Optional[typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]] = None,
-        existing_load_balancer: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.IApplicationLoadBalancer] = None,
-        health_check: typing.Optional[typing.Union[HealthCheckConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        idle_timeout_seconds: typing.Optional[jsii.Number] = None,
         internet_facing: typing.Optional[builtins.bool] = None,
-        production_port: typing.Optional[jsii.Number] = None,
+        load_balancer_name: typing.Optional[builtins.str] = None,
         security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-        subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
-        test_port: typing.Optional[jsii.Number] = None,
+        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''Configuration for the load balancer component.
+        '''Load balancer configuration options.
 
-        :param certificates: Optional ACM certificates for HTTPS termination. If not provided, HTTP listeners will be used.
-        :param existing_load_balancer: Existing load balancer to use (if not provided, a new one will be created).
-        :param health_check: Health check configuration for target groups.
-        :param internet_facing: Whether the load balancer should be internet-facing (default: false).
-        :param production_port: The production listener port (default: 443 for HTTPS, 80 for HTTP).
-        :param security_groups: Security groups for the ALB.
-        :param subnets: Select which subnets the ALB will be placed on.
-        :param test_port: The test listener port (default: 8080).
+        :param idle_timeout_seconds: Idle timeout in seconds for the ALB.
+        :param internet_facing: Whether the load balancer is internet facing.
+        :param load_balancer_name: Load balancer name.
+        :param security_groups: Security groups for the load balancer.
+        :param vpc_subnets: The VPC subnets to use.
         '''
-        if isinstance(health_check, dict):
-            health_check = HealthCheckConfig(**health_check)
-        if isinstance(subnets, dict):
-            subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**subnets)
+        if isinstance(vpc_subnets, dict):
+            vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c5a95f45a3b1f8c843cf50d6a1005817682e3d6ff84735169cc73c06e12b10f)
-            check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
-            check_type(argname="argument existing_load_balancer", value=existing_load_balancer, expected_type=type_hints["existing_load_balancer"])
-            check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
+            check_type(argname="argument idle_timeout_seconds", value=idle_timeout_seconds, expected_type=type_hints["idle_timeout_seconds"])
             check_type(argname="argument internet_facing", value=internet_facing, expected_type=type_hints["internet_facing"])
-            check_type(argname="argument production_port", value=production_port, expected_type=type_hints["production_port"])
+            check_type(argname="argument load_balancer_name", value=load_balancer_name, expected_type=type_hints["load_balancer_name"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
-            check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
-            check_type(argname="argument test_port", value=test_port, expected_type=type_hints["test_port"])
+            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if certificates is not None:
-            self._values["certificates"] = certificates
-        if existing_load_balancer is not None:
-            self._values["existing_load_balancer"] = existing_load_balancer
-        if health_check is not None:
-            self._values["health_check"] = health_check
+        if idle_timeout_seconds is not None:
+            self._values["idle_timeout_seconds"] = idle_timeout_seconds
         if internet_facing is not None:
             self._values["internet_facing"] = internet_facing
-        if production_port is not None:
-            self._values["production_port"] = production_port
+        if load_balancer_name is not None:
+            self._values["load_balancer_name"] = load_balancer_name
         if security_groups is not None:
             self._values["security_groups"] = security_groups
-        if subnets is not None:
-            self._values["subnets"] = subnets
-        if test_port is not None:
-            self._values["test_port"] = test_port
+        if vpc_subnets is not None:
+            self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
-    def certificates(
-        self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]]:
-        '''Optional ACM certificates for HTTPS termination.
-
-        If not provided, HTTP listeners will be used.
-        '''
-        result = self._values.get("certificates")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]], result)
-
-    @builtins.property
-    def existing_load_balancer(
-        self,
-    ) -> typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.IApplicationLoadBalancer]:
-        '''Existing load balancer to use (if not provided, a new one will be created).'''
-        result = self._values.get("existing_load_balancer")
-        return typing.cast(typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.IApplicationLoadBalancer], result)
-
-    @builtins.property
-    def health_check(self) -> typing.Optional[HealthCheckConfig]:
-        '''Health check configuration for target groups.'''
-        result = self._values.get("health_check")
-        return typing.cast(typing.Optional[HealthCheckConfig], result)
+    def idle_timeout_seconds(self) -> typing.Optional[jsii.Number]:
+        '''Idle timeout in seconds for the ALB.'''
+        result = self._values.get("idle_timeout_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def internet_facing(self) -> typing.Optional[builtins.bool]:
-        '''Whether the load balancer should be internet-facing (default: false).'''
+        '''Whether the load balancer is internet facing.'''
         result = self._values.get("internet_facing")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def production_port(self) -> typing.Optional[jsii.Number]:
-        '''The production listener port (default: 443 for HTTPS, 80 for HTTP).'''
-        result = self._values.get("production_port")
-        return typing.cast(typing.Optional[jsii.Number], result)
+    def load_balancer_name(self) -> typing.Optional[builtins.str]:
+        '''Load balancer name.'''
+        result = self._values.get("load_balancer_name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_groups(
         self,
     ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
-        '''Security groups for the ALB.'''
+        '''Security groups for the load balancer.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
 
     @builtins.property
-    def subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
-        '''Select which subnets the ALB will be placed on.'''
-        result = self._values.get("subnets")
+    def vpc_subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+        '''The VPC subnets to use.'''
+        result = self._values.get("vpc_subnets")
         return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
-
-    @builtins.property
-    def test_port(self) -> typing.Optional[jsii.Number]:
-        '''The test listener port (default: 8080).'''
-        result = self._values.get("test_port")
-        return typing.cast(typing.Optional[jsii.Number], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2497,6 +2218,72 @@ class S3OriginInfo:
 
 
 @jsii.data_type(
+    jsii_type="must-cdk.ServiceConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "assign_public_ip": "assignPublicIp",
+        "desired_count": "desiredCount",
+        "health_check_grace_period": "healthCheckGracePeriod",
+    },
+)
+class ServiceConfig:
+    def __init__(
+        self,
+        *,
+        assign_public_ip: typing.Optional[builtins.bool] = None,
+        desired_count: typing.Optional[jsii.Number] = None,
+        health_check_grace_period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    ) -> None:
+        '''Service configuration options.
+
+        :param assign_public_ip: Whether to assign public IP addresses to the task's ENI.
+        :param desired_count: The desired number of instantiations of the task definition to keep running.
+        :param health_check_grace_period: Health check grace period.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d83d46c6ecc0567279ab942573549709584b26f1786fd9089e850d2bd49170b6)
+            check_type(argname="argument assign_public_ip", value=assign_public_ip, expected_type=type_hints["assign_public_ip"])
+            check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
+            check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if assign_public_ip is not None:
+            self._values["assign_public_ip"] = assign_public_ip
+        if desired_count is not None:
+            self._values["desired_count"] = desired_count
+        if health_check_grace_period is not None:
+            self._values["health_check_grace_period"] = health_check_grace_period
+
+    @builtins.property
+    def assign_public_ip(self) -> typing.Optional[builtins.bool]:
+        '''Whether to assign public IP addresses to the task's ENI.'''
+        result = self._values.get("assign_public_ip")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def desired_count(self) -> typing.Optional[jsii.Number]:
+        '''The desired number of instantiations of the task definition to keep running.'''
+        result = self._values.get("desired_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def health_check_grace_period(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+        '''Health check grace period.'''
+        result = self._values.get("health_check_grace_period")
+        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="must-cdk.SubDomainOptions",
     jsii_struct_bases=[],
     name_mapping={"branch_name": "branchName", "prefix": "prefix"},
@@ -2559,7 +2346,7 @@ class TaggableProps:
     ) -> None:
         '''Type for tag-aware construct props.
 
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1dc2cddf876ac6ea0c1f692c56ba26ce2e055e80dff32f5934853a7a20ab5a0)
@@ -2572,7 +2359,11 @@ class TaggableProps:
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags.
 
-        Environment variable format: TAGS=key1=value1,key2=value2
+        Environment variable supports multiple formats:
+
+        - Key-value pairs: TAGS=key1=value1,key2=value2
+        - JSON string: TAGS='{"key1":"value1","key2":"value2"}'
+        - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2585,6 +2376,206 @@ class TaggableProps:
 
     def __repr__(self) -> str:
         return "TaggableProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="must-cdk.TargetGroupConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "health_check": "healthCheck",
+        "load_balancing_algorithm_type": "loadBalancingAlgorithmType",
+        "port": "port",
+        "protocol": "protocol",
+        "slow_start": "slowStart",
+        "stickiness_cookie_duration": "stickinessCookieDuration",
+        "target_group_name": "targetGroupName",
+    },
+)
+class TargetGroupConfig:
+    def __init__(
+        self,
+        *,
+        health_check: typing.Optional[typing.Union[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+        load_balancing_algorithm_type: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.TargetGroupLoadBalancingAlgorithmType] = None,
+        port: typing.Optional[jsii.Number] = None,
+        protocol: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationProtocol] = None,
+        slow_start: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        stickiness_cookie_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        target_group_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Target group configuration options.
+
+        :param health_check: Health check configuration.
+        :param load_balancing_algorithm_type: The load balancing algorithm to use.
+        :param port: The port on which the targets receive traffic.
+        :param protocol: The protocol to use for routing traffic to the targets.
+        :param slow_start: The time period during which the load balancer sends a newly registered target a linearly increasing share of the traffic.
+        :param stickiness_cookie_duration: The stickiness cookie duration.
+        :param target_group_name: Target group name.
+        '''
+        if isinstance(health_check, dict):
+            health_check = _aws_cdk_aws_elasticloadbalancingv2_ceddda9d.HealthCheck(**health_check)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c79d412fa856e93114faca93f3f3109977421ac7571097864fad7c6f77e756f3)
+            check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
+            check_type(argname="argument load_balancing_algorithm_type", value=load_balancing_algorithm_type, expected_type=type_hints["load_balancing_algorithm_type"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            check_type(argname="argument slow_start", value=slow_start, expected_type=type_hints["slow_start"])
+            check_type(argname="argument stickiness_cookie_duration", value=stickiness_cookie_duration, expected_type=type_hints["stickiness_cookie_duration"])
+            check_type(argname="argument target_group_name", value=target_group_name, expected_type=type_hints["target_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if health_check is not None:
+            self._values["health_check"] = health_check
+        if load_balancing_algorithm_type is not None:
+            self._values["load_balancing_algorithm_type"] = load_balancing_algorithm_type
+        if port is not None:
+            self._values["port"] = port
+        if protocol is not None:
+            self._values["protocol"] = protocol
+        if slow_start is not None:
+            self._values["slow_start"] = slow_start
+        if stickiness_cookie_duration is not None:
+            self._values["stickiness_cookie_duration"] = stickiness_cookie_duration
+        if target_group_name is not None:
+            self._values["target_group_name"] = target_group_name
+
+    @builtins.property
+    def health_check(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.HealthCheck]:
+        '''Health check configuration.'''
+        result = self._values.get("health_check")
+        return typing.cast(typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.HealthCheck], result)
+
+    @builtins.property
+    def load_balancing_algorithm_type(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.TargetGroupLoadBalancingAlgorithmType]:
+        '''The load balancing algorithm to use.'''
+        result = self._values.get("load_balancing_algorithm_type")
+        return typing.cast(typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.TargetGroupLoadBalancingAlgorithmType], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port on which the targets receive traffic.'''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def protocol(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationProtocol]:
+        '''The protocol to use for routing traffic to the targets.'''
+        result = self._values.get("protocol")
+        return typing.cast(typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationProtocol], result)
+
+    @builtins.property
+    def slow_start(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+        '''The time period during which the load balancer sends a newly registered target a linearly increasing share of the traffic.'''
+        result = self._values.get("slow_start")
+        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+
+    @builtins.property
+    def stickiness_cookie_duration(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+        '''The stickiness cookie duration.'''
+        result = self._values.get("stickiness_cookie_duration")
+        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+
+    @builtins.property
+    def target_group_name(self) -> typing.Optional[builtins.str]:
+        '''Target group name.'''
+        result = self._values.get("target_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TargetGroupConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="must-cdk.TaskDefinitionConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cpu": "cpu",
+        "execution_role": "executionRole",
+        "memory_limit_mib": "memoryLimitMiB",
+        "task_role": "taskRole",
+    },
+)
+class TaskDefinitionConfig:
+    def __init__(
+        self,
+        *,
+        cpu: typing.Optional[jsii.Number] = None,
+        execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        memory_limit_mib: typing.Optional[jsii.Number] = None,
+        task_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    ) -> None:
+        '''Task definition configuration options.
+
+        :param cpu: The number of cpu units used by the task.
+        :param execution_role: Execution role for the task.
+        :param memory_limit_mib: The amount (in MiB) of memory used by the task.
+        :param task_role: Task role for the task.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82cc7c746398105f3e0d633178d0221928f104cae239c86eec0d9b408385e7c6)
+            check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
+            check_type(argname="argument task_role", value=task_role, expected_type=type_hints["task_role"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cpu is not None:
+            self._values["cpu"] = cpu
+        if execution_role is not None:
+            self._values["execution_role"] = execution_role
+        if memory_limit_mib is not None:
+            self._values["memory_limit_mib"] = memory_limit_mib
+        if task_role is not None:
+            self._values["task_role"] = task_role
+
+    @builtins.property
+    def cpu(self) -> typing.Optional[jsii.Number]:
+        '''The number of cpu units used by the task.'''
+        result = self._values.get("cpu")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def execution_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+        '''Execution role for the task.'''
+        result = self._values.get("execution_role")
+        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+
+    @builtins.property
+    def memory_limit_mib(self) -> typing.Optional[jsii.Number]:
+        '''The amount (in MiB) of memory used by the task.'''
+        result = self._values.get("memory_limit_mib")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def task_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+        '''Task role for the task.'''
+        result = self._values.get("task_role")
+        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TaskDefinitionConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2624,7 +2615,7 @@ class WebSocketApiGatewayToLambda(
         :param hosted_zone: Optional Route53 hosted zone for custom domain.
         :param log_group_props: CloudWatch Logs configuration.
         :param stage_name: Stage name for the WebSocket API. Default: 'dev'
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15689bf8cb45b613fd6d0271ea2d2b2a40c677ff7ee1d37b34596aa645c185e9)
@@ -2748,7 +2739,7 @@ class WebSocketApiGatewayToLambdaProps(TaggableProps):
         stage_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         :param api_name: WebSocket API configuration.
         :param lambda_function: Primary Lambda function for the API (usually handles $default route).
         :param api_props: 
@@ -2804,7 +2795,11 @@ class WebSocketApiGatewayToLambdaProps(TaggableProps):
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags.
 
-        Environment variable format: TAGS=key1=value1,key2=value2
+        Environment variable supports multiple formats:
+
+        - Key-value pairs: TAGS=key1=value1,key2=value2
+        - JSON string: TAGS='{"key1":"value1","key2":"value2"}'
+        - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2991,7 +2986,7 @@ class AmplifyAppProps(TaggableProps):
     ) -> None:
         '''Properties for creating an AWS Amplify application.
 
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         :param app_name: The name for the Amplify app.
         :param repository: The Git repository URL for the Amplify app. Format: https://github.com/user/repo or similar.
         :param access_token: GitHub personal access token for repository access. If not provided, will attempt to use GitHub CLI token or MUFIN_PUSH_TOKEN environment variable. Note: For production deployments, consider migrating to GitHub Apps for better security, organization support, and higher rate limits after initial setup.
@@ -3053,7 +3048,11 @@ class AmplifyAppProps(TaggableProps):
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags.
 
-        Environment variable format: TAGS=key1=value1,key2=value2
+        Environment variable supports multiple formats:
+
+        - Key-value pairs: TAGS=key1=value1,key2=value2
+        - JSON string: TAGS='{"key1":"value1","key2":"value2"}'
+        - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3204,7 +3203,7 @@ class ApiGatewayToLambdaProps(TaggableProps):
         rest_api_props: typing.Optional[typing.Union[_aws_cdk_aws_apigateway_ceddda9d.RestApiProps, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         :param api_name: API configuration.
         :param lambda_function: Primary Lambda function for the API.
         :param binary_media_types: Binary media types for the API This setting will be applied regardless of whether LambdaRestApi or RestApi is used.
@@ -3274,7 +3273,11 @@ class ApiGatewayToLambdaProps(TaggableProps):
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags.
 
-        Environment variable format: TAGS=key1=value1,key2=value2
+        Environment variable supports multiple formats:
+
+        - Key-value pairs: TAGS=key1=value1,key2=value2
+        - JSON string: TAGS='{"key1":"value1","key2":"value2"}'
+        - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3434,7 +3437,7 @@ class CloudFrontToOriginsProps(TaggableProps):
         web_acl_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         :param additional_domain_names: Additional domain names (aliases) for the distribution Note: All domains must be covered by the same certificate. CloudFront only supports one certificate per distribution.
         :param cache_behaviors: Cache behaviors for specific path patterns.
         :param certificate: Existing ACM certificate to use for the CloudFront distribution Certificate must be in us-east-1 region for CloudFront. The certificate must cover all domains (customDomainName + additionalDomainNames). CloudFront only supports one certificate per distribution.
@@ -3535,7 +3538,11 @@ class CloudFrontToOriginsProps(TaggableProps):
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags.
 
-        Environment variable format: TAGS=key1=value1,key2=value2
+        Environment variable supports multiple formats:
+
+        - Key-value pairs: TAGS=key1=value1,key2=value2
+        - JSON string: TAGS='{"key1":"value1","key2":"value2"}'
+        - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3735,21 +3742,21 @@ class CloudFrontToOriginsProps(TaggableProps):
         "tags": "tags",
         "cluster": "cluster",
         "containers": "containers",
-        "load_balancer": "loadBalancer",
         "security_groups": "securityGroups",
         "service_name": "serviceName",
         "task_subnets": "taskSubnets",
         "vpc": "vpc",
-        "assign_public_ip": "assignPublicIp",
-        "auto_scaling": "autoScaling",
-        "code_deploy_config": "codeDeployConfig",
-        "desired_count": "desiredCount",
-        "health_check_grace_period": "healthCheckGracePeriod",
-        "memory_limit": "memoryLimit",
+        "code_deploy_application": "codeDeployApplication",
+        "deployment_group": "deploymentGroup",
+        "load_balancer": "loadBalancer",
+        "load_balancer_subnets": "loadBalancerSubnets",
+        "production_listener": "productionListener",
+        "production_target_group": "productionTargetGroup",
+        "service": "service",
         "target_port": "targetPort",
-        "task_cpu": "taskCPU",
-        "task_exec_role": "taskExecRole",
-        "task_role": "taskRole",
+        "task_definition": "taskDefinition",
+        "test_listener": "testListener",
+        "test_target_group": "testTargetGroup",
     },
 )
 class EcsCodeDeployProps(TaggableProps):
@@ -3758,76 +3765,89 @@ class EcsCodeDeployProps(TaggableProps):
         *,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         cluster: _aws_cdk_aws_ecs_ceddda9d.ICluster,
-        containers: typing.Sequence[typing.Union[ContainerProps, typing.Dict[builtins.str, typing.Any]]],
-        load_balancer: typing.Union[LoadBalancerConfig, typing.Dict[builtins.str, typing.Any]],
+        containers: typing.Sequence[typing.Union[ContainerConfig, typing.Dict[builtins.str, typing.Any]]],
         security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
         service_name: builtins.str,
         task_subnets: typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]],
         vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        assign_public_ip: typing.Optional[builtins.bool] = None,
-        auto_scaling: typing.Optional[typing.Union[AutoScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        code_deploy_config: typing.Optional[typing.Union[CodeDeployConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-        desired_count: typing.Optional[jsii.Number] = None,
-        health_check_grace_period: typing.Optional[jsii.Number] = None,
-        memory_limit: typing.Optional[jsii.Number] = None,
+        code_deploy_application: typing.Optional[typing.Union[CodeDeployApplicationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_group: typing.Optional[typing.Union[DeploymentGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        load_balancer: typing.Optional[typing.Union[LoadBalancerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        load_balancer_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        production_listener: typing.Optional[typing.Union[ListenerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        production_target_group: typing.Optional[typing.Union[TargetGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        service: typing.Optional[typing.Union[ServiceConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         target_port: typing.Optional[jsii.Number] = None,
-        task_cpu: typing.Optional[jsii.Number] = None,
-        task_exec_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        task_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        task_definition: typing.Optional[typing.Union[TaskDefinitionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        test_listener: typing.Optional[typing.Union[ListenerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        test_target_group: typing.Optional[typing.Union[TargetGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''Properties for the EcsCodeDeploy construct.
+        '''Properties for the EcsCodeDeploy construct using native AWS CDK interfaces.
 
-        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
+        :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         :param cluster: ECS Cluster where the service will run.
-        :param containers: Configuration related to the task definition and container.
-        :param load_balancer: Load balancer configuration.
-        :param security_groups: Security group config for ECS service.
+        :param containers: Container configurations using native CDK interfaces.
+        :param security_groups: Security groups for ECS service (required).
         :param service_name: Base name used for resources like log groups, roles, services, etc.
-        :param task_subnets: Select which subnets the ECS tasks will be placed on.
+        :param task_subnets: Subnets for ECS tasks (required).
         :param vpc: VPC in which to deploy ECS and ALB resources.
-        :param assign_public_ip: Whether the Fargate tasks should be assigned public IP addresses (default: false). This is required if your tasks need to access the internet and are in a public subnet.
-        :param auto_scaling: Optional auto-scaling configuration.
-        :param code_deploy_config: CodeDeploy configuration.
-        :param desired_count: Desired count of tasks (default: 1).
-        :param health_check_grace_period: Health check grace period in seconds (default: 300).
-        :param memory_limit: Memory limit for the task in MiB (default: 2048).
+        :param code_deploy_application: CodeDeploy application configuration.
+        :param deployment_group: CodeDeploy deployment group configuration.
+        :param load_balancer: Load balancer configuration options.
+        :param load_balancer_subnets: Subnets for ALB (optional, defaults to taskSubnets).
+        :param production_listener: Production listener configuration.
+        :param production_target_group: Production target group configuration.
+        :param service: Service configuration options.
         :param target_port: The port to expose on the target group (defaults to first container's port).
-        :param task_cpu: CPU units for the task (default: 1024).
-        :param task_exec_role: Task execution role for the ECS task.
-        :param task_role: Task role for the ECS task.
+        :param task_definition: Task definition configuration options.
+        :param test_listener: Test listener configuration.
+        :param test_target_group: Test target group configuration.
         '''
-        if isinstance(load_balancer, dict):
-            load_balancer = LoadBalancerConfig(**load_balancer)
         if isinstance(task_subnets, dict):
             task_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**task_subnets)
-        if isinstance(auto_scaling, dict):
-            auto_scaling = AutoScalingProps(**auto_scaling)
-        if isinstance(code_deploy_config, dict):
-            code_deploy_config = CodeDeployConfig(**code_deploy_config)
+        if isinstance(code_deploy_application, dict):
+            code_deploy_application = CodeDeployApplicationConfig(**code_deploy_application)
+        if isinstance(deployment_group, dict):
+            deployment_group = DeploymentGroupConfig(**deployment_group)
+        if isinstance(load_balancer, dict):
+            load_balancer = LoadBalancerConfig(**load_balancer)
+        if isinstance(load_balancer_subnets, dict):
+            load_balancer_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**load_balancer_subnets)
+        if isinstance(production_listener, dict):
+            production_listener = ListenerConfig(**production_listener)
+        if isinstance(production_target_group, dict):
+            production_target_group = TargetGroupConfig(**production_target_group)
+        if isinstance(service, dict):
+            service = ServiceConfig(**service)
+        if isinstance(task_definition, dict):
+            task_definition = TaskDefinitionConfig(**task_definition)
+        if isinstance(test_listener, dict):
+            test_listener = ListenerConfig(**test_listener)
+        if isinstance(test_target_group, dict):
+            test_target_group = TargetGroupConfig(**test_target_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e1edfc306738ea99e0bd03a55876d7f75a063970dd3103fc1bbb766dff014b1)
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument containers", value=containers, expected_type=type_hints["containers"])
-            check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
             check_type(argname="argument task_subnets", value=task_subnets, expected_type=type_hints["task_subnets"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-            check_type(argname="argument assign_public_ip", value=assign_public_ip, expected_type=type_hints["assign_public_ip"])
-            check_type(argname="argument auto_scaling", value=auto_scaling, expected_type=type_hints["auto_scaling"])
-            check_type(argname="argument code_deploy_config", value=code_deploy_config, expected_type=type_hints["code_deploy_config"])
-            check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
-            check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
-            check_type(argname="argument memory_limit", value=memory_limit, expected_type=type_hints["memory_limit"])
+            check_type(argname="argument code_deploy_application", value=code_deploy_application, expected_type=type_hints["code_deploy_application"])
+            check_type(argname="argument deployment_group", value=deployment_group, expected_type=type_hints["deployment_group"])
+            check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
+            check_type(argname="argument load_balancer_subnets", value=load_balancer_subnets, expected_type=type_hints["load_balancer_subnets"])
+            check_type(argname="argument production_listener", value=production_listener, expected_type=type_hints["production_listener"])
+            check_type(argname="argument production_target_group", value=production_target_group, expected_type=type_hints["production_target_group"])
+            check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument target_port", value=target_port, expected_type=type_hints["target_port"])
-            check_type(argname="argument task_cpu", value=task_cpu, expected_type=type_hints["task_cpu"])
-            check_type(argname="argument task_exec_role", value=task_exec_role, expected_type=type_hints["task_exec_role"])
-            check_type(argname="argument task_role", value=task_role, expected_type=type_hints["task_role"])
+            check_type(argname="argument task_definition", value=task_definition, expected_type=type_hints["task_definition"])
+            check_type(argname="argument test_listener", value=test_listener, expected_type=type_hints["test_listener"])
+            check_type(argname="argument test_target_group", value=test_target_group, expected_type=type_hints["test_target_group"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster": cluster,
             "containers": containers,
-            "load_balancer": load_balancer,
             "security_groups": security_groups,
             "service_name": service_name,
             "task_subnets": task_subnets,
@@ -3835,32 +3855,38 @@ class EcsCodeDeployProps(TaggableProps):
         }
         if tags is not None:
             self._values["tags"] = tags
-        if assign_public_ip is not None:
-            self._values["assign_public_ip"] = assign_public_ip
-        if auto_scaling is not None:
-            self._values["auto_scaling"] = auto_scaling
-        if code_deploy_config is not None:
-            self._values["code_deploy_config"] = code_deploy_config
-        if desired_count is not None:
-            self._values["desired_count"] = desired_count
-        if health_check_grace_period is not None:
-            self._values["health_check_grace_period"] = health_check_grace_period
-        if memory_limit is not None:
-            self._values["memory_limit"] = memory_limit
+        if code_deploy_application is not None:
+            self._values["code_deploy_application"] = code_deploy_application
+        if deployment_group is not None:
+            self._values["deployment_group"] = deployment_group
+        if load_balancer is not None:
+            self._values["load_balancer"] = load_balancer
+        if load_balancer_subnets is not None:
+            self._values["load_balancer_subnets"] = load_balancer_subnets
+        if production_listener is not None:
+            self._values["production_listener"] = production_listener
+        if production_target_group is not None:
+            self._values["production_target_group"] = production_target_group
+        if service is not None:
+            self._values["service"] = service
         if target_port is not None:
             self._values["target_port"] = target_port
-        if task_cpu is not None:
-            self._values["task_cpu"] = task_cpu
-        if task_exec_role is not None:
-            self._values["task_exec_role"] = task_exec_role
-        if task_role is not None:
-            self._values["task_role"] = task_role
+        if task_definition is not None:
+            self._values["task_definition"] = task_definition
+        if test_listener is not None:
+            self._values["test_listener"] = test_listener
+        if test_target_group is not None:
+            self._values["test_target_group"] = test_target_group
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags.
 
-        Environment variable format: TAGS=key1=value1,key2=value2
+        Environment variable supports multiple formats:
+
+        - Key-value pairs: TAGS=key1=value1,key2=value2
+        - JSON string: TAGS='{"key1":"value1","key2":"value2"}'
+        - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3873,22 +3899,15 @@ class EcsCodeDeployProps(TaggableProps):
         return typing.cast(_aws_cdk_aws_ecs_ceddda9d.ICluster, result)
 
     @builtins.property
-    def containers(self) -> typing.List[ContainerProps]:
-        '''Configuration related to the task definition and container.'''
+    def containers(self) -> typing.List[ContainerConfig]:
+        '''Container configurations using native CDK interfaces.'''
         result = self._values.get("containers")
         assert result is not None, "Required property 'containers' is missing"
-        return typing.cast(typing.List[ContainerProps], result)
-
-    @builtins.property
-    def load_balancer(self) -> LoadBalancerConfig:
-        '''Load balancer configuration.'''
-        result = self._values.get("load_balancer")
-        assert result is not None, "Required property 'load_balancer' is missing"
-        return typing.cast(LoadBalancerConfig, result)
+        return typing.cast(typing.List[ContainerConfig], result)
 
     @builtins.property
     def security_groups(self) -> typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]:
-        '''Security group config for ECS service.'''
+        '''Security groups for ECS service (required).'''
         result = self._values.get("security_groups")
         assert result is not None, "Required property 'security_groups' is missing"
         return typing.cast(typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup], result)
@@ -3902,7 +3921,7 @@ class EcsCodeDeployProps(TaggableProps):
 
     @builtins.property
     def task_subnets(self) -> _aws_cdk_aws_ec2_ceddda9d.SubnetSelection:
-        '''Select which subnets the ECS tasks will be placed on.'''
+        '''Subnets for ECS tasks (required).'''
         result = self._values.get("task_subnets")
         assert result is not None, "Required property 'task_subnets' is missing"
         return typing.cast(_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, result)
@@ -3915,43 +3934,48 @@ class EcsCodeDeployProps(TaggableProps):
         return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, result)
 
     @builtins.property
-    def assign_public_ip(self) -> typing.Optional[builtins.bool]:
-        '''Whether the Fargate tasks should be assigned public IP addresses (default: false).
-
-        This is required if your tasks need to access the internet and are in a public subnet.
-        '''
-        result = self._values.get("assign_public_ip")
-        return typing.cast(typing.Optional[builtins.bool], result)
+    def code_deploy_application(self) -> typing.Optional[CodeDeployApplicationConfig]:
+        '''CodeDeploy application configuration.'''
+        result = self._values.get("code_deploy_application")
+        return typing.cast(typing.Optional[CodeDeployApplicationConfig], result)
 
     @builtins.property
-    def auto_scaling(self) -> typing.Optional[AutoScalingProps]:
-        '''Optional auto-scaling configuration.'''
-        result = self._values.get("auto_scaling")
-        return typing.cast(typing.Optional[AutoScalingProps], result)
+    def deployment_group(self) -> typing.Optional[DeploymentGroupConfig]:
+        '''CodeDeploy deployment group configuration.'''
+        result = self._values.get("deployment_group")
+        return typing.cast(typing.Optional[DeploymentGroupConfig], result)
 
     @builtins.property
-    def code_deploy_config(self) -> typing.Optional[CodeDeployConfig]:
-        '''CodeDeploy configuration.'''
-        result = self._values.get("code_deploy_config")
-        return typing.cast(typing.Optional[CodeDeployConfig], result)
+    def load_balancer(self) -> typing.Optional[LoadBalancerConfig]:
+        '''Load balancer configuration options.'''
+        result = self._values.get("load_balancer")
+        return typing.cast(typing.Optional[LoadBalancerConfig], result)
 
     @builtins.property
-    def desired_count(self) -> typing.Optional[jsii.Number]:
-        '''Desired count of tasks (default: 1).'''
-        result = self._values.get("desired_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
+    def load_balancer_subnets(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+        '''Subnets for ALB (optional, defaults to taskSubnets).'''
+        result = self._values.get("load_balancer_subnets")
+        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
 
     @builtins.property
-    def health_check_grace_period(self) -> typing.Optional[jsii.Number]:
-        '''Health check grace period in seconds (default: 300).'''
-        result = self._values.get("health_check_grace_period")
-        return typing.cast(typing.Optional[jsii.Number], result)
+    def production_listener(self) -> typing.Optional[ListenerConfig]:
+        '''Production listener configuration.'''
+        result = self._values.get("production_listener")
+        return typing.cast(typing.Optional[ListenerConfig], result)
 
     @builtins.property
-    def memory_limit(self) -> typing.Optional[jsii.Number]:
-        '''Memory limit for the task in MiB (default: 2048).'''
-        result = self._values.get("memory_limit")
-        return typing.cast(typing.Optional[jsii.Number], result)
+    def production_target_group(self) -> typing.Optional[TargetGroupConfig]:
+        '''Production target group configuration.'''
+        result = self._values.get("production_target_group")
+        return typing.cast(typing.Optional[TargetGroupConfig], result)
+
+    @builtins.property
+    def service(self) -> typing.Optional[ServiceConfig]:
+        '''Service configuration options.'''
+        result = self._values.get("service")
+        return typing.cast(typing.Optional[ServiceConfig], result)
 
     @builtins.property
     def target_port(self) -> typing.Optional[jsii.Number]:
@@ -3960,22 +3984,22 @@ class EcsCodeDeployProps(TaggableProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def task_cpu(self) -> typing.Optional[jsii.Number]:
-        '''CPU units for the task (default: 1024).'''
-        result = self._values.get("task_cpu")
-        return typing.cast(typing.Optional[jsii.Number], result)
+    def task_definition(self) -> typing.Optional[TaskDefinitionConfig]:
+        '''Task definition configuration options.'''
+        result = self._values.get("task_definition")
+        return typing.cast(typing.Optional[TaskDefinitionConfig], result)
 
     @builtins.property
-    def task_exec_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
-        '''Task execution role for the ECS task.'''
-        result = self._values.get("task_exec_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+    def test_listener(self) -> typing.Optional[ListenerConfig]:
+        '''Test listener configuration.'''
+        result = self._values.get("test_listener")
+        return typing.cast(typing.Optional[ListenerConfig], result)
 
     @builtins.property
-    def task_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
-        '''Task role for the ECS task.'''
-        result = self._values.get("task_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+    def test_target_group(self) -> typing.Optional[TargetGroupConfig]:
+        '''Test target group configuration.'''
+        result = self._values.get("test_target_group")
+        return typing.cast(typing.Optional[TargetGroupConfig], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3994,28 +4018,31 @@ __all__ = [
     "AmplifyAppProps",
     "ApiGatewayToLambda",
     "ApiGatewayToLambdaProps",
-    "AutoScalingProps",
     "BasicAuthConfig",
     "BranchOptions",
     "BuildSettings",
     "CacheBehaviorConfig",
     "CloudFrontToOrigins",
     "CloudFrontToOriginsProps",
-    "CodeDeployConfig",
-    "ContainerProps",
+    "CodeDeployApplicationConfig",
+    "ContainerConfig",
     "CustomDomainOptions",
     "CustomRoute",
     "CustomRule",
+    "DeploymentGroupConfig",
     "EcsCodeDeploy",
     "EcsCodeDeployProps",
-    "HealthCheckConfig",
     "HttpOriginConfig",
     "HttpOriginInfo",
+    "ListenerConfig",
     "LoadBalancerConfig",
     "S3OriginConfig",
     "S3OriginInfo",
+    "ServiceConfig",
     "SubDomainOptions",
     "TaggableProps",
+    "TargetGroupConfig",
+    "TaskDefinitionConfig",
     "WebSocketApiGatewayToLambda",
     "WebSocketApiGatewayToLambdaProps",
     "WebSocketRoute",
@@ -4061,16 +4088,6 @@ def _typecheckingstub__88385340a9ac0a3d345bb5f8b9e0334655a117a97d92f90c383b720f4
     proxy: typing.Optional[builtins.bool] = None,
     rest_api_props: typing.Optional[typing.Union[_aws_cdk_aws_apigateway_ceddda9d.RestApiProps, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d0ea30b15daf73de785b4991457443ee0ca220224fbd08155a17d86c67413930(
-    *,
-    max_capacity: jsii.Number,
-    min_capacity: jsii.Number,
-    cpu_scale: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.CpuUtilizationScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    memory_scale: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.MemoryUtilizationScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4169,32 +4186,17 @@ def _typecheckingstub__6cf9864ad4075688df20b9dbf44e995106eb63bf50d190ab2434b56d9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f4640fd831648bbfe14ea1759ea6818ce3e7f8b8b6f90ce8ee28906a63a8eb12(
+def _typecheckingstub__0e5502fecaec2fcacb90758335131c1b764d3da7ff95d6f9252571099bb02703(
     *,
-    termination_wait_time: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    traffic_routing_interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    traffic_routing_start_percent: typing.Optional[jsii.Number] = None,
+    application_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__54ea2679bab87dfe8eb538ebc455f8d93200c1beb37ad6e093fa52678f8ac1fc(
+def _typecheckingstub__e5a8f326881db7c040d8f4c23992dd449f63d8cd8f46a42695a34a87d6f822a7(
     *,
-    container_port: jsii.Number,
-    image: _aws_cdk_aws_ecs_ceddda9d.ContainerImage,
-    command: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cpu: typing.Optional[jsii.Number] = None,
-    entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
-    environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    essential: typing.Optional[builtins.bool] = None,
-    health_check: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
-    logging: typing.Optional[_aws_cdk_aws_ecs_ceddda9d.LogDriver] = None,
-    memory_limit: typing.Optional[jsii.Number] = None,
-    memory_reservation: typing.Optional[jsii.Number] = None,
-    name: typing.Optional[builtins.str] = None,
-    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_ecs_ceddda9d.Secret]] = None,
-    user: typing.Optional[builtins.str] = None,
-    working_directory: typing.Optional[builtins.str] = None,
+    name: builtins.str,
+    options: typing.Union[_aws_cdk_aws_ecs_ceddda9d.ContainerDefinitionOptions, typing.Dict[builtins.str, typing.Any]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4229,41 +4231,37 @@ def _typecheckingstub__39915f5b079be3a4939a38452e4b026fdbbc7aa3c31aef40d22288ff8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__03d1e7127aabea4ca4381fa09bc0557271913b6524f87fae49b42a73469e9a07(
+    *,
+    blue_green_deployment_config: typing.Optional[typing.Union[_aws_cdk_aws_codedeploy_ceddda9d.EcsBlueGreenDeploymentConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_config: typing.Optional[_aws_cdk_aws_codedeploy_ceddda9d.IEcsDeploymentConfig] = None,
+    deployment_group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__19ac4f77d3bba1391929b87d2d23b70fe61e21aa6809f43ed4283d6ecf350909(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     cluster: _aws_cdk_aws_ecs_ceddda9d.ICluster,
-    containers: typing.Sequence[typing.Union[ContainerProps, typing.Dict[builtins.str, typing.Any]]],
-    load_balancer: typing.Union[LoadBalancerConfig, typing.Dict[builtins.str, typing.Any]],
+    containers: typing.Sequence[typing.Union[ContainerConfig, typing.Dict[builtins.str, typing.Any]]],
     security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
     service_name: builtins.str,
     task_subnets: typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]],
     vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-    assign_public_ip: typing.Optional[builtins.bool] = None,
-    auto_scaling: typing.Optional[typing.Union[AutoScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    code_deploy_config: typing.Optional[typing.Union[CodeDeployConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    desired_count: typing.Optional[jsii.Number] = None,
-    health_check_grace_period: typing.Optional[jsii.Number] = None,
-    memory_limit: typing.Optional[jsii.Number] = None,
+    code_deploy_application: typing.Optional[typing.Union[CodeDeployApplicationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_group: typing.Optional[typing.Union[DeploymentGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    load_balancer: typing.Optional[typing.Union[LoadBalancerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    load_balancer_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    production_listener: typing.Optional[typing.Union[ListenerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    production_target_group: typing.Optional[typing.Union[TargetGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    service: typing.Optional[typing.Union[ServiceConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     target_port: typing.Optional[jsii.Number] = None,
-    task_cpu: typing.Optional[jsii.Number] = None,
-    task_exec_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-    task_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    task_definition: typing.Optional[typing.Union[TaskDefinitionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    test_listener: typing.Optional[typing.Union[ListenerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    test_target_group: typing.Optional[typing.Union[TargetGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3166fbcdece3243c3c2da85c5fc167b30269a043783531fe98d402388d32d269(
-    *,
-    healthy_http_codes: typing.Optional[builtins.str] = None,
-    healthy_threshold_count: typing.Optional[jsii.Number] = None,
-    interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    path: typing.Optional[builtins.str] = None,
-    port: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4289,16 +4287,23 @@ def _typecheckingstub__a7feea82df6d57cdecc62c96a5730f43379b516233376c0533b57e1b1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2c5a95f45a3b1f8c843cf50d6a1005817682e3d6ff84735169cc73c06e12b10f(
+def _typecheckingstub__2f5ab801b4e660224ccf6cf401be1529c61a4dfdb7a1404942a16c2517d178dd(
     *,
     certificates: typing.Optional[typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]] = None,
-    existing_load_balancer: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.IApplicationLoadBalancer] = None,
-    health_check: typing.Optional[typing.Union[HealthCheckConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    default_action: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ListenerAction] = None,
+    port: typing.Optional[jsii.Number] = None,
+    protocol: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationProtocol] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c5a95f45a3b1f8c843cf50d6a1005817682e3d6ff84735169cc73c06e12b10f(
+    *,
+    idle_timeout_seconds: typing.Optional[jsii.Number] = None,
     internet_facing: typing.Optional[builtins.bool] = None,
-    production_port: typing.Optional[jsii.Number] = None,
+    load_balancer_name: typing.Optional[builtins.str] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-    subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
-    test_port: typing.Optional[jsii.Number] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4323,6 +4328,15 @@ def _typecheckingstub__e1c3ec5b8a1718b199ec940b9c6ef6af3af2ea2de8856064d69c396dd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d83d46c6ecc0567279ab942573549709584b26f1786fd9089e850d2bd49170b6(
+    *,
+    assign_public_ip: typing.Optional[builtins.bool] = None,
+    desired_count: typing.Optional[jsii.Number] = None,
+    health_check_grace_period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d299494480073590a530a506b82a6958f2f0149f64e2eb929864716bb21e2e6f(
     *,
     branch_name: builtins.str,
@@ -4334,6 +4348,29 @@ def _typecheckingstub__d299494480073590a530a506b82a6958f2f0149f64e2eb929864716bb
 def _typecheckingstub__b1dc2cddf876ac6ea0c1f692c56ba26ce2e055e80dff32f5934853a7a20ab5a0(
     *,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c79d412fa856e93114faca93f3f3109977421ac7571097864fad7c6f77e756f3(
+    *,
+    health_check: typing.Optional[typing.Union[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+    load_balancing_algorithm_type: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.TargetGroupLoadBalancingAlgorithmType] = None,
+    port: typing.Optional[jsii.Number] = None,
+    protocol: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationProtocol] = None,
+    slow_start: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    stickiness_cookie_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    target_group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82cc7c746398105f3e0d633178d0221928f104cae239c86eec0d9b408385e7c6(
+    *,
+    cpu: typing.Optional[jsii.Number] = None,
+    execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    memory_limit_mib: typing.Optional[jsii.Number] = None,
+    task_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4454,22 +4491,22 @@ def _typecheckingstub__0e1edfc306738ea99e0bd03a55876d7f75a063970dd3103fc1bbb766d
     *,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     cluster: _aws_cdk_aws_ecs_ceddda9d.ICluster,
-    containers: typing.Sequence[typing.Union[ContainerProps, typing.Dict[builtins.str, typing.Any]]],
-    load_balancer: typing.Union[LoadBalancerConfig, typing.Dict[builtins.str, typing.Any]],
+    containers: typing.Sequence[typing.Union[ContainerConfig, typing.Dict[builtins.str, typing.Any]]],
     security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
     service_name: builtins.str,
     task_subnets: typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]],
     vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-    assign_public_ip: typing.Optional[builtins.bool] = None,
-    auto_scaling: typing.Optional[typing.Union[AutoScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    code_deploy_config: typing.Optional[typing.Union[CodeDeployConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    desired_count: typing.Optional[jsii.Number] = None,
-    health_check_grace_period: typing.Optional[jsii.Number] = None,
-    memory_limit: typing.Optional[jsii.Number] = None,
+    code_deploy_application: typing.Optional[typing.Union[CodeDeployApplicationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_group: typing.Optional[typing.Union[DeploymentGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    load_balancer: typing.Optional[typing.Union[LoadBalancerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    load_balancer_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    production_listener: typing.Optional[typing.Union[ListenerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    production_target_group: typing.Optional[typing.Union[TargetGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    service: typing.Optional[typing.Union[ServiceConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     target_port: typing.Optional[jsii.Number] = None,
-    task_cpu: typing.Optional[jsii.Number] = None,
-    task_exec_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-    task_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    task_definition: typing.Optional[typing.Union[TaskDefinitionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    test_listener: typing.Optional[typing.Union[ListenerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    test_target_group: typing.Optional[typing.Union[TargetGroupConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

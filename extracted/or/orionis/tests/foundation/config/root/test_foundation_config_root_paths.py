@@ -53,7 +53,7 @@ class TestFoundationConfigRootPaths(AsyncTestCase):
         None
         """
         with self.assertRaises(OrionisIntegrityException):
-            Paths(commands=123)
+            Paths(console=123)
 
     def testToDictReturnsCompleteDictionary(self):
         """

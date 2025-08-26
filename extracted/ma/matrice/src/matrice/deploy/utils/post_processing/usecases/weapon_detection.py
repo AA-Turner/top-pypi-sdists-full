@@ -72,6 +72,10 @@ class WeaponDetectionUseCase(BaseProcessor):
         self._track_merge_time_window: float = 7.0
         self._ascending_alert_list: List[int] = []
         self.current_incident_end_timestamp: str = "N/A"
+        self.start_timer = None
+
+        # Track start time for "TOTAL SINCE" calculation
+        self._tracking_start_time = None
 
     def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
                 stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
@@ -425,22 +429,23 @@ class WeaponDetectionUseCase(BaseProcessor):
     def get_total_counts(self):
         return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
 
-    def _format_timestamp_for_video(self, timestamp: float) -> str:
-        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
-        hours = int(timestamp // 3600)
-        minutes = int((timestamp % 3600) // 60)
-        seconds = round(float(timestamp % 60),2)
-        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
-
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = round(float(timestamp % 60), 2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
 
     def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-        # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        print("---------------------------------STREAM_INFO------------------------------")
+        print(stream_info)
+        print("---------------------------------STREAM_INFO------------------------------")
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:
@@ -448,30 +453,30 @@ class WeaponDetectionUseCase(BaseProcessor):
                 else:
                     start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
-                return stream_time_str
+                
+
+                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                if frame_id:
-                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
-                else:
-                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
-                stream_time_str = self._format_timestamp_for_video(start_time)
-                return stream_time_str
+            if frame_id:
+                start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+            else:
+                start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+
+            stream_time_str = self._format_timestamp_for_video(start_time)
+            
+            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
         else:
-            # For streams, use stream_time from stream_info
             stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
-                # Parse the high precision timestamp string to get timestamp
                 try:
-                    # Remove " UTC" suffix and parse
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
                 except:
-                    # Fallback to current time if parsing fails
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
@@ -480,36 +485,89 @@ class WeaponDetectionUseCase(BaseProcessor):
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
+        
         if precision:
-            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                return "00:00:00"
+            if self.start_timer is None:
+                self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+                return self._format_timestamp(self.start_timer)
+            elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+                self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+                return self._format_timestamp(self.start_timer)
             else:
-                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                return self._format_timestamp(self.start_timer)
 
-        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-            # If video format, start from 00:00:00
-            return "00:00:00"
+        if self.start_timer is None:
+            self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+            return self._format_timestamp(self.start_timer)
+        elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+            self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+            return self._format_timestamp(self.start_timer)
+        
         else:
-            # For streams, use tracking start time or current time with minutes/seconds reset
+            if self.start_timer is not None:
+                return self._format_timestamp(self.start_timer)
+
             if self._tracking_start_time is None:
-                # Try to extract timestamp from stream_time string
                 stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:
                     try:
-                        # Remove " UTC" suffix and parse
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
                     except:
-                        # Fallback to current time if parsing fails
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
 
             dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
-            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _format_timestamp(self, timestamp: Any) -> str:
+        """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
+
+        The input can be either:
+        1. A numeric Unix timestamp (``float`` / ``int``) – it will first be converted to a
+           string in the format ``YYYY-MM-DD-HH:MM:SS.ffffff UTC``.
+        2. A string already following the same layout.
+
+        The returned value preserves the overall format of the input but truncates or pads
+        the fractional seconds portion to **exactly two digits**.
+
+        Example
+        -------
+        >>> self._format_timestamp("2025-08-19-04:22:47.187574 UTC")
+        '2025-08-19-04:22:47.18 UTC'
+        """
+
+        # Convert numeric timestamps to the expected string representation first
+        if isinstance(timestamp, (int, float)):
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                '%Y-%m-%d-%H:%M:%S.%f UTC'
+            )
+
+        # Ensure we are working with a string from here on
+        if not isinstance(timestamp, str):
+            return str(timestamp)
+
+        # If there is no fractional component, simply return the original string
+        if '.' not in timestamp:
+            return timestamp
+
+        # Split out the main portion (up to the decimal point)
+        main_part, fractional_and_suffix = timestamp.split('.', 1)
+
+        # Separate fractional digits from the suffix (typically ' UTC')
+        if ' ' in fractional_and_suffix:
+            fractional_part, suffix = fractional_and_suffix.split(' ', 1)
+            suffix = ' ' + suffix  # Re-attach the space removed by split
+        else:
+            fractional_part, suffix = fractional_and_suffix, ''
+
+        # Guarantee exactly two digits for the fractional part
+        fractional_part = (fractional_part + '00')[:2]
+
+        return f"{main_part}.{fractional_part}{suffix}"
 
     def _count_categories(self, detections: list, config: WeaponDetectionConfig) -> dict:
         counts = {}
@@ -609,13 +667,13 @@ class WeaponDetectionUseCase(BaseProcessor):
         }
         return canonical_id
 
-    def _format_timestamp(self, timestamp: float) -> str:
-        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+    # def _format_timestamp(self, timestamp: float) -> str:
+    #     return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 
-    def _get_tracking_start_time(self) -> str:
-        if self._tracking_start_time is None:
-            return "N/A"
-        return self._format_timestamp(self._tracking_start_time)
+    # def _get_tracking_start_time(self) -> str:
+    #     if self._tracking_start_time is None:
+    #         return "N/A"
+    #     return self._format_timestamp(self._tracking_start_time)
 
-    def _set_tracking_start_time(self) -> None:
-        self._tracking_start_time = time.time()
+    # def _set_tracking_start_time(self) -> None:
+    #     self._tracking_start_time = time.time()

@@ -69,8 +69,7 @@ def sign_json_member(
     registry.check_header(headers)
     alg = registry.get_alg(headers["alg"])
     key = find_key(member)
-    key.check_use("sig")
-    alg.check_key_type(key)
+    alg.check_key(key)
     if member.protected:
         protected_segment = json_b64encode(member.protected)
     else:
@@ -136,8 +135,7 @@ def verify_signature(
     registry.check_header(headers)
     alg = registry.get_alg(headers["alg"])
     key = find_key(member)
-    key.check_use("sig")
-    alg.check_key_type(key)
+    alg.check_key(key)
     if "protected" in signature:
         protected_segment = signature["protected"].encode("utf-8")
     else:
@@ -147,7 +145,7 @@ def verify_signature(
     return alg.verify(signing_input, sig, key)
 
 
-def detach_json_content(value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+def detach_json_content(value: dict[str, t.Any]) -> dict[str, t.Any]:
     # https://www.rfc-editor.org/rfc/rfc7515#appendix-F
     rv = copy.deepcopy(value)  # don't alter original value
     if "payload" in rv:

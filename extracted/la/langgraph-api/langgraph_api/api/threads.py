@@ -6,11 +6,13 @@ from starlette.routing import BaseRoute
 
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import THREAD_FIELDS
+from langgraph_api.sse import EventSourceResponse
 from langgraph_api.state import state_snapshot_to_thread_state
 from langgraph_api.utils import (
     fetchone,
     get_pagination_headers,
     validate_select_columns,
+    validate_stream_id,
     validate_uuid,
 )
 from langgraph_api.validation import (
@@ -282,6 +284,23 @@ async def copy_thread(request: ApiRequest):
     return ApiResponse(await fetchone(iter, not_found_code=409))
 
 
+@retry_db
+async def join_thread_stream(request: ApiRequest):
+    """Join a thread stream."""
+    thread_id = request.path_params["thread_id"]
+    validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
+    last_event_id = request.headers.get("last-event-id") or None
+    validate_stream_id(
+        last_event_id, "Invalid last-event-id: must be a valid Redis stream ID"
+    )
+    return EventSourceResponse(
+        Threads.Stream.join(
+            thread_id,
+            last_event_id=last_event_id,
+        ),
+    )
+
+
 threads_routes: list[BaseRoute] = [
     ApiRoute("/threads", endpoint=create_thread, methods=["POST"]),
     ApiRoute("/threads/search", endpoint=search_threads, methods=["POST"]),
@@ -311,5 +330,10 @@ threads_routes: list[BaseRoute] = [
         "/threads/{thread_id}/state/checkpoint",
         endpoint=get_thread_state_at_checkpoint_post,
         methods=["POST"],
+    ),
+    ApiRoute(
+        "/threads/{thread_id}/stream",
+        endpoint=join_thread_stream,
+        methods=["GET"],
     ),
 ]

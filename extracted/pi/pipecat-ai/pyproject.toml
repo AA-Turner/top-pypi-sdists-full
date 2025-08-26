@@ -36,6 +36,7 @@ dependencies = [
     "openai>=1.74.0,<=1.99.1",
     # Pinning numba to resolve package dependencies
     "numba==0.61.2",
+    "wait_for2>=0.4.1; python_version<'3.12'",
 ]
 
 [project.urls]
@@ -52,7 +53,7 @@ azure = [ "azure-cognitiveservices-speech~=1.42.0"]
 cartesia = [ "cartesia~=2.0.3", "websockets>=13.1,<15.0" ]
 cerebras = []
 deepseek = []
-daily = [ "daily-python~=0.19.6" ]
+daily = [ "daily-python~=0.19.7" ]
 deepgram = [ "deepgram-sdk~=4.7.0" ]
 elevenlabs = [ "websockets>=13.1,<15.0" ]
 fal = [ "fal-client~=0.5.9" ]
@@ -73,6 +74,7 @@ lmnt = [ "websockets>=13.1,<15.0" ]
 local = [ "pyaudio~=0.2.14" ]
 mcp = [ "mcp[cli]~=1.9.4" ]
 mem0 = [ "mem0ai~=0.1.94" ]
+mistral = []
 mlx-whisper = [ "mlx-whisper~=0.4.2" ]
 moondream = [ "accelerate~=1.10.0", "einops~=0.8.0", "pyvips[binary]~=3.0.0", "timm~=1.0.13", "transformers>=4.48.0" ]
 nim = []
@@ -113,7 +115,7 @@ dev = [
     "pre-commit~=4.2.0",
     "pyright~=1.1.402",
     "pytest~=8.4.1",
-    "pytest-asyncio~=1.0.0",
+    "pytest-asyncio~=1.1.0",
     "pytest-aiohttp==1.1.0",
     "ruff~=0.12.1",
     "setuptools~=78.1.1",

@@ -19,6 +19,7 @@ class IconBackend(AbstractBackend):
     BANK = "account_balance"
     BIRTHDAY = "cake"
     BOOKMARK = "bookmark_border"
+    BROADCAST = "arrow_split"
     CALENDAR = "calendar_month"
     CHART_AREA = "stacked_line_chart"
     CHART_BARS_HORIZONTAL = "align_horizontal_center"

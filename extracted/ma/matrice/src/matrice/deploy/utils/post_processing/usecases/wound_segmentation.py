@@ -682,7 +682,7 @@ class WoundSegmentationUseCase(BaseProcessor):
         if not config.alert_config:
             return alerts
         total = summary.get("total_count", 0)
-        if config.alert_config.count_thresholds:
+        if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total >= threshold:
                     timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')

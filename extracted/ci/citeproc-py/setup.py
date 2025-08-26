@@ -71,6 +71,9 @@ setup(
     scripts=['bin/csl_unsorted'],
     setup_requires=['rnc2rng>=2.6.1,!=2.6.2'],
     install_requires=['lxml'],
+    extras_require={
+        'full': ['citeproc-py-styles'],
+    },
     provides=[PACKAGE],
     #test_suite='nose.collector',
 

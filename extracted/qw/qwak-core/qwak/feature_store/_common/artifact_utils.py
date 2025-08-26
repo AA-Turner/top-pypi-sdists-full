@@ -23,7 +23,7 @@ class ArtifactSpec:
     artifact_name: str
     root_module_path: Path
     artifact_object: Union["BaseTransformation", "Deserializer"]
-    callables: List[Callable] = field(default_factory=lambda: list())
+    callables: List[Callable] = field(default_factory=list)
     suffix: str = ""
 
 
@@ -48,10 +48,12 @@ class ArtifactsUploader:
         transformation_functions: Optional[List[Callable[..., Any]]] = (
             transformation.get_functions()
         )
-        if transformation_functions is not None and transformation_functions:
-            return ArtifactSpec(
-                artifact_name=featureset_name,
-                root_module_path=Path(__instance_module_path__).parent,
-                artifact_object=transformation,
-                callables=transformation_functions,
-            )
+        if not transformation_functions:
+            return None
+
+        return ArtifactSpec(
+            artifact_name=featureset_name,
+            root_module_path=Path(__instance_module_path__).parent,
+            artifact_object=transformation,
+            callables=transformation_functions,
+        )

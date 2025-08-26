@@ -139,7 +139,9 @@ async def worker(
         stream_modes: set[StreamMode],
     ):
         try:
-            await consume(stream, run_id, resumable, stream_modes)
+            await consume(
+                stream, run_id, resumable, stream_modes, thread_id=run["thread_id"]
+            )
         except Exception as e:
             if not isinstance(e, UserRollback | UserInterrupt):
                 logger.exception(
@@ -151,7 +153,7 @@ async def worker(
                 raise UserTimeout(e) from e
             raise
 
-    async with Runs.enter(run_id, main_loop) as done:
+    async with Runs.enter(run_id, run["thread_id"], main_loop) as done:
         # attempt the run
         try:
             if attempt > BG_JOB_MAX_RETRIES:

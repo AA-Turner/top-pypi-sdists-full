@@ -19,6 +19,7 @@ from _qwak_proto.qwak.features_operator.v3.features_operator_pb2 import (
 )
 from dependency_injector.wiring import Provide
 from qwak.inner.di_configuration import QwakContainer
+from qwak.inner.tool.grpc.grpc_try_wrapping import grpc_try_catch_wrapper
 from qwak.inner.tool.retry_utils import retry
 
 
@@ -38,6 +39,9 @@ class FeaturesOperatorClient:
     def __init__(self, grpc_channel=Provide[QwakContainer.core_grpc_channel]):
         self._v3_client = FeaturesOperatorAsyncServiceStub(grpc_channel)
 
+    @grpc_try_catch_wrapper(
+        "Failed to validate DataSource", reraise_non_grpc_error_original_exception=True
+    )
     def validate_data_source(
         self,
         data_source_spec: DataSourceSpec,
@@ -56,6 +60,9 @@ class FeaturesOperatorClient:
         response: ValidationResponse = self._v3_client.ValidateDataSource(request)
         return response.request_id
 
+    @grpc_try_catch_wrapper(
+        "Failed to validate FeatureSet", reraise_non_grpc_error_original_exception=True
+    )
     def validate_featureset(
         self,
         featureset_spec: FeatureSetSpec,
@@ -67,7 +74,6 @@ class FeaturesOperatorClient:
         Validates and fetches a sample from the featureset
         :return: Request handle id to poll for result with
         """
-        resource_path = str(resource_path) if resource_path is not None else None
         request: ValidateFeatureSetRequest = ValidateFeatureSetRequest(
             feature_set_spec=featureset_spec,
             num_samples=num_samples,
@@ -78,7 +84,15 @@ class FeaturesOperatorClient:
         response: ValidationResponse = self._v3_client.ValidateFeatureSet(request)
         return response.request_id
 
+    @grpc_try_catch_wrapper(
+        "Failed to fetch validation result",
+        reraise_non_grpc_error_original_exception=True,
+    )
     def get_result(self, request_handle: str) -> GetValidationResultResponse:
+        """
+        Try to fetch the validation result using the given request handle.
+        :return: the validation result
+        """
         request: GetValidationResultRequest = GetValidationResultRequest(
             request_id=request_handle
         )
@@ -105,6 +119,10 @@ class FeaturesOperatorClient:
         timeout_seconds: int = 5 * 60,
         poll_interval_seconds: int = 3,
     ) -> GetValidationResultResponse:
+        """
+        Retry wrapper on 'get_result' method that polls for the validation result
+        :return: the validation result
+        """
         try:
             result = retry(
                 f=self._inner_poll,

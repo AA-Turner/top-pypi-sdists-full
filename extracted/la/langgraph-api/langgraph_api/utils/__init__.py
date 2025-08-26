@@ -1,4 +1,5 @@
 import contextvars
+import re
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -22,6 +23,7 @@ Row: TypeAlias = dict[str, Any]
 AuthContext = contextvars.ContextVar[Auth.types.BaseAuthContext | None](
     "AuthContext", default=None
 )
+STREAM_ID_PATTERN = re.compile(r"^\d+(-(\d+|\*))?$")
 
 
 @asynccontextmanager
@@ -99,6 +101,23 @@ def validate_uuid(uuid_str: str, invalid_uuid_detail: str | None) -> uuid.UUID:
         return uuid.UUID(uuid_str)
     except ValueError:
         raise HTTPException(status_code=422, detail=invalid_uuid_detail) from None
+
+
+def validate_stream_id(stream_id: str | None, invalid_stream_id_detail: str | None):
+    """
+    Validate Redis stream ID format.
+    Valid formats:
+    - timestamp-sequence (e.g., "1724342400000-0")
+    - timestamp-* (e.g., "1724342400000-*")
+    - timestamp only (e.g., "1724342400000")
+    - "-" (special case, represents the beginning of the stream, use if you want to replay all events)
+    """
+    if not stream_id or stream_id == "-":
+        return stream_id
+
+    if STREAM_ID_PATTERN.match(stream_id):
+        return stream_id
+    raise HTTPException(status_code=422, detail=invalid_stream_id_detail)
 
 
 def next_cron_date(schedule: str, base_time: datetime) -> datetime:

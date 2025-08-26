@@ -123,7 +123,7 @@ def login(
                 "\n🎉🥳 Congratulations! You've successfully logged in! :raising_hands: "
             )
             print(
-                "You're now using DeepEval with [rgb(106,0,255)]Confident AI[/rgb(106,0,255)]. Follow our quickstart tutorial here: [bold][link=https://documentation.confident-ai.com/docs/getting-started/setup]https://documentation.confident-ai.com/docs/getting-started/setup[/link][/bold]"
+                "You're now using DeepEval with [rgb(106,0,255)]Confident AI[/rgb(106,0,255)]. Follow our quickstart tutorial here: [bold][link=https://www.confident-ai.com/docs/llm-evaluation/quickstart]https://www.confident-ai.com/docs/llm-evaluation/quickstart[/link][/bold]"
             )
         except:
             span.set_attribute("completed", False)
@@ -166,20 +166,37 @@ def enable_grpc_logging():
 def set_openai_env(
     model: str = typer.Option(..., "--model", help="OpenAI model name"),
     cost_per_input_token: Optional[float] = typer.Option(
-        ..., "--cost_per_input_token", help="OpenAI cost per input token"
+        None,
+        "--cost_per_input_token",
+        help=(
+            "USD per input token. Optional for known OpenAI models (pricing is preconfigured); "
+            "REQUIRED if you use a custom/unsupported model."
+        ),
     ),
     cost_per_output_token: Optional[float] = typer.Option(
-        ..., "--cost_per_output_token", help="OpenAI cost per output token"
+        None,
+        "--cost_per_output_token",
+        help=(
+            "USD per output token. Optional for known OpenAI models (pricing is preconfigured); "
+            "REQUIRED if you use a custom/unsupported model."
+        ),
     ),
 ):
+    """Configure OpenAI as the active model.
+
+    Notes:
+    - If `model` is a known OpenAI model, costs can be omitted (built-in pricing will be used).
+    - If `model` is custom/unsupported, you must pass both --cost_per_input_token and --cost_per_output_token.
+    """
+
     clear_evaluation_model_keys()
     KEY_FILE_HANDLER.write_key(ModelKeyValues.USE_OPENAI_MODEL, "YES")
     KEY_FILE_HANDLER.write_key(ModelKeyValues.OPENAI_MODEL_NAME, model)
     KEY_FILE_HANDLER.write_key(
-        ModelKeyValues.OPENAI_COST_PER_INPUT_TOKEN, str(cost_per_output_token)
+        ModelKeyValues.OPENAI_COST_PER_INPUT_TOKEN, str(cost_per_input_token)
     )
     KEY_FILE_HANDLER.write_key(
-        ModelKeyValues.OPENAI_COST_PER_OUTPUT_TOKEN, str(cost_per_input_token)
+        ModelKeyValues.OPENAI_COST_PER_OUTPUT_TOKEN, str(cost_per_output_token)
     )
     print(
         f":raising_hands: Congratulations! You're now using OpenAI's `{model}` for all evals that require an LLM."

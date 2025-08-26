@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: neutron-lib
-Version: 3.21.0
+Version: 3.21.1
 Summary: Neutron shared routines and utilities
 Home-page: https://docs.openstack.org/neutron-lib/latest/
 Author: OpenStack
@@ -43,29 +43,19 @@ Requires-Dist: WebOb>=1.7.1
 Requires-Dist: os-traits>=0.9.0
 Requires-Dist: debtcollector>=3.0.0
 
-========================
-Team and repository tags
-========================
+===========
+neutron-lib
+===========
 
 .. image:: https://governance.openstack.org/tc/badges/neutron-lib.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
 
 .. Change things from this point on
 
-===============================
-neutron-lib
-===============================
-
-Neutron shared routines and utilities
+Neutron shared routines and utilities.
 
 * Free software: Apache license
 * Documentation: https://docs.openstack.org/neutron-lib/latest/
 * Source: https://opendev.org/openstack/neutron-lib
 * Bugs: https://bugs.launchpad.net/neutron
 * Release notes: https://docs.openstack.org/releasenotes/neutron-lib/
-
-Features
---------
-
-* TODO
 

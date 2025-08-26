@@ -105,6 +105,7 @@ class ControlClassification(str, Enum):
     HACKERONE = 'HackerOne'
     DYNATRACESAST = 'DynatraceSast'
     DYNATRACESCA = 'DynatraceSca'
+    FORTIFYSCC = 'FortifyScc'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

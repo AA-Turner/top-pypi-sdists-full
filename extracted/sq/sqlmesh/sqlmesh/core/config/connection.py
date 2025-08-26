@@ -100,6 +100,7 @@ class ConnectionConfig(abc.ABC, BaseConfig):
     register_comments: bool
     pre_ping: bool
     pretty_sql: bool = False
+    schema_differ_overrides: t.Optional[t.Dict[str, t.Any]] = None
 
     # Whether to share a  single connection across threads or create a new connection per thread.
     shared_connection: t.ClassVar[bool] = False
@@ -174,6 +175,7 @@ class ConnectionConfig(abc.ABC, BaseConfig):
             pre_ping=self.pre_ping,
             pretty_sql=self.pretty_sql,
             shared_connection=self.shared_connection,
+            schema_differ_overrides=self.schema_differ_overrides,
             **self._extra_engine_config,
         )
 
@@ -534,6 +536,10 @@ class MotherDuckConnectionConfig(BaseDuckDBConnectionConfig):
         if self.token:
             connection_str += f"{'&' if self.database else '?'}motherduck_token={self.token}"
         return {"database": connection_str, "config": custom_user_agent_config}
+
+    @property
+    def _extra_engine_config(self) -> t.Dict[str, t.Any]:
+        return {"is_motherduck": True}
 
 
 class DuckDBConnectionConfig(BaseDuckDBConnectionConfig):

@@ -13,5 +13,5 @@ class SchedulerPaused(SchedulerEventData):
     ----------
     (Inherited from SchedulerEventData)
     """
-    # No additional attributes or methods are defined here, as this class 
-    # serves as a specialized event marker for when the scheduler is paused.
+
+    time: str  # Time when the scheduler was paused

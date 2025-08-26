@@ -23,7 +23,9 @@ import cv2
 import numpy as np
 #import torch
 import re
-
+from collections import Counter, defaultdict
+#from turbojpeg import TurboJPEG, TJPF_RGB
+os.environ["ORT_LOG_SEVERITY_LEVEL"] = "3"
 # Fast license-plate OCR (replaces EasyOCR)
 # Attempt to import fast_plate_ocr; fall back to a stub if unavailable
 try:
@@ -53,7 +55,7 @@ class LicensePlateMonitorConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    confidence_threshold: float = 0.565
+    confidence_threshold: float = 0.5
     frame_skip: int = 1
     fps: Optional[float] = None
     bbox_format: str = "auto"
@@ -63,6 +65,7 @@ class LicensePlateMonitorConfig(BaseConfig):
     index_to_category: Optional[Dict[int, str]] = field(default_factory=lambda: {0: "license_plate"})
     language: List[str] = field(default_factory=lambda: ['en'])
     country: str = field(default_factory=lambda: 'us')
+    ocr_mode:str = field(default_factory=lambda: "numeric") # "alphanumeric" or "numeric" or "alphabetic"
 
     def validate(self) -> List[str]:
         """Validate configuration parameters."""
@@ -113,6 +116,12 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self._tracked_plate_texts: Dict[Any, str] = {}
         # Containers for text stability & uniqueness
         self._unique_plate_texts: Dict[str, str] = {}  # cleaned_text -> original (longest)
+        # NEW: track-wise frequency of cleaned texts to pick the dominant variant per track
+        self._track_text_counts: Dict[Any, Counter] = defaultdict(Counter)  # track_id -> Counter(cleaned_text -> count)
+        # Helper dictionary to keep history of plate texts per track
+        self.helper: Dict[Any, List[str]] = {}
+        # Map of track_id -> current dominant plate text
+        self.unique_plate_track: Dict[Any, str] = {}
         self.image_preprocessor = ImagePreprocessor()
         # Fast OCR model (shared across instances)
         if LicensePlateMonitorUseCase._ocr_model is None:
@@ -133,7 +142,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         # number of consecutive frames a plate must appear to be considered "stable"
         self._stable_frames_required = 3
         self._non_alnum_regex = re.compile(r"[^A-Za-z0-9]+")
-        self._ocr_mode = "numeric" # "alphanumeric" or "numeric" or "alphabetic"
+        self._ocr_mode = None
+        #self.jpeg = TurboJPEG()
+        
 
     def reset_tracker(self) -> None:
         """Reset the advanced tracker instance."""
@@ -150,6 +161,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self._global_frame_offset = 0
         self._text_history = {}
         self._unique_plate_texts = {}
+        self.helper = {}
+        self.unique_plate_track = {}
         self.logger.info("Plate tracking state reset")
 
     def reset_all_tracking(self) -> None:
@@ -190,7 +203,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
-            
+            self._ocr_mode = config.ocr_mode
             self.logger.info(f"Processing license plate monitoring with format: {input_format.value}")
             
             # Step 1: Apply confidence filtering 1
@@ -204,7 +217,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
                 #self.logger.debug("Applied category mapping")
             #print("---------DATA2--------------",processed_data)
-            # Step 3: Filter to target categories
+            # Step 3: Filter to target categories (handle dict or list)
+            if isinstance(processed_data, dict):
+                processed_data = processed_data.get("detections", [])
             processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
             #self.logger.debug("Applied category filtering")
             
@@ -230,9 +245,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 from ..advanced_tracker.config import TrackerConfig
                 if self.tracker is None:
                     tracker_config = TrackerConfig(
-                        track_high_thresh=float(config.confidence_threshold-0.1),
+                        track_high_thresh=float(config.confidence_threshold),
                         track_low_thresh=max(0.05, float(config.confidence_threshold) / 2),
-                        new_track_thresh=float(config.confidence_threshold-0.1)
+                        new_track_thresh=float(config.confidence_threshold)
                     )
                     self.tracker = AdvancedTracker(tracker_config)
                     self.logger.info(f"Initialized AdvancedTracker with thresholds: high={tracker_config.track_high_thresh}, "
@@ -285,6 +300,20 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
             business_analytics = business_analytics_list[0] if business_analytics_list else {}
             summary = summary_list[0] if summary_list else {}
+            # Build LPR_dict (per-track history) and counter (dominant in last 50%)
+            LPR_dict = {}
+            counter = {}
+            for tid, history in self.helper.items():
+                if not history:
+                    continue
+                LPR_dict[str(tid)] = list(history)
+                # dominant from last 50%
+                half = max(1, len(history) // 2)
+                window = history[-half:]
+                from collections import Counter as _Ctr
+                dom, cnt = _Ctr(window).most_common(1)[0]
+                counter[str(tid)] = {"plate": dom, "count": cnt}
+
             agg_summary = {str(frame_number): {
                 "incidents": incidents,
                 "tracking_stats": tracking_stats,
@@ -336,12 +365,13 @@ class LicensePlateMonitorUseCase(BaseProcessor):
     def _analyze_ocr_in_image(self, data: Any, image_bytes: bytes, config: LicensePlateMonitorConfig) -> List[Dict[str, Any]]:
         """Analyze OCR in a single image."""
         image_array = np.frombuffer(image_bytes, np.uint8)
-        image = cv2.imdecode(image_array, cv2.IMREAD_UNCHANGED)
+        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        #image = self.jpeg.decode(image_bytes, pixel_format=TJPF_RGB) #cv2.imdecode(image_array, cv2.IMREAD_UNCHANGED)
         
         if image is None:
             raise RuntimeError("Failed to decode image from bytes")
         
-        rgb_image = image #cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         ocr_analysis = []
         detections = self._get_frame_detections(data, "0")
 
@@ -490,35 +520,56 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         unique_texts: set = set()
         valid_detections: List[Dict[str, Any]] = []
 
-        #print("---------SUMMARY COUNT CATEGORIES",detections)
+        # Group detections by track_id for per-track dominance
+        tracks: Dict[Any, List[Dict[str, Any]]] = {}
         for det in detections:
             if not all(k in det for k in ['category', 'confidence', 'bounding_box']):
                 continue
+            tid = det.get('track_id')
+            if tid is None:
+                # If no track id, treat as its own pseudo-track keyed by bbox
+                tid = (det.get("bounding_box") or det.get("bbox"))
+            tracks.setdefault(tid, []).append(det)
 
-            cat = det.get('category', '')
-            plate_text_raw = det.get('plate_text', '')
-            #print("---------SUMMARY COUNT CATEGORIES PLATE TEXT RAW",plate_text_raw)
-            #print("---------SUMMARY COUNT CATEGORIES PLATE TEXT RAW",det)
-            cleaned_text = plate_text_raw #self._clean_text(plate_text_raw)
+        for tid, dets in tracks.items():
+            # Pick a representative bbox (first occurrence)
+            rep = dets[0]
+            cat = rep.get('category', '')
+            bbox = rep.get('bounding_box')
+            conf = rep.get('confidence')
+            frame_id = rep.get('frame_id')
 
-            # Consider as unique only if meets criteria
-            if cleaned_text and len(cleaned_text) >= self._min_plate_len:
-                unique_texts.add(cleaned_text)
+            # Compute dominant text for this track from last 50% of history
+            dominant_text = None
+            history = self.helper.get(tid, [])
+            if history:
+                half = max(1, len(history) // 2)
+                window = history[-half:]
+                from collections import Counter as _Ctr
+                dominant_text, _ = _Ctr(window).most_common(1)[0]
+            elif rep.get('plate_text'):
+                candidate = self._clean_text(rep.get('plate_text', ''))
+                if self._min_plate_len <= len(candidate) <= 6:
+                    dominant_text = candidate
 
-            valid_detections.append({
-                "bounding_box": det.get("bounding_box"),
-                "category": cat,
-                "confidence": det.get("confidence"),
-                "track_id": det.get('track_id'),
-                "frame_id": det.get("frame_id"),
-                "masks": det.get("masks", []),
-                "plate_text": plate_text_raw
-            })
+            # Fallback to already computed per-track mapping
+            if not dominant_text:
+                dominant_text = self.unique_plate_track.get(tid)
+
+            # Enforce length 5–6 and uniqueness per frame
+            if dominant_text and self._min_plate_len <= len(dominant_text) <= 6:
+                unique_texts.add(dominant_text)
+                valid_detections.append({
+                    "bounding_box": bbox,
+                    "category": cat,
+                    "confidence": conf,
+                    "track_id": rep.get('track_id'),
+                    "frame_id": frame_id,
+                    "masks": rep.get("masks", []),
+                    "plate_text": dominant_text
+                })
 
         counts = {"License_Plate": len(unique_texts)} if unique_texts else {}
-
-        # print("---------SUMMARY COUNT CATEGORIES VALID DETECTIONS",valid_detections)
-        # print(len(unique_texts),'per_cat_count',counts)
 
         return {
             "total_count": len(unique_texts),
@@ -548,20 +599,18 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
             detection_text = category_counts[0] + " detected" if len(category_counts) == 1 else f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
             human_text_lines.append(f"\t- {detection_text}")
-            # Deduplicate plate texts for the current frame while preserving order -
-            seen_cleaned = set()
+            # Show dominant per-track license plates for current frame
+            seen = set()
             display_texts = []
             for det in counting_summary.get("detections", []):
-                raw = det.get("plate_text", "")
-                cleaned = self._clean_text(raw)
-                if cleaned and cleaned not in seen_cleaned:
-                    seen_cleaned.add(cleaned)
-                    # Display the longest raw variant seen in this frame for that cleaned text
-                    longest_variant = max(
-                        [d.get("plate_text", "") for d in counting_summary.get("detections", []) if self._clean_text(d.get("plate_text", "")) == cleaned],
-                        key=len,
-                    )
-                    display_texts.append(longest_variant)
+                t = det.get("track_id")
+                dom = det.get("plate_text")
+                if not dom or not (self._min_plate_len <= len(dom) <= 6):
+                    continue
+                if t in seen:
+                    continue
+                seen.add(t)
+                display_texts.append(dom)
             if display_texts:
                 human_text_lines.append(f"\t- License Plates: {', '.join(display_texts)}")
         else:
@@ -582,25 +631,13 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         human_text = "\n".join(human_text_lines)
         detections = []
         for detection in counting_summary.get("detections", []):
-            raw = detection.get("plate_text", "")
-            cleaned = self._clean_text(raw)
-            # if cleaned and cleaned not in seen_cleaned2:
-            #     seen_cleaned2.add(cleaned)
-            #     # Display the longest raw variant seen in this frame for that cleaned text
-            if cleaned:
-                #print("---------CLEANED-------------",cleaned)
-                plate_text = max(
-                    [d.get("plate_text", "") for d in counting_summary.get("detections", []) if self._clean_text(d.get("plate_text", "")) == cleaned],
-                    key=len,
-                )
-            else:
-                plate_text = "license_plate"
-            
+            dom = detection.get("plate_text", "")
+            if not dom:
+                dom = "license_plate"
             bbox = detection.get("bounding_box", {})
             category = detection.get("category", "license_plate")
-            #plate_text = detection.get("plate_text", "")
             segmentation = detection.get("masks", detection.get("segmentation", detection.get("mask", [])))
-            detection_obj = self.create_detection_object(category, bbox, segmentation=None, plate_text=plate_text)
+            detection_obj = self.create_detection_object(category, bbox, segmentation=None, plate_text=dom)
             detections.append(detection_obj)
         
         alert_settings = []
@@ -810,32 +847,48 @@ class LicensePlateMonitorUseCase(BaseProcessor):
     def _update_plate_texts(self, detections: List[Dict]):
         """Update set of seen plate texts and track the longest plate_text per track_id."""
         for det in detections:
-            text = det.get('plate_text')
+            raw_text = det.get('plate_text')
             track_id = det.get('track_id')
-            if text and track_id is not None:
-                # Clean text again to guarantee consistency
-                text = self._clean_text(text)
-                if len(text) < self._min_plate_len:
-                    continue  # Too short to be a valid plate
+            if not raw_text or track_id is None:
+                continue
 
-                # ----------------------------------------------------------
-                # Update consecutive frame appearance counter
-                # ----------------------------------------------------------
-                self._text_history[text] = self._text_history.get(text, 0) + 1
+            cleaned = self._clean_text(raw_text)
 
-                # Accept plate as stable only after N consecutive frames
-                if self._text_history[text] >= self._stable_frames_required:
-                    # Track longest string variant per track_id
-                    current_text = self._tracked_plate_texts.get(track_id, '')
-                    if len(text) > len(current_text):
-                        self._tracked_plate_texts[track_id] = text
-                    # Maintain global unique mapping (cleaned -> original longest)
-                    longest_variant = self._unique_plate_texts.get(text, '')
-                    if len(text) > len(longest_variant):
-                        self._unique_plate_texts[text] = text
-                   # self.logger.debug(f"Stable plate confirmed: {text} (track_id={track_id})")
+            # Enforce plate length 5 or 6 characters ("greater than 4 and less than 7")
+            if not (self._min_plate_len <= len(cleaned) <= 6):
+                continue
 
-        # Reset counters for texts not seen in this frame
+            # Append to per-track rolling history (keep reasonable size)
+            history = self.helper.get(track_id)
+            if history is None:
+                history = []
+                self.helper[track_id] = history
+            history.append(cleaned)
+            if len(history) > 200:
+                del history[: len(history) - 200]
+
+            # Update per-track frequency counter (all-time)
+            self._track_text_counts[track_id][cleaned] += 1
+
+            # Update consecutive frame counter for stability across whole video
+            self._text_history[cleaned] = self._text_history.get(cleaned, 0) + 1
+
+            # Once stable, decide dominant text from LAST 50% of history
+            if self._text_history[cleaned] >= self._stable_frames_required:
+                half = max(1, len(history) // 2)
+                window = history[-half:]
+                from collections import Counter as _Ctr
+                dominant, _ = _Ctr(window).most_common(1)[0]
+
+                # Update per-track mapping to dominant
+                self._tracked_plate_texts[track_id] = dominant
+                self.unique_plate_track[track_id] = dominant
+
+                # Maintain global unique mapping with dominant only
+                if dominant not in self._unique_plate_texts:
+                    self._unique_plate_texts[dominant] = dominant
+
+        # Reset counters for texts NOT seen in this frame (to preserve stability requirement)
         current_frame_texts = {self._clean_text(det.get('plate_text', '')) for det in detections if det.get('plate_text')}
         for t in list(self._text_history.keys()):
             if t not in current_frame_texts:

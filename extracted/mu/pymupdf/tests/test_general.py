@@ -438,6 +438,10 @@ def test_2238():
 
 
 def test_2093():
+    if platform.python_implementation() == 'GraalVM':
+        print(f'test_2093(): Not running because slow on GraalVM.')
+        return
+    
     doc = pymupdf.open(f'{scriptdir}/resources/test2093.pdf')
 
     def average_color(page):
@@ -597,6 +601,9 @@ def test_2692():
 
 def test_2596():
     """Confirm correctly abandoning cache when reloading a page."""
+    if platform.python_implementation() == 'GraalVM':
+        print(f'test_2596(): not running on Graal.')
+        return
     doc = pymupdf.Document(f"{scriptdir}/resources/test_2596.pdf")
     page = doc[0]
     pix0 = page.get_pixmap()  # render the page
@@ -609,7 +616,7 @@ def test_2596():
     pix1 = page.get_pixmap()
     assert pix1.samples == pix0.samples
     rebased = hasattr(pymupdf, 'mupdf')
-    if rebased:
+    if pymupdf.mupdf_version_tuple < (1, 26, 6):
         wt = pymupdf.TOOLS.mupdf_warnings()
         assert wt == 'too many indirections (possible indirection cycle involving 24 0 R)'
 
@@ -1632,30 +1639,56 @@ def test_3569():
     page = document[0]
     svg = page.get_svg_image(text_as_path=False)
     print(f'{svg=}')
-    assert svg == (
-            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" version="1.1" width="3024" height="2160" viewBox="0 0 3024 2160">\n'
-            '<defs>\n'
-            '<clipPath id="clip_1">\n'
-            '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" d="M25432 10909H29692V15642H25432V10909"/>\n'
-            '</clipPath>\n'
-            '<clipPath id="clip_2">\n'
-            '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" d="M28526 38017 31807 40376V40379L31312 41314V42889H28202L25092 42888V42887L28524 38017H28526"/>\n'
-            '</clipPath>\n'
-            '</defs>\n'
-            '<g clip-path="url(#clip_1)">\n'
-            '<g inkscape:groupmode="layer" inkscape:label="CED - Text">\n'
-            '<text xml:space="preserve" transform="matrix(.06 0 0 .06 3024 2160)" font-size="174.644" font-family="ArialMT"><tspan y="-28538" x="-14909 -14841.063 -14773.127 -14676.024 -14578.922 -14520.766 -14423.663">**L1-13</tspan></text>\n'
-            '</g>\n'
-            '</g>\n'
-            '<g clip-path="url(#clip_2)">\n'
-            '<g inkscape:groupmode="layer" inkscape:label="Level 03|S-COLS">\n'
-            '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" d="M31130 41483V42083L30530 41483ZM31130 42083 30530 41483V42083Z" fill="#7f7f7f"/>\n'
-            '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" stroke-width="0" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="miter" fill="none" stroke="#7f7f7f" d="M31130 41483V42083L30530 41483ZM31130 42083 30530 41483V42083Z"/>\n'
-            '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#7f7f7f" d="M30530 41483H31130V42083H30530V41483"/>\n'
-            '</g>\n'
-            '</g>\n'
-            '</svg>\n'
-            )
+    if pymupdf.mupdf_version_tuple >= (1, 27):
+        assert svg == (
+                '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" version="1.1" width="3024" height="2160" viewBox="0 0 3024 2160">\n'
+                '<defs>\n'
+                '<clipPath id="clip_1">\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" d="M25432 10909H29692V15642H25432V10909"/>\n'
+                '</clipPath>\n'
+                '<clipPath id="clip_2">\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" d="M28526 38017 31807 40376V40379L31312 41314V42889H28202L25092 42888V42887L28524 38017H28526"/>\n'
+                '</clipPath>\n'
+                '</defs>\n'
+                '<g clip-path="url(#clip_1)">\n'
+                '<g inkscape:groupmode="layer" inkscape:label="CED - Text">\n'
+                '<text xml:space="preserve" transform="matrix(.06 0 0 .06 3024 2160)" font-size="174.644" font-family="ArialMT"><tspan y="-28538" x="-14909 -14841.063 -14773.127 -14676.024 -14578.922 -14520.766 -14423.663">**L1-13</tspan></text>\n'
+                '</g>\n'
+                '</g>\n'
+                '<g clip-path="url(#clip_2)">\n'
+                '<g inkscape:groupmode="layer" inkscape:label="Level 03|S-COLS">\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" d="M31130 41483V42083L30530 41483ZM31130 42083 30530 41483V42083Z" fill="#7f7f7f"/>\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="miter" fill="none" stroke="#7f7f7f" d="M31130 41483V42083L30530 41483ZM31130 42083 30530 41483V42083Z"/>\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#7f7f7f" d="M30530 41483H31130V42083H30530V41483"/>\n'
+                '</g>\n'
+                '</g>\n'
+                '</svg>\n'
+                )
+    else:
+        assert svg == (
+                '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" version="1.1" width="3024" height="2160" viewBox="0 0 3024 2160">\n'
+                '<defs>\n'
+                '<clipPath id="clip_1">\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" d="M25432 10909H29692V15642H25432V10909"/>\n'
+                '</clipPath>\n'
+                '<clipPath id="clip_2">\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" d="M28526 38017 31807 40376V40379L31312 41314V42889H28202L25092 42888V42887L28524 38017H28526"/>\n'
+                '</clipPath>\n'
+                '</defs>\n'
+                '<g clip-path="url(#clip_1)">\n'
+                '<g inkscape:groupmode="layer" inkscape:label="CED - Text">\n'
+                '<text xml:space="preserve" transform="matrix(.06 0 0 .06 3024 2160)" font-size="174.644" font-family="ArialMT"><tspan y="-28538" x="-14909 -14841.063 -14773.127 -14676.024 -14578.922 -14520.766 -14423.663">**L1-13</tspan></text>\n'
+                '</g>\n'
+                '</g>\n'
+                '<g clip-path="url(#clip_2)">\n'
+                '<g inkscape:groupmode="layer" inkscape:label="Level 03|S-COLS">\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" d="M31130 41483V42083L30530 41483ZM31130 42083 30530 41483V42083Z" fill="#7f7f7f"/>\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" stroke-width="0" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="miter" fill="none" stroke="#7f7f7f" d="M31130 41483V42083L30530 41483ZM31130 42083 30530 41483V42083Z"/>\n'
+                '<path transform="matrix(0,-.06,-.06,-0,3024,2160)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#7f7f7f" d="M30530 41483H31130V42083H30530V41483"/>\n'
+                '</g>\n'
+                '</g>\n'
+                '</svg>\n'
+                )
     wt = pymupdf.TOOLS.mupdf_warnings()
     assert wt == 'unknown cid collection: PDFAUTOCAD-Indentity0\nnon-embedded font using identity encoding: ArialMT (mapping via )\ninvalid marked content and clip nesting'
 
@@ -1882,18 +1915,22 @@ def test_4479():
         
 
 def test_4533():
-    if 1:
-        print(f'test_4533(): doing nothing because known to segv.')
-        return
+    print()
     path = util.download(
             'https://github.com/user-attachments/files/20497146/NineData_user_manual_V3.0.5.pdf',
             'test_4533.pdf',
             size=16864501,
             )
-    print(f'Opening {path=}.', flush=1)
-    with pymupdf.open(path) as document:
-        print(f'Have opened {path=}.', flush=1)
-        print(f'{len(document)=}', flush=1)
+    # This bug is a segv so we run the test in a child process.
+    command = f'{sys.executable} -c "import pymupdf; document = pymupdf.open({path!r}); print(len(document))"'
+    print(f'Running: {command}')
+    cp = subprocess.run(command, shell=1, check=0)
+    e = cp.returncode
+    print(f'{e=}')
+    if pymupdf.mupdf_version_tuple >= (1, 26, 6):
+        assert e == 0
+    else:
+        assert e != 0
 
 
 def test_4564():
@@ -1907,3 +1944,110 @@ def test_4564():
         assert document.metadata['producer'] == 'Adobe PSL 1.3e for Canon\x00'
     else:
         assert document.metadata['producer'] == 'Adobe PSL 1.3e for Canon\udcc0\udc80'
+
+
+def test_4496():
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_4496.hwpx')
+    with pymupdf.open(path) as document:
+        print(document.page_count)
+
+
+def test_gitinfo():
+    # This doesn't really test very much, but can be useful to see the current
+    # values.
+    print('')
+    print(f'test_4496():')
+    print(f'{pymupdf.mupdf_location=}')
+    print(f'{pymupdf.mupdf_version=}')
+    print(f'{pymupdf.pymupdf_git_branch=}')
+    print(f'{pymupdf.pymupdf_git_sha=}')
+    print(f'{pymupdf.pymupdf_version=}')
+    print(f'pymupdf.pymupdf_git_diff:\n{textwrap.indent(pymupdf.pymupdf_git_diff, "    ")}')
+    
+
+def test_4392():
+    print()
+    path = os.path.normpath(f'{__file__}/../../tests/test_4392.py')
+    with open(path, 'w') as f:
+        f.write('import pymupdf\n')
+    
+    command = f'pytest {path}'
+    print(f'Running: {command}', flush=1)
+    e1 = subprocess.run(command, shell=1, check=0).returncode
+    print(f'{e1=}')
+    
+    command = f'pytest -Werror {path}'
+    print(f'Running: {command}', flush=1)
+    e2 = subprocess.run(command, shell=1, check=0).returncode
+    print(f'{e2=}')
+    
+    command = f'{sys.executable} -Werror -c "import pymupdf"'
+    print(f'Running: {command}', flush=1)
+    e3 = subprocess.run(command, shell=1, check=0).returncode
+    print(f'{e3=}')
+    
+    print(f'{e1=} {e2=} {e3=}')
+    
+    print(f'{pymupdf.swig_version=}')
+    print(f'{pymupdf.swig_version_tuple=}')
+    
+    assert e1 == 5
+    if pymupdf.swig_version_tuple >= (4, 4):
+        assert e2 == 5
+        assert e3 == 0
+    else:
+        # We get SEGV's etc with older swig.
+        if platform.system() == 'Windows':
+            assert (e2, e3) == (0xc0000005, 0xc0000005)
+        else:
+            # On plain linux we get (139, 139). On manylinux we get (-11,
+            # -11). On MacOS we get (-11, -11).
+            assert (e2, e3) == (139, 139) or (e2, e3) == (-11, -11)
+
+
+def test_4639():
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_4639.pdf')
+    with pymupdf.open(path) as document:
+        page = document[-1]
+        page.get_bboxlog(layers=True)
+
+
+def test_4590():
+
+    # Create test PDF.
+    path = os.path.normpath(f'{__file__}/../../tests/test_4590.pdf')
+    with pymupdf.open() as document:
+        page = document.new_page()
+        
+        # Add some text
+        text = 'This PDF contains a file attachment annotation.'
+        page.insert_text((72, 72), text, fontsize=12)
+
+        # Create a sample file.
+        path_sample = os.path.normpath(f'{__file__}/../../tests/test_4590_annotation_sample.txt')
+        with open(path_sample, 'w') as f:
+            f.write('This is a sample attachment file.')
+
+        # Read file as bytes
+        with open(path_sample, 'rb') as f:
+            sample = f.read()
+
+        # Define annotation position (rect or point)
+        annot_pos = pymupdf.Rect(72, 100, 92, 120)  # PushPin icon rectangle
+
+        # Add the file attachment annotation
+        page.add_file_annot(
+                point = annot_pos,
+                buffer_ = sample,
+                filename = 'sample.txt',
+                ufilename = 'sample.txt',
+                desc = 'A test attachment file.',
+                icon = 'PushPin',
+                )
+
+        # Save the PDF
+        document.save(path)
+    
+    # Check pymupdf.Document.scrub() works.
+    with pymupdf.open(path) as document:
+        document.scrub()

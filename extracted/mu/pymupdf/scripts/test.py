@@ -78,6 +78,10 @@ Command line args:
          2025-05-27: this fails when building mupdf C API - `ld -r -b binary
          ...` fails with:
             emcc: error: binary: No such file or directory ("binary" was expected to be an input file, based on the commandline arguments provided)
+
+    --cibw-pyodide-version <cibw_pyodide_version>
+        Override default Pyodide version to use with `cibuildwheel` command. If
+        empty string we use cibuildwheel's default.
     
     --cibw-release-1
         Set up so that `cibw` builds all wheels except linux-aarch64, and sdist
@@ -103,16 +107,30 @@ Command line args:
     --gdb 0|1
         Run tests under gdb. Requires user interaction.
     
+    --graal
+        Use graal - run inside a Graal VM instead of a Python venv.
+        
+        As of 2025-08-04 we:
+        * Clone the latest pyenv and build it.
+        * Use pyenv to install graalpy.
+        * Use graalpy to create venv.
+        
+        [After the first time, suggest `-v 1` to avoid delay from
+        updating/building pyenv and recreating the graal venv.]
+    
     --help
     -h
         Show help.
     
-    -i <implementations>
+    -I <implementations>
         Set PyMuPDF implementations to test.
         <implementations> must contain only these individual characters:
              'r' - rebased.
              'R' - rebased without optimisations.
             Default is 'r'. Also see `PyMuPDF:tests/run_compound.py`.
+    
+    -i <install_version>
+        Set version installed by the 'install' command.
     
     -k <expression>
         Specify which test(s) to run; passed straight through to pytest's `-k`.
@@ -120,9 +138,25 @@ Command line args:
     
     -m <location> | --mupdf <location>
         Location of local mupdf/ directory or 'git:...' to be used
-        when building PyMuPDF. [This sets environment variable
-        PYMUPDF_SETUP_MUPDF_BUILD, which is used by PyMuPDF/setup.py. If not
-        specified PyMuPDF will download its default mupdf .tgz.]
+        when building PyMuPDF.
+        
+        This sets environment variable PYMUPDF_SETUP_MUPDF_BUILD, which is used
+        by PyMuPDF/setup.py. If not specified PyMuPDF will download its default
+        mupdf .tgz.
+        
+        Additionally if <location> starts with ':' we use the remaining text as
+        the branch name and add https://github.com/ArtifexSoftware/mupdf.git.
+        
+        For example:
+        
+            -m "git:--branch master https://github.com/ArtifexSoftware/mupdf.git"
+            -m :master
+            
+            -m "git:--branch 1.26.x https://github.com/ArtifexSoftware/mupdf.git"
+            -m :1.26.x
+            
+    --mupdf-clean 0|1
+        If 1 we do a clean MuPDF build.
     
     -M 0|1
     --build-mupdf 0|1
@@ -150,8 +184,9 @@ Command line args:
         inside C++ pybind. Requires `sudo apt install pybind11-dev` or similar.
     
     --pyodide-build-version <version>
-        Version of Python package pyodide-build; if None (the default) we use
-        latest available version.
+        Version of Python package pyodide-build to use with `pyodide` command.
+        
+        If None (the default) `pyodide` uses the latest available version.
         2025-02-13: pyodide_build_version='0.29.3' works.
     
     -s 0 | 1
@@ -170,6 +205,27 @@ Command line args:
     --system-site-packages 0|1
         If 1, use `--system-site-packages` when creating venv. Defaults is 0.
     
+    --swig <swig>
+        Use <swig> instead of the `swig` command.
+        
+        Unix only:
+            Clone/update/build swig from a git repository using 'git:' prefix.
+        
+            We default to https://github.com/swig/swig.git branch master, so these
+            are all equivalent:
+
+                --swig 'git:--branch master https://github.com/swig/swig.git'
+                --swig 'git:--branch master'
+                --swig git:
+            
+            2025-08-18: This fixes building with py_limited_api on python-3.13.
+    
+    --swig-quick 0|1
+        If 1 and `--swig` starts with 'git:', we do not update/build swig if
+        already present.
+        
+        See description of PYMUPDF_SETUP_SWIG_QUICK in setup.py.
+    
     -t <names>
         Pytest test names, comma-separated. Should be relative to PyMuPDF
         directory. For example:
@@ -181,21 +237,22 @@ Command line args:
     --timeout <seconds>
         Sets timeout when running tests.
     
-    -T <command> | --pytest-prefix <command>
-        Use specified prefix when running pytest. E.g. `gdb --args`.
+    -T <prefix>
+        Use specified prefix when running pytest, must be one of:
+            gdb
+            helgrind
+            vagrind
     
-    -v 0|1|2
+    -v <venv>
+        venv is:
         0 - do not use a venv.
         1 - Use venv. If it already exists, we assume the existing directory
             was created by us earlier and is a valid venv containing all
             necessary packages; this saves a little time.
-        2 - Use venv
+        2 - Use venv.
+        3 - Use venv but delete it first if it already exists.
         The default is 2.
     
-    --valgrind 0|1
-        Use valgrind in `test` or `buildtest`.
-        This will run `sudo apt update` and `sudo apt install valgrind`.
-
 Commands:
     
     build
@@ -248,6 +305,7 @@ import os
 import platform
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -280,11 +338,14 @@ def main(argv):
         return
     
     build_isolation = None
-    cibw_name = 'cibuildwheel'
+    cibw_name = None
     cibw_pyodide = None
+    cibw_pyodide_version = None
     commands = list()
     env_extra = dict()
+    graal = False
     implementations = 'r'
+    install_version = None
     mupdf_sync = None
     os_names = list()
     system_packages = False
@@ -297,6 +358,8 @@ def main(argv):
     show_help = False
     sync_paths = False
     system_site_packages = False
+    swig = None
+    swig_quick = None
     test_fitz = False
     test_names = list()
     test_timeout = None
@@ -337,6 +400,9 @@ def main(argv):
         elif arg == '--build-isolation':
             build_isolation = int(next(args))
         
+        elif arg == '--cibw-pyodide-version':
+            cibw_pyodide_version = next(args)
+        
         elif arg == '--cibw-release-1':
             cibw_sdist = True
             env_extra['CIBW_ARCHS_LINUX'] = 'auto64'
@@ -376,16 +442,16 @@ def main(argv):
         elif arg == '-f':
             test_fitz = int(next(args))
         
-        elif arg == '--gdb':
-            _gdb = int(next(args))
-            if _gdb == 1:
-                pytest_prefix = 'gdb'
-            warnings += f'{arg=} is deprecated, use `-T gdb`.'
+        elif arg == '--graal':
+            graal = True
         
         elif arg in ('-h', '--help'):
             show_help = True
         
         elif arg == '-i':
+            install_version = next(args)
+        
+        elif arg == '-I':
             implementations = next(args)
         
         elif arg == '-k':
@@ -395,12 +461,19 @@ def main(argv):
             _mupdf = next(args)
             if _mupdf == '-':
                 _mupdf = None
+            elif _mupdf.startswith(':'):
+                _branch = _mupdf[1:]
+                _mupdf = 'git:--branch {_branch} https://github.com/ArtifexSoftware/mupdf.git'
+                os.environ['PYMUPDF_SETUP_MUPDF_BUILD'] = _mupdf
             elif _mupdf.startswith('git:') or '://' in _mupdf:
                 os.environ['PYMUPDF_SETUP_MUPDF_BUILD'] = _mupdf
             else:
                 assert os.path.isdir(_mupdf), f'Not a directory: {_mupdf=}'
                 os.environ['PYMUPDF_SETUP_MUPDF_BUILD'] = os.path.abspath(_mupdf)
                 mupdf_sync = _mupdf
+        
+        elif arg == '--mupdf-clean':
+                env_extra['PYMUPDF_SETUP_MUPDF_CLEAN']=next(args)
         
         elif arg in ('-M', '--build-mupdf'):
             env_extra['PYMUPDF_SETUP_MUPDF_REBUILD'] = next(args)
@@ -433,34 +506,32 @@ def main(argv):
         elif arg == '--system-site-packages':
             system_site_packages = int(next(args))
         
+        elif arg == '--swig':
+            swig = next(args)
+        
+        elif arg == '--swig-quick':
+            swig_quick = int(next(args))
+        
         elif arg == '-t':
             test_names += next(args).split(',')
         
         elif arg == '--timeout':
             test_timeout = float(next(args))
         
-        elif arg in ('-T', '--pytest-prefix'):
+        elif arg == '-T':
             pytest_prefix = next(args)
+            assert pytest_prefix in ('gdb', 'helgrind', 'valgrind'), \
+                    f'Unrecognised {pytest_prefix=}, should be one of: gdb valgrind helgrind.'
         
         elif arg == '-v':
             venv = int(next(args))
-            assert venv in (0, 1, 2), f'Invalid {venv=} should be 0, 1 or 2.'
+            assert venv in (0, 1, 2, 3), f'Invalid {venv=} should be 0, 1, 2 or 3.'
         
-        elif arg == '--valgrind':
-            _valgrind = int(next(args))
-            if _valgrind == 1:
-                pytest_prefix = 'valgrind'
-            warnings += f'{arg=} is deprecated, use `-T _valgrind`.'
-        
-        elif arg in ('build', 'cibw', 'pyodide', 'test', 'wheel'):
+        elif arg in ('build', 'cibw', 'install', 'pyodide', 'test', 'wheel'):
             commands.append(arg)
         
         elif arg == 'buildtest':
             commands += ['build', 'test']
-        
-        elif arg == 'install':
-            _pymupdf = next(args)
-            commands.append(f'{arg}.{_pymupdf}')
         
         else:
             assert 0, f'Unrecognised option/command: {arg=}.'
@@ -493,20 +564,50 @@ def main(argv):
         if venv:
             # Rerun ourselves inside a venv if not already in a venv.
             if not venv_in():
-                e = venv_run(
-                        sys.argv,
-                        f'venv-pymupdf-{platform.python_version()}-{int.bit_length(sys.maxsize+1)}',
-                        recreate=(venv==2),
-                        )
+                if graal:
+                    # 2025-07-24: We need the latest pyenv.
+                    graalpy = 'graalpy-24.2.1'
+                    venv_name = f'venv-pymupdf-{graalpy}'
+                    pyenv_dir = f'{pymupdf_dir_abs}/pyenv-git'
+                    os.environ['PYENV_ROOT'] = pyenv_dir
+                    os.environ['PATH'] = f'{pyenv_dir}/bin:{os.environ["PATH"]}'
+                    os.environ['PIPCL_GRAAL_PYTHON'] = sys.executable
+                    
+                    if venv >= 3:
+                        shutil.rmtree(venv_name, ignore_errors=1)
+                    if venv == 1 and os.path.exists(pyenv_dir) and os.path.exists(venv_name):
+                        log(f'{venv=} and {venv_name=} already exists so not building pyenv or creating venv.')
+                    else:
+                        pipcl.git_get('https://github.com/pyenv/pyenv.git', pyenv_dir, branch='master')
+                        run(f'cd {pyenv_dir} && src/configure && make -C src')
+                        run(f'which pyenv')
+                        run(f'pyenv install -v -s {graalpy}')
+                        run(f'{pyenv_dir}/versions/{graalpy}/bin/graalpy -m venv {venv_name}')
+                    e = run(f'. {venv_name}/bin/activate && python {shlex.join(sys.argv)}',
+                            check=False,
+                            )
+                else:
+                    venv_name = f'venv-pymupdf-{platform.python_version()}-{int.bit_length(sys.maxsize+1)}'
+                    e = venv_run(
+                            sys.argv,
+                            venv_name,
+                            recreate=(venv>=2),
+                            clean=(venv>=3),
+                            )
                 sys.exit(e)
     else:
         log(f'Warning, no commands specified so nothing to do.')
+    
+    # Clone/update/build swig if specified.
+    swig_binary = pipcl.swig_get(swig, swig_quick)
+    if swig_binary:
+        os.environ['PYMUPDF_SETUP_SWIG'] = swig_binary
     
     # Handle commands.
     #
     have_installed = False
     for command in commands:
-        
+        log(f'### {command=}.')
         if 0:
             pass
         
@@ -521,11 +622,28 @@ def main(argv):
         
         elif command == 'cibw':
             # Build wheel(s) with cibuildwheel.
-            cibuildwheel(env_extra, cibw_name, cibw_pyodide, cibw_sdist)
+            if cibw_pyodide and env_extra.get('CIBW_BUILD') is None:
+                assert 0, f'Need a Python version for Pyodide.'
+                CIBW_BUILD = 'cp312*'
+                env_extra['CIBW_BUILD'] = CIBW_BUILD
+                log(f'Defaulting to {CIBW_BUILD=} for Pyodide.')
+            #if cibw_pyodide_version == None:
+            #    cibw_pyodide_version = '0.28.0'
+            cibuildwheel(
+                    env_extra,
+                    cibw_name or 'cibuildwheel',
+                    cibw_pyodide,
+                    cibw_pyodide_version,
+                    cibw_sdist,
+                    )
         
-        elif command.startswith('install.'):
-            name = command[len('install.'):]
-            run(f'pip install --force-reinstall {name}')
+        elif command == 'install':
+            p = 'pymupdf'
+            if install_version:
+                if not install_version.startswith(('==', '>=', '>')):
+                    p = f'{p}=='
+                p = f'{p}{install_version}'
+            run(f'pip install --force-reinstall {p}')
             have_installed = True
         
         elif command == 'test':
@@ -657,7 +775,7 @@ def build(
         run(f'pip install{build_isolation_text} -v --force-reinstall {pymupdf_dir_abs}', env_extra=env_extra)
 
 
-def cibuildwheel(env_extra, cibw_name, cibw_pyodide, cibw_sdist):
+def cibuildwheel(env_extra, cibw_name, cibw_pyodide, cibw_pyodide_version, cibw_sdist):
     
     if cibw_sdist and platform.system() == 'Linux':
         log(f'Building sdist.')
@@ -666,7 +784,7 @@ def cibuildwheel(env_extra, cibw_name, cibw_pyodide, cibw_sdist):
         log(f'{sdists=}')
         assert sdists
     
-    run(f'pip install --upgrade {cibw_name}')
+    run(f'pip install --upgrade --force-reinstall {cibw_name}')
 
     # Some general flags.
     if 'CIBW_BUILD_VERBOSITY' not in env_extra:
@@ -713,6 +831,17 @@ def cibuildwheel(env_extra, cibw_name, cibw_pyodide, cibw_sdist):
             v = platform.python_version_tuple()[:2]
             log(f'{v=}')
             CIBW_BUILD = f'cp{"".join(v)}*'
+    
+    cibw_pyodide_args = ''
+    if cibw_pyodide:
+        cibw_pyodide_args = ' --platform pyodide'
+        env_extra['HAVE_LIBCRYPTO'] = 'no'
+        env_extra['PYMUPDF_SETUP_MUPDF_TESSERACT'] = '0'
+    if cibw_pyodide_version:
+        # 2025-07-21: there is no --pyodide-version option so we set
+        # CIBW_PYODIDE_VERSION.
+        env_extra['CIBW_PYODIDE_VERSION'] = cibw_pyodide_version
+        env_extra['CIBW_ENABLE'] = 'pyodide-prerelease'
 
     # Pass all the environment variables we have set, to Linux
     # docker. Note that this will miss any settings in the original
@@ -721,18 +850,17 @@ def cibuildwheel(env_extra, cibw_name, cibw_pyodide, cibw_sdist):
 
     # Build for lowest (assumed first) Python version.
     #
-    cibw_pyodide_arg = ' --platform pyodide' if cibw_pyodide else ''
     CIBW_BUILD_0 = CIBW_BUILD.split()[0]
     log(f'Building for first Python version {CIBW_BUILD_0}.')
     env_extra['CIBW_BUILD'] = CIBW_BUILD_0
-    run(f'cd {pymupdf_dir} && cibuildwheel{cibw_pyodide_arg}', env_extra=env_extra)
+    run(f'cd {pymupdf_dir} && cibuildwheel{cibw_pyodide_args}', env_extra=env_extra)
 
     # Tell cibuildwheel to build and test all specified Python versions; it
     # will notice that the wheel we built above supports all versions of
     # Python, so will not actually do any builds here.
     #
     env_extra['CIBW_BUILD'] = CIBW_BUILD
-    run(f'cd {pymupdf_dir} && cibuildwheel{cibw_pyodide_arg}', env_extra=env_extra)
+    run(f'cd {pymupdf_dir} && cibuildwheel{cibw_pyodide_args}', env_extra=env_extra)
     run(f'ls -ld {pymupdf_dir}/wheelhouse/*')
         
 
@@ -958,7 +1086,21 @@ def test(
     python = gh_release.relpath(sys.executable)
     log('Running tests with tests/run_compound.py and pytest.')
     
-    if venv == 2:
+    PYODIDE_ROOT = os.environ.get('PYODIDE_ROOT')
+    if PYODIDE_ROOT is not None:
+        log(f'Not installing test packages because {PYODIDE_ROOT=}.')
+        command = f'{pytest_options} {pytest_arg} -s'
+        args = shlex.split(command)
+        print(f'{PYODIDE_ROOT=} so calling pytest.main(args).')
+        print(f'{command=}')
+        print(f'args are ({len(args)}):')
+        for arg in args:
+            print(f'    {arg!r}')
+        import pytest
+        pytest.main(args)
+        return
+    
+    if venv >= 2:
         run(f'pip install --upgrade {gh_release.test_packages}')
     else:
         log(f'{venv=}: Not installing test packages: {gh_release.test_packages}')
@@ -1046,7 +1188,7 @@ def test(
     try:
         log(f'Running tests with tests/run_compound.py and pytest.')
         run(command, env_extra=env_extra, timeout=test_timeout)
-            
+        
     except subprocess.TimeoutExpired as e:
          log(f'Timeout when running tests.')
          raise
@@ -1110,7 +1252,7 @@ def venv_in(path=None):
         return sys.prefix != sys.base_prefix
 
 
-def venv_run(args, path, recreate=True):
+def venv_run(args, path, recreate=True, clean=False):
     '''
     Runs command inside venv and returns termination code.
     
@@ -1124,7 +1266,13 @@ def venv_run(args, path, recreate=True):
             already exists. This avoids a delay in the common case where <path>
             is already set up, but fails if <path> exists but does not contain
             a valid venv.
+        clean:
+            If true we first delete <path>.
     '''
+    if clean:
+        log(f'Removing any existing venv {path}.')
+        assert path.startswith('venv-')
+        shutil.rmtree(path, ignore_errors=1)
     if recreate or not os.path.isdir(path):
         run(f'{sys.executable} -m venv {path}')
     if platform.system() == 'Windows':

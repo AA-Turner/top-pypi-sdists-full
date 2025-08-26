@@ -54,10 +54,16 @@ async def meta_metrics(request: ApiRequest):
         metadata.PROJECT_ID, metadata.HOST_REVISION_ID, metrics_format
     )
 
+    pg_redis_stats = pool_stats(
+        project_id=metadata.PROJECT_ID,
+        revision_id=metadata.HOST_REVISION_ID,
+        format=metrics_format,
+    )
+
     if metrics_format == "json":
         async with connect() as conn:
             resp = {
-                **pool_stats(),
+                **pg_redis_stats,
                 "queue": await Runs.stats(conn),
                 **http_metrics,
             }
@@ -93,6 +99,7 @@ async def meta_metrics(request: ApiRequest):
                 )
 
             metrics.extend(http_metrics)
+            metrics.extend(pg_redis_stats)
 
         metrics_response = "\n".join(metrics)
         return PlainTextResponse(metrics_response)

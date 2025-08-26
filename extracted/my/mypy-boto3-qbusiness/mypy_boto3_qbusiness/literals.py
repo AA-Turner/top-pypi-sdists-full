@@ -220,7 +220,7 @@ MessageUsefulnessReasonType = Literal[
 MessageUsefulnessType = Literal["NOT_USEFUL", "USEFUL"]
 NumberAttributeBoostingTypeType = Literal["PRIORITIZE_LARGER_VALUES", "PRIORITIZE_SMALLER_VALUES"]
 OrchestrationControlType = Literal["DISABLED", "ENABLED"]
-OutputFormatType = Literal["RAW"]
+OutputFormatType = Literal["EXTRACTED", "RAW"]
 PermissionConditionOperatorType = Literal["StringEquals"]
 PersonalizationControlModeType = Literal["DISABLED", "ENABLED"]
 PluginBuildStatusType = Literal[
@@ -318,8 +318,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

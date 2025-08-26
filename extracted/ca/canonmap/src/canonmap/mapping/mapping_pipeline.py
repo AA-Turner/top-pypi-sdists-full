@@ -21,6 +21,67 @@ logger = logging.getLogger(__name__)
 
 
 class MappingPipeline:
+    def _sanitize_sql_for_logging(self, sql: str, table_name: str) -> str:
+        """Sanitize SQL for logging by replacing large IN clauses with item counts."""
+        if "IN (" not in sql or ")" not in sql:
+            return sql
+        
+        try:
+            import re
+            # More flexible regex to match field names (including quoted ones)
+            # This handles: field IN (...), `field` IN (...), "field" IN (...)
+            match = re.search(r"WHERE\s+([`\"]?\w+[`\"]?)\s+IN\s*\([^)]+\)", sql, re.IGNORECASE)
+            if match:
+                field_name_in_sql = match.group(1)
+                # Find the IN clause more robustly
+                in_start = sql.find("IN (")
+                if in_start != -1:
+                    # Find the matching closing parenthesis
+                    paren_count = 0
+                    in_end = in_start + 4  # Skip "IN ("
+                    for i, char in enumerate(sql[in_start + 4:], in_start + 4):
+                        if char == '(':
+                            paren_count += 1
+                        elif char == ')':
+                            if paren_count == 0:
+                                in_end = i
+                                break
+                            paren_count -= 1
+                    
+                    # Extract and count items in the IN clause
+                    in_clause = sql[in_start + 4:in_end]
+                    # Split by comma, but be careful about commas inside quotes
+                    items = []
+                    current_item = ""
+                    in_quotes = False
+                    quote_char = None
+                    
+                    for char in in_clause:
+                        if char in ["'", '"'] and (not in_quotes or char == quote_char):
+                            if not in_quotes:
+                                in_quotes = True
+                                quote_char = char
+                            else:
+                                in_quotes = False
+                                quote_char = None
+                        elif char == ',' and not in_quotes:
+                            if current_item.strip():
+                                items.append(current_item.strip())
+                            current_item = ""
+                        else:
+                            current_item += char
+                    
+                    # Add the last item
+                    if current_item.strip():
+                        items.append(current_item.strip())
+                    
+                    item_count = len(items)
+                    return f"SELECT * FROM {table_name} WHERE {field_name_in_sql} IN ({item_count} items)"
+        except Exception:
+            # If sanitization fails, return a generic message
+            return f"SELECT * FROM {table_name} WHERE [IN clause with multiple items]"
+        
+        return sql
     def __init__(self, db_connection_manager: MySQLConnector):
         self.db_connection_manager = db_connection_manager
 
@@ -61,7 +122,9 @@ class MappingPipeline:
         prefilter_subquery = None
         if prefilter_sql:
             try:
-                logger.info(f"Executing prefilter SQL: {prefilter_sql}")
+                # Log a sanitized version of the SQL (without showing list contents)
+                sanitized_sql = self._sanitize_sql_for_logging(prefilter_sql, table_name)
+                logger.info(f"Executing prefilter SQL: {sanitized_sql}")
                 prefilter_result = self.db_connection_manager.execute_query(
                     prefilter_sql, [], allow_writes=False
                 )
@@ -178,7 +241,9 @@ class MappingPipeline:
         prefilter_subquery = None
         if prefilter_sql:
             try:
-                logger.info(f"Executing prefilter SQL: {prefilter_sql}")
+                # Log a sanitized version of the SQL (without showing list contents)
+                sanitized_sql = self._sanitize_sql_for_logging(prefilter_sql, table_name)
+                logger.info(f"Executing prefilter SQL: {sanitized_sql}")
                 prefilter_result = self.db_connection_manager.execute_query(
                     prefilter_sql, [], allow_writes=False
                 )
@@ -304,7 +369,7 @@ class MappingPipeline:
                         {_order_by_clause()}
                     """
                     if debug:
-                        logger.info("Initialism SQL: %s with params %s", sql, [param])
+                        logger.info("Initialism SQL: %s with param count: %d", sql, len([param]))
                     resp = self.db_connection_manager.execute_query(sql, [param], allow_writes=False, limit=_limit_for(strategy))
                 elif strategy == "soundex":
                     # Prefer helper column; otherwise use DB SOUNDEX

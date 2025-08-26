@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: gitignore_parser
-Version: 0.1.12
+Version: 0.1.13
 Summary: A spec-compliant gitignore parser for Python 3.5+
 Home-page: https://github.com/mherrmann/gitignore_parser
 Author: Michael Herrmann

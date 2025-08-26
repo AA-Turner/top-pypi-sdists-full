@@ -20,5 +20,5 @@ class SchedulerResumed(SchedulerEventData):
         An instance of the `SchedulerResumed` class representing
         the resumed scheduler event.
     """
-    # No additional fields or methods are defined here, as this class
-    # serves as a marker for the resumed scheduler event.
+
+    time: str  # The time when the scheduler was resumed

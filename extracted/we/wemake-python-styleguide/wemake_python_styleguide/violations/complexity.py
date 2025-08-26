@@ -19,99 +19,6 @@ See also:
 
 .. currentmodule:: wemake_python_styleguide.violations.complexity
 
-Summary
--------
-
-.. autosummary::
-   :nosignatures:
-
-   JonesScoreViolation
-   TooManyImportsViolation
-   TooManyModuleMembersViolation
-   TooManyImportedNamesViolation
-   OverusedExpressionViolation
-   TooManyLocalsViolation
-   TooManyArgumentsViolation
-   TooManyReturnsViolation
-   TooManyExpressionsViolation
-   TooManyMethodsViolation
-   TooManyBaseClassesViolation
-   TooManyDecoratorsViolation
-   TooManyAwaitsViolation
-   TooManyAssertsViolation
-   TooDeepAccessViolation
-   TooDeepNestingViolation
-   LineComplexityViolation
-   TooManyConditionsViolation
-   TooManyElifsViolation
-   TooManyForsInComprehensionViolation
-   TooManyExceptCasesViolation
-   OverusedStringViolation
-   TooLongOutputTupleViolation
-   TooLongCompareViolation
-   TooLongTryBodyViolation
-   TooManyPublicAttributesViolation
-   CognitiveComplexityViolation
-   CognitiveModuleComplexityViolation
-   TooLongCallChainViolation
-   TooComplexAnnotationViolation
-   TooManyImportedModuleMembersViolation
-   TooLongTupleUnpackViolation
-   TooComplexFormattedStringViolation
-   TooManyRaisesViolation
-   TooManyExceptExceptionsViolation
-   TooManyTypeParamsViolation
-   TooManyMatchSubjectsViolation
-   TooManyMatchCaseViolation
-   TooLongFinallyBodyViolation
-
-Module complexity
------------------
-
-.. autoclass:: JonesScoreViolation
-.. autoclass:: TooManyImportsViolation
-.. autoclass:: TooManyModuleMembersViolation
-.. autoclass:: TooManyImportedNamesViolation
-.. autoclass:: OverusedExpressionViolation
-
-Structure complexity
---------------------
-
-.. autoclass:: TooManyLocalsViolation
-.. autoclass:: TooManyArgumentsViolation
-.. autoclass:: TooManyReturnsViolation
-.. autoclass:: TooManyExpressionsViolation
-.. autoclass:: TooManyMethodsViolation
-.. autoclass:: TooManyBaseClassesViolation
-.. autoclass:: TooManyDecoratorsViolation
-.. autoclass:: TooManyAwaitsViolation
-.. autoclass:: TooManyAssertsViolation
-.. autoclass:: TooDeepAccessViolation
-.. autoclass:: TooDeepNestingViolation
-.. autoclass:: LineComplexityViolation
-.. autoclass:: TooManyConditionsViolation
-.. autoclass:: TooManyElifsViolation
-.. autoclass:: TooManyForsInComprehensionViolation
-.. autoclass:: TooManyExceptCasesViolation
-.. autoclass:: OverusedStringViolation
-.. autoclass:: TooLongOutputTupleViolation
-.. autoclass:: TooLongCompareViolation
-.. autoclass:: TooLongTryBodyViolation
-.. autoclass:: TooManyPublicAttributesViolation
-.. autoclass:: CognitiveComplexityViolation
-.. autoclass:: CognitiveModuleComplexityViolation
-.. autoclass:: TooLongCallChainViolation
-.. autoclass:: TooComplexAnnotationViolation
-.. autoclass:: TooManyImportedModuleMembersViolation
-.. autoclass:: TooLongTupleUnpackViolation
-.. autoclass:: TooComplexFormattedStringViolation
-.. autoclass:: TooManyRaisesViolation
-.. autoclass:: TooManyExceptExceptionsViolation
-.. autoclass:: TooManyTypeParamsViolation
-.. autoclass:: TooManyMatchSubjectsViolation
-.. autoclass:: TooManyMatchCaseViolation
-.. autoclass:: TooLongFinallyBodyViolation
-
 """
 
 from typing import final
@@ -758,7 +665,7 @@ class TooManyConditionsViolation(ASTViolation):
     """
     Forbid conditions with too many logical operators.
 
-    We use :str:`wemake_python_styleguide.constants.MAX_CONDITIONS`
+    We use :str:`wemake_python_styleguide.options.defaults.MAX_CONDITIONS`
     as a default value.
 
     Reasoning:
@@ -771,11 +678,17 @@ class TooManyConditionsViolation(ASTViolation):
         creating new variables or creating nested ``if`` statements.
         Both of these actions will trigger other complexity checks.
 
+    Configuration:
+        This rule is configurable with ``--max-conditions``.
+        Default:
+        :str:`wemake_python_styleguide.options.defaults.MAX_CONDITIONS`
+
     We count ``and`` and ``or`` keywords as conditions.
 
     .. versionadded:: 0.1.0
     .. versionchanged:: 0.5.0
-
+    .. versionchanged:: 1.4.0
+        Added ``--max-conditions`` configuration options.
     """
 
     error_template = 'Found a condition with too much logic: {0}'

@@ -926,6 +926,11 @@ def unique(labels, return_index=False, return_inverse=False, return_counts=False
     counts = np.array([], dtype=np.uint32)
     index = np.array([], dtype=np.uint64)
     inverse = np.array([], dtype=np.uintp)
+  elif voxels == 1:
+    uniq = labels.flatten()
+    counts = np.array([ 1 ], dtype=np.uint32)
+    index = np.array([ 0 ], dtype=np.uint64)
+    inverse = np.array([ 0 ], dtype=np.uintp)
   elif min_label >= 0 and max_label < int(voxels):
     uniq, index, counts, inverse = _unique_via_array(labels, max_label, return_index=return_index, return_inverse=return_inverse)
   elif (max_label - min_label) <= int(voxels):
@@ -995,17 +1000,17 @@ def _unique_via_renumber(labels, return_index=False, return_inverse=False):
   uniq, idx, counts, inverse = _unique_via_array(labels, max(remap.keys()), return_index, return_inverse)
   uniq = np.array([ remap[segid] for segid in uniq ], dtype=dtype)
 
-  if not return_index and not return_inverse:
-    uniq.sort()
-    return uniq, idx, counts, inverse
+  sort_idx = np.argsort(uniq)
+  
+  uniq = uniq[sort_idx]
+  counts = counts[sort_idx]
 
-  uniq, idx2 = np.unique(uniq, return_index=True)
   if idx is not None:
-    idx = idx[idx2]
-  if counts is not None:
-    counts = counts[idx2]
+    idx = idx[sort_idx]
   if inverse is not None:
-    inverse = idx2[inverse]
+    inv_map = np.empty_like(sort_idx)
+    inv_map[sort_idx] = np.arange(len(sort_idx))
+    inverse = inv_map[inverse]
 
   return uniq, idx, counts, inverse
 
@@ -1058,7 +1063,10 @@ def _unique_via_array(
     (max_label+1,), dtype=np.uint64
   )
   cdef cnp.ndarray[uintptr_t, ndim=1] index
-  
+
+  # NOTE: This behavior differs from Numpy because it 
+  # may be iterating in F order, whereas numpy iterates in
+  # C order.
   cdef uintptr_t sentinel = np.iinfo(np.uintp).max
   if return_index:
     index = np.full( 

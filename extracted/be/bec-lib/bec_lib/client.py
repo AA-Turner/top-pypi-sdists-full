@@ -30,7 +30,7 @@ from bec_lib.logger import bec_logger
 from bec_lib.plugin_helper import _get_available_plugins
 from bec_lib.scan_history import ScanHistory
 from bec_lib.service_config import ServiceConfig
-from bec_lib.user_scripts_mixin import UserScriptsMixin
+from bec_lib.user_macros import UserMacros
 from bec_lib.utils.import_utils import lazy_import_from
 
 logger = bec_logger.logger
@@ -90,7 +90,7 @@ class LiveUpdatesConfig(BaseModel):
     print_client_messages: bool = True
 
 
-class BECClient(BECService, UserScriptsMixin):
+class BECClient(BECService):
     """
     The BECClient class is the main entry point for the BEC client and all derived classes.
     """
@@ -195,6 +195,7 @@ class BECClient(BECService, UserScriptsMixin):
                 prompt_for_acl=prompt_for_acl,
             )
             builtins.bec = self._parent
+            self.macros = UserMacros(self)
             self._start_services()
             default_namespace = {"dev": self.device_manager.devices, "scans": self.scans_namespace}
             self.callbacks.run(
@@ -212,7 +213,7 @@ class BECClient(BECService, UserScriptsMixin):
         self._start_device_manager()
         self._start_scan_queue()
         self._start_alarm_handler()
-        self.load_all_user_scripts()
+        self.macros.load_all_user_macros()
         self.config = self.device_manager.config_helper
         self.history = ScanHistory(client=self)
         self.dap = DAPPlugins(self)

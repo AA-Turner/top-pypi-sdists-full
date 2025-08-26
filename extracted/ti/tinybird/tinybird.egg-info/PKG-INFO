@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 0.0.1.dev285
+Version: 0.0.1.dev286
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -21,6 +21,7 @@ Requires-Dist: GitPython~=3.1.32
 Requires-Dist: humanfriendly~=8.2
 Requires-Dist: plotext==5.3.2
 Requires-Dist: prompt_toolkit==3.0.48
+Requires-Dist: logfire-api==4.2.0
 Requires-Dist: pydantic~=2.11.7
 Requires-Dist: pydantic-ai-slim[anthropic]~=0.5.0
 Requires-Dist: pydantic-ai-slim[retries]~=0.5.0

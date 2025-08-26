@@ -9,6 +9,7 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 keywords = ["validate", "protobuf", "protocol buffer"]
+# Keep our minimum version synced with ./.python-version.
 requires-python = ">=3.9"
 classifiers = [
   "Programming Language :: Python :: 3.9",
@@ -21,12 +22,17 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "protobuf==6.*",
+    "protobuf>=5",
     "cel-python==0.2.*",
 ]
 [project.optional-dependencies]
 re2 = [
-    "google-re2==1.*",
+    # We need at least this version, which started publishing wheels for Python 3.13.
+    # Ref: https://github.com/google/re2/issues/516
+    "google-re2>=1.1.20250722; python_version == '3.13'",
+    # 1.1 started supporting 3.12.
+    "google-re2>=1.1; python_version == '3.12'",
+    "google-re2>=1",
 ]
 
 [project.urls]
@@ -37,9 +43,9 @@ Issues = "https://github.com/bufbuild/protovalidate-python/issues"
 [dependency-groups]
 dev = [
 	"google-re2-stubs>=0.1.1",
-	"mypy",
-	"ruff",
-	"types-protobuf==6.30.2.20250503",
+	"mypy>=1.17.1",
+	"ruff>=0.12.0",
+	"types-protobuf>=5",
 ]
 
 [tool.hatch.version]

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from orionis.console.entities.scheduler_event_data import SchedulerEventData
 
 @dataclass(kw_only=True)
@@ -19,5 +19,5 @@ class SchedulerShutdown(SchedulerEventData):
     SchedulerShutdown
         An instance of the `SchedulerShutdown` class representing the shutdown event.
     """
-    # This class does not define additional attributes or methods. It serves as a
-    # specific type of event data for the scheduler shutdown event.
+    time: str = ""                              # The time when the scheduler started
+    tasks: list = field(default_factory=list)   # List of tasks scheduled at the time of start

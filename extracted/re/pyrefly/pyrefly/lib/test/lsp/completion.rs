@@ -952,6 +952,96 @@ Completion Results:
 }
 
 #[test]
+fn dot_compete_union() {
+    let code = r#"
+class A:
+    x: int
+    y: int
+
+class B:
+    y: str
+    z: str
+
+def foo(x: A | B) -> None:
+    x.
+#     ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+11 |     x.
+           ^
+Completion Results:
+- (Field) x: int
+- (Field) y: int | str
+- (Field) z: str
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn dot_compete_override() {
+    let code = r#"
+class A:
+    def foo(self) -> int | str: ...
+
+class B(A):
+    def foo(self) -> int: ...
+
+def foo(x: B) -> None:
+    x.
+#     ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+9 |     x.
+          ^
+Completion Results:
+- (Method) foo: (self: Self@B) -> int
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn dot_complete_super() {
+    let code = r#"
+class A:
+    x: int
+
+class B:
+    y: str
+
+class C(A, B):
+    def foo(self):
+        super().
+#               ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+10 |         super().
+                     ^
+Completion Results:
+- (Field) x: int
+- (Field) y: str
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn import_completions_on_builtins() {
     let code = r#"
 import typ

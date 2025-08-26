@@ -6,6 +6,7 @@ class UsersApiMock:
         self.mock_bulk_approve_requests = MagicMock()
         self.mock_bulk_update_metadata = MagicMock()
         self.mock_create_challenge_method = MagicMock()
+        self.mock_create_org_upstream_user_identity = MagicMock()
         self.mock_create_service_account = MagicMock()
         self.mock_create_support_request = MagicMock()
         self.mock_create_support_request_acknowledgement = MagicMock()
@@ -16,6 +17,7 @@ class UsersApiMock:
         self.mock_create_user_metadata = MagicMock()
         self.mock_create_user_request = MagicMock()
         self.mock_delete_challenge_method = MagicMock()
+        self.mock_delete_org_upstream_user_identity = MagicMock()
         self.mock_delete_service_account = MagicMock()
         self.mock_delete_support_request = MagicMock()
         self.mock_delete_support_request_acknowledgement = MagicMock()
@@ -24,6 +26,7 @@ class UsersApiMock:
         self.mock_delete_user_metadata = MagicMock()
         self.mock_delete_user_request = MagicMock()
         self.mock_get_challenge_method = MagicMock()
+        self.mock_get_org_upstream_user_identity = MagicMock()
         self.mock_get_service_account = MagicMock()
         self.mock_get_support_request = MagicMock()
         self.mock_get_support_request_acknowledgement = MagicMock()
@@ -38,6 +41,7 @@ class UsersApiMock:
         self.mock_list_challenge_methods = MagicMock()
         self.mock_list_combined_user_details = MagicMock()
         self.mock_list_desktop_access_info = MagicMock()
+        self.mock_list_org_upstream_user_identity = MagicMock()
         self.mock_list_org_user_roles = MagicMock()
         self.mock_list_service_accounts = MagicMock()
         self.mock_list_ssh_access_info = MagicMock()
@@ -56,6 +60,7 @@ class UsersApiMock:
         self.mock_list_user_resource_access_info = MagicMock()
         self.mock_list_users = MagicMock()
         self.mock_replace_challenge_method = MagicMock()
+        self.mock_replace_org_upstream_user_identity = MagicMock()
         self.mock_replace_service_account = MagicMock()
         self.mock_replace_upstream_user_identity = MagicMock()
         self.mock_replace_user = MagicMock()
@@ -64,6 +69,7 @@ class UsersApiMock:
         self.mock_replace_user_role = MagicMock()
         self.mock_reset_user_identity = MagicMock()
         self.mock_reset_user_mfa_challenge_methods = MagicMock()
+        self.mock_update_org_upstream_user_identity = MagicMock()
         self.mock_update_support_request = MagicMock()
         self.mock_update_user_request = MagicMock()
 
@@ -84,6 +90,12 @@ class UsersApiMock:
         This method mocks the original api UsersApi.create_challenge_method with MagicMock.
         """
         return self.mock_create_challenge_method(self, *args, **kwargs)
+
+    def create_org_upstream_user_identity(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.create_org_upstream_user_identity with MagicMock.
+        """
+        return self.mock_create_org_upstream_user_identity(self, *args, **kwargs)
 
     def create_service_account(self, *args, **kwargs):
         """
@@ -145,6 +157,12 @@ class UsersApiMock:
         """
         return self.mock_delete_challenge_method(self, *args, **kwargs)
 
+    def delete_org_upstream_user_identity(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.delete_org_upstream_user_identity with MagicMock.
+        """
+        return self.mock_delete_org_upstream_user_identity(self, *args, **kwargs)
+
     def delete_service_account(self, *args, **kwargs):
         """
         This method mocks the original api UsersApi.delete_service_account with MagicMock.
@@ -192,6 +210,12 @@ class UsersApiMock:
         This method mocks the original api UsersApi.get_challenge_method with MagicMock.
         """
         return self.mock_get_challenge_method(self, *args, **kwargs)
+
+    def get_org_upstream_user_identity(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.get_org_upstream_user_identity with MagicMock.
+        """
+        return self.mock_get_org_upstream_user_identity(self, *args, **kwargs)
 
     def get_service_account(self, *args, **kwargs):
         """
@@ -276,6 +300,12 @@ class UsersApiMock:
         This method mocks the original api UsersApi.list_desktop_access_info with MagicMock.
         """
         return self.mock_list_desktop_access_info(self, *args, **kwargs)
+
+    def list_org_upstream_user_identity(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.list_org_upstream_user_identity with MagicMock.
+        """
+        return self.mock_list_org_upstream_user_identity(self, *args, **kwargs)
 
     def list_org_user_roles(self, *args, **kwargs):
         """
@@ -385,6 +415,12 @@ class UsersApiMock:
         """
         return self.mock_replace_challenge_method(self, *args, **kwargs)
 
+    def replace_org_upstream_user_identity(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.replace_org_upstream_user_identity with MagicMock.
+        """
+        return self.mock_replace_org_upstream_user_identity(self, *args, **kwargs)
+
     def replace_service_account(self, *args, **kwargs):
         """
         This method mocks the original api UsersApi.replace_service_account with MagicMock.
@@ -432,6 +468,12 @@ class UsersApiMock:
         This method mocks the original api UsersApi.reset_user_mfa_challenge_methods with MagicMock.
         """
         return self.mock_reset_user_mfa_challenge_methods(self, *args, **kwargs)
+
+    def update_org_upstream_user_identity(self, *args, **kwargs):
+        """
+        This method mocks the original api UsersApi.update_org_upstream_user_identity with MagicMock.
+        """
+        return self.mock_update_org_upstream_user_identity(self, *args, **kwargs)
 
     def update_support_request(self, *args, **kwargs):
         """

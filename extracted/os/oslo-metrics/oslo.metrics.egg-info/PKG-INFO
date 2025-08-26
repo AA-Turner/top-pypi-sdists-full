@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: oslo.metrics
-Version: 0.12.0
+Version: 0.13.0
 Summary: Oslo Metrics API
 Home-page: https://opendev.org/openstack/oslo.metrics
 Author: OpenStack

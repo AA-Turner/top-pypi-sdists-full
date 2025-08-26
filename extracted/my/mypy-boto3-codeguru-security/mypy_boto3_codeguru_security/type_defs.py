@@ -93,23 +93,23 @@ __all__ = (
 
 
 class FindingMetricsValuePerSeverityTypeDef(TypedDict):
-    critical: NotRequired[float]
-    high: NotRequired[float]
     info: NotRequired[float]
     low: NotRequired[float]
     medium: NotRequired[float]
+    high: NotRequired[float]
+    critical: NotRequired[float]
 
 
 class BatchGetFindingsErrorTypeDef(TypedDict):
-    errorCode: ErrorCodeType
-    findingId: str
-    message: str
     scanName: str
+    findingId: str
+    errorCode: ErrorCodeType
+    message: str
 
 
 class FindingIdentifierTypeDef(TypedDict):
-    findingId: str
     scanName: str
+    findingId: str
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -126,8 +126,8 @@ class CategoryWithFindingNumTypeDef(TypedDict):
 
 
 class CodeLineTypeDef(TypedDict):
-    content: NotRequired[str]
     number: NotRequired[int]
+    content: NotRequired[str]
 
 
 class ResourceIdTypeDef(TypedDict):
@@ -159,8 +159,8 @@ class PaginatorConfigTypeDef(TypedDict):
 
 class GetFindingsRequestTypeDef(TypedDict):
     scanName: str
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
     status: NotRequired[StatusType]
 
 
@@ -173,17 +173,17 @@ class GetScanRequestTypeDef(TypedDict):
 
 
 class ListScansRequestTypeDef(TypedDict):
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 
 class ScanSummaryTypeDef(TypedDict):
-    createdAt: datetime
-    runId: str
-    scanName: str
     scanState: ScanStateType
-    scanNameArn: NotRequired[str]
+    createdAt: datetime
+    scanName: str
+    runId: str
     updatedAt: NotRequired[datetime]
+    scanNameArn: NotRequired[str]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -191,8 +191,8 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 
 class ScanNameWithFindingNumTypeDef(TypedDict):
-    findingNumber: NotRequired[int]
     scanName: NotRequired[str]
+    findingNumber: NotRequired[int]
 
 
 class RecommendationTypeDef(TypedDict):
@@ -201,8 +201,8 @@ class RecommendationTypeDef(TypedDict):
 
 
 class SuggestedFixTypeDef(TypedDict):
-    code: NotRequired[str]
     description: NotRequired[str]
+    code: NotRequired[str]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -216,11 +216,11 @@ class UntagResourceRequestTypeDef(TypedDict):
 
 
 class AccountFindingsMetricTypeDef(TypedDict):
-    closedFindings: NotRequired[FindingMetricsValuePerSeverityTypeDef]
     date: NotRequired[datetime]
-    meanTimeToClose: NotRequired[FindingMetricsValuePerSeverityTypeDef]
     newFindings: NotRequired[FindingMetricsValuePerSeverityTypeDef]
+    closedFindings: NotRequired[FindingMetricsValuePerSeverityTypeDef]
     openFindings: NotRequired[FindingMetricsValuePerSeverityTypeDef]
+    meanTimeToClose: NotRequired[FindingMetricsValuePerSeverityTypeDef]
 
 
 class BatchGetFindingsRequestTypeDef(TypedDict):
@@ -228,22 +228,22 @@ class BatchGetFindingsRequestTypeDef(TypedDict):
 
 
 class CreateUploadUrlResponseTypeDef(TypedDict):
-    codeArtifactId: str
-    requestHeaders: Dict[str, str]
     s3Url: str
+    requestHeaders: Dict[str, str]
+    codeArtifactId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetScanResponseTypeDef(TypedDict):
-    analysisType: AnalysisTypeType
-    createdAt: datetime
-    errorMessage: str
-    numberOfRevisions: int
-    runId: str
     scanName: str
-    scanNameArn: str
+    runId: str
     scanState: ScanStateType
+    createdAt: datetime
+    analysisType: AnalysisTypeType
     updatedAt: datetime
+    numberOfRevisions: int
+    scanNameArn: str
+    errorMessage: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -253,28 +253,28 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 
 class FilePathTypeDef(TypedDict):
-    codeSnippet: NotRequired[List[CodeLineTypeDef]]
-    endLine: NotRequired[int]
     name: NotRequired[str]
     path: NotRequired[str]
     startLine: NotRequired[int]
+    endLine: NotRequired[int]
+    codeSnippet: NotRequired[List[CodeLineTypeDef]]
 
 
 class CreateScanRequestTypeDef(TypedDict):
     resourceId: ResourceIdTypeDef
     scanName: str
-    analysisType: NotRequired[AnalysisTypeType]
     clientToken: NotRequired[str]
     scanType: NotRequired[ScanTypeType]
+    analysisType: NotRequired[AnalysisTypeType]
     tags: NotRequired[Mapping[str, str]]
 
 
 class CreateScanResponseTypeDef(TypedDict):
-    resourceId: ResourceIdTypeDef
-    runId: str
     scanName: str
-    scanNameArn: str
+    runId: str
+    resourceId: ResourceIdTypeDef
     scanState: ScanStateType
+    scanNameArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -307,16 +307,16 @@ class GetMetricsSummaryRequestTypeDef(TypedDict):
 
 
 class ListFindingsMetricsRequestPaginateTypeDef(TypedDict):
-    endDate: TimestampTypeDef
     startDate: TimestampTypeDef
+    endDate: TimestampTypeDef
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListFindingsMetricsRequestTypeDef(TypedDict):
-    endDate: TimestampTypeDef
     startDate: TimestampTypeDef
-    maxResults: NotRequired[int]
+    endDate: TimestampTypeDef
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 
 class ListScansResponseTypeDef(TypedDict):
@@ -326,11 +326,11 @@ class ListScansResponseTypeDef(TypedDict):
 
 
 class MetricsSummaryTypeDef(TypedDict):
-    categoriesWithMostFindings: NotRequired[List[CategoryWithFindingNumTypeDef]]
     date: NotRequired[datetime]
     openFindings: NotRequired[FindingMetricsValuePerSeverityTypeDef]
-    scansWithMostOpenCriticalFindings: NotRequired[List[ScanNameWithFindingNumTypeDef]]
+    categoriesWithMostFindings: NotRequired[List[CategoryWithFindingNumTypeDef]]
     scansWithMostOpenFindings: NotRequired[List[ScanNameWithFindingNumTypeDef]]
+    scansWithMostOpenCriticalFindings: NotRequired[List[ScanNameWithFindingNumTypeDef]]
 
 
 class RemediationTypeDef(TypedDict):
@@ -347,11 +347,11 @@ class ListFindingsMetricsResponseTypeDef(TypedDict):
 VulnerabilityTypeDef = TypedDict(
     "VulnerabilityTypeDef",
     {
-        "filePath": NotRequired[FilePathTypeDef],
-        "id": NotRequired[str],
-        "itemCount": NotRequired[int],
         "referenceUrls": NotRequired[List[str]],
         "relatedVulnerabilities": NotRequired[List[str]],
+        "id": NotRequired[str],
+        "filePath": NotRequired[FilePathTypeDef],
+        "itemCount": NotRequired[int],
     },
 )
 
@@ -366,27 +366,27 @@ FindingTypeDef = TypedDict(
     {
         "createdAt": NotRequired[datetime],
         "description": NotRequired[str],
-        "detectorId": NotRequired[str],
-        "detectorName": NotRequired[str],
-        "detectorTags": NotRequired[List[str]],
         "generatorId": NotRequired[str],
         "id": NotRequired[str],
-        "remediation": NotRequired[RemediationTypeDef],
-        "resource": NotRequired[ResourceTypeDef],
-        "ruleId": NotRequired[str],
-        "severity": NotRequired[SeverityType],
-        "status": NotRequired[StatusType],
-        "title": NotRequired[str],
-        "type": NotRequired[str],
         "updatedAt": NotRequired[datetime],
+        "type": NotRequired[str],
+        "status": NotRequired[StatusType],
+        "resource": NotRequired[ResourceTypeDef],
         "vulnerability": NotRequired[VulnerabilityTypeDef],
+        "severity": NotRequired[SeverityType],
+        "remediation": NotRequired[RemediationTypeDef],
+        "title": NotRequired[str],
+        "detectorTags": NotRequired[List[str]],
+        "detectorId": NotRequired[str],
+        "detectorName": NotRequired[str],
+        "ruleId": NotRequired[str],
     },
 )
 
 
 class BatchGetFindingsResponseTypeDef(TypedDict):
-    failedFindings: List[BatchGetFindingsErrorTypeDef]
     findings: List[FindingTypeDef]
+    failedFindings: List[BatchGetFindingsErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

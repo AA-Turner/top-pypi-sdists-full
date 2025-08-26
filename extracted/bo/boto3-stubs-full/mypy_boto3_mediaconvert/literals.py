@@ -333,6 +333,7 @@ __all__ = (
     "MovMpeg2FourCCControlType",
     "MovPaddingControlType",
     "MovReferenceType",
+    "Mp2AudioDescriptionMixType",
     "Mp3RateControlModeType",
     "Mp4C2paManifestType",
     "Mp4CslgAtomType",
@@ -414,6 +415,7 @@ __all__ = (
     "SccDestinationFramerateType",
     "SearchJobsPaginatorName",
     "ServiceName",
+    "ShareStatusType",
     "SimulateReservedQueueType",
     "SrtStylePassthroughType",
     "StatusUpdateIntervalType",
@@ -446,6 +448,7 @@ __all__ = (
     "VideoCodecType",
     "VideoOverlayPlayBackModeType",
     "VideoOverlayUnitType",
+    "VideoSelectorTypeType",
     "VideoTimecodeInsertionType",
     "Vp8FramerateControlType",
     "Vp8FramerateConversionAlgorithmType",
@@ -986,7 +989,7 @@ HlsCodecSpecificationType = Literal["RFC_4281", "RFC_6381"]
 HlsDescriptiveVideoServiceFlagType = Literal["DONT_FLAG", "FLAG"]
 HlsDirectoryStructureType = Literal["SINGLE_DIRECTORY", "SUBDIRECTORY_PER_STREAM"]
 HlsEncryptionTypeType = Literal["AES128", "SAMPLE_AES"]
-HlsIFrameOnlyManifestType = Literal["EXCLUDE", "INCLUDE"]
+HlsIFrameOnlyManifestType = Literal["EXCLUDE", "INCLUDE", "INCLUDE_AS_TS"]
 HlsImageBasedTrickPlayType = Literal["ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME"]
 HlsInitializationVectorInManifestType = Literal["EXCLUDE", "INCLUDE"]
 HlsIntervalCadenceType = Literal["FOLLOW_CUSTOM", "FOLLOW_IFRAME"]
@@ -1265,6 +1268,7 @@ MovCslgAtomType = Literal["EXCLUDE", "INCLUDE"]
 MovMpeg2FourCCControlType = Literal["MPEG", "XDCAM"]
 MovPaddingControlType = Literal["NONE", "OMNEON"]
 MovReferenceType = Literal["EXTERNAL", "SELF_CONTAINED"]
+Mp2AudioDescriptionMixType = Literal["BROADCASTER_MIXED_AD", "NONE"]
 Mp3RateControlModeType = Literal["CBR", "VBR"]
 Mp4C2paManifestType = Literal["EXCLUDE", "INCLUDE"]
 Mp4CslgAtomType = Literal["EXCLUDE", "INCLUDE"]
@@ -1407,6 +1411,7 @@ SccDestinationFramerateType = Literal[
     "FRAMERATE_29_97_NON_DROPFRAME",
 ]
 SearchJobsPaginatorName = Literal["search_jobs"]
+ShareStatusType = Literal["INITIATED", "NOT_SHARED", "SHARED"]
 SimulateReservedQueueType = Literal["DISABLED", "ENABLED"]
 SrtStylePassthroughType = Literal["DISABLED", "ENABLED"]
 StatusUpdateIntervalType = Literal[
@@ -1510,6 +1515,7 @@ VideoCodecType = Literal[
 ]
 VideoOverlayPlayBackModeType = Literal["ONCE", "REPEAT"]
 VideoOverlayUnitType = Literal["PERCENTAGE", "PIXELS"]
+VideoSelectorTypeType = Literal["AUTO", "STREAM"]
 VideoTimecodeInsertionType = Literal["DISABLED", "PIC_TIMING_SEI"]
 Vp8FramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
 Vp8FramerateConversionAlgorithmType = Literal[

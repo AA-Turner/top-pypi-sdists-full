@@ -11,7 +11,7 @@ import pytest
 
 import narwhals as nw
 from narwhals.exceptions import PerformanceWarning
-from tests.utils import PANDAS_VERSION, POLARS_VERSION, PYARROW_VERSION
+from tests.utils import PANDAS_VERSION, POLARS_VERSION, PYARROW_VERSION, pyspark_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -120,6 +120,22 @@ def test_struct_reverse() -> None:
 def test_field_repr() -> None:
     dtype = nw.Field("a", nw.Int32)
     assert repr(dtype) == "Field('a', <class 'narwhals.dtypes.Int32'>)"
+
+
+def test_field_eq() -> None:
+    field_1 = nw.Field("a", nw.String)
+    field_2 = nw.Field("a", nw.String())
+    field_3 = nw.Field("b", nw.Datetime())
+    field_4 = nw.Field("b", nw.Datetime("ms"))
+    field_5 = nw.Field("b", nw.Datetime)
+
+    assert field_1 == field_2
+    assert field_2 != field_3
+    # bit of a head-scratcher
+    assert field_3 != field_4
+    assert field_3 == field_5
+    assert field_4 == field_5
+    assert field_1 != field_1.dtype
 
 
 def test_struct_hashes() -> None:
@@ -489,15 +505,9 @@ def test_datetime_w_tz_duckdb() -> None:
     assert result["b"] == nw.List(nw.List(nw.Datetime("us", "Asia/Kathmandu")))
 
 
-def test_datetime_w_tz_pyspark(constructor: Constructor) -> None:  # pragma: no cover
-    if "pyspark" not in str(constructor) or "sqlframe" in str(constructor):
-        pytest.skip()
+def test_datetime_w_tz_pyspark() -> None:  # pragma: no cover
     pytest.importorskip("pyspark")
-    from pyspark.sql import SparkSession
-
-    session = SparkSession.builder.config(
-        "spark.sql.session.timeZone", "UTC"
-    ).getOrCreate()
+    session = pyspark_session()
 
     df = nw.from_native(
         session.createDataFrame([(datetime(2020, 1, 1, tzinfo=timezone.utc),)], ["a"])

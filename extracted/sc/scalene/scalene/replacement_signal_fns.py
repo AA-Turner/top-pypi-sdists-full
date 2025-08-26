@@ -90,9 +90,8 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
     def replacement_kill(pid: int, signum: int) -> None:
         _, cpu_signal = scalene.get_timer_signals()
-        if pid == os.getpid() or pid in scalene.child_pids:
-            if signum == cpu_signal:
-                return old_kill(pid, new_cpu_signal)
+        if (pid == os.getpid() or pid in scalene.child_pids) and signum == cpu_signal:
+            return old_kill(pid, new_cpu_signal)
         old_kill(pid, signum)
 
     if sys.platform != "win32":
@@ -128,7 +127,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         signal.setitimer = replacement_setitimer
         signal.siginterrupt = replacement_siginterrupt
 
-    signal.signal = replacement_signal  # type: ignore
+    signal.signal = replacement_signal  # type: ignore[unused-ignore,assignment]
     if sys.version_info >= (3, 8):
         signal.raise_signal = replacement_raise_signal
     os.kill = replacement_kill

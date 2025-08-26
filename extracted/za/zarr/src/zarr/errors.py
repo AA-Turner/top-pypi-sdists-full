@@ -1,6 +1,7 @@
 from typing import Any
 
 __all__ = [
+    "ArrayNotFoundError",
     "BaseZarrError",
     "ContainsArrayAndGroupError",
     "ContainsArrayError",
@@ -8,6 +9,10 @@ __all__ = [
     "GroupNotFoundError",
     "MetadataValidationError",
     "NodeTypeValidationError",
+    "UnstableSpecificationWarning",
+    "ZarrDeprecationWarning",
+    "ZarrFutureWarning",
+    "ZarrRuntimeWarning",
 ]
 
 
@@ -22,12 +27,49 @@ class BaseZarrError(ValueError):
         super().__init__(self._msg.format(*args))
 
 
-class GroupNotFoundError(BaseZarrError, FileNotFoundError):
+class NodeNotFoundError(BaseZarrError, FileNotFoundError):
+    """
+    Raised when a node (array or group) is not found at a certain path.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        if len(args) == 1:
+            # Pre-formatted message
+            super(BaseZarrError, self).__init__(args[0])
+        else:
+            # Store and path arguments - format them
+            _msg = "No node found in store {!r} at path {!r}"
+            super(BaseZarrError, self).__init__(_msg.format(*args))
+
+
+class ArrayNotFoundError(NodeNotFoundError):
+    """
+    Raised when an array isn't found at a certain path.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        if len(args) == 1:
+            # Pre-formatted message
+            super(BaseZarrError, self).__init__(args[0])
+        else:
+            # Store and path arguments - format them
+            _msg = "No array found in store {!r} at path {!r}"
+            super(BaseZarrError, self).__init__(_msg.format(*args))
+
+
+class GroupNotFoundError(NodeNotFoundError):
     """
     Raised when a group isn't found at a certain path.
     """
 
-    _msg = "No group found in store {!r} at path {!r}"
+    def __init__(self, *args: Any) -> None:
+        if len(args) == 1:
+            # Pre-formatted message
+            super(BaseZarrError, self).__init__(args[0])
+        else:
+            # Store and path arguments - format them
+            _msg = "No group found in store {!r} at path {!r}"
+            super(BaseZarrError, self).__init__(_msg.format(*args))
 
 
 class ContainsGroupError(BaseZarrError):
@@ -59,10 +101,48 @@ class MetadataValidationError(BaseZarrError):
     _msg = "Invalid value for '{}'. Expected '{}'. Got '{}'."
 
 
+class UnknownCodecError(BaseZarrError):
+    """
+    Raised when a unknown codec was used.
+    """
+
+    _msg = "{}"
+
+
 class NodeTypeValidationError(MetadataValidationError):
     """
-    Specialized exception when the node_type of the metadata document is incorrect..
+    Specialized exception when the node_type of the metadata document is incorrect.
 
     This can be raised when the value is invalid or unexpected given the context,
     for example an 'array' node when we expected a 'group'.
+    """
+
+
+class ZarrFutureWarning(FutureWarning):
+    """
+    A warning intended for end users raised to indicate deprecated features.
+    """
+
+
+class UnstableSpecificationWarning(ZarrFutureWarning):
+    """
+    A warning raised to indicate that a feature is outside the Zarr specification.
+    """
+
+
+class ZarrDeprecationWarning(DeprecationWarning):
+    """
+    A warning raised to indicate that a feature will be removed in a future release.
+    """
+
+
+class ZarrUserWarning(UserWarning):
+    """
+    A warning raised to report problems with user code.
+    """
+
+
+class ZarrRuntimeWarning(RuntimeWarning):
+    """
+    A warning for dubious runtime behavior.
     """

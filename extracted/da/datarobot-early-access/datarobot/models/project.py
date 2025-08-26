@@ -1202,7 +1202,7 @@ OR individual keyword arguments. You cannot pass both."
             for binary classification targets.
         target_type : Optional[str]
             Override the automatically selected target_type. An example usage would be setting the
-            target_type='Multiclass' when you want to preform a multiclass classification task on a
+            target_type='Multiclass' when you want to perform a multiclass classification task on a
             numeric column that has a low cardinality.
             You can use ``TARGET_TYPE`` enum.
         unsupervised_mode : boolean, default ``False``
@@ -1603,7 +1603,7 @@ OR individual keyword arguments. You cannot pass both."
             unsuccessful.
         target_type : Optional[str]
             Override the automatically selected target_type. An example usage would be setting the
-            target_type='Multiclass' when you want to preform a multiclass classification task on a
+            target_type='Multiclass' when you want to perform a multiclass classification task on a
             numeric column that has a low cardinality. You can use ``TARGET_TYPE`` enum.
         credentials: Optional[List]
              a list of credentials for the datasets used in relationship configuration
@@ -1818,7 +1818,7 @@ OR individual keyword arguments. You cannot pass both."
             unsuccessful.
         target_type : Optional[str]
             Override the automatically selected `target_type`. An example usage would be setting the
-            `target_type=Multiclass' when you want to preform a multiclass classification task on a
+            `target_type=Multiclass' when you want to perform a multiclass classification task on a
             numeric column that has a low cardinality. You can use ``TARGET_TYPE`` enum.
         credentials: Optional[List]
              A list of credentials for the datasets used in relationship configuration

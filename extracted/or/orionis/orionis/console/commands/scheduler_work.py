@@ -110,21 +110,23 @@ class ScheduleWorkCommand(BaseCommand):
             if hasattr(scheduler, "onError") and callable(scheduler.onError):
                 schedule_service.setListener(ListeningEvent.SCHEDULER_ERROR, scheduler.onError)
 
-            # Check if the scheduler has specific pause, resume, and finalize times
-            if hasattr(scheduler, "PAUSE_AT") and scheduler.PAUSE_AT is not None:
-                if not isinstance(scheduler.PAUSE_AT, datetime):
-                    raise CLIOrionisRuntimeError("PAUSE_AT must be a datetime instance.")
-                schedule_service.pauseEverythingAt(scheduler.PAUSE_AT)
+            # If the scheduler has FINALIZE_AT and it is not None
+            if hasattr(scheduler, "FINALIZE_AT") and scheduler.FINALIZE_AT is not None:
+                if not isinstance(scheduler.FINALIZE_AT, datetime):
+                    raise CLIOrionisRuntimeError("FINALIZE_AT must be a datetime instance.")
+                schedule_service.shutdownEverythingAt(scheduler.FINALIZE_AT)
 
+            # If the scheduler has RESUME_AT and it is not None
             if hasattr(scheduler, "RESUME_AT") and scheduler.RESUME_AT is not None:
                 if not isinstance(scheduler.RESUME_AT, datetime):
                     raise CLIOrionisRuntimeError("RESUME_AT must be a datetime instance.")
                 schedule_service.resumeEverythingAt(scheduler.RESUME_AT)
 
-            if hasattr(scheduler, "FINALIZE_AT") and scheduler.FINALIZE_AT is not None:
-                if not isinstance(scheduler.FINALIZE_AT, datetime):
-                    raise CLIOrionisRuntimeError("FINALIZE_AT must be a datetime instance.")
-                schedule_service.shutdownEverythingAt(scheduler.FINALIZE_AT)
+            # If the scheduler has PAUSE_AT and it is not None
+            if hasattr(scheduler, "PAUSE_AT") and scheduler.PAUSE_AT is not None:
+                if not isinstance(scheduler.PAUSE_AT, datetime):
+                    raise CLIOrionisRuntimeError("PAUSE_AT must be a datetime instance.")
+                schedule_service.pauseEverythingAt(scheduler.PAUSE_AT)
 
             # Start the scheduler worker asynchronously
             await schedule_service.start()

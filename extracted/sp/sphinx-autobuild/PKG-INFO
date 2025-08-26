@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinx-autobuild
-Version: 2024.10.3
+Version: 2025.8.25
 Summary: Rebuild Sphinx documentation on changes, with hot reloading in the browser.
 Author: Adam Turner
 Author-email: Jonathan Stoppani <jonathan@stoppani.name>
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -14,12 +14,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Documentation
@@ -28,8 +28,9 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
+License-File: LICENSE.rst
 Requires-Dist: colorama>=0.4.6
-Requires-Dist: sphinx
+Requires-Dist: Sphinx
 Requires-Dist: starlette>=0.35
 Requires-Dist: uvicorn>=0.25
 Requires-Dist: watchfiles>=0.20
@@ -113,6 +114,7 @@ which can seen by running ``sphinx-autobuild --help``:
      --delay DELAY         how long to wait before opening the browser
      --watch DIR           additional directories to watch
      --pre-build COMMAND   additional command(s) to run prior to building the documentation
+     --post-build COMMAND  additional command(s) to run after building the documentation
 
 Using with Makefile
 -------------------
@@ -186,6 +188,19 @@ to avoid needing to manually manage ports and opening browser windows
    sphinx-autobuild --port=0 --open-browser pikachu/docs pikachu/docs/_build/html &
    sphinx-autobuild --port=0 --open-browser magikarp/docs magickarp/docs/_build/html &
 
+Notifications for build cycles
+------------------------------
+
+As an example of using the ``--pre-build`` and ``--post-build`` arguments,
+the command below uses `notify-send` to send a notification when a build
+starts and finishes.
+
+.. code-block:: bash
+
+   sphinx-autobuild docs docs/_build/html/ \
+      --pre-build 'notify-send "sphinx-autobuild: build start"' \
+      --post-build 'notify-send "sphinx-autobuild: build end"'
+
 Relevant Sphinx Bugs
 ====================
 
@@ -198,6 +213,15 @@ This can be done by disabling incremental mode (with ``-a``)
 or passing relevant ``filenames`` in addition to source and output directory in the CLI.
 
 __ https://github.com/sphinx-doc/sphinx-autobuild/issues/34
+
+Debugging
+=========
+
+If the ``SPHINX_AUTOBUILD_DEBUG`` environment variable is present,
+is not ``""`` (the empty string) or ``0``,
+and a file change is detected,
+its path and the currently active ignore expressions are printed.
+This is to help setting up the ignore expressions correctly.
 
 Acknowledgements
 ================

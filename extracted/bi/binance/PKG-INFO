@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binance
-Version: 0.3.64
+Version: 0.3.65
 Summary: binance crypto exchange api client
 Project-URL: Homepage, https://github.com/ccxt/ccxt
 Project-URL: Issues, https://github.com/ccxt/ccxt
@@ -212,7 +212,6 @@ You can also construct custom requests to available "implicit" endpoints
 - `cancel_order(self, id: str, symbol: Str = None, params={})`
 - `cancel_orders(self, ids: List[str], symbol: Str = None, params={})`
 - `cost_to_precision(self, symbol, cost)`
-- `currency_to_precision(self, code, fee, networkCode=None)`
 - `describe(self)`
 - `edit_contract_order_request(self, id: str, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={})`
 - `edit_contract_order(self, id: str, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={})`

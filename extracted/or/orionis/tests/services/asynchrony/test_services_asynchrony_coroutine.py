@@ -82,4 +82,4 @@ class TestServicesAsynchronyCoroutine(AsyncTestCase):
 
         # Assert that passing a non-coroutine raises OrionisCoroutineException
         with self.assertRaises(OrionisCoroutineException):
-            Coroutine(sample_no_coroutine())
+            Coroutine(sample_no_coroutine()).run()

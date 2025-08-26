@@ -180,6 +180,7 @@ REDIS_CLUSTER = env("REDIS_CLUSTER", cast=bool, default=False)
 REDIS_MAX_CONNECTIONS = env("REDIS_MAX_CONNECTIONS", cast=int, default=2000)
 REDIS_CONNECT_TIMEOUT = env("REDIS_CONNECT_TIMEOUT", cast=float, default=10.0)
 REDIS_MAX_IDLE_TIME = env("REDIS_MAX_IDLE_TIME", cast=float, default=120.0)
+REDIS_STREAM_TIMEOUT = env("REDIS_STREAM_TIMEOUT", cast=float, default=30.0)
 REDIS_KEY_PREFIX = env("REDIS_KEY_PREFIX", cast=str, default="")
 RUN_STATS_CACHE_SECONDS = env("RUN_STATS_CACHE_SECONDS", cast=int, default=60)
 
@@ -374,6 +375,7 @@ API_VARIANT = env("LANGSMITH_LANGGRAPH_API_VARIANT", cast=str, default="")
 # UI
 UI_USE_BUNDLER = env("LANGGRAPH_UI_BUNDLER", cast=bool, default=False)
 IS_QUEUE_ENTRYPOINT = False
+IS_EXECUTOR_ENTRYPOINT = False
 ref_sha = None
 if not os.getenv("LANGCHAIN_REVISION_ID") and (
     ref_sha := os.getenv("LANGSMITH_LANGGRAPH_GIT_REF_SHA")

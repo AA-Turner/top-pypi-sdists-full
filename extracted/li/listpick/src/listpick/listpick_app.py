@@ -40,6 +40,7 @@ from listpick.utils.dump import dump_state, load_state, dump_data
 from listpick.ui.build_help import build_help_rows
 from listpick.ui.footer import StandardFooter, CompactFooter, NoFooter
 from listpick.utils.picker_log import setup_logger
+from listpick.utils.user_input import get_char, open_tty
 
 
 try:
@@ -186,6 +187,7 @@ class Picker:
         sheet_name = "Untitled",
         sheet_index = 0,
         sheet_states = [{}],
+
 
     ):
         self.stdscr = stdscr
@@ -363,6 +365,12 @@ class Picker:
             self.logger.error(f"get_config({path}) load error. {e}")
             return False
 
+        if "general" in config:
+            if "colour_theme_number" in config["general"] and config["general"]["colour_theme_number"] != self.colour_theme_number:
+                global COLOURS_SET 
+                COLOURS_SET = False
+                self.colours_end = set_colours(pick=config["general"]["colour_theme_number"], start=1)
+
         self.logger.info(f"function: set_config()")
         if "general" in config:
             for key, val in config["general"].items():
@@ -371,9 +379,8 @@ class Picker:
                     setattr(self, key, val)
                 except Exception as e:
                     self.logger.error(f"set_config: key={key}, val={val}. {e}")
+                    
         return True
-
-
 
     def get_config(self, path: str ="~/.config/listpick/config.toml") -> dict:
         """ Get config from file. """
@@ -449,7 +456,7 @@ class Picker:
             if reset_colours:
                 global COLOURS_SET
                 COLOURS_SET = False
-                colours_end = set_colours(pick=self.colour_theme_number, start=self.colours_start)
+                self.colours_end = set_colours(pick=self.colour_theme_number, start=self.colours_start)
             if curses.COLORS >= 255 and curses.COLOR_PAIRS >= 150:
                 self.colours_start = self.colours_start
                 self.notification_colours_start = self.colours_start+50
@@ -747,6 +754,7 @@ class Picker:
 
     def draw_screen_(self, indexed_items: list[Tuple[int, list[str]]], highlights: list[dict] = [{}], clear: bool = True) -> None:
         """ Draw Picker screen. """
+
         self.logger.debug("Draw screen.")
 
         if clear:
@@ -1362,7 +1370,6 @@ class Picker:
             "cancel_is_back": True,
             "number_columns": False,
             "reset_colours": False,
-            "cell_cursor": False,
         }
         while True:
             h, w = stdscr.getmaxyx()
@@ -1382,7 +1389,7 @@ class Picker:
             if s:
                 return {x: options[x] for x in s}, o, f
             return {}, "", f
-
+            
 
 
     def notification(self, stdscr: curses.window, message: str="", title:str="Notification", colours_end: int=0, duration:int=4) -> None:
@@ -1393,12 +1400,7 @@ class Picker:
         message_width = notification_width-5
 
         if not message: message = "!!"
-        if type(message) == type(""):
-            mw = message_width
-            submenu_items = [[message[i*mw:(i+1)*mw]] for i in range(len(message)//mw+1)]
-        elif type(message) != type([]):
-            submenu_items = [["  !!"]]
-
+        submenu_items = ["  "+message[i*message_width:(i+1)*message_width] for i in range(len(message)//message_width+1)]
 
         notification_remap_keys = { 
             curses.KEY_RESIZE: curses.KEY_F5,
@@ -1408,7 +1410,6 @@ class Picker:
             h, w = stdscr.getmaxyx()
 
             submenu_win = curses.newwin(notification_height, notification_width, 3, w - (notification_width+4))
-            # submenu_win = self.stdscr.subwin(notification_height, notification_width, 3, w - (notification_width+4))
             notification_data = {
                 "items": submenu_items,
                 "title": title,
@@ -1425,11 +1426,6 @@ class Picker:
                 "cancel_is_back": True,
                 "reset_colours": False,
 
-                "loaded_files": [],
-                "loaded_file_states": [],
-                "loaded_file": "",
-                "loaded_file_index": 0,
-                "cell_cursor": False,
             }
             OptionPicker = Picker(submenu_win, **notification_data)
             s, o, f = OptionPicker.run()
@@ -2229,6 +2225,13 @@ class Picker:
         # Open tty to accept input
         tty_fd = open_tty()
 
+        h, w = self.stdscr.getmaxyx()
+        def terminal_resized(old_w, old_h) -> bool:
+            w, h = os.get_terminal_size()
+            if old_h != h or old_w != w: return True
+            else: return False
+
+        COLS, LINES = os.get_terminal_size()
         # Main loop
         while True:
             # key = self.stdscr.getch()
@@ -2236,7 +2239,14 @@ class Picker:
             key = get_char(tty_fd, timeout=0.2)
             if key != -1:
                 self.logger.info(f"key={key}")
+
+            self.term_resize_event = terminal_resized(COLS, LINES)
+            COLS, LINES = os.get_terminal_size()
+            if self.term_resize_event: 
+                key = curses.KEY_RESIZE
+
             h, w = self.stdscr.getmaxyx()
+
             if key in self.disabled_keys: continue
             clear_screen=True
 
@@ -3091,7 +3101,7 @@ class Picker:
                 self.logger.info(f"key_function opts_select")
                 s, o, f = self.choose_option(self.stdscr, self.options_list)
                 if self.user_opts.strip(): self.user_opts += " "
-                self.user_opts += " ".join([x for x in s.values()])
+                self.user_opts += " ".join([x[0] for x in s.values()])
             elif self.check_key("notification_toggle", key, self.keys_dict):
                 self.logger.info(f"key_function notification_toggle")
                 self.notification(self.stdscr, colours_end=self.colours_end)
@@ -3177,11 +3187,17 @@ class Picker:
                 if return_val:
                     selected_indices = get_selected_indices(self.selections)
                     self.history_pipes.append(usrtxt)
-                    if not selected_indices:
-                        selected_indices = [self.indexed_items[self.cursor_pos][0]]
 
-                    # full_values = [format_row_full(self.items[i], self.hidden_columns) for i in selected_indices]  # Use format_row_full for full data
-                    if self.cell_cursor:
+                    if not selected_indices:
+                        if len(self.indexed_items):
+                            if " " in self.items[self.cursor_pos][self.selected_column]:
+                                full_values = [repr(self.items[self.cursor_pos][self.selected_column])]
+                            else:
+                                full_values = [self.items[self.cursor_pos][self.selected_column]]
+
+                        else:
+                            return None
+                    elif self.cell_cursor:
                         
                         full_values = []
                         for row in self.selected_cells_by_row.keys():
@@ -3194,11 +3210,16 @@ class Picker:
                                 selected_cell_row_str += "\t"
                             full_values.append(selected_cell_row_str.strip())
 
-
-                        # full_values = ["\t".join([repr(self.items[key][cell]) for cell in self.selected_cells_by_row[key]]) for key in self.selected_cells_by_row.keys()]
-                        # full_values = ["\t".join([self.items[key][cell] for cell in self.selected_cells_by_row[key]]) for key in self.selected_cells_by_row.keys()]
                     else:
-                        full_values = [self.items[i][self.selected_column] for i in selected_indices]
+                        full_values = []
+                        for i in selected_indices:
+                            selected_cell_row_str = ""
+                            if " " in self.items[i][self.selected_column]:
+                                selected_cell_row_str += repr(self.items[i][self.selected_column])
+                            else:
+                                selected_cell_row_str += str(self.items[i][self.selected_column])
+                            full_values.append(selected_cell_row_str)
+
                     if full_values:
                         # command = usrtxt.split()
                         command = usrtxt
@@ -3442,7 +3463,7 @@ def set_colours(pick: int = 0, start: int = 0) -> Optional[int]:
         curses.init_pair(start+24, colours['footer_string_fg'], colours['footer_string_bg'])
         curses.init_pair(start+25, colours['selected_cell_fg'], colours['selected_cell_bg'])
         curses.init_pair(start+26, colours['deselecting_cell_fg'], colours['deselecting_cell_bg'])
-    except:
+    except Exception as e:
         pass
     COLOURS_SET = True
     return start+21
@@ -3580,50 +3601,6 @@ def unrestrict_curses(stdscr: curses.window) -> None:
     curses.curs_set(False)
 
 
-def open_tty():
-    """ Return a file descriptor for the tty that we are opening"""
-    tty_fd = os.open('/dev/tty', os.O_RDONLY)
-    tty.setraw(tty_fd)
-    return tty_fd
-
-def get_char(tty_fd, timeout: float = 0.2, secondary: bool = False) -> int:
-    """ Get character from a tty_fd with a timeout. """
-    rlist, _, _ = select.select([tty_fd], [], [], timeout)
-    if rlist:
-        # key = ord(tty_fd.read(1))
-        key = ord(os.read(tty_fd, 1))
-        if not secondary:
-            if key == 27:
-                key2 = get_char(tty_fd, timeout=0.01, secondary=True)
-                key3 = get_char(tty_fd, timeout=0.01, secondary=True)
-                key4 = get_char(tty_fd, timeout=0.01, secondary=True)
-                key5 = get_char(tty_fd, timeout=0.01, secondary=True)
-                if key2 == ord('O') and key3 == ord('B'):
-                    key = curses.KEY_DOWN
-                elif key2 == ord('O') and key3 == ord('A'):
-                    key = curses.KEY_UP
-                elif key2 == ord('O') and key3 == ord('D'):
-                    key = curses.KEY_LEFT
-                elif key2 == ord('O') and key3 == ord('C'):
-                    key = curses.KEY_RIGHT
-                elif key2 == ord('[') and key3 == ord('Z'):
-                    key = 353
-                elif key2 == ord('O') and key3 == ord('F'):
-                    key = curses.KEY_END
-                elif key2 == ord('O') and key3 == ord('H'):
-                    key = curses.KEY_HOME
-                elif key2 == ord('[') and key3 == ord('3') and key4 == ord('~'):
-                    key = curses.KEY_DC
-                elif key2 == ord('[') and key3 == ord('3') and key4 == ord('~'):
-                    key = curses.KEY_DC
-                elif key2 == ord('O') and key3 == ord('P'):
-                    key = curses.KEY_F1
-                elif key2 == ord('[') and key3 == ord('1') and key4 == ord('5') and key5 == ord('~'):
-                    key = curses.KEY_F5
-
-    else:
-        key = -1
-    return key
 
 def main() -> None:
     """ Main function when listpick is executed. Deals with command line arguments and starts a Picker. """
@@ -3637,7 +3614,7 @@ def main() -> None:
     except:
         pass
         
-    function_data["colour_theme_number"] = 3
+    # function_data["colour_theme_number"] = 3
     # function_data["modes"]  = [ 
     #     {
     #         'filter': '',

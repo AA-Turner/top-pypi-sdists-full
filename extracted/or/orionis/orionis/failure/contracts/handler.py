@@ -7,7 +7,7 @@ from orionis.services.log.contracts.log_service import ILogger
 class IBaseExceptionHandler:
 
     @abstractmethod
-    def destructureException(self, e: BaseException):
+    async def destructureException(self, e: BaseException):
         """
         Converts an exception into a structured `Throwable` object containing detailed information.
 
@@ -29,7 +29,7 @@ class IBaseExceptionHandler:
         pass
 
     @abstractmethod
-    def shouldIgnoreException(self, e: BaseException) -> bool:
+    async def shouldIgnoreException(self, e: BaseException) -> bool:
         """
         Determines if the exception should be ignored (not handled) by the handler.
 
@@ -46,7 +46,7 @@ class IBaseExceptionHandler:
         pass
 
     @abstractmethod
-    def report (self, exception: BaseException, log: ILogger) -> Any:
+    async def report (self, exception: BaseException, log: ILogger) -> Any:
         """
         Report or log an exception.
 
@@ -62,7 +62,7 @@ class IBaseExceptionHandler:
         pass
 
     @abstractmethod
-    def renderCLI(self, request: CLIRequest, exception: BaseException, log: ILogger, console: IConsole) -> Any:
+    async def renderCLI(self, request: CLIRequest, exception: BaseException, log: ILogger, console: IConsole) -> Any:
         """
         Render the exception message for CLI output.
 

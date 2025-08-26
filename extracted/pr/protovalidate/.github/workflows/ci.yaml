@@ -18,9 +18,13 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        resolution: ["highest", "lowest-direct"]
+    env:
+      # Shared env variables for all the tests
+      UV_RESOLUTION: '${{ matrix.resolution }}'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
       - name: Install Go
@@ -31,11 +35,17 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: make install
       - name: Execute tests
         run: make test
       - name: Lint
         run: make lint
       - name: Format
         run: make format
-      - name: Check generated
+      # When running with matrix.resolution == lowest, we expect uv.lock to change, but we don't want that file checked in.
+      - if: matrix.resolution == 'highest'
+        name: Check generated
         run: make checkgenerate
+        env:
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}

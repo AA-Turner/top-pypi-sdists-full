@@ -1,30 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mixpanel
-Version: 4.10.1
+Version: 4.11.1
 Summary: Official Mixpanel library for Python
-Home-page: https://github.com/mixpanel/mixpanel-python
-Author: Mixpanel, Inc.
-Author-email: dev@mixpanel.com
-License: Apache
-Keywords: mixpanel analytics
-Classifier: License :: OSI Approved :: Apache Software License
+Author-email: "Mixpanel, Inc." <dev@mixpanel.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/mixpanel/mixpanel-python
+Keywords: mixpanel,analytics
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=2.7, !=3.4.*
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: six>=1.9.0
-Requires-Dist: requests>=2.4.2
-Requires-Dist: urllib3
+Requires-Dist: requests<3,>=2.4.2
+Provides-Extra: test
+Requires-Dist: pytest>=8.4.1; extra == "test"
+Requires-Dist: responses>=0.25.8; extra == "test"
+Provides-Extra: dev
+Requires-Dist: tox>=4.28.4; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: ghp-import; extra == "dev"
+Dynamic: license-file
 
 mixpanel-python
 ==============================

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.4.1
+Version: 0.4.8
 Summary: SDK for the HUD platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-python
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-python/issues
@@ -114,10 +114,10 @@ OSS RL environment + evals toolkit. Wrap software as environments, run benchmark
 
 ## Highlights
 
-- 🚀 **[MCP-native connectivity](https://docs.hud.so/core-concepts/mcp-protocol)** – any agent can call any hud environment.
+- 🚀 **[MCP environment skeleton](https://docs.hud.so/core-concepts/mcp-protocol)** – any agent can call any environment.
 - ⚡️ **[Live telemetry](https://app.hud.so)** – inspect every tool call, observation, and reward in real time.
 - 🗂️ **[Public benchmarks](https://app.hud.so/leaderboards)** – OSWorld-Verified, SheetBench-50, and more.
-- 🌱 **[Reinforcement learning built-in](rl/)** – Verifiers gym pipelines for GRPO training.
+- 🌱 **[Reinforcement learning built-in](rl/)** – Verifiers gym pipelines for GRPO on any environment.
 - 🌐 **[Cloud browsers](environments/remote_browser/)** – AnchorBrowser, Steel, BrowserBase integrations for browser automation.
 - 🛠️ **[Hot-reload dev loop](environments/README.md#phase-5-hot-reload-development-with-cursor-agent)** – `hud dev` for iterating on environments without rebuilds.
 
@@ -152,7 +152,7 @@ For a tutorial that explains the agent and evaluation design, run ([see quicksta
 uvx hud-python quickstart
 ```
 
-Or just write your own agent loop (more [examples here](examples/)):
+Or just write your own agent loop (more [examples here](examples/)).
 
 ```python
 import asyncio, hud, os
@@ -196,11 +196,13 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-> Every HUD environment is MCP-based and interactable from anywhere. Requires `HUD_API_KEY` and `ANTHROPIC_API_KEY`.
+The above example let's the agent play 2048 ([See replay](https://app.hud.so/trace/6feed7bd-5f67-4d66-b77f-eb1e3164604f))
+
+![Agent playing 2048](https://raw.githubusercontent.com/hud-evals/hud-python/main/docs/src/images/2048_1.gif)
 
 ## Reinforcement Learning with GRPO
 
-This is a Qwen-2.5-3B agent training a policy on the [`text-2048`](environments/text_2048/) environment using [Verifiers](rl/verifiers/):
+This is a Qwen-2.5-3B agent training a policy on the [`text-2048`](environments/text_2048/) environment (see above) using [Verifiers](rl/):
 
 ![RL curve](https://raw.githubusercontent.com/hud-evals/hud-python/main/docs/src/images/rl_2.png)
 
@@ -208,8 +210,8 @@ To start training, check out the [`rl/README.md`](rl/README.md) folder:
 
 ```bash
 git clone https://github.com/hud-evals/hud-python
-cd hud-python
-python rl/verifiers/train_2048.py
+cd hud-python/rl
+python train_2048.py
 ```
 
 Any hud MCP environment and evaluation works with our RL pipeline. Even our remote configurations!

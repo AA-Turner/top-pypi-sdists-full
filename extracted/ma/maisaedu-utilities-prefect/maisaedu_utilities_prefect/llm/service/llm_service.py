@@ -147,6 +147,8 @@ class LLMService(BaseModel):
 
                 llm_flow_run_history_id = self.__save_history(config['id'], request, response)
                 result_return["llm_flow_run_history_id"] = llm_flow_run_history_id
+                result_return["system_prompt"] = config['system_prompt']
+                result_return["response_format"] = config['response_format']
                 
                 if response.status_code == 200:
                     result = response.json()

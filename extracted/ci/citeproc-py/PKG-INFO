@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: citeproc-py
-Version: 0.8.3
+Version: 0.9.0
 Summary: Citations and bibliography formatter
 Home-page: https://github.com/brechtm/citeproc-py
 Author: Brecht Machiels
@@ -34,6 +34,8 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: lxml
+Provides-Extra: full
+Requires-Dist: citeproc-py-styles; extra == "full"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -44,6 +46,7 @@ Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: provides
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
@@ -154,6 +157,18 @@ If you want git to fully ignore the submodule, you can type
 git update-index --assume-unchanged citeproc/data/schema
 ```
 
+
+# v0.9.0 (Mon Aug 25 2025)
+
+#### 🚀 Enhancement
+
+- Feature/flexible style loading [#180](https://github.com/citeproc-py/citeproc-py/pull/180) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
 
 # v0.8.3 (Mon Aug 18 2025)
 

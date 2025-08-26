@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: taskflow
-Version: 6.0.1
+Version: 6.0.2
 Summary: Taskflow structured state management library.
 Home-page: https://docs.openstack.org/taskflow/latest/
 Author: OpenStack

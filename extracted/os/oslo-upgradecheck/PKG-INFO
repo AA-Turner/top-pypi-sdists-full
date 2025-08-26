@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: oslo.upgradecheck
-Version: 2.5.0
+Version: 2.6.0
 Summary: Common code for writing OpenStack upgrade checks
 Home-page: http://launchpad.net/oslo
 Author: OpenStack

@@ -101,12 +101,12 @@ class ConditionsVisitor(BaseNodeVisitor):
 
     def _check_conditions(self, node: ast.BoolOp) -> None:
         conditions_count = self._count_conditions(node)
-        if conditions_count > constants.MAX_CONDITIONS:
+        if conditions_count > self.options.max_conditions:
             self.add_violation(
                 complexity.TooManyConditionsViolation(
                     node,
                     text=str(conditions_count),
-                    baseline=constants.MAX_CONDITIONS,
+                    baseline=self.options.max_conditions,
                 ),
             )
 
@@ -237,7 +237,7 @@ class TryExceptVisitor(BaseNodeVisitor):
                         except_handler,
                         text=str(len(exc_type.elts)),
                         baseline=self.options.max_except_exceptions,
-                    )
+                    ),
                 )
 
 
@@ -325,5 +325,5 @@ class TypeParamsVisitor(BaseNodeVisitor):  # pragma: >=3.12 cover
                     node,
                     text=str(len(type_params)),
                     baseline=self.options.max_type_params,
-                )
+                ),
             )

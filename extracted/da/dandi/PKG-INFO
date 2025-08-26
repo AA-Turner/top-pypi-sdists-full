@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dandi
-Version: 0.71.0
+Version: 0.71.2
 Summary: Command line client for interaction with DANDI instances
 Home-page: http://dandiarchive.org
 Author: DANDI developers
@@ -61,6 +61,8 @@ Requires-Dist: zarr<=3.0.8,>=2.10
 Requires-Dist: zarr_checksum~=0.4.0
 Provides-Extra: extensions
 Requires-Dist: allensdk; extra == "extensions"
+Requires-Dist: ndx-hed; extra == "extensions"
+Requires-Dist: ndx-events; extra == "extensions"
 Provides-Extra: extras
 Requires-Dist: duecredit>=0.6.0; extra == "extras"
 Requires-Dist: fsspec[http]; extra == "extras"
@@ -82,6 +84,8 @@ Provides-Extra: tools
 Requires-Dist: boto3; extra == "tools"
 Provides-Extra: all
 Requires-Dist: allensdk; extra == "all"
+Requires-Dist: ndx-hed; extra == "all"
+Requires-Dist: ndx-events; extra == "all"
 Requires-Dist: duecredit>=0.6.0; extra == "all"
 Requires-Dist: fsspec[http]; extra == "all"
 Requires-Dist: flake8; extra == "all"

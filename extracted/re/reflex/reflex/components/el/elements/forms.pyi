@@ -6,8 +6,6 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
-from jinja2 import Environment
-
 from reflex.components.core.breakpoints import Breakpoints
 from reflex.components.el.element import Element
 from reflex.event import EventType, KeyInputInfo, PointerEventInfo
@@ -16,9 +14,6 @@ from reflex.vars.base import Var
 
 from .base import BaseHTML
 
-HANDLE_SUBMIT_JS_JINJA2 = Environment().from_string(
-    "\n    const handleSubmit_{{ handle_submit_unique_name }} = useCallback((ev) => {\n        const $form = ev.target\n        ev.preventDefault()\n        const {{ form_data }} = {...Object.fromEntries(new FormData($form).entries()), ...{{ field_ref_mapping }}};\n\n        ({{ on_submit_event_chain }}(ev));\n\n        if ({{ reset_on_submit }}) {\n            $form.reset()\n        }\n    })\n    "
-)
 ButtonType = Literal["submit", "reset", "button"]
 
 class Button(BaseHTML):

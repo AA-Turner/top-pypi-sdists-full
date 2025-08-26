@@ -20,8 +20,9 @@ try:
     from deepeval.integrations.langchain.utils import (
         parse_prompts_to_messages,
         prepare_dict,
-        extract_token_usage,
         extract_name,
+        safe_extract_model_name,
+        safe_extract_token_usage,
     )
 
     langchain_installed = True
@@ -101,12 +102,11 @@ class CallbackHandler(BaseCallbackHandler):
 
         ######## Conditions to add metrics to span ########
         if self.metrics and span.parent_uuid is None:  # if span is a root span
-            span.metrics = self.metrics
 
             # prepare test_case for task_completion metric
             for metric in self.metrics:
                 if isinstance(metric, TaskCompletionMetric):
-                    self.prepare_task_completion_test_case(span)
+                    self.prepare_span_metric_test_case(metric, span)
 
     def end_trace(self, span: BaseSpan):
         current_trace = trace_manager.get_trace_by_uuid(self.active_trace_id)
@@ -141,10 +141,27 @@ class CallbackHandler(BaseCallbackHandler):
         trace_manager.end_trace(self.active_trace_id)
         self.active_trace_id = None
 
-    def prepare_task_completion_test_case(self, span: BaseSpan):
-        test_case = LLMTestCase(input="None", actual_output="None")
-        test_case._trace_dict = trace_manager.create_nested_spans_dict(span)
-        span.llm_test_case = test_case
+    def prepare_span_metric_test_case(
+        self, metric: TaskCompletionMetric, span: BaseSpan
+    ):
+        task_completion_metric = TaskCompletionMetric(
+            threshold=metric.threshold,
+            model=metric.model,
+            include_reason=metric.include_reason,
+            async_mode=metric.async_mode,
+            strict_mode=metric.strict_mode,
+            verbose_mode=metric.verbose_mode,
+        )
+        task_completion_metric.evaluation_cost = 0
+        _llm_test_case = LLMTestCase(input="None", actual_output="None")
+        _llm_test_case._trace_dict = trace_manager.create_nested_spans_dict(
+            span
+        )
+        task, _ = task_completion_metric._extract_task_and_outcome(
+            _llm_test_case
+        )
+        task_completion_metric.task = task
+        span.metrics = [task_completion_metric]
 
     def on_chain_start(
         self,
@@ -161,7 +178,7 @@ class CallbackHandler(BaseCallbackHandler):
         self.check_active_trace_id()
         base_span = BaseSpan(
             uuid=str(run_id),
-            status=TraceSpanStatus.IN_PROGRESS,
+            status=TraceSpanStatus.ERRORED,
             children=[],
             trace_uuid=self.active_trace_id,
             parent_uuid=str(parent_run_id) if parent_run_id else None,
@@ -171,6 +188,8 @@ class CallbackHandler(BaseCallbackHandler):
             metadata=prepare_dict(
                 serialized=serialized, tags=tags, metadata=metadata, **kwargs
             ),
+            # fallback for on_end callback
+            end_time=perf_counter(),
         )
         self.add_span_to_trace(base_span)
 
@@ -210,9 +229,12 @@ class CallbackHandler(BaseCallbackHandler):
         # extract input
         input_messages = parse_prompts_to_messages(prompts, **kwargs)
 
+        # extract model name
+        model = safe_extract_model_name(metadata, **kwargs)
+
         llm_span = LlmSpan(
             uuid=str(run_id),
-            status=TraceSpanStatus.IN_PROGRESS,
+            status=TraceSpanStatus.ERRORED,
             children=[],
             trace_uuid=self.active_trace_id,
             parent_uuid=str(parent_run_id) if parent_run_id else None,
@@ -223,6 +245,9 @@ class CallbackHandler(BaseCallbackHandler):
             metadata=prepare_dict(
                 serialized=serialized, tags=tags, metadata=metadata, **kwargs
             ),
+            model=model,
+            # fallback for on_end callback
+            end_time=perf_counter(),
         )
 
         self.add_span_to_trace(llm_span)
@@ -239,24 +264,30 @@ class CallbackHandler(BaseCallbackHandler):
         if llm_span is None:
             return
 
+        if not isinstance(llm_span, LlmSpan):
+            return
+
         output = ""
         total_input_tokens = 0
         total_output_tokens = 0
+        model = None
 
         for generation in response.generations:
             for gen in generation:
                 if isinstance(gen, ChatGeneration):
-                    input_tokens, output_tokens = extract_token_usage(
-                        gen.message.response_metadata
-                    )
-                    total_input_tokens += input_tokens
-                    total_output_tokens += output_tokens
+                    if gen.message.response_metadata and isinstance(
+                        gen.message.response_metadata, dict
+                    ):
+                        # extract model name from response_metadata
+                        model = gen.message.response_metadata.get("model_name")
 
-                    # set model for any generation
-                    if llm_span.model is None or llm_span.model == "unknown":
-                        llm_span.model = gen.message.response_metadata.get(
-                            "model_name", "unknown"
+                        # extract input and output token
+                        input_tokens, output_tokens = safe_extract_token_usage(
+                            gen.message.response_metadata
                         )
+                        total_input_tokens += input_tokens
+                        total_output_tokens += output_tokens
+
                     if isinstance(gen.message, AIMessage):
                         ai_message = gen.message
                         tool_calls = []
@@ -274,10 +305,15 @@ class CallbackHandler(BaseCallbackHandler):
                             tool_calls=tool_calls,
                         )
 
+        llm_span.model = model if model else llm_span.model
         llm_span.input = llm_span.input
         llm_span.output = output
-        llm_span.input_token_count = total_input_tokens
-        llm_span.output_token_count = total_output_tokens
+        llm_span.input_token_count = (
+            total_input_tokens if total_input_tokens > 0 else None
+        )
+        llm_span.output_token_count = (
+            total_output_tokens if total_output_tokens > 0 else None
+        )
 
         self.end_span(llm_span)
         if parent_run_id is None:
@@ -300,7 +336,7 @@ class CallbackHandler(BaseCallbackHandler):
 
         tool_span = ToolSpan(
             uuid=str(run_id),
-            status=TraceSpanStatus.IN_PROGRESS,
+            status=TraceSpanStatus.ERRORED,
             children=[],
             trace_uuid=self.active_trace_id,
             parent_uuid=str(parent_run_id) if parent_run_id else None,
@@ -310,6 +346,8 @@ class CallbackHandler(BaseCallbackHandler):
             metadata=prepare_dict(
                 serialized=serialized, tags=tags, metadata=metadata, **kwargs
             ),
+            # fallback for on_end callback
+            end_time=perf_counter(),
         )
         self.add_span_to_trace(tool_span)
 
@@ -349,7 +387,7 @@ class CallbackHandler(BaseCallbackHandler):
 
         retriever_span = RetrieverSpan(
             uuid=str(run_id),
-            status=TraceSpanStatus.IN_PROGRESS,
+            status=TraceSpanStatus.ERRORED,
             children=[],
             trace_uuid=self.active_trace_id,
             parent_uuid=str(parent_run_id) if parent_run_id else None,
@@ -359,6 +397,8 @@ class CallbackHandler(BaseCallbackHandler):
             metadata=prepare_dict(
                 serialized=serialized, tags=tags, metadata=metadata, **kwargs
             ),
+            # fallback for on_end callback
+            end_time=perf_counter(),
         )
         retriever_span.input = query
         retriever_span.retrieval_context = []
@@ -394,3 +434,62 @@ class CallbackHandler(BaseCallbackHandler):
 
         if parent_run_id is None:
             self.end_trace(retriever_span)
+
+    ################## on_error callbacks ###############
+
+    def on_chain_error(
+        self,
+        error: BaseException,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> None:
+        base_span = trace_manager.get_span_by_uuid(str(run_id))
+        if base_span is None:
+            return
+
+        base_span.end_time = perf_counter()
+
+    def on_llm_error(
+        self,
+        error: BaseException,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Any:
+
+        llm_span = trace_manager.get_span_by_uuid(str(run_id))
+        if llm_span is None:
+            return
+
+        llm_span.end_time = perf_counter()
+
+    def on_tool_error(
+        self,
+        error: BaseException,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Any:
+        tool_span = trace_manager.get_span_by_uuid(str(run_id))
+        if tool_span is None:
+            return
+
+        tool_span.end_time = perf_counter()
+
+    def on_retriever_error(
+        self,
+        error: BaseException,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Any:
+        retriever_span = trace_manager.get_span_by_uuid(str(run_id))
+        if retriever_span is None:
+            return
+
+        retriever_span.end_time = perf_counter()

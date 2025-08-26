@@ -1,10 +1,13 @@
 from typing import Any
 from orionis.console.kernel import KernelCLI
 from orionis.console.output.contracts.console import IConsole
+from orionis.console.tasks.schedule import Schedule
 from orionis.failure.contracts.catch import ICatch
 from orionis.failure.contracts.handler import IBaseExceptionHandler
 from orionis.foundation.contracts.application import IApplication
+from orionis.services.asynchrony.coroutines import Coroutine
 from orionis.services.log.contracts.log_service import ILogger
+import asyncio
 
 class Catch(ICatch):
 
@@ -73,21 +76,89 @@ class Catch(ICatch):
         If a valid kernel is provided, the exception details are rendered to the CLI.
         """
 
-        # Check if the exception should be ignored by the handler
-        if self.__exception_handler.shouldIgnoreException(e):
-            return
+        async def handle():
+            """
+            Handles exceptions asynchronously using the provided exception handler.
 
-        # Report the exception using the application's exception handler and logger
-        self.__exception_handler.report(
-            exception=e,
-            log=self.__logger
-        )
+            This method performs the following steps:
+            1. Determines if the exception should be ignored by invoking the `shouldIgnoreException` method
+               of the exception handler. This method supports both coroutine and regular functions.
+            2. Reports the exception using the `report` method of the exception handler. This method
+               also supports both coroutine and regular functions.
+            3. If the kernel is of type `KernelCLI` or `Any`, it attempts to render the exception
+               for the CLI using the `renderCLI` method of the exception handler. This method supports
+               both coroutine and regular functions.
 
-        # If a kernel is provided, render the exception details to the CLI
-        if isinstance(kernel, KernelCLI):
-            return self.__exception_handler.renderCLI(
-                request=request,
-                exception=e,
-                log=self.__logger,
-                console=self.__console
-            )
+            Parameters
+            ----------
+            None
+
+            Returns
+            -------
+            Any or None
+            The result of the `renderCLI` method if applicable, otherwise `None`.
+
+            Notes
+            -----
+            - The `self.__exception_handler` is expected to have the methods `shouldIgnoreException`,
+              `report`, and `renderCLI`.
+            - The `self.__logger` is passed to the `report` and `renderCLI` methods for logging purposes.
+            - The `self.__console` is passed to the `renderCLI` method for CLI rendering.
+            """
+
+            # Check if the `shouldIgnoreException` method is a coroutine function
+            if asyncio.iscoroutinefunction(self.__exception_handler.shouldIgnoreException):
+
+                # If it is, await its result to determine if the exception should be ignored
+                if await self.__exception_handler.shouldIgnoreException(e):
+                    return
+
+            else:
+
+                # If it is not a coroutine, call it directly
+                if self.__exception_handler.shouldIgnoreException(e):
+                    return
+
+            # Check if the `report` method is a coroutine function
+            if asyncio.iscoroutinefunction(self.__exception_handler.report):
+
+                # If it is, await its execution to report the exception
+                await self.__exception_handler.report(
+                    exception=e,
+                    log=self.__logger
+                )
+
+            else:
+
+                # If it is not a coroutine, call it directly
+                self.__exception_handler.report(
+                    exception=e,
+                    log=self.__logger
+                )
+
+            # Check if the kernel is of type `KernelCLI` or `Any`
+            if isinstance(kernel, KernelCLI) or isinstance(kernel, Schedule):
+
+                # Check if the `renderCLI` method is a coroutine function
+                if asyncio.iscoroutinefunction(self.__exception_handler.renderCLI):
+
+                    # If it is, await its execution to render the exception for the CLI
+                    return await self.__exception_handler.renderCLI(
+                        request=request,
+                        exception=e,
+                        log=self.__logger,
+                        console=self.__console
+                    )
+
+                else:
+
+                    # If it is not a coroutine, call it directly
+                    return self.__exception_handler.renderCLI(
+                        request=request,
+                        exception=e,
+                        log=self.__logger,
+                        console=self.__console
+                    )
+
+        # Execute the exception handling logic using the Coroutine wrapper
+        Coroutine(handle()).run()

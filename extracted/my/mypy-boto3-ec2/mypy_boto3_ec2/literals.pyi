@@ -253,6 +253,7 @@ __all__ = (
     "ElasticGpuStatusType",
     "EnaSupportType",
     "EndDateTypeType",
+    "EndpointIpAddressTypeType",
     "EphemeralNvmeSupportType",
     "EventCodeType",
     "EventTypeType",
@@ -537,6 +538,7 @@ __all__ = (
     "TokenStateType",
     "TpmSupportValuesType",
     "TrafficDirectionType",
+    "TrafficIpAddressTypeType",
     "TrafficMirrorFilterRuleFieldType",
     "TrafficMirrorNetworkServiceType",
     "TrafficMirrorRuleActionType",
@@ -1031,6 +1033,7 @@ ElasticGpuStateType = Literal["ATTACHED"]
 ElasticGpuStatusType = Literal["IMPAIRED", "OK"]
 EnaSupportType = Literal["required", "supported", "unsupported"]
 EndDateTypeType = Literal["limited", "unlimited"]
+EndpointIpAddressTypeType = Literal["dual-stack", "ipv4", "ipv6"]
 EphemeralNvmeSupportType = Literal["required", "supported", "unsupported"]
 EventCodeType = Literal[
     "instance-reboot", "instance-retirement", "instance-stop", "system-maintenance", "system-reboot"
@@ -2671,6 +2674,7 @@ TieringOperationStatusType = Literal[
 TokenStateType = Literal["expired", "valid"]
 TpmSupportValuesType = Literal["v2.0"]
 TrafficDirectionType = Literal["egress", "ingress"]
+TrafficIpAddressTypeType = Literal["dual-stack", "ipv4", "ipv6"]
 TrafficMirrorFilterRuleFieldType = Literal[
     "description", "destination-port-range", "protocol", "source-port-range"
 ]

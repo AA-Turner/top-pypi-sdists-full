@@ -92,6 +92,8 @@ class Session(BaseEntity):
         """
 
         # Validate secret_key
+        if self.secret_key is None:
+            self.secret_key = SecretKey.random()
         if not isinstance(self.secret_key, str) or not self.secret_key.strip():
             raise OrionisIntegrityException("Session secret_key must be a non-empty string")
 

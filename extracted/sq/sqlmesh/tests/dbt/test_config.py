@@ -35,6 +35,7 @@ from sqlmesh.dbt.target import (
     TrinoConfig,
     AthenaConfig,
     ClickhouseConfig,
+    SCHEMA_DIFFER_OVERRIDES,
 )
 from sqlmesh.dbt.test import TestConfig
 from sqlmesh.utils.errors import ConfigError
@@ -353,7 +354,6 @@ def test_variables(assert_exp_eq, sushi_test_project):
 
     # Finally, check that variable scoping & overwriting (some_var) works as expected
     expected_sushi_variables = {
-        "start": "Jan 1 2022",
         "yet_another_var": 1,
         "top_waiters:limit": 10,
         "top_waiters:revenue": "revenue",
@@ -361,6 +361,7 @@ def test_variables(assert_exp_eq, sushi_test_project):
         "nested_vars": {
             "some_nested_var": 2,
         },
+        "dynamic_test_var": 3,
         "list_var": [
             {"name": "item1", "value": 1},
             {"name": "item2", "value": 2},
@@ -374,25 +375,9 @@ def test_variables(assert_exp_eq, sushi_test_project):
     expected_customer_variables = {
         "some_var": ["foo", "bar"],
         "some_other_var": 5,
-        "yet_another_var": 1,
+        "yet_another_var": 5,
         "customers:bla": False,
         "customers:customer_id": "customer_id",
-        "start": "Jan 1 2022",
-        "top_waiters:limit": 10,
-        "top_waiters:revenue": "revenue",
-        "customers:boo": ["a", "b"],
-        "nested_vars": {
-            "some_nested_var": 2,
-        },
-        "list_var": [
-            {"name": "item1", "value": 1},
-            {"name": "item2", "value": 2},
-        ],
-        "customers": {
-            "customers:bla": False,
-            "customers:customer_id": "customer_id",
-            "some_var": ["foo", "bar"],
-        },
     }
 
     assert sushi_test_project.packages["sushi"].variables == expected_sushi_variables
@@ -405,7 +390,9 @@ def test_nested_variables(sushi_test_project):
         sql="SELECT {{ var('nested_vars')['some_nested_var'] }}",
         dependencies=Dependencies(variables=["nested_vars"]),
     )
-    sqlmesh_model = model_config.to_sqlmesh(sushi_test_project.context)
+    context = sushi_test_project.context.copy()
+    context.set_and_render_variables(sushi_test_project.packages["sushi"].variables, "sushi")
+    sqlmesh_model = model_config.to_sqlmesh(context)
     assert sqlmesh_model.jinja_macros.global_objs["vars"]["nested_vars"] == {"some_nested_var": 2}
 
 
@@ -542,6 +529,9 @@ def test_snowflake_config():
     )
     sqlmesh_config = config.to_sqlmesh()
     assert sqlmesh_config.application == "Tobiko_SQLMesh"
+    assert (
+        sqlmesh_config.schema_differ_overrides == SCHEMA_DIFFER_OVERRIDES["schema_differ_overrides"]
+    )
 
 
 def test_snowflake_config_private_key_path():
@@ -771,6 +761,7 @@ def test_databricks_config_oauth():
     assert as_sqlmesh.auth_type == "databricks-oauth"
     assert as_sqlmesh.oauth_client_id == "client-id"
     assert as_sqlmesh.oauth_client_secret == "client-secret"
+    assert as_sqlmesh.schema_differ_overrides == SCHEMA_DIFFER_OVERRIDES["schema_differ_overrides"]
 
 
 def test_bigquery_config():
@@ -1013,8 +1004,11 @@ def test_db_type_to_quote_policy():
 def test_variable_override():
     project_root = "tests/fixtures/dbt/sushi_test"
     project = Project.load(
-        DbtContext(project_root=Path(project_root)),
-        variables={"yet_another_var": 2, "start": "2021-01-01"},
+        DbtContext(
+            project_root=Path(project_root),
+            sqlmesh_config=Config(model_defaults=ModelDefaultsConfig(start="2021-01-01")),
+        ),
+        variables={"yet_another_var": 2},
     )
     assert project.packages["sushi"].variables["yet_another_var"] == 2
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: neptune-fetcher
-Version: 0.20.0
+Version: 0.20.1
 Summary: Neptune Fetcher
 License: Apache-2.0
 Keywords: MLOps,ML Experiment Tracking,ML Model Registry,ML Model Store,ML Metadata Store

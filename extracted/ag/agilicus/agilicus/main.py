@@ -9,14 +9,13 @@ import requests
 import sys
 from datetime import date, datetime
 from urllib.parse import urlparse
-from prettytable import TableStyle
 from click_shell import shell
 from appdirs import user_data_dir
 
 import click
 import click_extension
 import os
-from prettytable import PrettyTable
+from prettytable import PrettyTable, MSWORD_FRIENDLY
 from colorama import init
 from agilicus.agilicus_api import ApiException
 from . import (
@@ -5424,7 +5423,7 @@ def list_agent_connectors(
     results = connectors.query_agents(ctx, **kwargs)
     table = connectors.format_agents_as_text(ctx, results, **kwargs)
     if output_msfriendly:
-        table.set_style(TableStyle.MSWORD_FRIENDLY)
+        table.set_style(MSWORD_FRIENDLY)
     if sort_by is not None and ctx.obj["output_format"] != "json":
         print(table.get_string(sortby=sort_by, reversesort=reverse_sort))
     else:
@@ -8881,6 +8880,27 @@ def list_regional_locations(ctx, **kwargs):
         """,
     )
     print(format_table(ctx, locations, columns))
+
+
+@cli.command(name="list-org-upstream-user-identities")
+@click.option("--org-id", default=None)
+@click.option("--limit", default=500)
+@click.pass_context
+def list_org_upstream_user_identities(ctx, **kwargs):
+    org_upstreams = users.list_org_upstream_user_identities(ctx, **kwargs)
+    columns = make_columns(
+        ctx,
+        org_upstreams,
+        """
+          - metadata.id(newname=id)
+          - spec.user_id(newname=user_id)
+          - spec.org_id(newname=org_id)
+          - spec.last_login(newname=last_login)
+          - status.upstream_user_identity.spec.upstream_idp_id(newname=upstream_idp_id)
+          - status.upstream_user_identity.spec.upstream_user_id(newname=upstream_user_id)
+        """,
+    )
+    print(format_table(ctx, org_upstreams, columns))
 
 
 def main():

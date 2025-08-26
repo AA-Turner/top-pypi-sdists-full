@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: joserfc
-Version: 1.2.2
+Version: 1.3.0
 Summary: The ultimate Python library for JOSE RFCs, including JWS, JWE, JWK, JWA, JWT
 Author-email: Hsiaoming Yang <me@lepture.com>
 License: BSD-3-Clause
@@ -16,7 +16,6 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -26,7 +25,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Security
 Classifier: Topic :: Security :: Cryptography
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cryptography
@@ -48,7 +47,7 @@ This package contains implementation of:
 - RFC7518: JSON Web Algorithms
 - RFC7519: JSON Web Token
 - RFC7520: Examples of Protecting Content Using JSON Object Signing and Encryption
-- RFC7638: thumbprint for JWK
+- RFC7638: JSON Web Key (JWK) Thumbprint
 - RFC7797: JSON Web Signature (JWS) Unencoded Payload Option
 - RFC8037: OKP Key and EdDSA algorithm
 - RFC8812: ES256K algorithm

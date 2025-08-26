@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lambdapdk
-Version: 0.1.55
+Version: 0.1.56
 Summary: Library of open source Process Design Kits
 Author: Zero ASIC
 License:                                  Apache License
@@ -200,10 +200,10 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: siliconcompiler>=0.27.0
 Provides-Extra: test
-Requires-Dist: flake8==7.2.0; extra == "test"
-Requires-Dist: pytest==8.4.0; extra == "test"
+Requires-Dist: flake8==7.3.0; extra == "test"
+Requires-Dist: pytest==8.4.1; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
-Requires-Dist: tclint==0.5.4; extra == "test"
+Requires-Dist: tclint==0.6.0; extra == "test"
 Requires-Dist: lambdalib==0.3.4; extra == "test"
 Requires-Dist: sc-leflib==0.4.0; extra == "test"
 Requires-Dist: Jinja2==3.1.6; extra == "test"

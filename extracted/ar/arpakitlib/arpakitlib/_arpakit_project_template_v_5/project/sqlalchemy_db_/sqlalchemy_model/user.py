@@ -115,6 +115,15 @@ class UserDBM(SimpleDBM):
             parts.append(f"username={self.username}")
         return f"{self.entity_name} ({', '.join(parts)})"
 
+    @validates("fullname")
+    def _validate_fullname(self, key, value, *args, **kwargs):
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError(f"{key=}, {value=}, value is not str")
+        value = make_none_if_blank(value.strip())
+        return value
+
     @validates("email")
     def _validate_email(self, key, value, *args, **kwargs):
         if value is None:

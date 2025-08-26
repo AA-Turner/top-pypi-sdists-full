@@ -13,6 +13,7 @@ from functools import lru_cache, wraps
 from typing import Any, List, Optional
 from importlib.metadata import PackageNotFoundError, version
 
+
 class ErrorType:
     NOT_FOUND = "NotFound"
     PRECONDITION_FAILED = "PreconditionFailed"
@@ -511,6 +512,8 @@ def _install_package(package_name):
         subprocess.run(
             ["pip", "install", package_name],
             check=True,
+            stdout=subprocess.DEVNULL,   # suppress normal output
+            stderr=subprocess.DEVNULL    # suppress warnings/progress
         )
         logging.info("Successfully installed %s", package_name)
         return True

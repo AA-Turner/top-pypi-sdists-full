@@ -34,6 +34,9 @@ NESTED_CLASSES_WHITELIST: Final = (
     'Config',  # pydantic specific
 )
 
+#: List of additional enum-like base class names.
+KNOWN_ENUM_BASES: Final = ()
+
 #: Domain names that are removed from variable names' blacklist.
 ALLOWED_DOMAIN_NAMES: Final = ()
 
@@ -151,6 +154,10 @@ MAX_MATCH_SUBJECTS: Final = 7  # 7 +- 0, guessed
 
 #: Maximum number of subjects in match statement.
 MAX_MATCH_CASES: Final = 7  # guessed
+
+#: Maximum number of conditions in a single ``if`` or ``while`` statement.
+MAX_CONDITIONS: Final = 4  # reasonable enough
+
 
 # ==========
 # Formatter:

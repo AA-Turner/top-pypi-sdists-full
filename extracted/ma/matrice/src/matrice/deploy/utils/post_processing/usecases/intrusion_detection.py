@@ -717,7 +717,7 @@ class IntrusionUseCase(BaseProcessor):
             pass
         
         # Zone occupancy threshold alerts
-        if config.alert_config.occupancy_thresholds:
+        if hasattr(config.alert_config, 'occupancy_thresholds') and config.alert_config.occupancy_thresholds:
             for zone_name, threshold in config.alert_config.occupancy_thresholds.items():
                 if zone_name in zone_analysis:
                     # Use enhanced zone analysis for accurate current counts

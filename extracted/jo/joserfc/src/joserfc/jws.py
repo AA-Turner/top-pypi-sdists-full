@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import overload, TypeVar, Any, Dict
+from typing import overload, TypeVar, Any
 from ._rfc7515.model import (
     JWSAlgModel,
     HeaderMember as HeaderMember,
@@ -10,6 +10,7 @@ from ._rfc7515.model import (
 from ._rfc7515.registry import (
     JWSRegistry as JWSRegistry,
     construct_registry,
+    default_registry,
 )
 from ._rfc7515.compact import (
     sign_compact,
@@ -29,7 +30,6 @@ from ._rfc7515.types import (
     GeneralJSONSerialization as GeneralJSONSerialization,
     FlattenedJSONSerialization as FlattenedJSONSerialization,
 )
-from ._rfc7518.jws_algs import JWS_ALGORITHMS
 from ._rfc7797.util import is_rfc7797_enabled
 from ._rfc7797.compact import (
     sign_rfc7515_compact,
@@ -39,10 +39,9 @@ from ._rfc7797.json import (
     sign_rfc7797_json,
     extract_rfc7797_json as extract_flattened_json,
 )
-from ._rfc8037.jws_eddsa import EdDSA
-from ._rfc8812 import ES256K
 from .errors import BadSignatureError, MissingKeyError
-from .jwk import Key, KeyFlexible, KeySet, guess_key
+from .jwk import Key, KeyFlexible, guess_key
+from .jwa import setup_jws_algorithms
 from .util import to_bytes
 from .registry import Header
 
@@ -52,7 +51,6 @@ __all__ = [
     "GeneralJSONSerialization",
     "FlattenedJSONSerialization",
     # modules
-    "JWSAlgModel",
     "JWSRegistry",
     "HeaderMember",
     "CompactSignature",
@@ -66,29 +64,11 @@ __all__ = [
     "serialize_json",
     "deserialize_json",
     "detach_content",
+    # consts
+    "default_registry",
 ]
 
-
-def register_key_set() -> None:
-    for _alg in JWS_ALGORITHMS:
-        KeySet.algorithm_keys[_alg.name] = [_alg.key_type]
-    KeySet.algorithm_keys[EdDSA.name] = [EdDSA.key_type]
-    KeySet.algorithm_keys[ES256K.name] = [ES256K.key_type]
-
-
-# register supported alg models
-def register_algorithms() -> None:
-    # register alg in RFC7518
-    for _alg in JWS_ALGORITHMS:
-        JWSRegistry.register(_alg)
-    # register alg in RFC8037
-    JWSRegistry.register(EdDSA)
-    # register alg in RFC8812
-    JWSRegistry.register(ES256K)
-
-
-register_key_set()
-register_algorithms()
+setup_jws_algorithms()
 
 
 def serialize_compact(
@@ -131,9 +111,7 @@ def serialize_compact(
             raise MissingKeyError()
 
         key = guess_key(private_key, obj, True, use="sig")
-        key.check_use("sig")
-        alg.check_key_type(key)
-        key.check_alg(alg.name)
+        alg.check_key(key)
 
     if is_rfc7797:
         out = sign_rfc7515_compact(obj, alg, key)
@@ -171,8 +149,7 @@ def validate_compact(
         raise MissingKeyError()
 
     key: Key = guess_key(public_key, obj, use="sig")
-    key.check_use("sig")
-    alg.check_key_type(key)
+    alg.check_key(key)
     return verify_compact(obj, alg, key)
 
 
@@ -330,7 +307,7 @@ def deserialize_json(
         return flattened_obj
 
 
-DetachValue = TypeVar("DetachValue", str, Dict[str, Any])
+DetachValue = TypeVar("DetachValue", str, dict[str, Any])
 
 
 def detach_content(value: DetachValue) -> DetachValue:

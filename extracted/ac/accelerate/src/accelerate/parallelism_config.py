@@ -17,9 +17,8 @@ import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Union
 
-from torch.distributed.device_mesh import init_device_mesh
-
 from accelerate.utils.dataclasses import TorchContextParallelConfig, TorchTensorParallelConfig
+from accelerate.utils.versions import is_torch_version
 
 
 if TYPE_CHECKING:
@@ -78,6 +77,19 @@ class ParallelismConfig:
             f"\ttotal_size={self.total_size}\n"
             f"\ttp_handler={self.tp_handler},\n"
             f"\tcp_handler={self.cp_handler})\n"
+        )
+
+    def to_json(self):
+        import copy
+
+        _non_serializable_fields = ["device_mesh"]
+
+        copy.deepcopy(
+            {
+                k: copy.deepcopy(v.__dict__) if hasattr(v, "__dict__") else v
+                for k, v in self.__dict__.items()
+                if k not in _non_serializable_fields
+            }
         )
 
     @property
@@ -178,6 +190,11 @@ class ParallelismConfig:
         Args:
             device_type (`str`): The type of device for which to build the mesh, e
         """
+        if is_torch_version(">=", "2.2.0"):
+            from torch.distributed.device_mesh import init_device_mesh
+        else:
+            raise RuntimeError("Building a device_mesh requires to have torch>=2.2.0")
+
         mesh = self._get_mesh()
         if len(mesh) == 0:
             return None

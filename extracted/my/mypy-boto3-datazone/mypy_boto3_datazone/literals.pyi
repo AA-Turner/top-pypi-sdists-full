@@ -54,8 +54,10 @@ __all__ = (
     "FormTypeStatusType",
     "GlossaryStatusType",
     "GlossaryTermStatusType",
+    "GlossaryUsageRestrictionType",
     "GlueConnectionTypeType",
     "GovernanceTypeType",
+    "GovernedEntityTypeType",
     "GroupProfileStatusType",
     "GroupSearchTypeType",
     "HyperPodOrchestratorType",
@@ -256,6 +258,7 @@ FilterStatusType = Literal["INVALID", "VALID"]
 FormTypeStatusType = Literal["DISABLED", "ENABLED"]
 GlossaryStatusType = Literal["DISABLED", "ENABLED"]
 GlossaryTermStatusType = Literal["DISABLED", "ENABLED"]
+GlossaryUsageRestrictionType = Literal["ASSET_GOVERNED_TERMS"]
 GlueConnectionTypeType = Literal[
     "BIGQUERY",
     "DOCUMENTDB",
@@ -272,6 +275,7 @@ GlueConnectionTypeType = Literal[
     "VERTICA",
 ]
 GovernanceTypeType = Literal["AWS_MANAGED", "USER_MANAGED"]
+GovernedEntityTypeType = Literal["ASSET"]
 GroupProfileStatusType = Literal["ASSIGNED", "NOT_ASSIGNED"]
 GroupSearchTypeType = Literal["DATAZONE_SSO_GROUP", "SSO_GROUP"]
 HyperPodOrchestratorType = Literal["EKS", "SLURM"]
@@ -357,7 +361,9 @@ OverallDeploymentStatusType = Literal[
     "FAILED_DEPLOYMENT", "FAILED_VALIDATION", "IN_PROGRESS", "PENDING_DEPLOYMENT", "SUCCESSFUL"
 ]
 ProjectDesignationType = Literal["CONTRIBUTOR", "OWNER", "PROJECT_CATALOG_STEWARD"]
-ProjectStatusType = Literal["ACTIVE", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"]
+ProjectStatusType = Literal[
+    "ACTIVE", "DELETE_FAILED", "DELETING", "MOVING", "UPDATE_FAILED", "UPDATING"
+]
 ProtocolType = Literal[
     "ATHENA", "GLUE_INTERACTIVE_SESSION", "HTTPS", "JDBC", "LIVY", "ODBC", "PRISM"
 ]

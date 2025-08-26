@@ -249,6 +249,7 @@ class DrawerPortal(DrawerComponent):
         """
 
 class DrawerContent(DrawerComponent):
+    def add_style(self) -> dict: ...
     @classmethod
     def create(
         cls,
@@ -309,6 +310,7 @@ class DrawerContent(DrawerComponent):
         """
 
 class DrawerOverlay(DrawerComponent):
+    def add_style(self) -> dict: ...
     @classmethod
     def create(
         cls,
@@ -411,6 +413,7 @@ class DrawerClose(DrawerTrigger):
         """
 
 class DrawerTitle(DrawerComponent):
+    def add_style(self) -> dict: ...
     @classmethod
     def create(
         cls,
@@ -462,6 +465,7 @@ class DrawerTitle(DrawerComponent):
         """
 
 class DrawerDescription(DrawerComponent):
+    def add_style(self) -> dict: ...
     @classmethod
     def create(
         cls,

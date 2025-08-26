@@ -249,6 +249,7 @@ async def create_valid_run(
     barrier: asyncio.Barrier | None = None,
     run_id: UUID | None = None,
     request_start_time: float | None = None,
+    temporary: bool = False,
 ) -> Run:
     request_id = headers.get("x-request-id")  # Will be null in the crons scheduler.
     (
@@ -262,7 +263,7 @@ async def create_valid_run(
         run_id=run_id,
     )
     if (
-        thread_id_ is None
+        (thread_id_ is None or temporary)
         and (command := payload.get("command"))
         and command.get("resume")
     ):
@@ -270,9 +271,9 @@ async def create_valid_run(
             status_code=400,
             detail="You must provide a thread_id when resuming.",
         )
-    temporary = (
-        thread_id_ is None and payload.get("on_completion", "delete") == "delete"
-    )
+    temporary = (temporary or thread_id_ is None) and payload.get(
+        "on_completion", "delete"
+    ) == "delete"
     stream_resumable = payload.get("stream_resumable", False)
     stream_mode, multitask_strategy, prevent_insert_if_inflight = assign_defaults(
         payload

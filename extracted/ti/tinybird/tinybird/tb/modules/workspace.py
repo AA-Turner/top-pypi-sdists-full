@@ -157,7 +157,7 @@ def create_workspace(
         )
 
     config = CLIConfig.get_project_config()
-    user_token = config.get_user_token()
+    user_token = get_user_token(config)
     fork = False
 
     if not user_token:

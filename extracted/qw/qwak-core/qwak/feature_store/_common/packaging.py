@@ -6,16 +6,16 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 from shutil import make_archive
-from typing import TYPE_CHECKING, Callable, List, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 from uuid import uuid4
 
 import requests
-
 from qwak.clients.feature_store.management_client import FeatureRegistryClient
 from qwak.exceptions import QwakException
 from qwak.feature_store._common.value import (
     UPDATE_QWAK_SDK_WITH_FEATURE_STORE_EXTRA_MSG,
 )
+from requests import HTTPError, Response
 
 ZIP_FUNCTION_CONTENT_TYPE = "text/plain"
 
@@ -195,22 +195,35 @@ def upload_artifact(
     return uploaded_artifact_url
 
 
-def put_presigned_url(presign_url: str, content: bytes, content_type: str) -> None:
-    http_response = requests.put(
-        presign_url,
-        headers={"content-type": content_type},
-        data=content,
-        timeout=600,
-    )
-    if 400 <= http_response.status_code < 600:
-        raise QwakException(
-            f"Error while uploading user function to s3. status code: {http_response.status_code}"
+def put_files_content(
+    url: str,
+    content: bytes,
+    content_type: str,
+    extra_headers: Optional[Dict[str, str]] = None,
+) -> None:
+    """
+    uploads files content to s3 using presigned url or to jfrog artifactory using url and authentication headers
+    """
+    extra_headers = extra_headers or {}
+    try:
+        http_response: Response = requests.put(
+            url,
+            headers={"content-type": content_type, **extra_headers},
+            data=content,
+            timeout=300,
         )
+        http_response.raise_for_status()
+    except HTTPError as e:
+        raise QwakException(
+            f"Error while uploading artifact. status code: {e.response.status_code} with reason: {e.response.reason}"
+        ) from e
 
 
 def upload_to_s3(presign_url: str, in_memory_zip: bytes, content_type: str) -> str:
-    put_presigned_url(
-        presign_url=presign_url, content=in_memory_zip, content_type=content_type
+    put_files_content(
+        url=presign_url,
+        content=in_memory_zip,
+        content_type=content_type,
     )
     from urllib.parse import urlparse
 
@@ -227,8 +240,7 @@ def base_upload_function_code(
     feature_module_dir: Path,
 ) -> str:
     """
-    get presign url and prepare a zip file with the functions code
-    and it's module and upload it to clients' s3 bucket
+    get presign url and prepare a zip file with the functions code and it's module than uploads it to clients' s3 bucket
     Args:
         presign_url: presign url
         functions: udf functions

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: protovalidate
-Version: 0.14.0
+Version: 0.14.1
 Summary: Protocol Buffer Validation for Python
 Project-URL: Homepage, https://github.com/bufbuild/protovalidate-python
 Project-URL: Source, https://github.com/bufbuild/protovalidate-python
@@ -17,9 +17,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Requires-Dist: cel-python==0.2.*
-Requires-Dist: protobuf==6.*
+Requires-Dist: protobuf>=5
 Provides-Extra: re2
-Requires-Dist: google-re2==1.*; extra == 're2'
+Requires-Dist: google-re2>=1; extra == 're2'
+Requires-Dist: google-re2>=1.1.20250722; (python_version == '3.13') and extra == 're2'
+Requires-Dist: google-re2>=1.1; (python_version == '3.12') and extra == 're2'
 Description-Content-Type: text/markdown
 
 [![The Buf logo](https://raw.githubusercontent.com/bufbuild/protovalidate/main/.github/buf-logo.svg)][buf]
@@ -84,7 +86,7 @@ pip install protovalidate[re2]
 
 ## Documentation
 
-Comprehensive documentation for Protovalidate is available in [Buf's documentation library][protovalidate].
+Comprehensive documentation for Protovalidate is available at [protovalidate.com][protovalidate].
 
 Highlights for Python developers include:
 
@@ -132,17 +134,17 @@ Offered under the [Apache 2 license][license].
 
 [protoc-gen-validate]: https://github.com/bufbuild/protoc-gen-validate
 
-[protovalidate]: https://buf.build/docs/protovalidate
-[quickstart]: https://buf.build/docs/protovalidate/quickstart/
-[connect-go]: https://buf.build/docs/protovalidate/quickstart/connect-go/
-[grpc-go]: https://buf.build/docs/protovalidate/quickstart/grpc-go/
-[grpc-java]: https://buf.build/docs/protovalidate/quickstart/grpc-java/
-[grpc-python]: https://buf.build/docs/protovalidate/quickstart/grpc-python/
-[migration-guide]: https://buf.build/docs/migration-guides/migrate-from-protoc-gen-validate/
+[protovalidate]: https://protovalidate.com
+[quickstart]: https://protovalidate.com/quickstart/
+[connect-go]: https://protovalidate.com/quickstart/connect-go/
+[grpc-go]: https://protovalidate.com/quickstart/grpc-go/
+[grpc-java]: https://protovalidate.com/quickstart/grpc-java/
+[grpc-python]: https://protovalidate.com/quickstart/grpc-python/
+[migration-guide]: https://protovalidate.com/migration-guides/migrate-from-protoc-gen-validate/
 [conformance-executable]: ./internal/cmd/protovalidate-conformance-go/README.md
 [pkg-go]: https://pkg.go.dev/github.com/bufbuild/protovalidate-go
 
 [validate-proto]: https://buf.build/bufbuild/protovalidate/docs/main:buf.validate
 [conformance]: https://github.com/bufbuild/protovalidate/blob/main/docs/conformance.md
 [examples]: https://github.com/bufbuild/protovalidate/tree/main/examples
-[migrate]: https://buf.build/docs/migration-guides/migrate-from-protoc-gen-validate/
+[migrate]: https://protovalidate.com/migration-guides/migrate-from-protoc-gen-validate/

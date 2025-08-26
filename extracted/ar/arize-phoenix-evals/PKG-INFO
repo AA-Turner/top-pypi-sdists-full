@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-evals
-Version: 0.28.1
+Version: 0.29.0
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -18,7 +18,9 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <3.14,>=3.8
-Requires-Dist: glom
+Requires-Dist: jsonpath-ng
+Requires-Dist: openinference-semantic-conventions>=0.1.19
+Requires-Dist: opentelemetry-api
 Requires-Dist: pandas
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pystache

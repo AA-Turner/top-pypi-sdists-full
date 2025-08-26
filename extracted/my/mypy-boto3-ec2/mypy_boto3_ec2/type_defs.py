@@ -113,6 +113,7 @@ from .literals import (
     ElasticGpuStatusType,
     EnaSupportType,
     EndDateTypeType,
+    EndpointIpAddressTypeType,
     EphemeralNvmeSupportType,
     EventCodeType,
     EventTypeType,
@@ -320,6 +321,7 @@ from .literals import (
     TieringOperationStatusType,
     TokenStateType,
     TrafficDirectionType,
+    TrafficIpAddressTypeType,
     TrafficMirrorFilterRuleFieldType,
     TrafficMirrorRuleActionType,
     TrafficMirrorSessionFieldType,
@@ -10873,6 +10875,7 @@ class ClientVpnConnectionTypeDef(TypedDict):
     IngressPackets: NotRequired[str]
     EgressPackets: NotRequired[str]
     ClientIp: NotRequired[str]
+    ClientIpv6Address: NotRequired[str]
     CommonName: NotRequired[str]
     Status: NotRequired[ClientVpnConnectionStatusTypeDef]
     ConnectionEndTime: NotRequired[str]
@@ -16813,6 +16816,8 @@ class ClientVpnEndpointTypeDef(TypedDict):
     ClientLoginBannerOptions: NotRequired[ClientLoginBannerResponseOptionsTypeDef]
     ClientRouteEnforcementOptions: NotRequired[ClientRouteEnforcementResponseOptionsTypeDef]
     DisconnectOnSessionTimeout: NotRequired[bool]
+    EndpointIpAddressType: NotRequired[EndpointIpAddressTypeType]
+    TrafficIpAddressType: NotRequired[TrafficIpAddressTypeType]
 
 
 class DescribeClientVpnConnectionsResultTypeDef(TypedDict):
@@ -18716,10 +18721,10 @@ class CreateCarrierGatewayRequestTypeDef(TypedDict):
 
 
 class CreateClientVpnEndpointRequestTypeDef(TypedDict):
-    ClientCidrBlock: str
     ServerCertificateArn: str
     AuthenticationOptions: Sequence[ClientVpnAuthenticationRequestTypeDef]
     ConnectionLogOptions: ConnectionLogOptionsTypeDef
+    ClientCidrBlock: NotRequired[str]
     DnsServers: NotRequired[Sequence[str]]
     TransportProtocol: NotRequired[TransportProtocolType]
     VpnPort: NotRequired[int]
@@ -18736,6 +18741,8 @@ class CreateClientVpnEndpointRequestTypeDef(TypedDict):
     ClientLoginBannerOptions: NotRequired[ClientLoginBannerOptionsTypeDef]
     ClientRouteEnforcementOptions: NotRequired[ClientRouteEnforcementOptionsTypeDef]
     DisconnectOnSessionTimeout: NotRequired[bool]
+    EndpointIpAddressType: NotRequired[EndpointIpAddressTypeType]
+    TrafficIpAddressType: NotRequired[TrafficIpAddressTypeType]
 
 
 class CreateCoipPoolRequestTypeDef(TypedDict):

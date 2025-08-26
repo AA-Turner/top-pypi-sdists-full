@@ -331,6 +331,40 @@ class HostedRunResult(google.protobuf.message.Message):
 global___HostedRunResult = HostedRunResult
 
 @typing_extensions.final
+class InteractiveRunRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HOSTED_RUN_FIELD_NUMBER: builtins.int
+    @property
+    def hosted_run(self) -> global___HostedRun: ...
+    def __init__(
+        self,
+        *,
+        hosted_run: global___HostedRun | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["hosted_run", b"hosted_run"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["hosted_run", b"hosted_run"]) -> None: ...
+
+global___InteractiveRunRequest = InteractiveRunRequest
+
+@typing_extensions.final
+class InteractiveRunResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HOSTED_RUN_RESULT_FIELD_NUMBER: builtins.int
+    @property
+    def hosted_run_result(self) -> global___HostedRunResult: ...
+    def __init__(
+        self,
+        *,
+        hosted_run_result: global___HostedRunResult | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["hosted_run_result", b"hosted_run_result"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["hosted_run_result", b"hosted_run_result"]) -> None: ...
+
+global___InteractiveRunResponse = InteractiveRunResponse
+
+@typing_extensions.final
 class HostedRunStatus(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

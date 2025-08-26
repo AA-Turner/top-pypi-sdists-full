@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: os-ken
-Version: 3.1.0
+Version: 3.1.1
 Summary: A component-based software defined networking framework for OpenStack.
 Home-page: http://www.openstack.org/
 Author: OpenStack

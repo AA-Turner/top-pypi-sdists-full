@@ -1,3 +1,4 @@
+from typing import Dict, List
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -71,7 +72,7 @@ class ScheduleListCommand(BaseCommand):
             await scheduler.tasks(schedule_service)
 
             # Retrieve the list of scheduled jobs/events
-            list_tasks = schedule_service.events()
+            list_tasks: List[Dict] = schedule_service.events()
 
             # Display a message if no scheduled jobs are found
             if not list_tasks:
@@ -85,20 +86,20 @@ class ScheduleListCommand(BaseCommand):
             table.add_column("Signature", style="cyan", no_wrap=True)
             table.add_column("Arguments", style="magenta")
             table.add_column("Purpose", style="green")
-            table.add_column("Random Delay (calculated result)", style="yellow")
+            table.add_column("Random Delay (Calculated Result)", style="yellow")
             table.add_column("Start Date", style="white")
             table.add_column("End Date", style="white")
             table.add_column("Details", style="dim")
 
             # Populate the table with job details
             for job in list_tasks:
-                signature = str(job.get("signature", ""))
-                args = ", ".join(map(str, job.get("args", [])))
-                purpose = str(job.get("purpose", ""))
-                random_delay = str(job.get("random_delay", ""))
-                start_date = str(job.get("start_date", "")) if job.get("start_date") else "-"
-                end_date = str(job.get("end_date", "")) if job.get("end_date") else "-"
-                details = str(job.get("details", ""))
+                signature = str(job.get("signature"))
+                args = str(job.get("args", []))
+                purpose = str(job.get("purpose"))
+                random_delay = str(job.get("random_delay"))
+                start_date = str(job.get("start_date"))
+                end_date = str(job.get("end_date"))
+                details = str(job.get("details"))
 
                 table.add_row(signature, args, purpose, random_delay, start_date, end_date, details)
 

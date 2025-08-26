@@ -27,7 +27,11 @@ from starlette.exceptions import HTTPException
 
 from langgraph_runtime_inmem.checkpoint import Checkpointer
 from langgraph_runtime_inmem.database import InMemConnectionProto, connect
-from langgraph_runtime_inmem.inmem_stream import Message, get_stream_manager
+from langgraph_runtime_inmem.inmem_stream import (
+    THREADLESS_KEY,
+    Message,
+    get_stream_manager,
+)
 
 if typing.TYPE_CHECKING:
     from langgraph_api.asyncio import ValueEvent
@@ -406,19 +410,17 @@ class Assistants(Authenticated):
             else 1
         )
 
-        # Update assistant_versions table
-        if metadata:
-            metadata = {
-                **assistant["metadata"],
-                **metadata,
-            }
         new_version_entry = {
             "assistant_id": assistant_id,
             "version": new_version,
             "graph_id": graph_id if graph_id is not None else assistant["graph_id"],
             "config": config if config else assistant["config"],
             "context": context if context is not None else assistant.get("context", {}),
-            "metadata": metadata if metadata is not None else assistant["metadata"],
+            "metadata": (
+                {**assistant["metadata"], **metadata}
+                if metadata is not None
+                else assistant["metadata"]
+            ),
             "created_at": now,
             "name": name if name is not None else assistant["name"],
             "description": (
@@ -1611,6 +1613,151 @@ class Threads(Authenticated):
 
             return []
 
+    class Stream:
+        @staticmethod
+        async def subscribe(
+            conn: InMemConnectionProto | AsyncConnectionProto,
+            thread_id: UUID,
+            seen_runs: set[UUID],
+        ) -> list[tuple[UUID, asyncio.Queue]]:
+            """Subscribe to the thread stream, creating queues for unseen runs."""
+            stream_manager = get_stream_manager()
+            queues = []
+
+            # Create new queues only for runs not yet seen
+            thread_id = _ensure_uuid(thread_id)
+            for run in conn.store["runs"]:
+                if run["thread_id"] == thread_id:
+                    run_id = run["run_id"]
+                    if run_id not in seen_runs:
+                        queue = await stream_manager.add_queue(run_id, thread_id)
+                        queues.append((run_id, queue))
+                        seen_runs.add(run_id)
+
+            return queues
+
+        @staticmethod
+        async def join(
+            thread_id: UUID,
+            *,
+            last_event_id: str | None = None,
+        ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
+            """Stream the thread output."""
+            from langgraph_api.serde import json_loads
+
+            stream_manager = get_stream_manager()
+            seen_runs: set[UUID] = set()
+            created_queues: list[tuple[UUID, asyncio.Queue]] = []
+
+            try:
+                async with connect() as conn:
+                    await logger.ainfo(
+                        "Joined thread stream",
+                        thread_id=str(thread_id),
+                    )
+
+                    # Restore messages if resuming from a specific event
+                    if last_event_id is not None:
+                        # Collect all events from all message stores for this thread
+                        all_events = []
+                        for run_id in stream_manager.message_stores.get(
+                            str(thread_id), []
+                        ):
+                            for message in stream_manager.restore_messages(
+                                run_id, thread_id, last_event_id
+                            ):
+                                all_events.append((message, run_id))
+
+                        # Sort by message ID (which is ms-seq format)
+                        all_events.sort(key=lambda x: x[0].id.decode())
+
+                        # Yield sorted events
+                        for message, run_id in all_events:
+                            data = json_loads(message.data)
+                            event_name = data["event"]
+                            message_content = data["message"]
+
+                            if event_name == "control":
+                                if message_content == b"done":
+                                    yield (
+                                        b"metadata",
+                                        orjson.dumps(
+                                            {"status": "run_done", "run_id": run_id}
+                                        ),
+                                        message.id,
+                                    )
+                            else:
+                                yield (
+                                    event_name.encode(),
+                                    base64.b64decode(message_content),
+                                    message.id,
+                                )
+
+                    # Listen for live messages from all queues
+                    while True:
+                        # Refresh queues to pick up any new runs that joined this thread
+                        new_queue_tuples = await Threads.Stream.subscribe(
+                            conn, thread_id, seen_runs
+                        )
+                        # Track new queues for cleanup
+                        for run_id, queue in new_queue_tuples:
+                            created_queues.append((run_id, queue))
+
+                        for run_id, queue in created_queues:
+                            try:
+                                message = await asyncio.wait_for(
+                                    queue.get(), timeout=0.2
+                                )
+                                data = json_loads(message.data)
+                                event_name = data["event"]
+                                message_content = data["message"]
+
+                                if event_name == "control":
+                                    if message_content == b"done":
+                                        # Extract run_id from topic
+                                        topic = message.topic.decode()
+                                        run_id = topic.split("run:")[1].split(":")[0]
+                                        yield (
+                                            b"metadata",
+                                            orjson.dumps(
+                                                {"status": "run_done", "run_id": run_id}
+                                            ),
+                                            message.id,
+                                        )
+                                else:
+                                    yield (
+                                        event_name.encode(),
+                                        base64.b64decode(message_content),
+                                        message.id,
+                                    )
+
+                            except TimeoutError:
+                                continue
+                            except (ValueError, KeyError):
+                                continue
+
+                        # Yield execution to other tasks to prevent event loop starvation
+                        await asyncio.sleep(0)
+
+            except WrappedHTTPException as e:
+                raise e.http_exception from None
+            except asyncio.CancelledError:
+                await logger.awarning(
+                    "Thread stream client disconnected",
+                    thread_id=str(thread_id),
+                )
+                raise
+            except:
+                raise
+            finally:
+                # Clean up all created queues
+                for run_id, queue in created_queues:
+                    try:
+                        await stream_manager.remove_queue(run_id, thread_id, queue)
+                    except Exception:
+                        # Ignore cleanup errors
+                        pass
+
     @staticmethod
     async def count(
         conn: InMemConnectionProto,
@@ -1769,7 +1916,7 @@ class Runs(Authenticated):
     @asynccontextmanager
     @staticmethod
     async def enter(
-        run_id: UUID, loop: asyncio.AbstractEventLoop
+        run_id: UUID, thread_id: UUID | None, loop: asyncio.AbstractEventLoop
     ) -> AsyncIterator[ValueEvent]:
         """Enter a run, listen for cancellation while running, signal when done."
         This method should be called as a context manager by a worker executing a run.
@@ -1777,12 +1924,14 @@ class Runs(Authenticated):
         from langgraph_api.asyncio import SimpleTaskGroup, ValueEvent
 
         stream_manager = get_stream_manager()
-        # Get queue for this run
-        queue = await stream_manager.add_control_queue(run_id)
+        # Get control queue for this run (normal queue is created during run creation)
+        control_queue = await stream_manager.add_control_queue(run_id, thread_id)
 
         async with SimpleTaskGroup(cancel=True, taskgroup_name="Runs.enter") as tg:
             done = ValueEvent()
-            tg.create_task(listen_for_cancellation(queue, run_id, done))
+            tg.create_task(
+                listen_for_cancellation(control_queue, run_id, thread_id, done)
+            )
 
             # Give done event to caller
             yield done
@@ -1790,17 +1939,17 @@ class Runs(Authenticated):
             control_message = Message(
                 topic=f"run:{run_id}:control".encode(), data=b"done"
             )
-            await stream_manager.put(run_id, control_message)
+            await stream_manager.put(run_id, thread_id, control_message)
 
             # Signal done to all subscribers
             stream_message = Message(
                 topic=f"run:{run_id}:stream".encode(),
                 data={"event": "control", "message": b"done"},
             )
-            await stream_manager.put(run_id, stream_message)
+            await stream_manager.put(run_id, thread_id, stream_message)
 
-            # Remove the queue
-            await stream_manager.remove_control_queue(run_id, queue)
+            # Remove the control_queue (normal queue is cleaned up during run deletion)
+            await stream_manager.remove_control_queue(run_id, thread_id, control_queue)
 
     @staticmethod
     async def sweep() -> None:
@@ -2088,6 +2237,7 @@ class Runs(Authenticated):
             if not thread:
                 return _empty_generator()
         _delete_checkpoints_for_thread(thread_id, conn, run_id=run_id)
+
         found = False
         for i, run in enumerate(conn.store["runs"]):
             if run["run_id"] == run_id and run["thread_id"] == thread_id:
@@ -2270,9 +2420,9 @@ class Runs(Authenticated):
                 topic=f"run:{run_id}:control".encode(),
                 data=action.encode(),
             )
-            coros.append(stream_manager.put(run_id, control_message))
+            coros.append(stream_manager.put(run_id, thread_id, control_message))
 
-            queues = stream_manager.get_queues(run_id)
+            queues = stream_manager.get_queues(run_id, thread_id)
 
             if run["status"] in ("pending", "running"):
                 cancelable_runs.append(run)
@@ -2387,15 +2537,25 @@ class Runs(Authenticated):
         @staticmethod
         async def subscribe(
             run_id: UUID,
+            thread_id: UUID | None = None,
         ) -> asyncio.Queue:
             """Subscribe to the run stream, returning a queue."""
             stream_manager = get_stream_manager()
-            queue = await stream_manager.add_queue(_ensure_uuid(run_id))
+            queue = await stream_manager.add_queue(_ensure_uuid(run_id), thread_id)
 
             # If there's a control message already stored, send it to the new subscriber
-            if control_messages := stream_manager.control_queues.get(run_id):
-                for control_msg in control_messages:
-                    await queue.put(control_msg)
+            if thread_id is None:
+                thread_id = THREADLESS_KEY
+            if control_queues := stream_manager.control_queues.get(thread_id, {}).get(
+                run_id
+            ):
+                for control_queue in control_queues:
+                    try:
+                        while True:
+                            control_msg = control_queue.get()
+                            await queue.put(control_msg)
+                    except asyncio.QueueEmpty:
+                        pass
             return queue
 
         @staticmethod
@@ -2417,7 +2577,7 @@ class Runs(Authenticated):
             queue = (
                 stream_channel
                 if stream_channel
-                else await Runs.Stream.subscribe(run_id)
+                else await Runs.Stream.subscribe(run_id, thread_id)
             )
 
             try:
@@ -2440,7 +2600,7 @@ class Runs(Authenticated):
                     run = await Runs.get(conn, run_id, thread_id=thread_id, ctx=ctx)
 
                     for message in get_stream_manager().restore_messages(
-                        run_id, last_event_id
+                        run_id, thread_id, last_event_id
                     ):
                         data, id = message.data, message.id
 
@@ -2531,7 +2691,7 @@ class Runs(Authenticated):
                 raise
             finally:
                 stream_manager = get_stream_manager()
-                await stream_manager.remove_queue(run_id, queue)
+                await stream_manager.remove_queue(run_id, thread_id, queue)
 
         @staticmethod
         async def publish(
@@ -2539,6 +2699,7 @@ class Runs(Authenticated):
             event: str,
             message: bytes,
             *,
+            thread_id: UUID | str | None = None,
             resumable: bool = False,
         ) -> None:
             """Publish a message to all subscribers of the run stream."""
@@ -2555,17 +2716,19 @@ class Runs(Authenticated):
                 }
             )
             await stream_manager.put(
-                run_id, Message(topic=topic, data=payload), resumable
+                run_id, thread_id, Message(topic=topic, data=payload), resumable
             )
 
 
-async def listen_for_cancellation(queue: asyncio.Queue, run_id: UUID, done: ValueEvent):
+async def listen_for_cancellation(
+    queue: asyncio.Queue, run_id: UUID, thread_id: UUID | None, done: ValueEvent
+):
     """Listen for cancellation messages and set the done event accordingly."""
     from langgraph_api.errors import UserInterrupt, UserRollback
 
     stream_manager = get_stream_manager()
 
-    if control_key := stream_manager.get_control_key(run_id):
+    if control_key := stream_manager.get_control_key(run_id, thread_id):
         payload = control_key.data
         if payload == b"rollback":
             done.set(UserRollback())

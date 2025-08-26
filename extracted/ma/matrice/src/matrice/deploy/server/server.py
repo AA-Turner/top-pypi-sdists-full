@@ -311,12 +311,14 @@ class MatriceDeployServer:
             dynamic_batching,
         )
 
-        post_processing_config = self.job_params.get("postProcessingConfig", None)
+        post_processing_config = self.job_params.get(
+            "post_processing_config", self.job_params.get("postProcessingConfig", None)
+        )
         if post_processing_config is None:
             post_processing_config = {}
         post_processing_config["facial_recognition_server_id"] = self.job_params.get("facial_recognition_server_id", None)
         post_processing_config["session"] = self.session  # Pass the session to post-processing
-        
+
         self.inference_interface = InferenceInterface(
             action_tracker=self.action_tracker,
             model_manager=self.model_manager,
@@ -362,14 +364,14 @@ class MatriceDeployServer:
                     if self._shutdown_event.is_set():
                         logging.warning("Shutdown already signaled, not starting stream manager")
                         return
-                    
+
                     await self.stream_manager.start()
                     logging.info("Stream manager started successfully")
 
                     # Wait until shutdown event (poll periodically since threading.Event isn't async)
                     while not self._shutdown_event.is_set():
                         await asyncio.sleep(0.1)
-                    
+
                     logging.info("Shutdown event received, stream manager will stop")
                 except asyncio.CancelledError:
                     logging.info("Stream manager task was cancelled")
@@ -400,7 +402,7 @@ class MatriceDeployServer:
                 finally:
                     loop.close()
                     logging.info("Stream manager loop closed")
-        
+
         try:
             # Start the stream manager in a separate thread
             self._stream_manager_thread = threading.Thread(
@@ -450,7 +452,7 @@ class MatriceDeployServer:
 
             # Signal shutdown to all components
             self._shutdown_event.set()
-            
+
             # Wait for stream manager thread to finish
             if self._stream_manager_thread and self._stream_manager_thread.is_alive():
                 logging.info("Waiting for stream manager thread to stop...")

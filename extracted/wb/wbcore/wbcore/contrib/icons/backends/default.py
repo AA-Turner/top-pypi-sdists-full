@@ -15,6 +15,7 @@ class IconBackend(AbstractBackend):
     APPROVE = "wb-icon-thumb-up"
     BANK = "wb-icon-bank"
     BIRTHDAY = "wb-icon-cake-1"
+    BROADCAST = "wb-icon-send"
     BOOKMARK = "wb-icon-bookmark"
     CALENDAR = "wb-icon-calendar-1"
     CHART_AREA = "wb-icon-chart-area"

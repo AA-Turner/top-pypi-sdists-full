@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aind-data-schema
-Version: 2.0.0
+Version: 2.0.1
 Summary: A library that defines AIND data schema and validates JSON files.
 License: MIT
 Classifier: Programming Language :: Python :: 3

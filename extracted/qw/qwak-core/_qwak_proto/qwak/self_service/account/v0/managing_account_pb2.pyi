@@ -28,12 +28,14 @@ class _CloudProviderEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._
     CLOUD_PROVIDER_INVALID: _CloudProvider.ValueType  # 0
     AWS: _CloudProvider.ValueType  # 1
     GCP: _CloudProvider.ValueType  # 2
+    AZURE: _CloudProvider.ValueType  # 3
 
 class CloudProvider(_CloudProvider, metaclass=_CloudProviderEnumTypeWrapper): ...
 
 CLOUD_PROVIDER_INVALID: CloudProvider.ValueType  # 0
 AWS: CloudProvider.ValueType  # 1
 GCP: CloudProvider.ValueType  # 2
+AZURE: CloudProvider.ValueType  # 3
 global___CloudProvider = CloudProvider
 
 class _CreateAccountRequestStatusCode:

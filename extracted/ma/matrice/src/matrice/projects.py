@@ -956,7 +956,7 @@ class Projects:
             checkpoint_type = "model_id"
             checkpoint_value = model_id
         if post_processing_config:
-            deployment_params["postProcessingConfig"] = post_processing_config
+            deployment_params["post_processing_config"] = post_processing_config
         body = {
             "deploymentName": deployment_name,
             "_idModel": model_id,

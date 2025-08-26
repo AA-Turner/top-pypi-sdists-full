@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13nominal_write.proto\x12\x1aio.nominal.scout.api.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"I\n\x13WriteRequestNominal\x12\x32\n\x06series\x18\x01 \x03(\x0b\x32\".io.nominal.scout.api.proto.Series\"\xdb\x01\n\x06Series\x12\x34\n\x07\x63hannel\x18\x01 \x01(\x0b\x32#.io.nominal.scout.api.proto.Channel\x12:\n\x04tags\x18\x02 \x03(\x0b\x32,.io.nominal.scout.api.proto.Series.TagsEntry\x12\x32\n\x06points\x18\x03 \x01(\x0b\x32\".io.nominal.scout.api.proto.Points\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x17\n\x07\x43hannel\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x9d\x01\n\x06Points\x12\x41\n\rdouble_points\x18\x01 \x01(\x0b\x32(.io.nominal.scout.api.proto.DoublePointsH\x00\x12\x41\n\rstring_points\x18\x02 \x01(\x0b\x32(.io.nominal.scout.api.proto.StringPointsH\x00\x42\r\n\x0bpoints_type\"G\n\x0c\x44oublePoints\x12\x37\n\x06points\x18\x01 \x03(\x0b\x32\'.io.nominal.scout.api.proto.DoublePoint\"G\n\x0cStringPoints\x12\x37\n\x06points\x18\x01 \x03(\x0b\x32\'.io.nominal.scout.api.proto.StringPoint\"K\n\x0b\x44oublePoint\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05value\x18\x02 \x01(\x01\"K\n\x0bStringPoint\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05value\x18\x02 \x01(\tB\x1e\n\x1aio.nominal.scout.api.protoP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13nominal_write.proto\x12\x1aio.nominal.scout.api.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"I\n\x13WriteRequestNominal\x12\x32\n\x06series\x18\x01 \x03(\x0b\x32\".io.nominal.scout.api.proto.Series\"\xdb\x01\n\x06Series\x12\x34\n\x07\x63hannel\x18\x01 \x01(\x0b\x32#.io.nominal.scout.api.proto.Channel\x12:\n\x04tags\x18\x02 \x03(\x0b\x32,.io.nominal.scout.api.proto.Series.TagsEntry\x12\x32\n\x06points\x18\x03 \x01(\x0b\x32\".io.nominal.scout.api.proto.Points\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x17\n\x07\x43hannel\x12\x0c\n\x04name\x18\x01 \x01(\t\"\xe2\x01\n\x06Points\x12\x41\n\rdouble_points\x18\x01 \x01(\x0b\x32(.io.nominal.scout.api.proto.DoublePointsH\x00\x12\x41\n\rstring_points\x18\x02 \x01(\x0b\x32(.io.nominal.scout.api.proto.StringPointsH\x00\x12\x43\n\x0einteger_points\x18\x03 \x01(\x0b\x32).io.nominal.scout.api.proto.IntegerPointsH\x00\x42\r\n\x0bpoints_type\"G\n\x0c\x44oublePoints\x12\x37\n\x06points\x18\x01 \x03(\x0b\x32\'.io.nominal.scout.api.proto.DoublePoint\"G\n\x0cStringPoints\x12\x37\n\x06points\x18\x01 \x03(\x0b\x32\'.io.nominal.scout.api.proto.StringPoint\"I\n\rIntegerPoints\x12\x38\n\x06points\x18\x01 \x03(\x0b\x32(.io.nominal.scout.api.proto.IntegerPoint\"K\n\x0b\x44oublePoint\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05value\x18\x02 \x01(\x01\"K\n\x0bStringPoint\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05value\x18\x02 \x01(\t\"L\n\x0cIntegerPoint\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05value\x18\x02 \x01(\x03\x42\x1e\n\x1aio.nominal.scout.api.protoP\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -44,13 +44,17 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CHANNEL']._serialized_start=381
   _globals['_CHANNEL']._serialized_end=404
   _globals['_POINTS']._serialized_start=407
-  _globals['_POINTS']._serialized_end=564
-  _globals['_DOUBLEPOINTS']._serialized_start=566
-  _globals['_DOUBLEPOINTS']._serialized_end=637
-  _globals['_STRINGPOINTS']._serialized_start=639
-  _globals['_STRINGPOINTS']._serialized_end=710
-  _globals['_DOUBLEPOINT']._serialized_start=712
-  _globals['_DOUBLEPOINT']._serialized_end=787
-  _globals['_STRINGPOINT']._serialized_start=789
-  _globals['_STRINGPOINT']._serialized_end=864
+  _globals['_POINTS']._serialized_end=633
+  _globals['_DOUBLEPOINTS']._serialized_start=635
+  _globals['_DOUBLEPOINTS']._serialized_end=706
+  _globals['_STRINGPOINTS']._serialized_start=708
+  _globals['_STRINGPOINTS']._serialized_end=779
+  _globals['_INTEGERPOINTS']._serialized_start=781
+  _globals['_INTEGERPOINTS']._serialized_end=854
+  _globals['_DOUBLEPOINT']._serialized_start=856
+  _globals['_DOUBLEPOINT']._serialized_end=931
+  _globals['_STRINGPOINT']._serialized_start=933
+  _globals['_STRINGPOINT']._serialized_end=1008
+  _globals['_INTEGERPOINT']._serialized_start=1010
+  _globals['_INTEGERPOINT']._serialized_end=1086
 # @@protoc_insertion_point(module_scope)

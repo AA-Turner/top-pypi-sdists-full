@@ -106,17 +106,9 @@ def test_naturaldelta_nomonths(test_input: dt.timedelta, expected: str) -> None:
         (dt.timedelta(days=365 * 2 + 35), "2 years"),
         (dt.timedelta(seconds=1), "a second"),
         (dt.timedelta(seconds=30), "30 seconds"),
-        (dt.timedelta(minutes=1, seconds=30), "a minute"),
-        (dt.timedelta(minutes=2), "2 minutes"),
-        (dt.timedelta(hours=1, minutes=30, seconds=30), "an hour"),
-        (dt.timedelta(hours=23, minutes=50, seconds=50), "23 hours"),
-        (dt.timedelta(days=1), "a day"),
-        (dt.timedelta(days=500), "1 year, 4 months"),
-        (dt.timedelta(days=365 * 2 + 35), "2 years"),
         # regression tests for bugs in post-release humanize
         (dt.timedelta(days=10000), "27 years"),
         (dt.timedelta(days=365 + 35), "1 year, 1 month"),
-        (30, "30 seconds"),
         (dt.timedelta(days=365 * 2 + 65), "2 years"),
         (dt.timedelta(days=365 + 4), "1 year, 4 days"),
         (dt.timedelta(days=35), "a month"),
@@ -170,7 +162,9 @@ def test_naturaldelta(test_input: float | dt.timedelta, expected: str) -> None:
         ("NaN", "NaN"),
     ],
 )
-def test_naturaltime(test_input: dt.datetime, expected: str) -> None:
+def test_naturaltime(
+    test_input: dt.datetime | dt.timedelta | float, expected: str
+) -> None:
     assert humanize.naturaltime(test_input) == expected
 
 
@@ -211,7 +205,9 @@ def test_naturaltime(test_input: dt.datetime, expected: str) -> None:
         ("NaN", "NaN"),
     ],
 )
-def test_naturaltime_nomonths(test_input: dt.datetime, expected: str) -> None:
+def test_naturaltime_nomonths(
+    test_input: dt.datetime | dt.timedelta | float, expected: str
+) -> None:
     assert humanize.naturaltime(test_input, months=False) == expected
 
 
@@ -506,7 +502,7 @@ def test_naturaltime_timezone_when(test_input: dt.datetime, expected: str) -> No
     ],
 )
 def test_precisedelta_one_unit_enough(
-    val: int | dt.timedelta, min_unit: str, expected: str
+    val: dt.timedelta | float, min_unit: str, expected: str
 ) -> None:
     assert humanize.precisedelta(val, minimum_unit=min_unit) == expected
 
@@ -559,10 +555,18 @@ def test_precisedelta_one_unit_enough(
             "minutes",
             "0 minutes",
         ),
+        (dt.timedelta(days=31), "seconds", "1 month"),
+        (dt.timedelta(days=32), "seconds", "1 month and 1 day"),
+        (dt.timedelta(days=62), "seconds", "2 months and 1 day"),
+        (dt.timedelta(days=92), "seconds", "3 months"),
+        (dt.timedelta(days=31), "days", "1 month"),
+        (dt.timedelta(days=32), "days", "1 month and 1 day"),
+        (dt.timedelta(days=62), "days", "2 months and 1 day"),
+        (dt.timedelta(days=92), "days", "3 months"),
     ],
 )
 def test_precisedelta_multiple_units(
-    val: dt.timedelta, min_unit: str, expected: str
+    val: dt.timedelta | float, min_unit: str, expected: str
 ) -> None:
     assert humanize.precisedelta(val, minimum_unit=min_unit) == expected
 
@@ -582,7 +586,7 @@ def test_precisedelta_multiple_units(
             "%0.4f",
             "2.0020 milliseconds",
         ),
-        (dt.timedelta(microseconds=2002), "milliseconds", "%0.2f", "2.00 milliseconds"),
+        (dt.timedelta(microseconds=2002), "milliseconds", "%0.2f", "2 milliseconds"),
         (
             dt.timedelta(seconds=1, microseconds=230000),
             "seconds",
@@ -608,12 +612,63 @@ def test_precisedelta_multiple_units(
             "5 days and 4.50 hours",
         ),
         (dt.timedelta(days=5, hours=4, seconds=30 * 60), "days", "%0.2f", "5.19 days"),
+        # 1 month is 30.5 days but remainder is always rounded down.
+        (dt.timedelta(days=31), "days", "%d", "1 month"),
+        (dt.timedelta(days=31), "days", "%.0f", "1 month"),
+        (dt.timedelta(days=32), "days", "%d", "1 month and 1 day"),
+        (dt.timedelta(days=32), "days", "%.0f", "1 month and 1 day"),
+        (dt.timedelta(days=62), "days", "%d", "2 months and 1 day"),
+        (dt.timedelta(days=92), "days", "%d", "3 months"),
         (dt.timedelta(days=120), "months", "%0.2f", "3.93 months"),
         (dt.timedelta(days=183), "years", "%0.1f", "0.5 years"),
+        (0.01, "seconds", "%0.3f", "0.010 seconds"),
+        # 31 seconds will be truncated to 0 with %d and rounded to the nearest
+        # number with %.0f, ie. 1
+        (31, "minutes", "%d", "0 minutes"),
+        (31, "minutes", "%0.0f", "1 minute"),
+        (60 + 29.99, "minutes", "%d", "1 minute"),
+        (60 + 29.99, "minutes", "%.0f", "1 minute"),
+        (60 + 30, "minutes", "%d", "1 minute"),
+        # 30 sec is 0.5 minutes. Round to nearest, ties away from zero.
+        # See https://en.wikipedia.org/wiki/IEEE_754#Rounding_rules
+        (60 + 30, "minutes", "%.0f", "2 minutes"),
+        (60 * 60 + 30.99, "minutes", "%.0f", "1 hour"),
+        (60 * 60 + 31, "minutes", "%.0f", "1 hour and 1 minute"),
+        (
+            ONE_DAY - MILLISECONDS_1_337,
+            "seconds",
+            "%.1f",
+            "23 hours, 59 minutes and 58.7 seconds",
+        ),
+        (
+            ONE_DAY - ONE_MILLISECOND,
+            "seconds",
+            "%.4f",
+            "23 hours, 59 minutes and 59.9990 seconds",
+        ),
+        (91500, "hours", "%0.0f", "1 day and 1 hour"),
+        # Because we use a format to round, we will end up with 9 hours.
+        (9 * 60 * 60 - 1, "minutes", "%0.0f", "9 hours"),
+        (dt.timedelta(days=30.99999), "minutes", "%0.0f", "1 month"),
+        # We round at the hour. We end up with 12.5 hours. It's a tie, so round to the
+        # nearest even number which is 12, thus we round down.
+        (
+            dt.timedelta(days=30.5 * 3, minutes=30),
+            "hours",
+            "%0.0f",
+            "2 months, 30 days and 12 hours",
+        ),
+        (dt.timedelta(days=10, hours=6), "days", "%0.2f", "10.25 days"),
+        (dt.timedelta(days=30.55), "days", "%0.1f", "30.6 days"),
+        (dt.timedelta(microseconds=999.5), "microseconds", "%0.0f", "1 millisecond"),
+        (dt.timedelta(milliseconds=999.5), "milliseconds", "%0.0f", "1 second"),
+        (dt.timedelta(seconds=59.5), "seconds", "%0.0f", "1 minute"),
+        (dt.timedelta(minutes=59.5), "minutes", "%0.0f", "1 hour"),
+        (dt.timedelta(days=364), "months", "%0.0f", "1 year"),
     ],
 )
 def test_precisedelta_custom_format(
-    val: dt.timedelta, min_unit: str, fmt: str, expected: str
+    val: dt.timedelta | float, min_unit: str, fmt: str, expected: str
 ) -> None:
     assert humanize.precisedelta(val, minimum_unit=min_unit, format=fmt) == expected
 
@@ -690,7 +745,7 @@ def test_precisedelta_custom_format(
     ],
 )
 def test_precisedelta_suppress_units(
-    val: dt.timedelta, min_unit: str, suppress: list[str], expected: str
+    val: dt.timedelta | float, min_unit: str, suppress: list[str], expected: str
 ) -> None:
     assert (
         humanize.precisedelta(val, minimum_unit=min_unit, suppress=suppress) == expected
@@ -700,10 +755,13 @@ def test_precisedelta_suppress_units(
 def test_precisedelta_bogus_call() -> None:
     assert humanize.precisedelta(None) == "None"
 
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="Minimum unit is suppressed and no suitable replacement was found",
+    ):
         humanize.precisedelta(1, minimum_unit="years", suppress=["years"])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Minimum unit 'years' not supported"):
         humanize.naturaldelta(1, minimum_unit="years")
 
 
@@ -714,3 +772,20 @@ def test_time_unit() -> None:
 
     with pytest.raises(TypeError):
         _ = years < "foo"
+
+
+@pytest.mark.parametrize(
+    "fmt, value, expected",
+    [
+        ("%.2f", 1.011, 1.01),
+        ("%.0f", 1.01, 1.0),
+        ("%.0f", 1.5, 2.0),
+        ("%10.0f", 1.01, 1.0),
+        ("%i", 1.01, 1),
+        # Surprising rounding with %d. It does not truncate for all values...
+        ("%d", 1.999999999999999, 1),
+        ("%d", 1.9999999999999999, 2),
+    ],
+)
+def test_rounding_by_fmt(fmt: str, value: float, expected: float) -> None:
+    assert time._rounding_by_fmt(fmt, value) == pytest.approx(expected)

@@ -245,6 +245,22 @@ class BaseModelConfig(GeneralConfig):
         dependencies.macros = []
         return dependencies
 
+    def remove_tests_with_invalid_refs(self, context: DbtContext) -> None:
+        """
+        Removes tests that reference models that do not exist in the context in order to match dbt behavior.
+
+        Args:
+            context: The dbt context this model resides within.
+
+        Returns:
+            None
+        """
+        self.tests = [
+            test
+            for test in self.tests
+            if all(ref in context.refs for ref in test.dependencies.refs)
+        ]
+
     def check_for_circular_test_refs(self, context: DbtContext) -> None:
         """
         Checks for direct circular references between two models and raises an exception if found.
@@ -295,34 +311,23 @@ class BaseModelConfig(GeneralConfig):
         column_types_override: t.Optional[t.Dict[str, ColumnConfig]] = None,
     ) -> t.Dict[str, t.Any]:
         """Get common sqlmesh model parameters"""
+        self.remove_tests_with_invalid_refs(context)
         self.check_for_circular_test_refs(context)
+
+        dependencies = self.dependencies.copy()
+        if dependencies.has_dynamic_var_names:
+            # Include ALL variables as dependencies since we couldn't determine
+            # precisely which variables are referenced in the model
+            dependencies.variables |= set(context.variables)
+
         model_dialect = self.dialect(context)
         model_context = context.context_for_dependencies(
-            self.dependencies.union(self.tests_ref_source_dependencies)
+            dependencies.union(self.tests_ref_source_dependencies)
         )
         jinja_macros = model_context.jinja_macros.trim(
-            self.dependencies.macros, package=self.package_name
+            dependencies.macros, package=self.package_name
         )
-
-        model_node: AttributeDict[str, t.Any] = AttributeDict(
-            {
-                k: v
-                for k, v in context._manifest._manifest.nodes[self.node_name].to_dict().items()
-                if k in self.dependencies.model_attrs
-            }
-            if context._manifest and self.node_name in context._manifest._manifest.nodes
-            else {}
-        )
-
-        jinja_macros.add_globals(
-            {
-                "this": self.relation_info,
-                "model": model_node,
-                "schema": self.table_schema,
-                "config": self.config_attribute_dict,
-                **model_context.jinja_globals,  # type: ignore
-            }
-        )
+        jinja_macros.add_globals(self._model_jinja_context(model_context, dependencies))
         return {
             "audits": [(test.name, {}) for test in self.tests],
             "columns": column_types_to_sqlmesh(
@@ -352,3 +357,23 @@ class BaseModelConfig(GeneralConfig):
         virtual_environment_mode: VirtualEnvironmentMode = VirtualEnvironmentMode.default,
     ) -> Model:
         """Convert DBT model into sqlmesh Model"""
+
+    def _model_jinja_context(
+        self, context: DbtContext, dependencies: Dependencies
+    ) -> t.Dict[str, t.Any]:
+        model_node: AttributeDict[str, t.Any] = AttributeDict(
+            {
+                k: v
+                for k, v in context._manifest._manifest.nodes[self.node_name].to_dict().items()
+                if k in dependencies.model_attrs
+            }
+            if context._manifest and self.node_name in context._manifest._manifest.nodes
+            else {}
+        )
+        return {
+            "this": self.relation_info,
+            "model": model_node,
+            "schema": self.table_schema,
+            "config": self.config_attribute_dict,
+            **context.jinja_globals,
+        }

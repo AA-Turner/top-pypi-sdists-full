@@ -1070,7 +1070,7 @@ class Indexing:
         if model is None:
             model = self.window.core.models.from_defaults()
 
-        llm, embed_model = self.window.core.idx.llm.get_service_context(model=model, stream=False)
+        llm, embed_model = self.window.core.idx.llm.get_service_context(model=model, stream=False, auto_embed=True)
         index = self.window.core.idx.storage.get_ctx_idx(
             index_path,
             llm=llm,
@@ -1078,7 +1078,7 @@ class Indexing:
         )  # get or create ctx index
 
         idx = f"tmp:{index_path}"  # tmp index id
-        self.window.core.idx.log(f"Indexing to context attachment index: {idx}...")
+        self.window.core.idx.log(f"Indexing to context attachment index: {idx}... using model: {model.id}")
 
         doc_ids = []
         if documents is None:
@@ -1112,7 +1112,7 @@ class Indexing:
         if model is None:
             model = self.window.core.models.from_defaults()
 
-        llm, embed_model = self.window.core.idx.llm.get_service_context(model=model, stream=False)
+        llm, embed_model = self.window.core.idx.llm.get_service_context(model=model, stream=False, auto_embed=True)
         index = self.window.core.idx.storage.get_ctx_idx(index_path, llm, embed_model)  # get or create ctx index
 
         idx = f"tmp:{index_path}"  # tmp index id

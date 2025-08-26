@@ -148,6 +148,7 @@ __all__ = (
     "AssetTypesForRuleOutputTypeDef",
     "AssetTypesForRuleTypeDef",
     "AssociateEnvironmentRoleInputTypeDef",
+    "AssociateGovernedTermsInputTypeDef",
     "AthenaPropertiesInputTypeDef",
     "AthenaPropertiesOutputTypeDef",
     "AthenaPropertiesPatchTypeDef",
@@ -286,6 +287,7 @@ __all__ = (
     "DeploymentTypeDef",
     "DetailedGlossaryTermTypeDef",
     "DisassociateEnvironmentRoleInputTypeDef",
+    "DisassociateGovernedTermsInputTypeDef",
     "DomainSummaryTypeDef",
     "DomainUnitFilterForProjectTypeDef",
     "DomainUnitGrantFilterOutputTypeDef",
@@ -928,6 +930,12 @@ class AssociateEnvironmentRoleInputTypeDef(TypedDict):
     environmentIdentifier: str
     environmentRoleArn: str
 
+class AssociateGovernedTermsInputTypeDef(TypedDict):
+    domainIdentifier: str
+    entityIdentifier: str
+    entityType: Literal["ASSET"]
+    governedGlossaryTerms: Sequence[str]
+
 class AthenaPropertiesInputTypeDef(TypedDict):
     workgroupName: NotRequired[str]
 
@@ -1127,6 +1135,7 @@ class CreateGlossaryInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     description: NotRequired[str]
     status: NotRequired[GlossaryStatusType]
+    usageRestrictions: NotRequired[Sequence[Literal["ASSET_GOVERNED_TERMS"]]]
 
 class CreateGlossaryPolicyGrantDetailTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
@@ -1334,6 +1343,12 @@ class DisassociateEnvironmentRoleInputTypeDef(TypedDict):
     domainIdentifier: str
     environmentIdentifier: str
     environmentRoleArn: str
+
+class DisassociateGovernedTermsInputTypeDef(TypedDict):
+    domainIdentifier: str
+    entityIdentifier: str
+    entityType: Literal["ASSET"]
+    governedGlossaryTerms: Sequence[str]
 
 DomainSummaryTypeDef = TypedDict(
     "DomainSummaryTypeDef",
@@ -2276,6 +2291,7 @@ CreateGlossaryOutputTypeDef = TypedDict(
         "name": str,
         "owningProjectId": str,
         "status": GlossaryStatusType,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2327,6 +2343,7 @@ GetGlossaryOutputTypeDef = TypedDict(
         "status": GlossaryStatusType,
         "updatedAt": datetime,
         "updatedBy": str,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2401,6 +2418,7 @@ UpdateGlossaryOutputTypeDef = TypedDict(
         "name": str,
         "owningProjectId": str,
         "status": GlossaryStatusType,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2469,6 +2487,7 @@ GetAssetOutputTypeDef = TypedDict(
         "firstRevisionCreatedBy": str,
         "formsOutput": List[FormOutputTypeDef],
         "glossaryTerms": List[str],
+        "governedGlossaryTerms": List[str],
         "id": str,
         "latestTimeSeriesDataPointFormsOutput": List[TimeSeriesDataPointSummaryFormOutputTypeDef],
         "listing": AssetListingDetailsTypeDef,
@@ -2489,6 +2508,7 @@ class AssetListingTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     forms: NotRequired[str]
     glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
+    governedGlossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
     latestTimeSeriesDataPointForms: NotRequired[List[TimeSeriesDataPointSummaryFormOutputTypeDef]]
     owningProjectId: NotRequired[str]
 
@@ -2883,6 +2903,7 @@ CreateGlossaryTermOutputTypeDef = TypedDict(
         "shortDescription": str,
         "status": GlossaryTermStatusType,
         "termRelations": TermRelationsOutputTypeDef,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2901,6 +2922,7 @@ GetGlossaryTermOutputTypeDef = TypedDict(
         "termRelations": TermRelationsOutputTypeDef,
         "updatedAt": datetime,
         "updatedBy": str,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2915,6 +2937,7 @@ UpdateGlossaryTermOutputTypeDef = TypedDict(
         "shortDescription": str,
         "status": GlossaryTermStatusType,
         "termRelations": TermRelationsOutputTypeDef,
+        "usageRestrictions": List[Literal["ASSET_GOVERNED_TERMS"]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -4093,6 +4116,7 @@ CreateAssetOutputTypeDef = TypedDict(
         "firstRevisionCreatedBy": str,
         "formsOutput": List[FormOutputTypeDef],
         "glossaryTerms": List[str],
+        "governedGlossaryTerms": List[str],
         "id": str,
         "latestTimeSeriesDataPointFormsOutput": List[TimeSeriesDataPointSummaryFormOutputTypeDef],
         "listing": AssetListingDetailsTypeDef,
@@ -4130,6 +4154,7 @@ CreateAssetRevisionOutputTypeDef = TypedDict(
         "firstRevisionCreatedBy": str,
         "formsOutput": List[FormOutputTypeDef],
         "glossaryTerms": List[str],
+        "governedGlossaryTerms": List[str],
         "id": str,
         "latestTimeSeriesDataPointFormsOutput": List[TimeSeriesDataPointSummaryFormOutputTypeDef],
         "listing": AssetListingDetailsTypeDef,
@@ -5487,6 +5512,7 @@ class AssetItemTypeDef(TypedDict):
     firstRevisionCreatedAt: NotRequired[datetime]
     firstRevisionCreatedBy: NotRequired[str]
     glossaryTerms: NotRequired[List[str]]
+    governedGlossaryTerms: NotRequired[List[str]]
 
 class AssetListingItemTypeDef(TypedDict):
     additionalAttributes: NotRequired[AssetListingItemAdditionalAttributesTypeDef]
@@ -5496,6 +5522,7 @@ class AssetListingItemTypeDef(TypedDict):
     entityRevision: NotRequired[str]
     entityType: NotRequired[str]
     glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
+    governedGlossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
     listingCreatedBy: NotRequired[str]
     listingId: NotRequired[str]
     listingRevision: NotRequired[str]
@@ -5549,6 +5576,7 @@ GlossaryItemTypeDef = TypedDict(
         "description": NotRequired[str],
         "updatedAt": NotRequired[datetime],
         "updatedBy": NotRequired[str],
+        "usageRestrictions": NotRequired[List[Literal["ASSET_GOVERNED_TERMS"]]],
     },
 )
 GlossaryTermItemTypeDef = TypedDict(
@@ -5567,6 +5595,7 @@ GlossaryTermItemTypeDef = TypedDict(
         "termRelations": NotRequired[TermRelationsOutputTypeDef],
         "updatedAt": NotRequired[datetime],
         "updatedBy": NotRequired[str],
+        "usageRestrictions": NotRequired[List[Literal["ASSET_GOVERNED_TERMS"]]],
     },
 )
 
