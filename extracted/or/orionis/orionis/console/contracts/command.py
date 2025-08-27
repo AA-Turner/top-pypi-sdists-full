@@ -1,123 +1,105 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
-from orionis.console.args.argument import CLIArgument
+from orionis.console.entities.command import Command as CommandEntity
 
-class IBaseCommand(ABC):
-    """
-    Abstract base contract for console commands in Orionis framework.
-
-    This abstract base class defines the standardized interface that all console
-    commands must implement within the Orionis framework. It provides a consistent
-    contract for command execution, argument handling, metadata storage, and console
-    output management.
-
-    The class establishes the foundation for command-line interface functionality,
-    ensuring all commands follow a uniform pattern for registration, execution,
-    and user interaction while maintaining flexibility for specific command logic
-    implementation.
-
-    Attributes
-    ----------
-    timestamps : bool, default=True
-        Controls whether timestamps are displayed in console output. When enabled,
-        all console messages will include timestamp prefixes for better debugging
-        and logging capabilities.
-    signature : str
-        The command signature string that defines the command name and expected
-        arguments format. Used for command registration in the console system
-        and automatic help text generation. Must follow the framework's signature
-        format conventions.
-    description : str
-        Human-readable description explaining the command's purpose and functionality.
-        This text is displayed in help documentation, command listings, and usage
-        instructions to assist users in understanding the command's capabilities.
-    _args : Dict[str, Any]
-        Dictionary containing parsed command-line arguments and options passed to
-        the command during execution. Populated automatically by the command parser
-        before the handle() method is called, providing structured access to all
-        user-provided input parameters.
-    arguments : List[CLIArgument]
-        List of CLIArgument instances defining the command's accepted arguments
-        and options. Used for argument parsing, validation, and help text generation.
-
-    Methods
-    -------
-    handle() -> None
-        Abstract method that must be implemented by all concrete command subclasses.
-        Contains the main execution logic specific to each command type and handles
-        argument processing, business logic execution, and output generation.
-
-    Notes
-    -----
-    - All concrete implementations must override the handle() method
-    - Command signatures should follow framework naming conventions
-    - Use self._args dictionary to access parsed command-line arguments
-    - Implement proper error handling and validation within command logic
-    - Follow single responsibility principle for maintainable command structure
-    - Utilize framework's console output methods for consistent user experience
-
-    See Also
-    --------
-    abc.ABC : Abstract base class functionality
-    typing.Dict : Type hints for argument dictionary structure
-    """
-
-    # Enable timestamps in console output by default
-    timestamps: bool = True
-
-    # Command signature string for registration and help text generation
-    signature: str
-
-    # Human-readable description for documentation and help display
-    description: str
-
-    # Dictionary to store parsed command-line arguments and options
-    _args: Dict[str, Any] = {}
-
-    # List of CLIArgument instances defining command arguments
-    arguments: List[CLIArgument] = []
+class ICommand(ABC):
 
     @abstractmethod
-    def handle(self) -> None:
+    def timestamp(self, enabled: bool = True) -> 'ICommand':
         """
-        Execute the main logic of the console command.
+        Configure whether timestamps should be included in command output.
 
-        This abstract method serves as the primary entry point for command execution
-        and must be implemented by all concrete command subclasses. The method contains
-        the core business logic specific to each command type and is responsible for
-        processing the parsed arguments stored in self.args and producing the desired
-        output or side effects.
+        This method allows enabling or disabling timestamp display for the command.
+        When enabled, timestamps will be shown alongside command execution results.
 
-        The implementation should access parsed command-line arguments through the
-        self.args dictionary and utilize appropriate console output methods for
-        user feedback and result presentation. Error handling and resource cleanup
-        should also be managed within this method to ensure robust command execution.
+        Parameters
+        ----------
+        enabled : bool, default=True
+            Flag to enable or disable timestamp display. True enables timestamps,
+            False disables them.
 
         Returns
         -------
-        None
-            This method does not return any value. All command output, results,
-            error messages, and user feedback should be handled through console
-            output methods, file operations, database transactions, or other
-            side effects rather than return values.
+        Command
+            Returns the current Command instance to allow method chaining.
 
         Raises
         ------
-        NotImplementedError
-            Automatically raised when this method is called on the abstract base
-            class without a concrete implementation. All subclasses must override
-            this method with their specific command logic to avoid this exception.
-
-        Notes
-        -----
-        - Access command arguments and options via the self.args dictionary
-        - Use framework's console output methods for consistent user interaction
-        - Implement comprehensive error handling and input validation
-        - Ensure proper cleanup of resources (files, connections, etc.) if needed
-        - Follow the single responsibility principle for maintainable command logic
-        - Handle both success and failure scenarios appropriately
+        TypeError
+            If the enabled parameter is not a boolean value.
         """
+        pass
 
-        # Abstract method placeholder - concrete implementations must override this method
-        # Each subclass should replace this pass statement with specific command logic
+    @abstractmethod
+    def description(self, desc: str) -> 'ICommand':
+        """
+        Set the description for the command.
+
+        This method allows setting a descriptive text that explains what the command
+        does. The description is used for help text and documentation purposes when
+        displaying command information to users.
+
+        Parameters
+        ----------
+        desc : str
+            The description text for the command. Must be a non-empty string that
+            describes the command's purpose and functionality.
+
+        Returns
+        -------
+        Command
+            Returns the current Command instance to allow method chaining.
+
+        Raises
+        ------
+        TypeError
+            If the desc parameter is not a string value.
+        """
+        pass
+
+    @abstractmethod
+    def arguments(self, args: list) -> 'ICommand':
+        """
+        Set the list of CLI arguments for the command.
+
+        This method configures the command-line arguments that the command will accept.
+        Each argument must be a properly configured CLIArgument instance that defines
+        the argument's name, type, validation rules, and other properties. The arguments
+        are used during command parsing to validate and process user input.
+
+        Parameters
+        ----------
+        args : list
+            A list of CLIArgument instances that define the command's accepted arguments.
+            Each element in the list must be a valid CLIArgument object with proper
+            configuration for argument parsing and validation.
+
+        Returns
+        -------
+        Command
+            Returns the current Command instance to allow method chaining and enable
+            fluent interface pattern for command configuration.
+
+        Raises
+        ------
+        TypeError
+            If the args parameter is not a list, or if any element in the list
+            is not an instance of CLIArgument.
+        """
+        pass
+
+    @abstractmethod
+    def get(self) -> tuple[str, CommandEntity]:
+        """
+        Retrieve the configured Command entity.
+
+        This method constructs and returns a Command entity object that encapsulates
+        all the configuration details of the command, including its signature, concrete
+        class, method, description, arguments, and timestamp setting. The returned
+        Command entity can be used for command execution and management.
+
+        Returns
+        -------
+        CommandEntity
+            A Command entity object containing all the command's configuration details.
+        """
         pass

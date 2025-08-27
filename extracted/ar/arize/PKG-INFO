@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize
-Version: 7.49.1
+Version: 7.49.3
 Summary: A helper library to interact with Arize AI APIs
 Project-URL: Homepage, https://arize.com
 Project-URL: Documentation, https://docs.arize.com/arize
@@ -67,7 +67,7 @@ Requires-Dist: nltk<4,>=3.0.0; extra == 'nlp-metrics'
 Requires-Dist: rouge-score<1,>=0.1.2; extra == 'nlp-metrics'
 Requires-Dist: sacrebleu<3,>=2.3.1; extra == 'nlp-metrics'
 Provides-Extra: prompthub
-Requires-Dist: gql>=3.0.0; extra == 'prompthub'
+Requires-Dist: gql<4.0.0,>=3.0.0; extra == 'prompthub'
 Requires-Dist: requests-toolbelt>=1.0.0; extra == 'prompthub'
 Provides-Extra: prompthub-vertexai
 Requires-Dist: google-cloud-aiplatform>=1.0.0; extra == 'prompthub-vertexai'

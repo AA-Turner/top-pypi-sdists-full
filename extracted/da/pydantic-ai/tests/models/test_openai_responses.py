@@ -29,13 +29,13 @@ from pydantic_ai.messages import (
 from pydantic_ai.output import NativeOutput, PromptedOutput, TextOutput, ToolOutput
 from pydantic_ai.profiles.openai import openai_model_profile
 from pydantic_ai.tools import ToolDefinition
-from pydantic_ai.usage import RequestUsage
+from pydantic_ai.usage import RequestUsage, RunUsage
 
 from ..conftest import IsDatetime, IsStr, TestEnv, try_import
 from ..parts_from_messages import part_types_from_messages
 
 with try_import() as imports_successful:
-    from pydantic_ai.models.openai import OpenAIModelSettings, OpenAIResponsesModel, OpenAIResponsesModelSettings
+    from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
     from pydantic_ai.providers.openai import OpenAIProvider
 
 pytestmark = [
@@ -86,7 +86,7 @@ async def test_openai_responses_output_type(allow_model_requests: None, openai_a
 
 async def test_openai_responses_reasoning_effort(allow_model_requests: None, openai_api_key: str):
     model = OpenAIResponsesModel('o3-mini', provider=OpenAIProvider(api_key=openai_api_key))
-    agent = Agent(model=model, model_settings=OpenAIModelSettings(openai_reasoning_effort='low'))
+    agent = Agent(model=model, model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort='low'))
     result = await agent.run(
         'Explain me how to cook uruguayan alfajor. Do not send whitespaces at the end of the lines.'
     )
@@ -384,7 +384,7 @@ async def test_openai_responses_stream(allow_model_requests: None, openai_api_ke
 async def test_openai_responses_model_http_error(allow_model_requests: None, openai_api_key: str):
     """Set temperature to -1 to trigger an error, given only values between 0 and 1 are allowed."""
     model = OpenAIResponsesModel('gpt-4o', provider=OpenAIProvider(api_key=openai_api_key))
-    agent = Agent(model=model, model_settings=OpenAIModelSettings(temperature=-1))
+    agent = Agent(model=model, model_settings=OpenAIResponsesModelSettings(temperature=-1))
 
     with pytest.raises(ModelHTTPError):
         async with agent.run_stream('What is the capital of France?'):
@@ -1076,3 +1076,16 @@ async def test_openai_responses_verbosity(allow_model_requests: None, openai_api
     agent = Agent(model=model, model_settings=OpenAIResponsesModelSettings(openai_text_verbosity='low'))
     result = await agent.run('What is 2+2?')
     assert result.output == snapshot('4')
+
+
+async def test_openai_responses_usage_without_tokens_details(allow_model_requests: None, openai_api_key: str):
+    # The VCR cassette was manually modified to remove the input_tokens_details and output_tokens_details fields.
+    provider = OpenAIProvider(api_key=openai_api_key)
+    model = OpenAIResponsesModel('gpt-4o', provider=provider)
+
+    agent = Agent(model=model)
+    result = await agent.run('What is 2+2?')
+
+    assert result.usage() == snapshot(
+        RunUsage(input_tokens=14, output_tokens=9, details={'reasoning_tokens': 0}, requests=1)
+    )

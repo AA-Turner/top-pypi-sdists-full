@@ -788,8 +788,47 @@ class SettlementModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantCo
         ...
 
 
-class PythonConsolidator(System.Object):
+class PythonConsolidator(System.Object, QuantConnect.Data.Consolidators.IDataConsolidator):
     """Provides a base class for python consolidators, necessary to use event handler."""
+
+    @property
+    def consolidated(self) -> QuantConnect.Data.IBaseData:
+        """
+        Gets the most recently consolidated piece of data. This will be null if this consolidator
+        has not produced any data yet.
+        """
+        ...
+
+    @consolidated.setter
+    def consolidated(self, value: QuantConnect.Data.IBaseData) -> None:
+        ...
+
+    @property
+    def working_data(self) -> QuantConnect.Data.IBaseData:
+        """Gets a clone of the data being currently consolidated"""
+        ...
+
+    @working_data.setter
+    def working_data(self, value: QuantConnect.Data.IBaseData) -> None:
+        ...
+
+    @property
+    def input_type(self) -> typing.Type:
+        """Gets the type consumed by this consolidator"""
+        ...
+
+    @input_type.setter
+    def input_type(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def output_type(self) -> typing.Type:
+        """Gets the type produced by this consolidator"""
+        ...
+
+    @output_type.setter
+    def output_type(self, value: typing.Type) -> None:
+        ...
 
     @property
     def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
@@ -798,6 +837,9 @@ class PythonConsolidator(System.Object):
 
     @data_consolidated.setter
     def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
+        ...
+
+    def dispose(self) -> None:
         ...
 
     def on_data_consolidated(self, consolidator: typing.Any, data: QuantConnect.Data.IBaseData) -> None:
@@ -811,6 +853,22 @@ class PythonConsolidator(System.Object):
 
     def reset(self) -> None:
         """Resets the consolidator"""
+        ...
+
+    def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Scans this consolidator to see if it should emit a bar due to time passing
+        
+        :param current_local_time: The current time in the local time zone (same as BaseData.Time)
+        """
+        ...
+
+    def update(self, data: QuantConnect.Data.IBaseData) -> None:
+        """
+        Updates this consolidator with the specified data
+        
+        :param data: The new data for the consolidator
+        """
         ...
 
 

@@ -218,7 +218,7 @@ class ISchedule(ABC):
         pass
 
     @abstractmethod
-    def pause(self, signature: str) -> bool:
+    def pauseTask(self, signature: str) -> bool:
         """
         Pause a scheduled job in the AsyncIO scheduler.
 
@@ -246,7 +246,7 @@ class ISchedule(ABC):
         pass
 
     @abstractmethod
-    def resume(self, signature: str) -> bool:
+    def resumeTask(self, signature: str) -> bool:
         """
         Resume a paused job in the AsyncIO scheduler.
 
@@ -274,7 +274,7 @@ class ISchedule(ABC):
         pass
 
     @abstractmethod
-    def remove(self, signature: str) -> bool:
+    def removeTask(self, signature: str) -> bool:
         """
         Remove a scheduled job from the AsyncIO scheduler.
 
@@ -323,5 +323,108 @@ class ISchedule(ABC):
                 - 'start_date': str or None, the formatted start date and time of the job, or None if not set.
                 - 'end_date': str or None, the formatted end date and time of the job, or None if not set.
                 - 'details': any, additional details about the job.
+        """
+        pass
+
+    @abstractmethod
+    def cancelScheduledPause(self) -> bool:
+        """
+        Cancel a previously scheduled pause operation.
+
+        This method attempts to remove a job from the scheduler that was set to pause
+        the scheduler at a specific time. If the job exists, it is removed, and a log entry
+        is created to indicate the cancellation. If no such job exists, the method returns False.
+
+        Returns
+        -------
+        bool
+            True if the scheduled pause job was successfully cancelled.
+            False if no pause job was found or an error occurred during the cancellation process.
+        """
+        pass
+
+    @abstractmethod
+    def cancelScheduledResume(self) -> bool:
+        """
+        Cancel a previously scheduled resume operation.
+
+        This method attempts to remove a job from the scheduler that was set to resume
+        the scheduler at a specific time. If the job exists, it is removed, and a log entry
+        is created to indicate the cancellation. If no such job exists, the method returns False.
+
+        Returns
+        -------
+        bool
+            True if the scheduled resume job was successfully cancelled.
+            False if no resume job was found or an error occurred during the cancellation process.
+        """
+        pass
+
+    @abstractmethod
+    def cancelScheduledShutdown(self) -> bool:
+        """
+        Cancel a previously scheduled shutdown operation.
+
+        This method attempts to remove a job from the scheduler that was set to shut down
+        the scheduler at a specific time. If the job exists, it is removed, and a log entry
+        is created to indicate the cancellation. If no such job exists, the method returns False.
+
+        Returns
+        -------
+        bool
+            True if the scheduled shutdown job was successfully cancelled.
+            False if no shutdown job was found or an error occurred during the cancellation process.
+        """
+        pass
+
+    @abstractmethod
+    def isRunning(self) -> bool:
+        """
+        Determine if the scheduler is currently active and running.
+
+        This method checks the internal state of the AsyncIOScheduler instance to determine
+        whether it is currently running. The scheduler is considered running if it has been
+        started and has not been paused or shut down.
+
+        Returns
+        -------
+        bool
+            True if the scheduler is running, False otherwise.
+        """
+        pass
+
+    @abstractmethod
+    def forceStop(self) -> None:
+        """
+        Forcefully stop the scheduler immediately without waiting for jobs to complete.
+
+        This method shuts down the AsyncIOScheduler instance without waiting for currently
+        running jobs to finish. It is intended for emergency situations where an immediate
+        stop is required. The method also signals the internal stop event to ensure that
+        the scheduler's main loop is interrupted and the application can proceed with
+        shutdown procedures.
+
+        Returns
+        -------
+        None
+            This method does not return any value. It forcefully stops the scheduler and
+            signals the stop event.
+        """
+        pass
+
+    @abstractmethod
+    def stop(self) -> None:
+        """
+        Stop the scheduler synchronously by setting the stop event.
+
+        This method signals the scheduler to stop by setting the internal stop event.
+        It can be called from non-async contexts to initiate a shutdown. If the asyncio
+        event loop is running, the stop event is set in a thread-safe manner. Otherwise,
+        the stop event is set directly.
+
+        Returns
+        -------
+        None
+            This method does not return any value. It signals the scheduler to stop.
         """
         pass

@@ -22,6 +22,7 @@ class VerificationCodeMV(SimpleMV, model=VerificationCodeDBM):
         VerificationCodeDBM.recipient,
         VerificationCodeDBM.user,
         VerificationCodeDBM.is_active,
+        VerificationCodeDBM.detail_data,
         VerificationCodeDBM.extra_data
     ]
     column_details_list = [
@@ -34,6 +35,7 @@ class VerificationCodeMV(SimpleMV, model=VerificationCodeDBM):
         VerificationCodeDBM.recipient,
         VerificationCodeDBM.user,
         VerificationCodeDBM.is_active,
+        VerificationCodeDBM.detail_data,
         VerificationCodeDBM.extra_data
     ]
     form_columns = [
@@ -43,6 +45,7 @@ class VerificationCodeMV(SimpleMV, model=VerificationCodeDBM):
         VerificationCodeDBM.recipient,
         VerificationCodeDBM.user,
         VerificationCodeDBM.is_active,
+        VerificationCodeDBM.detail_data,
         VerificationCodeDBM.extra_data
     ]
     form_overrides = {
@@ -66,10 +69,12 @@ class VerificationCodeMV(SimpleMV, model=VerificationCodeDBM):
     ]
     column_formatters = {
         VerificationCodeDBM.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+        VerificationCodeDBM.detail_data: lambda m, _: format_json_for_preview_(m.detail_data),
         VerificationCodeDBM.extra_data: lambda m, _: format_json_for_preview_(m.extra_data)
     }
     column_formatters_detail = {
         VerificationCodeDBM.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+        VerificationCodeDBM.detail_data: lambda m, _: format_json_for_preview_(m.detail_data),
         VerificationCodeDBM.extra_data: lambda m, a: format_json_(m.extra_data),
     }
     form_ajax_refs = {

@@ -10,6 +10,7 @@ import System.Runtime.Intrinsics
 
 System_Numerics_Matrix4x4 = typing.Any
 System_Numerics_Vector = typing.Any
+T = typing.Any
 System_Numerics_Matrix3x2 = typing.Any
 System_Numerics_Vector4 = typing.Any
 System_Numerics_Vector3 = typing.Any
@@ -5986,6 +5987,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
     IS_HARDWARE_ACCELERATED: bool
     """Gets a value that indicates whether vector operations are subject to hardware acceleration through JIT intrinsic support."""
 
+    E: System.Numerics.Vector[T]
+
+    PI: System.Numerics.Vector[T]
+
+    TAU: System.Numerics.Vector[T]
+
     @overload
     def __add__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
         """
@@ -6517,128 +6524,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         """
         ...
 
-    @staticmethod
-    def ceiling(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """
-        Computes the ceiling of each element in a vector.
-        
-        :param value: The vector that will have its ceiling computed.
-        :returns: A vector whose elements are the ceiling of the elements in .
-        """
-        ...
-
-    @staticmethod
-    def conditional_select(condition: System.Numerics.Vector[int], left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """
-        Conditionally selects a value from two vectors on a bitwise basis.
-        
-        :param condition: The mask that is used to select a value from  or .
-        :param left: The vector that is selected when the corresponding bit in  is one.
-        :param right: The vector that is selected when the corresponding bit in  is zero.
-        :returns: A vector whose bits come from  or  based on the value of .
-        """
-        ...
-
-    @staticmethod
-    def convert_to_double(value: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
-        """
-        Converts a Vector<Int64> to a Vector<Double>.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
-    @staticmethod
-    def convert_to_int_32(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Converts a Vector<Single> to a Vector<Int32> using saturation on overflow.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
-    @staticmethod
-    def convert_to_int_32_native(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Converts a Vector<Single> to a Vector<Int32> using platform specific behavior on overflow.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
-    @staticmethod
-    def convert_to_int_64(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Converts a Vector<Double> to a Vector<Int64> using saturation on overflow.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
-    @staticmethod
-    def convert_to_int_64_native(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Converts a Vector<Double> to a Vector<Int64> using platform specific behavior on overflow.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
-    @staticmethod
-    def convert_to_single(value: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
-        """
-        Converts a Vector<Int32> to a Vector<Single>.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
-    @staticmethod
-    def convert_to_u_int_32(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Converts a Vector<Single> to a Vector<UInt32> using saturation on overflow.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
-    @staticmethod
-    def convert_to_u_int_32_native(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Converts a Vector<Single> to a Vector<UInt32> using platform specific behavior on overflow.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
-    @staticmethod
-    def convert_to_u_int_64(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Converts a Vector<Double> to a Vector<UInt64> using saturation on overflow.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
-    @staticmethod
-    def convert_to_u_int_64_native(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Converts a Vector<Double> to a Vector<UInt64> using platform specific behavior on overflow.
-        
-        :param value: The vector to convert.
-        :returns: The converted vector.
-        """
-        ...
-
     @overload
     def copy_to(self, destination: typing.List[System_Numerics_Vector_T]) -> None:
         """
@@ -6676,14 +6561,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         """
         ...
 
-    @staticmethod
-    def cos(vector: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    def degrees_to_radians(degrees: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
     @overload
     def equals(self, obj: typing.Any) -> bool:
         """
@@ -6706,34 +6583,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def equals(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine if they are equal on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if the corresponding elements in  and  were equal.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine if they are equal on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if the corresponding elements in  and  were equal.
-        """
-        ...
-
-    @staticmethod
-    def exp(vector: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    @overload
     def extract_most_significant_bits(vector: System.Numerics.Vector3) -> int:
         ...
 
@@ -6745,28 +6594,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
     @staticmethod
     @overload
     def extract_most_significant_bits(vector: System.Numerics.Vector2) -> int:
-        ...
-
-    @staticmethod
-    def floor(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """
-        Computes the floor of each element in a vector.
-        
-        :param value: The vector that will have its floor computed.
-        :returns: A vector whose elements are the floor of the elements in .
-        """
-        ...
-
-    @staticmethod
-    def fused_multiply_add(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float], addend: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """
-        Computes ( * ) + , rounded as one ternary operation.
-        
-        :param left: The vector to be multiplied with .
-        :param right: The vector to be multiplied with .
-        :param addend: The vector to be added to the result of  multiplied by .
-        :returns: ( * ) + , rounded as one ternary operation.
-        """
         ...
 
     @staticmethod
@@ -6790,268 +6617,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         
         :returns: The hash code.
         """
-        ...
-
-    @staticmethod
-    @overload
-    def greater_than(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine which is greater on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if which of the corresponding elements in  and  were greater.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def greater_than(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine which is greater on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if which of the corresponding elements in  and  were greater.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def greater_than_or_equal(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine which is greater or equal on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if which of the corresponding elements in  and  were greater or equal.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def greater_than_or_equal(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine which is greater or equal on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if which of the corresponding elements in  and  were greater or equal.
-        """
-        ...
-
-    @staticmethod
-    def hypot(x: System.Numerics.Vector[float], y: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    def lerp(x: System.Numerics.Vector[float], y: System.Numerics.Vector[float], amount: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """
-        Performs a linear interpolation between two vectors based on the given weighting.
-        
-        :param x: The first vector.
-        :param y: The second vector.
-        :param amount: A value between 0 and 1 that indicates the weight of .
-        :returns: The interpolated vector.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def less_than(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine which is less on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if which of the corresponding elements in  and  were less.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def less_than(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine which is less on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if which of the corresponding elements in  and  were less.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def less_than_or_equal(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine which is less or equal on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if which of the corresponding elements in  and  were less or equal.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def less_than_or_equal(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        Compares two vectors to determine which is less or equal on a per-element basis.
-        
-        :param left: The vector to compare with .
-        :param right: The vector to compare with .
-        :returns: A vector whose elements are all-bits-set or zero, depending on if which of the corresponding elements in  and  were less or equal.
-        """
-        ...
-
-    @staticmethod
-    def log(vector: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    def log_2(vector: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    def multiply_add_estimate(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float], addend: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def narrow(low: System.Numerics.Vector[float], high: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def narrow(low: System.Numerics.Vector[int], high: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def narrow_with_saturation(low: System.Numerics.Vector[float], high: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def narrow_with_saturation(low: System.Numerics.Vector[int], high: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        ...
-
-    @staticmethod
-    def radians_to_degrees(radians: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def round(vector: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def round(vector: System.Numerics.Vector[float], mode: System.MidpointRounding) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def shift_left(value: System.Numerics.Vector[int], shift_count: int) -> System.Numerics.Vector[int]:
-        """
-        Shifts each element of a vector left by the specified amount.
-        
-        :param value: The vector whose elements are to be shifted.
-        :param shift_count: The number of bits by which to shift each element.
-        :returns: A vector whose elements where shifted left by .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def shift_left(value: System.Numerics.Vector[System.IntPtr], shift_count: int) -> System.Numerics.Vector[System.IntPtr]:
-        """
-        Shifts each element of a vector left by the specified amount.
-        
-        :param value: The vector whose elements are to be shifted.
-        :param shift_count: The number of bits by which to shift each element.
-        :returns: A vector whose elements where shifted left by .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def shift_left(value: System.Numerics.Vector[System.UIntPtr], shift_count: int) -> System.Numerics.Vector[System.UIntPtr]:
-        """
-        Shifts each element of a vector left by the specified amount.
-        
-        :param value: The vector whose elements are to be shifted.
-        :param shift_count: The number of bits by which to shift each element.
-        :returns: A vector whose elements where shifted left by .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def shift_right_arithmetic(value: System.Numerics.Vector[int], shift_count: int) -> System.Numerics.Vector[int]:
-        """
-        Shifts (signed) each element of a vector right by the specified amount.
-        
-        :param value: The vector whose elements are to be shifted.
-        :param shift_count: The number of bits by which to shift each element.
-        :returns: A vector whose elements where shifted right by .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def shift_right_arithmetic(value: System.Numerics.Vector[System.IntPtr], shift_count: int) -> System.Numerics.Vector[System.IntPtr]:
-        """
-        Shifts (signed) each element of a vector right by the specified amount.
-        
-        :param value: The vector whose elements are to be shifted.
-        :param shift_count: The number of bits by which to shift each element.
-        :returns: A vector whose elements where shifted right by .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def shift_right_logical(value: System.Numerics.Vector[int], shift_count: int) -> System.Numerics.Vector[int]:
-        """
-        Shifts (unsigned) each element of a vector right by the specified amount.
-        
-        :param value: The vector whose elements are to be shifted.
-        :param shift_count: The number of bits by which to shift each element.
-        :returns: A vector whose elements where shifted right by .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def shift_right_logical(value: System.Numerics.Vector[System.IntPtr], shift_count: int) -> System.Numerics.Vector[System.IntPtr]:
-        """
-        Shifts (unsigned) each element of a vector right by the specified amount.
-        
-        :param value: The vector whose elements are to be shifted.
-        :param shift_count: The number of bits by which to shift each element.
-        :returns: A vector whose elements where shifted right by .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def shift_right_logical(value: System.Numerics.Vector[System.UIntPtr], shift_count: int) -> System.Numerics.Vector[System.UIntPtr]:
-        """
-        Shifts (unsigned) each element of a vector right by the specified amount.
-        
-        :param value: The vector whose elements are to be shifted.
-        :param shift_count: The number of bits by which to shift each element.
-        :returns: A vector whose elements where shifted right by .
-        """
-        ...
-
-    @staticmethod
-    def sin(vector: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    def sin_cos(vector: System.Numerics.Vector[float]) -> System.ValueTuple[System.Numerics.Vector[float], System.Numerics.Vector[float]]:
         ...
 
     @staticmethod
@@ -7267,10 +6832,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         """
         ...
 
-    @staticmethod
-    def truncate(vector: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        ...
-
     @overload
     def try_copy_to(self, destination: System.Span[int]) -> bool:
         """
@@ -7288,74 +6849,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         
         :param destination: The span to which the current instance is copied.
         :returns: true if the current instance was successfully copied to ; otherwise, false if the length of  is less than Vector{T}.Count.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def widen(source: System.Numerics.Vector[int], low: typing.Optional[System.Numerics.Vector[int]], high: typing.Optional[System.Numerics.Vector[int]]) -> typing.Tuple[None, System.Numerics.Vector[int], System.Numerics.Vector[int]]:
-        """
-        Widens a Vector<Byte> into two Vector{UInt16} .
-        
-        :param source: The vector whose elements are to be widened.
-        :param low: A vector that will contain the widened result of the lower half of .
-        :param high: A vector that will contain the widened result of the upper half of .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def widen(source: System.Numerics.Vector[float], low: typing.Optional[System.Numerics.Vector[float]], high: typing.Optional[System.Numerics.Vector[float]]) -> typing.Tuple[None, System.Numerics.Vector[float], System.Numerics.Vector[float]]:
-        """
-        Widens a Vector<Single> into two Vector{Double} .
-        
-        :param source: The vector whose elements are to be widened.
-        :param low: A vector that will contain the widened result of the lower half of .
-        :param high: A vector that will contain the widened result of the upper half of .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def widen_lower(source: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        Widens the lower half of a Vector<Byte> into a Vector{UInt16} .
-        
-        :param source: The vector whose elements are to be widened.
-        :returns: A vector that contain the widened lower half of .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def widen_lower(source: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """
-        Widens the lower half of a Vector<Single> into a Vector{Double} .
-        
-        :param source: The vector whose elements are to be widened.
-        :returns: A vector that contain the widened lower half of .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def widen_upper(source: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        Widens the upper half of a Vector<Byte> into a Vector{UInt16} .
-        
-        :param source: The vector whose elements are to be widened.
-        :returns: A vector that contain the widened upper half of .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def widen_upper(source: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """
-        Widens the upper half of a Vector<Single> into a Vector{Double} .
-        
-        :param source: The vector whose elements are to be widened.
-        :returns: A vector that contain the widened upper half of .
         """
         ...
 

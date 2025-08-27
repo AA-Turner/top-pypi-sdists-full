@@ -26,6 +26,7 @@ if IS_PYDANTIC_V1:
     from .generated_models_pydantic_v1 import XrayTestInfo
     from .generated_models_pydantic_v1 import XrayTestExecUpdate
     from .generated_models_pydantic_v1 import XrayImportTestExecution
+    from .generated_models_pydantic_v1 import SqaTestResultApps
 else:
     from .generated_models_pydantic_v2 import QueueMessage
     from .generated_models_pydantic_v2 import QueueMessageV1
@@ -50,6 +51,7 @@ else:
     from .generated_models_pydantic_v2 import XrayTestInfo
     from .generated_models_pydantic_v2 import XrayTestExecUpdate
     from .generated_models_pydantic_v2 import XrayImportTestExecution
+    from .generated_models_pydantic_v2 import SqaTestResultApps
 
 __all__ = [
     "QueueMessage",
@@ -75,4 +77,5 @@ __all__ = [
     "XrayTestInfo",
     "XrayTestExecUpdate",
     "XrayImportTestExecution",
+    "SqaTestResultApps",
 ]

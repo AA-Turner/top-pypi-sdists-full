@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: jubilant
-Version: 1.3.0
+Version: 1.4.0
 Summary: Juju CLI wrapper for charm integration testing
 Author: The Charm Tech team at Canonical Ltd.
 Project-URL: Homepage, https://github.com/canonical/jubilant
 Project-URL: Repository, https://github.com/canonical/jubilant
 Project-URL: Issues, https://github.com/canonical/jubilant/issues
-Project-URL: Documentation, https://canonical-jubilant.readthedocs-hosted.com/
+Project-URL: Documentation, https://documentation.ubuntu.com/jubilant/
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Development Status :: 5 - Production/Stable
@@ -22,11 +22,11 @@ Requires-Dist: PyYAML==6.*
 
 Jubilant is a Python library that wraps the [Juju](https://juju.is/) CLI for use in charm integration tests. It provides methods that map 1:1 to Juju CLI commands, but with a type-annotated, Pythonic interface.
 
-You should consider switching to Jubilant if your integration tests currently use [pytest-operator](https://github.com/charmed-kubernetes/pytest-operator) (and they probably do). Jubilant has an API you'll pick up quickly, and it avoids some of the pain points of [python-libjuju](https://github.com/juju/python-libjuju/), such as websocket failures and having to use `async`. Read our [design goals](https://canonical-jubilant.readthedocs-hosted.com/explanation/design-goals).
+You should consider switching to Jubilant if your integration tests currently use [pytest-operator](https://github.com/charmed-kubernetes/pytest-operator) (and they probably do). Jubilant has an API you'll pick up quickly, and it avoids some of the pain points of [python-libjuju](https://github.com/juju/python-libjuju/), such as websocket failures and having to use `async`. Read our [design goals](https://documentation.ubuntu.com/jubilant/explanation/design-goals).
 
-Jubilant 1.0.0 was released in April 2025. We will try our best to avoid making breaking changes to the API after this point.
+Jubilant 1.0.0 was released in April 2025. We'll avoid making breaking changes to the API after this point.
 
-[**Read the full documentation**](https://canonical-jubilant.readthedocs-hosted.com/)
+[**Read the full documentation**](https://documentation.ubuntu.com/jubilant/)
 
 
 ## Using Jubilant

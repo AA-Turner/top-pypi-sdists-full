@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: gcloud-rest-datastore
-Version: 9.0.0
+Version: 9.1.0
 Summary: Python Client for Google Cloud Datastore
 License: MIT
 Author: Vi Engineering

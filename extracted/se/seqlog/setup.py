@@ -3,8 +3,10 @@
 
 from setuptools import setup
 
+
 def normalize_line_endings(text: str):
     return text.replace('\r\n', '\n').replace('\r', '\n')
+
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -37,7 +39,7 @@ test_requirements = [
 
 setup(
     name='seqlog',
-    version='0.4.2',
+    version="0.4.3",
     description="SeqLog enables logging from Python to Seq.",
     long_description=readme + '\n\n' + history,
     long_description_content_type='text/x-rst',
@@ -47,8 +49,12 @@ setup(
     packages=[
         'seqlog',
     ],
-    package_dir={'seqlog':
-                 'seqlog'},
+    py_modules=[
+        'seqlog',
+    ],
+    package_dir={
+        'seqlog': 'seqlog'
+    },
     include_package_data=True,
     install_requires=requirements,
     license="MIT license",
@@ -68,4 +74,3 @@ setup(
     test_suite='tests',
     tests_require=test_requirements
 )
-

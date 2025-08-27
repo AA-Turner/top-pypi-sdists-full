@@ -17,16 +17,25 @@ import functools
 CONTRAST_SCOPE = ContextVar("contrast_scope", default=0)
 PROPAGATION_SCOPE = ContextVar("propagation_scope", default=0)
 TRIGGER_SCOPE = ContextVar("trigger_scope", default=0)
+OBSERVE_SCOPE = ContextVar("observe_scope", default=0)
 
 
 def current_scope():
-    return (CONTRAST_SCOPE.get(), PROPAGATION_SCOPE.get(), TRIGGER_SCOPE.get())
+    return (
+        CONTRAST_SCOPE.get(),
+        PROPAGATION_SCOPE.get(),
+        TRIGGER_SCOPE.get(),
+        OBSERVE_SCOPE.get(),
+    )
 
 
-def set_scope(contrast_scope: int, propagation_scope: int, trigger_scope: int):
+def set_scope(
+    contrast_scope: int, propagation_scope: int, trigger_scope: int, observe_scope: int
+):
     CONTRAST_SCOPE.set(contrast_scope)
     PROPAGATION_SCOPE.set(propagation_scope)
     TRIGGER_SCOPE.set(trigger_scope)
+    OBSERVE_SCOPE.set(observe_scope)
 
 
 def in_contrast_scope() -> bool:
@@ -39,6 +48,10 @@ def in_propagation_scope() -> bool:
 
 def in_trigger_scope() -> bool:
     return TRIGGER_SCOPE.get() > 0
+
+
+def in_observe_scope() -> bool:
+    return OBSERVE_SCOPE.get() > 0
 
 
 def _build_scope_manager(scope: ContextVar):
@@ -68,6 +81,7 @@ def _build_scope_manager(scope: ContextVar):
 contrast_scope = _build_scope_manager(CONTRAST_SCOPE)
 propagation_scope = _build_scope_manager(PROPAGATION_SCOPE)
 trigger_scope = _build_scope_manager(TRIGGER_SCOPE)
+observe_scope = _build_scope_manager(OBSERVE_SCOPE)
 
 ###################################################
 # Convenience functions not needed for all scopes #

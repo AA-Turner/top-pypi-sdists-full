@@ -3,6 +3,8 @@ from datetime import timedelta
 from datetime import datetime
 from typing import *
 from .hash_utils import *
+from .dynimport import get_abstract_import,import_symbols_to_parent,call_for_all_tabs
+
 from .json_utils import (unified_json_loader,
                          find_keys,
                          get_key_values_from_path,
@@ -143,7 +145,7 @@ from .parse_utils import (num_tokens_from_string,
 
 from .log_utils import get_caller_info,get_logFile,print_or_log,get_json_call_response,initialize_call_log
 from .error_utils import try_func
-from .class_utils import alias,get_class_inputs
+from .class_utils import alias,get_class_inputs,get_set_attr
 from .robust_reader import *
 
 

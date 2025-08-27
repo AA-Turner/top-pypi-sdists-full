@@ -63,7 +63,7 @@ def apply(nodes, self_obj, ret, orig_args, orig_kwargs=None, **kwargs):  # pylin
     """
     Apply node into all sources to track all new strings coming in from a request
     """
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None or not context.assess_enabled:
         return
 
@@ -164,7 +164,7 @@ def adjust_source_tags(tags, source_type, source_name):
 @fail_quietly("Error in apply_stream_source")
 def apply_stream_source(method_name, target, self_obj, ret, args, kwargs):
     source_name = None
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None or not context.assess_enabled:
         return
 

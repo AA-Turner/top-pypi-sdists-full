@@ -1,5 +1,7 @@
 from decimal import ROUND_HALF_UP, Decimal
 import threading
+from typing import Optional
+import aiohttp
 
 import aiohttp
 import requests
@@ -493,32 +495,24 @@ async def get_valor_remessa_cobranca(date: str):
 
 async def get_status_nf_emsys(chave: int):
     """
-    Procura o status de nota fiscal no  EMSYS.
-
-    Args:
-    chave (int): Chave de acesso a NF.
-
-    Returns:
-    dict: Contendo o chave de acesso e status de processamento da nota.
-
-    Raises:
-    Exception: Se houver um erro ao comunicar com o endpoint do Simplifica.
+    Procura o status de nota fiscal no EMSYS.
     """
     env_config, _ = load_env_config()
 
     url = f"{env_config['API_BASE_URL']}/emsys/consulta-status-nota?chaveNfe={chave}"
-
     headers_basic = {"Authorization": f"Basic {env_config['API_AUTHORIZATION']}"}
     timeout = aiohttp.ClientTimeout(total=600)
 
     try:
+        timeout = aiohttp.ClientTimeout(total=600)  # aguarda até 10 minutos
         async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(verify_ssl=True), timeout=timeout
+            connector=aiohttp.TCPConnector(verify_ssl=True),
+            timeout=timeout
         ) as session:
             async with session.get(url, headers=headers_basic) as response:
                 if response.status != 200:
                     raise Exception(
-                        f"Erro ao comunicar com endpoint do Simplifica: {response.text}"
+                        f"Erro ao comunicar com endpoint do Simplifica: {await response.text()}"
                     )
                 data = await response.json()
                 if not data or not isinstance(data, dict):
@@ -526,17 +520,139 @@ async def get_status_nf_emsys(chave: int):
                         f"Erro ao comunicar com endpoint do Simplifica: {data}"
                     )
                 log_msg = f"\nSucesso ao procurar {data}.\n"
-                console.print(
-                    log_msg,
-                    style="bold green",
-                )
+                console.print(log_msg, style="bold green")
                 logger.info(log_msg)
                 return data
 
     except Exception as e:
         err_msg = f"Erro ao comunicar com endpoint do Simplifica: {e}"
-        console.print(f"\n{err_msg}\n", style="bold green")
-        logger.info(err_msg)
+        console.print(f"\n{err_msg}\n", style="bold red")
+        logger.error(err_msg)
+
+async def get_dados_nf_emsys(
+    chave: Optional[int] = None,
+    numero_nota: Optional[int] = None,
+    serie_nota: Optional[int] = None,
+    filial_nota: Optional[int] = None
+):
+    """
+    Consulta a NF no EMSYS (ahead-nota) e retorna os campos essenciais:
+    empresaCodigo, numeroDoCfop e cfopProduto dentro de itens.
+
+    Args:
+        chave (int, opcional): Chave de acesso da NF.
+        numero_nota (int, opcional): Número da NF.
+        serie_nota (int, opcional): Série da NF (obrigatória se numero_nota for informado).
+        filial_nota (int, opcional): Filial da NF (obrigatória se numero_nota for informado).
+
+    Returns:
+        list[dict]: Lista de notas no formato esperado.
+    """
+    env_config, _ = load_env_config()
+
+    url = f"{env_config['API_BASE_URL']}/ahead-nota/find-by-number-nfe"
+
+    params = {}
+
+    # Caso 1: veio a chave
+    if chave is not None:
+        params["chaveNfe"] = chave
+
+    # Caso 2: veio numero_nota → exige serie e filial
+    elif numero_nota is not None:
+        if serie_nota is None or filial_nota is None:
+            raise ValueError("Para buscar por número da nota é obrigatório informar também 'serie_nota' e 'filial_nota'.")
+        params["numeroNfe"] = numero_nota
+        params["serieNfe"] = serie_nota
+        params["empresaCodigo"] = filial_nota
+
+    else:
+        raise ValueError("É necessário informar 'chave' ou ('numero_nota' + 'serie_nota' + 'filial_nota').")
+
+    headers_basic = {"Authorization": f"Basic {env_config['API_AUTHORIZATION']}"}
+
+    try:
+        async with aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(verify_ssl=True)
+        ) as session:
+            async with session.get(url, headers=headers_basic, params=params) as response:
+                if response.status != 200:
+                    raise Exception(
+                        f"Erro ao comunicar com endpoint do Simplifica: {await response.text()}"
+                    )
+
+                data = await response.json()
+
+                if not data:
+                    raise Exception("Não foi possível buscar os dados da nota (ahead_nota).")
+
+                if isinstance(data, dict):
+                    data = [data]
+
+                resultado = []
+                for nota in data:
+                    resultado.append({
+                        "chaveNfe": nota.get("chaveNfe"),
+                        "numeroDoCfop": nota.get("numeroDoCfop"),
+                        "naturezaNota": nota.get("naturezaNota"),
+                        "empresa": nota.get("empresa"),
+                        "fornecedorCnpj": nota.get("fornecedorCnpj"),
+                        "fornecedorNome": nota.get("fornecedorNome"),
+                        "numeroNfe": nota.get("numeroNfe"),
+                        "valorNfe": nota.get("valorNfe"),
+                        "dataEmissao": nota.get("dataEmissao"),
+                        "empresaCodigo": nota.get("empresaCodigo"),
+                        "dataVencimento": nota.get("dataVencimento"),
+                        "statusSituacao": nota.get("statusSituacao"),
+                        "statusRebUnidade": nota.get("statusRebUnidade"),
+                        "statusListarNotas": nota.get("statusListarNotas"),
+                        "existeDespesa": nota.get("existeDespesa"),
+                        "observacao": nota.get("observacao"),
+                        "createdAt": nota.get("createdAt"),
+                        "updatedAt": nota.get("updatedAt"),
+                        "infCpl": nota.get("infCpl"),
+                        "recebimentoFisico": nota.get("recebimentoFisico"),
+                        "serieNfe": nota.get("serieNfe"),
+                        "statusLancamento": nota.get("statusLancamento"),
+                        "dataEntrada": nota.get("dataEntrada"),
+                        "codPessoaFornecedor": nota.get("codPessoaFornecedor"),
+                        "locked": nota.get("locked"),
+                        "itens": [
+                            {
+                                "uuidNotaItem": item.get("uuidNotaItem"),
+                                "chaveNfe": item.get("chaveNfe"),
+                                "codigoProduto": item.get("codigoProduto"),
+                                "descricaoProduto": item.get("descricaoProduto"),
+                                "ncmsh": item.get("ncmsh"),
+                                "ocst": item.get("ocst"),
+                                "cfopProduto": item.get("cfopProduto"),
+                                "unidadeMedida": item.get("unidadeMedida"),
+                                "qtd": item.get("qtd"),
+                                "valorUnitario": item.get("valorUnitario"),
+                                "valorTotal": item.get("valorTotal"),
+                                "bCalculoIcms": item.get("bCalculoIcms"),
+                                "valorIcms": item.get("valorIcms"),
+                                "valorIpi": item.get("valorIpi"),
+                                "aliquotaIcms": item.get("aliquotaIcms"),
+                                "aliquotaIpi": item.get("aliquotaIpi"),
+                                "createdAt": item.get("createdAt"),
+                                "updatedAt": item.get("updatedAt"),
+                                "pedidoCompraXped": item.get("pedidoCompraXped"),
+                                "pedidoCompraItemPed": item.get("pedidoCompraItemPed"),
+                                "codItem": item.get("codItem"),
+                                "desItem": item.get("desItem"),
+                                "indBloqueadoCompra": item.get("indBloqueadoCompra"),
+                                "indItemAtivo": item.get("indItemAtivo")
+                            }
+                            for item in nota.get("itens", [])
+                        ]
+                    })
+
+                return resultado
+
+    except Exception as e:
+        raise Exception(f"Erro ao comunicar com endpoint do Simplifica: {e}")
+
 
 
 async def get_status_cte_emsys(chave: int):

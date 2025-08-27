@@ -127,7 +127,7 @@ class HttpClient:
                 max_retries=Retry(
                     total=self.config['connection']['max_retries'],
                     status_forcelist=[429, 500, 502, 503, 504],
-                    method_whitelist=["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE"]
+                    allowed_methods =["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE"]
                 )
             )
             # this is the adapted requests client
@@ -154,7 +154,7 @@ class HttpClient:
         except requests.exceptions.ConnectionError as e:
             raise exceptions.InvalidSSLCertificateError(str(e))
         except requests.exceptions.Timeout:
-            raise exceptions.TimeoutError('API call timeouted')
+            raise exceptions.TimeoutError('API call timed out')
         HttpClient.check_status_code(resp.status_code, resp.text)
         try:
             return resp.status_code, resp.json()
@@ -166,7 +166,7 @@ class HttpClient:
         try:
             partial_path = path.split(self.root_uri)[1].lstrip('/')
         except:
-            partial_path = ''  # fallback so that a 404 is issued
+            partial_path = path
 
         builder = HttpRequestBuilder(self.root_uri, self.api_key, self.config, has_subdomains=self.admits_subdomains)\
             .with_path(partial_path)\
@@ -198,7 +198,7 @@ class HttpClient:
         try:
             partial_path = path.split(self.root_uri)[1].lstrip('/')
         except:
-            partial_path = ''  # fallback so that a 404 is issued
+            partial_path = path
 
         builder = HttpRequestBuilder(self.root_uri, self.api_key, self.config, has_subdomains=self.admits_subdomains)\
             .with_path(partial_path)\

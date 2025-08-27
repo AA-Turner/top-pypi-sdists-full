@@ -25,10 +25,13 @@ from anyscale.client.openapi_client.models import (
     OrganizationCollaborator,
     OrganizationInvitation,
     Project,
+    ProjectBase,
+    ProjectListResponse,
     ResourceQuota,
     ServerSessionToken,
     SessionState,
     WorkspaceDataplaneProxiedArtifacts,
+    WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.decorated_job_queue import DecoratedJobQueue
@@ -54,7 +57,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.48.0"  # RAY_RELEASE_UPDATE: update to latest version.
+DEFAULT_RAY_VERSION = "2.49.0"  # RAY_RELEASE_UPDATE: update to latest version.
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
@@ -355,11 +358,42 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_project(self, project_id: str) -> Optional[Project]:
+    def get_project(self, project_id: str) -> Project:
         """Get a project by id.
 
         Returns None if not found.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_projects(
+        self,
+        *,
+        name_contains: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        parent_cloud_id: Optional[str] = None,
+        include_defaults: bool = True,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
+        paging_token: Optional[str] = None,
+        count: Optional[int] = None,
+    ) -> ProjectListResponse:
+        """List projects."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def create_project(self, project: WriteProject) -> ProjectBase:
+        """Create a project."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_project(self, project_id: str) -> None:
+        """Delete a project."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_default_project(self, parent_cloud_id: str) -> Project:
+        """Get the default project for the provided cloud ID."""
         raise NotImplementedError
 
     @abstractmethod
@@ -486,6 +520,7 @@ class AnyscaleClientInterface(ABC):
         cloud_id: str,
         excludes: Optional[List[str]] = None,
         overwrite_existing_file: bool = False,
+        cloud_deployment: Optional[str] = None,
     ) -> str:
         """Upload the provided directory to cloud storage and return a URI for it.
 
@@ -496,6 +531,30 @@ class AnyscaleClientInterface(ABC):
 
         The URI is content-addressable (containing a hash of the directory contents), so by
         default if the target file URI already exists it will not be overwritten.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def upload_local_dir_to_cloud_storage_multi_deployment(
+        self,
+        local_dir: str,
+        *,
+        cloud_id: str,
+        cloud_deployments: List[Optional[str]],
+        excludes: Optional[List[str]] = None,
+        overwrite_existing_file: bool = False,
+    ) -> str:
+        """Upload the provided directory to the object storage for each of the provided
+        cloud deployments and return the bucket path of the uploaded file.
+
+        The directory will be zipped and the resulting bucket path will later be converted
+        to a URI that can be used in a Ray runtime_env.
+
+        The upload is preformed using a pre-signed URL fetched from Anyscale, so no
+        local cloud provider authentication is required.
+
+        The path is content-addressable (containing a hash of the directory contents), so by
+        default if the target file path already exists it will not be overwritten.
         """
         raise NotImplementedError
 

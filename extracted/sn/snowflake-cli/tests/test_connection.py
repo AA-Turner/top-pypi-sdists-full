@@ -186,7 +186,7 @@ def test_port_has_cannot_be_float(runner):
 
 @pytest.mark.parametrize(
     "selected_option",
-    [9, 10],  # 9 - private_key_file prompt, 10 - token_file_path prompt
+    [10, 11],  # 10 - private_key_file prompt, 11 - token_file_path prompt
 )
 def test_file_paths_have_to_exist_when_given_in_prompt(selected_option, runner):
     result = _run_connection_add_with_path_provided_as_prompt(
@@ -1453,6 +1453,7 @@ def test_connection_add_with_key_pair(
         "\n"  # port:
         "\n"  # region:
         "\n"  # authenticator:
+        "\n"  # workload identity provider:
         "\n"  # private key file:
         "\n"  # token file path:
         "y\n"  #
@@ -1478,6 +1479,7 @@ def test_connection_add_with_key_pair(
         Enter port: 
         Enter region: 
         Enter authenticator: 
+        Enter workload identity provider: 
         Enter private key file: 
         Enter token file path: 
         Do you want to configure key pair authentication? [y/N]: y
@@ -1518,6 +1520,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         "\n"  # port:
         "\n"  # region:
         "\n"  # authenticator:
+        "\n"  # workload identity provider:
         f"{key}\n"  # private key file:
         "\n",  # token file path:
     )
@@ -1536,6 +1539,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         Enter port: 
         Enter region: 
         Enter authenticator: 
+        Enter workload identity provider: 
         Enter private key file: {key.resolve()}
         Enter token file path: 
         Wrote new connection conn to {test_snowcli_config}
@@ -1604,6 +1608,7 @@ def test_connection_add_with_key_pair_saves_password_if_keypair_is_set(
         "\n"  # port:
         "\n"  # region:
         "\n"  # authenticator:
+        "\n"  # workload identity provider:
         "\n"  # private key file:
         "\n"  # token file path:
         "y\n"  #
@@ -1629,6 +1634,7 @@ def test_connection_add_with_key_pair_saves_password_if_keypair_is_set(
         Enter port: 
         Enter region: 
         Enter authenticator: 
+        Enter workload identity provider: 
         Enter private key file: 
         Enter token file path: 
         Do you want to configure key pair authentication? [y/N]: y
@@ -1653,3 +1659,143 @@ def enable_auth_keypair_feature_flag():
         return_value=True,
     ):
         yield
+
+
+@pytest.mark.parametrize(
+    "is_default",
+    [True, False],
+)
+def test_connection_remove_one(runner, os_agnostic_snapshot, is_default):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        _add_connection(
+            runner, tmp_file, "conn1", is_default=is_default, expected_to_fail=False
+        )
+        _remove_connection(runner, tmp_file, "conn1", expected_to_fail=False)
+        _remove_connection(runner, tmp_file, "conn1", expected_to_fail=True)
+
+        connections_list = _get_connections_list(runner, tmp_file)
+        assert connections_list == []
+
+
+@pytest.mark.parametrize(
+    "is_default",
+    [True, False],
+)
+def test_connection_remove_all(runner, os_agnostic_snapshot, is_default):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        _add_connection(
+            runner, tmp_file, "conn1", is_default=is_default, expected_to_fail=False
+        )
+        _add_connection(
+            runner, tmp_file, "conn2", is_default=is_default, expected_to_fail=False
+        )
+        _remove_connection(runner, tmp_file, "conn1", expected_to_fail=False)
+        _remove_connection(runner, tmp_file, "conn2", expected_to_fail=False)
+
+        _remove_connection(runner, tmp_file, "conn1", expected_to_fail=True)
+        _remove_connection(runner, tmp_file, "conn2", expected_to_fail=True)
+
+        connections_list = _get_connections_list(runner, tmp_file)
+        assert connections_list == []
+
+
+@pytest.mark.parametrize(
+    "conn1_is_default",
+    [True, False],
+)
+@pytest.mark.parametrize(
+    "conn2_is_default",
+    [True, False],
+)
+def test_connection_remove_some(
+    runner, os_agnostic_snapshot, conn1_is_default, conn2_is_default
+):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        _add_connection(
+            runner,
+            tmp_file,
+            "conn1",
+            is_default=conn1_is_default,
+            expected_to_fail=False,
+        )
+        _add_connection(
+            runner,
+            tmp_file,
+            "conn2",
+            is_default=conn2_is_default,
+            expected_to_fail=False,
+        )
+        remove_connection_result = _remove_connection(
+            runner, tmp_file, "conn2", expected_to_fail=False
+        )
+
+        # `snow connection remove` should
+        # 1. Preserve existing connections
+        # 2. Keep default if it was set to a non-removed connection
+        connections_list = _get_connections_list(runner, tmp_file)
+        assert len(connections_list) == 1, connections_list
+
+        assert connections_list[0].get("connection_name") == "conn1", connections_list
+        assert connections_list[0].get("is_default") == (
+            conn1_is_default and not conn2_is_default
+        ), connections_list
+
+        # 3. Unset default if it was set to the removed connection
+        contained_default_msg = (
+            "It was the default connection, so default connection is now unset."
+            in remove_connection_result.output
+        )
+        assert (
+            contained_default_msg if conn2_is_default else not contained_default_msg
+        ), remove_connection_result.output
+
+        content = tmp_file.read()
+
+    assert content == os_agnostic_snapshot
+
+
+def _add_connection(runner, tmp_file, name, is_default=False, expected_to_fail=False):
+    args = [
+        "connection",
+        "add",
+        "--connection-name",
+        name,
+        "--username",
+        "user1",
+        "--password",
+        "password1",
+        "--account",
+        "account1",
+    ]
+    if is_default:
+        args.append("--default")
+
+    result = runner.invoke_with_config_file(tmp_file.name, args)
+    if expected_to_fail:
+        assert result.exit_code != 0, result.output
+        assert f"Connection {name} already exists." in result.output
+    else:
+        assert result.exit_code == 0, result.output
+        assert f"Wrote new connection {name} to {tmp_file.name}" in result.output
+    return result
+
+
+def _remove_connection(runner, tmp_file, name, expected_to_fail=False):
+    result = runner.invoke_with_config_file(
+        tmp_file.name, ["connection", "remove", name]
+    )
+    if expected_to_fail:
+        assert result.exit_code != 0, result.output
+        assert f"Connection {name} does not exist." in result.output
+    else:
+        assert result.exit_code == 0, result.output
+        assert f"Removed connection {name} from {tmp_file.name}" in result.output
+    return result
+
+
+def _get_connections_list(runner, tmp_file):
+    result = runner.invoke_with_config_file(
+        tmp_file.name, ["connection", "list", "--format", "json"]
+    )
+    assert result.exit_code == 0, result.output
+    return json.loads(result.output)

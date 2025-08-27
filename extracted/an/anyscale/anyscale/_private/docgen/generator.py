@@ -15,7 +15,11 @@ from anyscale._private.docgen.generator_legacy import (
     LegacySDK,
     parse_legacy_sdks,
 )
-from anyscale._private.models.model_base import ModelBaseType, ModelEnumType
+from anyscale._private.models.model_base import (
+    ModelBaseType,
+    ModelEnumType,
+    ResultIterator,
+)
 from anyscale.commands.util import AnyscaleCommand, LegacyAnyscaleCommand
 
 
@@ -48,7 +52,7 @@ CUSTOMER_HOSTED_QUALIFIER = (
 
 def _escape_mdx_content(text: str) -> str:
     """Escape content for MDX compatibility.
-    
+
     This function escapes angle brackets that could be interpreted as HTML tags
     by MDX, converting them to escaped versions.
     """
@@ -226,26 +230,19 @@ class MarkdownGenerator:
         if origin is Union:
             return " | ".join(self._model_type_to_string(arg) for arg in args)
 
-        if origin is dict:
-            arg_str = ", ".join([self._model_type_to_string(arg) for arg in args])
-            if args:
-                return f"Dict[{arg_str}]"
-            else:
-                return "Dict"
+        origin_name_map = {
+            dict: "Dict",
+            list: "List",
+            tuple: "Tuple",
+            ResultIterator: "ResultIterator",
+        }
 
-        if origin is list:
+        if origin in origin_name_map:
             arg_str = ", ".join([self._model_type_to_string(arg) for arg in args])
             if arg_str:
-                return f"List[{arg_str}]"
+                return f"{origin_name_map[origin]}[{arg_str}]"
             else:
-                return "List"
-
-        if origin is tuple:
-            arg_str = ", ".join([self._model_type_to_string(arg) for arg in args])
-            if arg_str:
-                return f"Tuple[{arg_str}]"
-            else:
-                return "Tuple"
+                return origin_name_map[origin]
 
         raise NotImplementedError(f"Unhandled type: {t}")
 

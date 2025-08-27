@@ -77,6 +77,10 @@ class ManagedMySqlDatabasesClient(object):
         :param allow_control_chars: (optional)
             allow_control_chars is a boolean to indicate whether or not this client should allow control characters in the response object. By default, the client will not
             allow control characters to be in the response object.
+
+        :param enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this client should enable strict url encoding in path params of a request.
+            By default, the client will not enable strict url encoding
         """
         if not OCI_SDK_ENABLED_SERVICES_SET.is_service_enabled("database_management"):
             raise InvalidAlloyConfig("The Alloy configuration has disabled this service, this behavior is controlled by OCI_SDK_ENABLED_SERVICES_SET variable. Please check if your local alloy-config file configured the service you're targeting or contact the cloud provider on the availability of this service")
@@ -114,6 +118,8 @@ class ManagedMySqlDatabasesClient(object):
             base_client_init_kwargs['circuit_breaker_strategy'] = circuit_breaker.DEFAULT_CIRCUIT_BREAKER_STRATEGY
         if 'allow_control_chars' in kwargs:
             base_client_init_kwargs['allow_control_chars'] = kwargs.get('allow_control_chars')
+        if 'enable_strict_url_encoding' in kwargs:
+            base_client_init_kwargs['enable_strict_url_encoding'] = kwargs.get('enable_strict_url_encoding')
         self.base_client = BaseClient("managed_my_sql_databases", config, signer, database_management_type_mapping, **base_client_init_kwargs)
         self.retry_strategy = kwargs.get('retry_strategy')
         self.circuit_breaker_callback = kwargs.get('circuit_breaker_callback')
@@ -159,11 +165,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type None
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/change_mysql_database_management_type.py.html>`__ to see an example of how to use change_mysql_database_management_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/change_mysql_database_management_type.py.html>`__ to see an example of how to use change_mysql_database_management_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId']
@@ -175,6 +185,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_retry_token",
             "if_match",
@@ -224,6 +235,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 body=change_mysql_database_management_type_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -235,6 +247,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 body=change_mysql_database_management_type_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -262,11 +275,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.ManagedMySqlDatabaseBinaryLogInformation`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/get_binary_log_information.py.html>`__ to see an example of how to use get_binary_log_information API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/get_binary_log_information.py.html>`__ to see an example of how to use get_binary_log_information API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId']
@@ -278,6 +295,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -322,6 +340,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseBinaryLogInformation",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -333,6 +352,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseBinaryLogInformation",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -360,11 +380,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.ManagedMySqlDatabaseGeneralReplicationInformation`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/get_general_replication_information.py.html>`__ to see an example of how to use get_general_replication_information API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/get_general_replication_information.py.html>`__ to see an example of how to use get_general_replication_information API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId']
@@ -376,6 +400,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -420,6 +445,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseGeneralReplicationInformation",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -431,6 +457,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseGeneralReplicationInformation",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -482,11 +509,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.HeatWaveFleetMetrics`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/get_heat_wave_fleet_metric.py.html>`__ to see an example of how to use get_heat_wave_fleet_metric API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/get_heat_wave_fleet_metric.py.html>`__ to see an example of how to use get_heat_wave_fleet_metric API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'startTime', 'endTime']
@@ -498,6 +529,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "filter_by_metric_names",
@@ -552,6 +584,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="HeatWaveFleetMetrics",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -563,6 +596,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="HeatWaveFleetMetrics",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -590,11 +624,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.ManagedMySqlDatabase`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/get_managed_my_sql_database.py.html>`__ to see an example of how to use get_managed_my_sql_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/get_managed_my_sql_database.py.html>`__ to see an example of how to use get_managed_my_sql_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId']
@@ -606,6 +644,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -648,6 +687,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabase",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -659,6 +699,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabase",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -725,11 +766,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.MySqlFleetMetrics`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/get_my_sql_fleet_metric.py.html>`__ to see an example of how to use get_my_sql_fleet_metric API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/get_my_sql_fleet_metric.py.html>`__ to see an example of how to use get_my_sql_fleet_metric API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'startTime', 'endTime']
@@ -741,6 +786,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "filter_by_metric_names",
@@ -822,6 +868,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlFleetMetrics",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -833,6 +880,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlFleetMetrics",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -863,11 +911,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.MySqlQueryDetails`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/get_my_sql_query_details.py.html>`__ to see an example of how to use get_my_sql_query_details API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/get_my_sql_query_details.py.html>`__ to see an example of how to use get_my_sql_query_details API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId', 'digest']
@@ -879,6 +931,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id"
         ]
@@ -929,6 +982,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlQueryDetails",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -941,6 +995,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlQueryDetails",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -988,11 +1043,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.ManagedMySqlDatabaseHighAvailabilityMemberCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/list_high_availability_members.py.html>`__ to see an example of how to use list_high_availability_members API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_high_availability_members.py.html>`__ to see an example of how to use list_high_availability_members API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId']
@@ -1004,6 +1063,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "limit",
@@ -1075,6 +1135,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseHighAvailabilityMemberCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1087,6 +1148,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseHighAvailabilityMemberCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1134,11 +1196,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.ManagedMySqlDatabaseInboundReplicationCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/list_inbound_replications.py.html>`__ to see an example of how to use list_inbound_replications API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_inbound_replications.py.html>`__ to see an example of how to use list_inbound_replications API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId']
@@ -1150,6 +1216,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "limit",
@@ -1221,6 +1288,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseInboundReplicationCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1233,6 +1301,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseInboundReplicationCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1279,11 +1348,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.MySqlConfigurationDataCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/list_managed_my_sql_database_configuration_data.py.html>`__ to see an example of how to use list_managed_my_sql_database_configuration_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_managed_my_sql_database_configuration_data.py.html>`__ to see an example of how to use list_managed_my_sql_database_configuration_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId']
@@ -1295,6 +1368,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "limit",
@@ -1366,6 +1440,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlConfigurationDataCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1378,6 +1453,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlConfigurationDataCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1449,11 +1525,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.MySqlDataCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/list_managed_my_sql_database_sql_data.py.html>`__ to see an example of how to use list_managed_my_sql_database_sql_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_managed_my_sql_database_sql_data.py.html>`__ to see an example of how to use list_managed_my_sql_database_sql_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId', 'startTime', 'endTime']
@@ -1465,6 +1545,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "filter_column",
             "opc_request_id",
@@ -1540,6 +1621,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlDataCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1552,6 +1634,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlDataCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1605,11 +1688,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.ManagedMySqlDatabaseCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/list_managed_my_sql_databases.py.html>`__ to see an example of how to use list_managed_my_sql_databases API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_managed_my_sql_databases.py.html>`__ to see an example of how to use list_managed_my_sql_databases API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1621,6 +1708,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -1689,6 +1777,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1700,6 +1789,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1749,11 +1839,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.MySqlDigestErrorsCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/list_my_sql_digest_errors.py.html>`__ to see an example of how to use list_my_sql_digest_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_my_sql_digest_errors.py.html>`__ to see an example of how to use list_my_sql_digest_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId', 'digest']
@@ -1765,6 +1859,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -1837,6 +1932,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlDigestErrorsCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1849,6 +1945,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MySqlDigestErrorsCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1896,11 +1993,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.ManagedMySqlDatabaseOutboundReplicationCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/list_outbound_replications.py.html>`__ to see an example of how to use list_outbound_replications API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/list_outbound_replications.py.html>`__ to see an example of how to use list_outbound_replications API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId']
@@ -1912,6 +2013,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "limit",
@@ -1983,6 +2085,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseOutboundReplicationCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -1995,6 +2098,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="ManagedMySqlDatabaseOutboundReplicationCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2037,11 +2141,15 @@ class ManagedMySqlDatabasesClient(object):
             allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
             By default, the response will not allow control characters in strings
 
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
         :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.database_management.models.MetricsAggregationRangeCollection`
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/databasemanagement/summarize_managed_my_sql_database_availability_metrics.py.html>`__ to see an example of how to use summarize_managed_my_sql_database_availability_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.159.0/databasemanagement/summarize_managed_my_sql_database_availability_metrics.py.html>`__ to see an example of how to use summarize_managed_my_sql_database_availability_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedMySqlDatabaseId', 'startTime', 'endTime']
@@ -2053,6 +2161,7 @@ class ManagedMySqlDatabasesClient(object):
         # Don't accept unknown kwargs
         expected_kwargs = [
             "allow_control_chars",
+            "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
             "page",
@@ -2108,6 +2217,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MetricsAggregationRangeCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
@@ -2120,6 +2230,7 @@ class ManagedMySqlDatabasesClient(object):
                 header_params=header_params,
                 response_type="MetricsAggregationRangeCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)

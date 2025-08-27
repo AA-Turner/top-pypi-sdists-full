@@ -20,7 +20,7 @@ DISALLOWED_TAGS = [
 # this and perform the policy lookup correctly
 sql_injection_triggers = [
     {
-        "module": ["sqlite3"],
+        "module": ["sqlite3.dbapi2", "sqlite3"],
         "class_name": "Cursor",
         "method_name": ["execute", "executemany", "executescript"],
         # ARG_1 is safe, because the SQL statement is prepared

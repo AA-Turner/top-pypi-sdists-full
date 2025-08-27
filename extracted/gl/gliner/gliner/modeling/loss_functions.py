@@ -7,9 +7,11 @@ def focal_loss_with_logits(
         targets: torch.Tensor,
         alpha: float = 0.25,
         gamma: float = 2,
+        prob_margin: float = 0.,
         reduction: str = "none",
         label_smoothing: float = 0.0,
-        ignore_index: int = -100  # default value for ignored index
+        ignore_index: int = -100,  # default value for ignored index
+        eps: float = 1e-6
 ) -> torch.Tensor:
     """
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
@@ -46,15 +48,20 @@ def focal_loss_with_logits(
     # Apply sigmoid activation to inputs
     p = torch.sigmoid(inputs)
 
+    pm =  torch.clamp(p-prob_margin, max=1.0)
+
     # Compute the binary cross-entropy loss without reduction
-    loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+    pos_term = -targets * torch.log(p.clamp(min=eps))
+    neg_term = -(1.0 - targets) * torch.log((1.0 - pm).clamp(min=eps))
+    loss = (pos_term + neg_term)    
+    # F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
 
     # Apply the valid mask to the loss
     loss = loss * valid_mask
 
     # Apply focal loss modulation if gamma is greater than 0
     if gamma > 0:
-        p_t = p * targets + (1 - p) * (1 - targets)
+        p_t = p * targets + (1-pm) * (1 - targets)
         loss = loss * ((1 - p_t) ** gamma)
 
     # Apply alpha weighting if alpha is specified
@@ -74,3 +81,21 @@ def focal_loss_with_logits(
             f"Invalid value for argument 'reduction': '{reduction}'. "
             f"Supported reduction modes: 'none', 'mean', 'sum'"
         )
+
+
+def cross_entropy_loss(
+        inputs: torch.Tensor,
+        targets: torch.Tensor,
+        reduction: str = "sum",
+        label_smoothing: float = 0.0,
+        ignore_index: int = -100,  # default value for ignored index
+        **kwargs
+) -> torch.Tensor:
+
+    cls_size = inputs.shape[-1]
+    inputs = inputs.reshape(-1, cls_size)
+    targets = targets.reshape(-1)
+    loss = F.cross_entropy(inputs, targets, ignore_index = ignore_index, 
+                            label_smoothing = label_smoothing, reduction=reduction)
+
+    return loss

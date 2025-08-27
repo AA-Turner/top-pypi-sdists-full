@@ -1,5 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
+
 from collections import defaultdict
 from importlib import import_module
 import sys
@@ -18,15 +20,43 @@ class module(Namespace):
     patch_map: dict[int, object] = {}
     # map from id(patch_as_func) -> orig_attr
     inverse_patch_map: dict[int, object] = {}
+    # map from id(patch_as_func) -> number of times this patch has been applied
+    # this number includes repatching, so it can be greater than 1
+    patch_refs_count: dict[int, int] = defaultdict(int)
     # allows lookup of patches by owner ID
     # this is what enables reverse patching
+    # this includes owners of repatches
     patches_by_owner = defaultdict(set)
     # allows lookup of patches by owner name
+    # this includes owners of repatches
     patches_by_name = defaultdict(set)
 
 
-def get_patch(obj_as_func):
+def get_patch(obj_as_func) -> object | None:
+    """
+    Get the patch for the given object.
+
+    Note: there could be nested patches, but this only returns the closest
+    patch that wraps the original function. If you want to get the effective
+    patch, use `get_outer_patch` instead.
+    """
     return module.patch_map.get(id(obj_as_func))
+
+
+def get_outer_patch(obj_as_func) -> object | None:
+    """
+    Get the outermost patch for the given object.
+
+    For example, if we have a v2 patch that wraps a v1 patch that wraps the original
+    function, get_patch would return the v1 patch, while get_outer_patch would return
+    the v2 patch.
+    """
+    patch = get_patch(obj_as_func)
+    if patch is None:
+        return None
+    while outer_patch := get_patch(as_func(patch)):
+        patch = outer_patch
+    return patch
 
 
 def patch(owner, name, patch=None):
@@ -40,6 +70,7 @@ def patch(owner, name, patch=None):
     :param name: str name of the attribute being patched
     :param patch: object replacing owner.name, or None to use an existing patch
     """
+
     orig_attr = getattr(owner, name, None)
     orig_attr_as_func = as_func(orig_attr)
 
@@ -57,7 +88,6 @@ def patch(owner, name, patch=None):
                 owner=owner,
             )
             return
-
     smart_setattr(owner, name, patch)
     register_patch(owner, name, orig_attr)
 
@@ -85,6 +115,8 @@ def _reverse_patch(owner, name):
         smart_setattr(owner, name, orig_attr)
 
     _deregister_patch(patch_as_func, owner, name, orig_attr)
+    # Recurse to handle nested patches.
+    _reverse_patch(owner, name)
 
 
 def reverse_patches_by_owner(owner):
@@ -165,17 +197,21 @@ def register_patch(owner, name, orig_attr):
     patch_as_func = as_func(patch)
     orig_as_func = as_func(orig_attr)
 
-    if id(as_func(module.patch_map.get(id(orig_as_func)))) == id(patch_as_func):
-        # this is the case for repatching: the original attribute already has a
-        # registered patch and that patch matches the one we just applied to it
-        return
-
     if patch_as_func is orig_as_func:
         logger.debug(
             "WARNING: attempted to register an attribute as a patch for itself - "
             "skipping patch map registration",
             orig_attr=orig_attr,
         )
+        return
+
+    module.patch_refs_count[id(patch_as_func)] += 1
+    module.patches_by_owner[id(owner)].add(name)
+    module.patches_by_name[get_name(owner)].add(name)
+
+    if id(as_func(module.patch_map.get(id(orig_as_func)))) == id(patch_as_func):
+        # this is the case for repatching: the original attribute already has a
+        # registered patch and that patch matches the one we just applied to it
         return
 
     module.patch_map[id(orig_as_func)] = patch
@@ -198,14 +234,15 @@ def _deregister_patch(patch_as_func, owner, name, orig_attr):
         del module.patches_by_owner[id(owner)]
         del module.patches_by_name[owner_name]
 
-    # Safety check for the case where we actually have two different patches that
-    # correspond to the same original function (e.g. some of the codecs patches). In
-    # these cases, there are two entries in the inverse_patch_map, but only one in the
-    # patch_map. This isn't ideal, but it prevents errors when reverse patching.
-    if id(orig_as_func) in module.patch_map:
-        del module.patch_map[id(orig_as_func)]
-
-    del module.inverse_patch_map[id(patch_as_func)]
+    module.patch_refs_count[id(patch_as_func)] -= 1
+    if module.patch_refs_count[id(patch_as_func)] <= 0:
+        # Safety check for the case where we actually have two different patches that
+        # correspond to the same original function (e.g. some of the codecs patches). In
+        # these cases, there are two entries in the inverse_patch_map, but only one in the
+        # patch_map. This isn't ideal, but it prevents errors when reverse patching.
+        if id(orig_as_func) in module.patch_map:
+            del module.patch_map[id(orig_as_func)]
+        del module.inverse_patch_map[id(patch_as_func)]
 
     from contrast.agent.policy.applicator import remove_patch_location
 

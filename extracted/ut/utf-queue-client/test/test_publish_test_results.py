@@ -1,11 +1,18 @@
+import json
 import os
 import subprocess
 import sys
 from datetime import datetime
+from unittest import mock
 from uuid import UUID, uuid4
 
 import pytest
 from otel_extensions import inject_context_to_env, instrumented
+
+from utf_queue_client.scripts.publish_test_results_cli import (
+    normalize_to_json,
+    publish_test_results_through_queue,
+)
 
 
 @pytest.fixture
@@ -191,3 +198,59 @@ def test_app_build_results_data(request, app_build_results_data):
         assert process.poll() == 0
 
     call_cli_script()
+
+
+def test_normalize_json():
+    package_info = '{"dependency":{"security_sxsymcrypt":"test"},"version":2}'
+    parsed = normalize_to_json(raw=package_info)
+    parsed_json_lock = json.loads(parsed)
+    assert parsed_json_lock["version"] == 2
+
+
+@pytest.mark.parametrize(
+    "package_info, expected_pacakge_info",
+    [('{"foo": "bar"}', '{"foo": "bar"}'), ("", "{}")],
+)
+@mock.patch(
+    "utf_queue_client.scripts.publish_test_results_cli.SqaTestResultProducerFactory"
+)
+def test_publish_build_result_with_package_info(
+    mock_factory, app_build_results_data, package_info, expected_pacakge_info
+):
+    mock_producer = mock.Mock()
+    mock_factory.create_producer.return_value = mock_producer
+    url = "amqp://test"
+    data_type = "BUILD_RESULT"
+    data_dict = {
+        "session_pk_id": "A464578D-E940-4541-B666-DE164654CABC",
+        "package_info": package_info,
+    }
+    for k, v in app_build_results_data:
+        data_dict[k] = v
+    publish_test_results_through_queue(url, data_type, data_dict)
+    assert os.environ["UTF_QUEUE_SERVER_URL"] == url
+    assert os.environ["UTF_PRODUCER_APP_ID"]
+    mock_producer.publish_app_build_result.assert_called_once()
+    args, kwargs = mock_producer.publish_app_build_result.call_args
+    assert args[0].app_name == "queue_client"
+    assert args[0].package_info == expected_pacakge_info
+
+
+@mock.patch(
+    "utf_queue_client.scripts.publish_test_results_cli.SqaTestResultProducerFactory"
+)
+def test_publish_build_result_with_invalid_package_info(
+    mock_factory, app_build_results_data
+):
+    mock_producer = mock.Mock()
+    mock_factory.create_producer.return_value = mock_producer
+    url = "amqp://test"
+    data_type = "BUILD_RESULT"
+    data_dict = {
+        "session_pk_id": "A464578D-E940-4541-B666-DE164654CABC",
+        "package_info": "not a json",
+    }
+    for k, v in app_build_results_data:
+        data_dict[k] = v
+    with pytest.raises(RuntimeError, match="Package info is not a valid JSON"):
+        publish_test_results_through_queue(url, data_type, data_dict)

@@ -17,7 +17,6 @@ class ResolverClient(OSSResolverClient):
         *,
         entity_urn: Optional[str] = None,
         actor_urn: Optional[str] = None,
-        skip_cache: bool = False,
     ) -> List[SubscriptionUrn]:
         """Retrieve subscriptions for a given entity or actor, or both if both are given.
         Args:
@@ -36,7 +35,5 @@ class ResolverClient(OSSResolverClient):
             filters.append(F.custom_filter("actorUrn", "EQUAL", [actor_urn]))
 
         filter = F.and_(*filters)
-        subscriptions = list(
-            self._client.search.get_urns(filter=filter, skip_cache=skip_cache)
-        )
+        subscriptions = list(self._client.search.get_urns(filter=filter))
         return [SubscriptionUrn.from_string(urn) for urn in subscriptions]

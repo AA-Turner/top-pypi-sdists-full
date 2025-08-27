@@ -112,7 +112,7 @@ def do_quart_route_observation(quart_instance, *args, **kwargs):
 @fail_quietly("unable to perform Flask/Quart route observation")
 @scope.contrast_scope()
 def do_route_observation(framework_ctx, app_instance):
-    if (context := contrast.CS__CONTEXT_TRACKER.current()) is None:
+    if (context := contrast.REQUEST_CONTEXT.get()) is None:
         logger.debug("not in request context - skipping route observation")
         return
 

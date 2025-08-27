@@ -69,7 +69,13 @@ from anyscale.job.models import (
     JobStatus,
 )
 from anyscale.organization_invitation.models import OrganizationInvitation
-from anyscale.project.models import CreateProjectCollaborator, ProjectPermissionLevel
+from anyscale.project.models import (
+    CreateProjectCollaborator,
+    Project,
+    ProjectPermissionLevel,
+    ProjectSortField,
+    ProjectSortOrder,
+)
 from anyscale.resource_quota.models import CreateResourceQuota, Quota, ResourceQuota
 from anyscale.schedule.models import ScheduleConfig, ScheduleState, ScheduleStatus
 from anyscale.service.models import (
@@ -110,25 +116,33 @@ ALL_MODULES = [
         title="Project",
         filename="project-api.md",
         cli_prefix="anyscale project",
-        cli_commands=[project_commands.add_collaborators,],
-        sdk_prefix="anyscale.project",
-        sdk_commands=[anyscale.project.add_collaborators,],
-        models=[ProjectPermissionLevel, CreateProjectCollaborator],
-        legacy_cli_commands=[project_commands.create, project_commands.list,],
-        legacy_sdk_commands={
-            "create_project": None,
-            "delete_project": None,
-            "get_default_project": None,
-            "get_project": None,
-            "search_projects": None,
-        },
-        legacy_sdk_models=[
-            "CreateProject",
-            "Project",
-            "ProjectListResponse",
-            "ProjectResponse",
-            "ProjectsQuery",
+        cli_commands=[
+            project_commands.get,
+            project_commands.list,
+            project_commands.create,
+            project_commands.delete,
+            project_commands.get_default,
+            project_commands.add_collaborators,
         ],
+        sdk_prefix="anyscale.project",
+        sdk_commands=[
+            anyscale.project.get,
+            anyscale.project.list,
+            anyscale.project.create,
+            anyscale.project.delete,
+            anyscale.project.get_default,
+            anyscale.project.add_collaborators,
+        ],
+        models=[
+            Project,
+            ProjectSortField,
+            ProjectSortOrder,
+            CreateProjectCollaborator,
+            ProjectPermissionLevel,
+        ],
+        legacy_cli_commands=[],
+        legacy_sdk_commands={},
+        legacy_sdk_models=[],
     ),
     Module(
         title="Job",
@@ -321,7 +335,6 @@ ALL_MODULES = [
             WorkerNodeGroupConfig,
             MarketType,
             CloudDeploymentSelector,
-            MultiDeploymentComputeConfig,
             ComputeConfigVersion,
         ],
         legacy_sdk_commands={
@@ -436,9 +449,8 @@ ALL_MODULES = [
             cloud_commands.cloud_verify,
             cloud_commands.list_cloud,
             cloud_commands.cloud_deployment_create,
-            cloud_commands.cloud_deployment_get,
-            cloud_commands.cloud_deployment_update,
             cloud_commands.cloud_deployment_delete,
+            cloud_commands.cloud_config_get,
             cloud_commands.cloud_config_update,
             cloud_commands.cloud_set_default,
             cloud_commands.add_collaborators,
@@ -470,9 +482,8 @@ ALL_MODULES = [
         ],
         cli_command_group_prefix={
             cloud_commands.cloud_deployment_create: "deployment",
-            cloud_commands.cloud_deployment_get: "deployment",
-            cloud_commands.cloud_deployment_update: "deployment",
             cloud_commands.cloud_deployment_delete: "deployment",
+            cloud_commands.cloud_config_get: "config",
             cloud_commands.cloud_config_update: "config",
         },
         legacy_sdk_commands={

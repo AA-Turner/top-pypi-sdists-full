@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: djade
-Version: 1.4.0
+Version: 1.5.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -17,6 +16,7 @@ License-File: LICENSE
 Summary: A Django template formatter.
 Keywords: Django
 Author-email: Adam Johnson <me@adamj.eu>
+License-Expression: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst; charset=UTF-8
 Project-URL: Changelog, https://github.com/adamchainz/djade/blob/main/CHANGELOG.rst
@@ -149,6 +149,9 @@ __ https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core
 .. code-block:: powershell
 
     git ls-files -- '*.html' | %{djade $_}
+
+The filename ``-`` makes Djade read from standard input and write to standard output.
+In this case, Djade always exits with code 0, even if changes were made.
 
 Options
 =======

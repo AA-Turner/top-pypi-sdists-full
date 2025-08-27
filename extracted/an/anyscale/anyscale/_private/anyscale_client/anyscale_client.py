@@ -67,6 +67,9 @@ from anyscale.client.openapi_client.models import (
     ListResourceQuotasQuery,
     OrganizationCollaborator,
     OrganizationInvitation,
+    Project,
+    ProjectBase,
+    ProjectListResponse,
     ResourceQuota,
     ResourceQuotaStatus,
     ServerSessionToken,
@@ -76,6 +79,7 @@ from anyscale.client.openapi_client.models import (
     StopSessionOptions,
     SystemWorkloadName,
     WorkspaceDataplaneProxiedArtifacts,
+    WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.decorated_job_queue import DecoratedJobQueue
@@ -104,7 +108,7 @@ from anyscale.sdk.anyscale_client.models import (
     CreateClusterEnvironmentBuild,
     Job as APIJobRun,
     ProductionServiceV2VersionModel,
-    Project,
+    Project as ProjectExternal,
     RollbackServiceModel,
     TextQuery,
 )
@@ -158,7 +162,7 @@ def handle_api_exceptions(func):
                     body_dict = json.loads(e.body)
                     msg = body_dict["error"]["detail"]
                     raise ValueError(msg) from None
-                except KeyError:
+                except (KeyError, TypeError):
                     # ApiException doesn't conform to expected format, raise original error
                     raise e from None
             raise e from None
@@ -484,7 +488,7 @@ class AnyscaleClient(AnyscaleClientInterface):
 
         if self._default_project_id_from_cloud_id.get(parent_cloud_id) is None:
             # Cloud isolation organizations follow the permissions model in https://docs.anyscale.com/organization-and-user-account/access-controls
-            default_project: Project = self._external_api_client.get_default_project(
+            default_project: ProjectExternal = self._external_api_client.get_default_project(
                 parent_cloud_id=parent_cloud_id
             ).result
             self._default_project_id_from_cloud_id[parent_cloud_id] = default_project.id
@@ -1050,9 +1054,51 @@ class AnyscaleClient(AnyscaleClientInterface):
         )
 
     @handle_api_exceptions
-    def get_project(self, project_id: str) -> Optional[Project]:
+    def get_project(self, project_id: str) -> Project:
         return self._internal_api_client.get_project_api_v2_projects_project_id_get(
             project_id
+        ).result
+
+    @handle_api_exceptions
+    def list_projects(
+        self,
+        *,
+        name_contains: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        parent_cloud_id: Optional[str] = None,
+        include_defaults: bool = True,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
+        paging_token: Optional[str] = None,
+        count: Optional[int] = None,
+    ) -> ProjectListResponse:
+        return self._internal_api_client.list_projects_api_v2_projects_get(
+            name_contains=name_contains,
+            creator_id=creator_id,
+            parent_cloud_id=parent_cloud_id,
+            include_defaults=include_defaults,
+            sort_field=sort_field,
+            sort_order=sort_order,
+            paging_token=paging_token,
+            count=count or self.LIST_ENDPOINT_COUNT,
+        )
+
+    @handle_api_exceptions
+    def create_project(self, project: WriteProject) -> ProjectBase:
+        return self._internal_api_client.create_project_api_v2_projects_post(
+            project
+        ).result
+
+    @handle_api_exceptions
+    def delete_project(self, project_id: str) -> None:
+        self._internal_api_client.delete_project_api_v2_projects_project_id_delete(
+            project_id
+        )
+
+    @handle_api_exceptions
+    def get_default_project(self, parent_cloud_id: str) -> Project:
+        return self._internal_api_client.get_default_project_api_v2_projects_default_project_get(
+            parent_cloud_id=parent_cloud_id,
         ).result
 
     @handle_api_exceptions
@@ -1243,6 +1289,64 @@ class AnyscaleClient(AnyscaleClientInterface):
             job_id
         )
 
+    def _upload_local_runtime_env(
+        self,
+        cloud_id: str,
+        cloud_deployment_id: Optional[str],
+        zip_file_bytes: bytes,
+        content_hash: str,
+        overwrite_existing_file: bool,
+    ) -> CloudDataBucketPresignedUrlResponse:
+        file_name = RUNTIME_ENV_PACKAGE_FORMAT.format(content_hash=content_hash)
+        request = CloudDataBucketPresignedUrlRequest(
+            file_type=CloudDataBucketFileType.RUNTIME_ENV_PACKAGES,
+            file_name=file_name,
+            access_mode=CloudDataBucketAccessMode.WRITE,
+            cloud_deployment_id=cloud_deployment_id,
+        )
+        info: CloudDataBucketPresignedUrlResponse = self._internal_api_client.generate_cloud_data_bucket_presigned_url_api_v2_clouds_cloud_id_generate_cloud_data_bucket_presigned_url_post(
+            cloud_id, request
+        ).result
+
+        # Skip the upload entirely if the file already exists.
+        if info.file_exists and not overwrite_existing_file:
+            internal_logger.debug(
+                f"Skipping file upload for '{file_name}' because it already exists in cloud storage."
+            )
+            return info
+
+        if info.url_scheme == CloudDataBucketPresignedUrlScheme.SMART_OPEN:
+            # If the presigned URL scheme is SMART_OPEN, upload to cloud storage using the provided bucket name, path, & environment, and the smart_open library.
+            bucket_name = info.bucket_name
+            bucket_path = info.bucket_path
+
+            env_vars: Dict[str, str] = {
+                "AWS_ENDPOINT_URL": info.url,
+            }
+            with set_env(**env_vars), smart_open.open(
+                f"{bucket_name}/{bucket_path}", "wb",
+            ) as fout:
+                fout.write(zip_file_bytes)
+
+        else:
+            # Default to HTTP PUT.
+            internal_logger.debug(f"Uploading file '{file_name}' to cloud storage.")
+            headers = None
+            if info.file_uri.startswith("azure") or info.file_uri.startswith("abfss"):
+                headers = {
+                    "x-ms-blob-type": "BlockBlob",
+                    "x-ms-version": "2025-07-05",
+                    "x-ms-date": datetime.utcnow().strftime(
+                        "%a, %d %b %Y %H:%M:%S GMT"
+                    ),
+                    "x-ms-blob-content-type": "application/zip",
+                }
+            requests.put(
+                info.url, data=zip_file_bytes, headers=headers
+            ).raise_for_status()
+
+        return info
+
     @handle_api_exceptions
     def upload_local_dir_to_cloud_storage(
         self,
@@ -1251,63 +1355,91 @@ class AnyscaleClient(AnyscaleClientInterface):
         cloud_id: str,
         excludes: Optional[List[str]] = None,
         overwrite_existing_file: bool = OVERWRITE_EXISTING_CLOUD_STORAGE_FILES,
+        cloud_deployment: Optional[str] = None,
     ) -> str:
         if not pathlib.Path(local_dir).is_dir():
             raise RuntimeError(f"Path '{local_dir}' is not a valid directory.")
+
+        cloud_deployment_id = None
+        if cloud_deployment is not None:
+            cloud_deployments = self._internal_api_client.get_cloud_deployments_api_v2_clouds_cloud_id_deployments_get(
+                cloud_id=cloud_id,
+            ).results
+            cloud_deployment_id = next(
+                (
+                    deployment.cloud_deployment_id
+                    for deployment in cloud_deployments
+                    if deployment.name == cloud_deployment
+                ),
+                None,
+            )
+            if cloud_deployment_id is None:
+                raise ValueError(
+                    f"Cloud deployment '{cloud_deployment}' not found in cloud '{cloud_id}'"
+                )
 
         with zip_local_dir(local_dir, excludes=excludes) as (
             _,
             zip_file_bytes,
             content_hash,
         ):
-            file_name = RUNTIME_ENV_PACKAGE_FORMAT.format(content_hash=content_hash)
-            request = CloudDataBucketPresignedUrlRequest(
-                file_type=CloudDataBucketFileType.RUNTIME_ENV_PACKAGES,
-                file_name=file_name,
-                access_mode=CloudDataBucketAccessMode.WRITE,
+            info = self._upload_local_runtime_env(
+                cloud_id=cloud_id,
+                cloud_deployment_id=cloud_deployment_id,
+                zip_file_bytes=zip_file_bytes,
+                content_hash=content_hash,
+                overwrite_existing_file=overwrite_existing_file,
             )
-            info: CloudDataBucketPresignedUrlResponse = self._internal_api_client.generate_cloud_data_bucket_presigned_url_api_v2_clouds_cloud_id_generate_cloud_data_bucket_presigned_url_post(
-                cloud_id, request
-            ).result
+            return info.file_uri
 
-            # Skip the upload entirely if the file already exists.
-            if info.file_exists and not overwrite_existing_file:
-                internal_logger.debug(
-                    f"Skipping file upload for '{file_name}' because it already exists in cloud storage."
+    def upload_local_dir_to_cloud_storage_multi_deployment(
+        self,
+        local_dir: str,
+        *,
+        cloud_id: str,
+        cloud_deployments: List[Optional[str]],
+        excludes: Optional[List[str]] = None,
+        overwrite_existing_file: bool = False,
+    ) -> str:
+        if not pathlib.Path(local_dir).is_dir():
+            raise RuntimeError(f"Path '{local_dir}' is not a valid directory.")
+
+        all_cloud_deployments = self._internal_api_client.get_cloud_deployments_api_v2_clouds_cloud_id_deployments_get(
+            cloud_id=cloud_id,
+        ).results
+        cloud_deployment_ids = {
+            deployment.name: deployment.cloud_deployment_id
+            for deployment in all_cloud_deployments
+        }
+
+        bucket_paths = set()
+
+        with zip_local_dir(local_dir, excludes=excludes) as (
+            _,
+            zip_file_bytes,
+            content_hash,
+        ):
+            for cloud_deployment in cloud_deployments:
+                if cloud_deployment is not None:
+                    if cloud_deployment not in cloud_deployment_ids:
+                        raise ValueError(
+                            f"Cloud deployment '{cloud_deployment}' not found in cloud '{cloud_id}'"
+                        )
+                    cloud_deployment_id = cloud_deployment_ids[cloud_deployment]
+                else:
+                    cloud_deployment_id = None
+
+                info = self._upload_local_runtime_env(
+                    cloud_id=cloud_id,
+                    cloud_deployment_id=cloud_deployment_id,
+                    zip_file_bytes=zip_file_bytes,
+                    content_hash=content_hash,
+                    overwrite_existing_file=overwrite_existing_file,
                 )
-                return info.file_uri
+                bucket_paths.add(info.bucket_path)
 
-            if info.url_scheme == CloudDataBucketPresignedUrlScheme.SMART_OPEN:
-                # If the presigned URL scheme is SMART_OPEN, upload to cloud storage using the provided bucket name, path, & environment, and the smart_open library.
-                bucket_name = info.bucket_name
-                bucket_path = info.bucket_path
-
-                env_vars: Dict[str, str] = {
-                    "AWS_ENDPOINT_URL": info.url,
-                }
-                with set_env(**env_vars), smart_open.open(
-                    f"{bucket_name}/{bucket_path}", "wb",
-                ) as fout:
-                    fout.write(zip_file_bytes)
-
-            else:
-                # Default to HTTP PUT.
-                internal_logger.debug(f"Uploading file '{file_name}' to cloud storage.")
-                headers = None
-                if info.file_uri.startswith("azure"):
-                    headers = {
-                        "x-ms-blob-type": "BlockBlob",
-                        "x-ms-version": "2025-07-05",
-                        "x-ms-date": datetime.utcnow().strftime(
-                            "%a, %d %b %Y %H:%M:%S GMT"
-                        ),
-                        "x-ms-blob-content-type": "application/zip",
-                    }
-                requests.put(
-                    info.url, data=zip_file_bytes, headers=headers
-                ).raise_for_status()
-
-        return info.file_uri
+            assert len(bucket_paths) == 1
+            return bucket_paths.pop()
 
     def _fetch_log_chunks(self, job_run_id: str) -> Tuple[List[str], Any]:
         all_log_chunk_urls = []

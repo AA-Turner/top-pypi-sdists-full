@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-lsp-server
-Version: 1.13.0
+Version: 1.13.1
 Summary: Python Language Server for the Language Server Protocol
 Author: Python Language Server Contributors
 License: MIT
@@ -55,7 +55,7 @@ Requires-Dist: coverage; extra == "test"
 Requires-Dist: numpy; extra == "test"
 Requires-Dist: pandas; extra == "test"
 Requires-Dist: matplotlib; extra == "test"
-Requires-Dist: pyqt5; extra == "test"
+Requires-Dist: pyqt6; extra == "test"
 Requires-Dist: flaky; extra == "test"
 Requires-Dist: websockets>=10.3; extra == "test"
 Dynamic: license-file

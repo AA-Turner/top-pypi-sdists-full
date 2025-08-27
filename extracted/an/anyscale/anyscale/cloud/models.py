@@ -275,7 +275,7 @@ object_storage:
     bucket_name: Optional[str] = field(
         default=None,
         metadata={
-            "docstring": "The cloud storage bucket name, prefixed with the storage scheme (s3://bucket-name, gs://bucket-name, or azure://bucket-name)."
+            "docstring": "The cloud storage bucket name, prefixed with the storage scheme (s3://bucket-name, gs://bucket-name, or abfss://bucket-name@account.dfs.core.windows.net)."
         },
     )
     region: Optional[str] = field(

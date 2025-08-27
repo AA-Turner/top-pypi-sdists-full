@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: granian
-Version: 2.5.0
+Version: 2.5.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -14,9 +15,9 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Programming Language :: Python
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Dist: click>=8.0.0
@@ -70,14 +71,14 @@ Adopting Granian would thus be a good choice when:
 - wanting a modern, single dependency to serve both ASGI and WSGI applications
 - looking for the most performant way to serve your Python application under HTTP/2
 - you need great concurrency capabilities, especially with websockets
-- you care about performance more than everything else
+- you care about throughput more than everything else
 
 On the other hand, Granian won't be the ideal option if:
 
 - you want a *pure Python* solution
 - you need advanced debugging features
 - your application relies on `trio` or `gevent`
-- you're looking for ASGI extensions [not (yet) implemented](https://github.com/emmett-framework/granian/issues/93) like trailers
+- you're looking for ASGI extensions [not (yet) implemented](https://github.com/emmett-framework/granian/issues/93)
 
 ## Features
 
@@ -399,6 +400,17 @@ Options:
   --help                          Show this message and exit.
 ```
 
+### Human-readable durations
+
+Whenever Granian accepts a duration, it can be specified either as sole number, in which case it is interpreted as a number of seconds, or using one of the following suffixes:
+
+| suffix | meaning |
+| --- | --- |
+| `s` | seconds (same as no suffix) |
+| `m` | minutes |
+| `h` | hours |
+| `d` | days |
+
 ### Logging
 
 Despite being a Rust project, Granian is a good Python citizen and uses the standard library's [`logging`](https://docs.python.org/3/library/logging.html) module to produce logs. This means you can freely configure your logging level and format using the [standard idioms](https://docs.python.org/3/howto/logging.html) you probably familiar with.
@@ -483,6 +495,17 @@ def my_wsgi_app(environ, start_response):
 my_asgi_app = wrap_asgi_with_proxy_headers(my_asgi_app, trusted_hosts="1.2.3.4")
 my_wsgi_app = wrap_wsgi_with_proxy_headers(my_wsgi_app, trusted_hosts="1.2.3.4")
 ```
+
+With these wrappers, Granian will use:
+
+- the [`X-Forwarded-For`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-For) header to determine the client's IP address 
+- the [`X-Forwarded-Proto`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-Proto) header to determine the client's protocol
+
+and replace the relevant request scope attributes with these values.
+
+Since altering the request scope based on values from headers is security-sensitive, Granian will check the request is coming from a trusted host as specified by the `trusted_hosts` argument. By default this value is set to `127.0.0.1`, which means Granian will only intercept those headers if the proxy resides on the same machine, but most likely that's not the case in a production environment: you should thus provide the correct set of addresses to the wrappers.
+
+The `trusted_hosts` argument accepts either a string or a list of strings, where valid values are IP addresses (for example, `192.0.2.1` or `fd12:3456:789a::1`) and CIDR ranges (for example, `192.0.2.0/24` or `2001:db8:abcd::/48`). The special *catch-all value* `"*"` (or `["*"]`) will make Granian trust all hosts and effectively disable the security check.
 
 ## Free-threaded Python
 
@@ -588,7 +611,7 @@ Granian follows a *semantic versioning* scheme for its releases, with a `{major}
 
 Mind that bug and security fixes are **usually provided for the latest minor version only**.
 
-Granian is used *in production* by some popular projects like [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx/blob/v2.17.1/pyproject.toml#L81) and [reflex](https://github.com/reflex-dev/reflex/blob/v0.7.14/pyproject.toml#L25), and by *famous companies* like [Mozilla](https://github.com/mozilla/bedrock/blob/2025-06-25/requirements/prod.in#L33) and [Microsoft](https://github.com/microsoft/call-center-ai/blob/958b3192020ab8a49cabd328a873eaa70e8865bc/pyproject.toml#L26).
+Granian is used *in production* by projects like [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx/blob/v2.17.1/pyproject.toml#L81), [reflex](https://github.com/reflex-dev/reflex/blob/v0.7.14/pyproject.toml#L25) and [searxng](https://github.com/searxng/searxng/blob/a0ff173799d978873ba022e5d5d8467b8ca7e822/requirements-server.txt#L1), and by *famous companies* like [Mozilla](https://github.com/mozilla/bedrock/blob/2025-06-25/requirements/prod.in#L33) and [Microsoft](https://github.com/microsoft/call-center-ai/blob/958b3192020ab8a49cabd328a873eaa70e8865bc/pyproject.toml#L26).
 
 ## License
 

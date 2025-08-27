@@ -337,7 +337,7 @@ class Properties:
         if event is None or not event.source_type:
             return
 
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
 
         if not context:
             return

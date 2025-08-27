@@ -128,6 +128,11 @@ class PeopleCountingUseCase(BaseProcessor):
             context.confidence_threshold = config.confidence_threshold
             
             is_multi_frame = self.detect_frame_structure(data)
+            print("--------------------------------------")
+            print("config.alert_config",config.alert_config)
+            print(config)
+            print("is_multi?",is_multi_frame)
+            print("--------------------------------------")
             
             #self.logger.info(f"Processing people counting - Format: {input_format.value}, Multi-frame: {is_multi_frame}")
             
@@ -280,6 +285,9 @@ class PeopleCountingUseCase(BaseProcessor):
             category = detection.get("category", "unknown")
             counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
         
+        # Step 4.5: Always update tracking state BEFORE zone enhancements so detections have track_ids
+        self._update_tracking_state(counting_summary)
+
         # Step 5: Zone analysis for this frame
         zone_analysis = {}
         if config.zone_config and config.zone_config.zones:
@@ -287,15 +295,12 @@ class PeopleCountingUseCase(BaseProcessor):
             frame_data = frame_detections #[frame_detections]
             zone_analysis = count_objects_in_zones(frame_data, config.zone_config.zones)
             
-            # Update zone tracking with current frame data
+            # Update zone tracking with current frame data (now detections have canonical track_ids)
             if zone_analysis and config.enable_tracking:
                 enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, frame_detections, config)
                 # Merge enhanced zone analysis with original zone analysis
                 for zone_name, enhanced_data in enhanced_zone_analysis.items():
                     zone_analysis[zone_name] = enhanced_data
-        
-        # Step 4.5: Always update tracking state (regardless of enable_unique_counting setting)
-        self._update_tracking_state(counting_summary)
         
         # Step 5: Generate insights and alerts for this frame
         alerts = self._check_alerts(counting_summary, zone_analysis, config, frame_id)
@@ -877,14 +882,23 @@ class PeopleCountingUseCase(BaseProcessor):
         # Map raw tracker IDs to canonical IDs to avoid duplicate counting
         current_frame_tracks: Set[Any] = set()
 
-        for detection in detections:
-            raw_track_id = detection.get("track_id")
-            if raw_track_id is None:
-                continue
+        # Local sequence to make ephemeral IDs unique within the same call
+        ephemeral_seq = 0
 
+        for detection in detections:
+            # Prefer explicit tracker-provided ID when available
+            raw_track_id = detection.get("track_id")
+
+            # Always require a bbox to perform IoU-based merging
             bbox = detection.get("bounding_box", detection.get("bbox"))
             if not bbox:
                 continue
+
+            # For single-frame detectors (e.g., plain YOLO) there is no track_id.
+            # Generate a short-lived ID and merge by IoU against recent canonical tracks.
+            if raw_track_id is None:
+                raw_track_id = self._generate_ephemeral_track_id(bbox, ephemeral_seq)
+                ephemeral_seq += 1
 
             canonical_id = self._merge_or_register_track(raw_track_id, bbox)
 
@@ -911,6 +925,45 @@ class PeopleCountingUseCase(BaseProcessor):
             else:
                 self.logger.debug(
                     f"Tracking state updated: {len(current_frame_tracks)} current frame canonical tracks, total unique tracks: {self._total_count}")
+
+    def _generate_ephemeral_track_id(self, bbox: Any, seq: int) -> str:
+        """Create a short-lived raw track id for detections without a track_id.
+
+        Combines a coarse hash of the bbox geometry with a per-call sequence and
+        a millisecond timestamp, so the same person across adjacent frames will
+        still be merged to the same canonical track via IoU and time window,
+        while avoiding long-lived ID collisions across distant calls.
+        """
+        try:
+            # Normalize bbox to xyxy list for hashing
+            if isinstance(bbox, dict):
+                if "x1" in bbox:
+                    xyxy = [bbox.get("x1"), bbox.get("y1"), bbox.get("x2"), bbox.get("y2")]
+                elif "xmin" in bbox:
+                    xyxy = [bbox.get("xmin"), bbox.get("ymin"), bbox.get("xmax"), bbox.get("ymax")]
+                else:
+                    values = list(bbox.values())
+                    xyxy = values[:4] if len(values) >= 4 else []
+            elif isinstance(bbox, list):
+                xyxy = bbox[:4]
+            else:
+                xyxy = []
+
+            if len(xyxy) < 4:
+                xyxy = [0, 0, 0, 0]
+
+            x1, y1, x2, y2 = xyxy
+            # Coarse-quantize geometry to stabilize hash across minor jitter
+            cx = int(round((float(x1) + float(x2)) / 2.0))
+            cy = int(round((float(y1) + float(y2)) / 2.0))
+            w = int(round(abs(float(x2) - float(x1))))
+            h = int(round(abs(float(y2) - float(y1))))
+            geom_token = f"{cx}_{cy}_{w}_{h}"
+        except Exception:
+            geom_token = "0_0_0_0"
+
+        ms = int(time.time() * 1000)
+        return f"tmp_{ms}_{seq}_{abs(hash(geom_token)) % 1000003}"
     
     def get_total_count(self) -> int:
         """Get the total count of unique people tracked across all calls."""

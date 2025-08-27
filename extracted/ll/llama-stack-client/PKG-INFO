@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: llama_stack_client
-Version: 0.2.18
+Version: 0.2.19
 Summary: The official Python library for the llama-stack-client API
 Project-URL: Homepage, https://github.com/llamastack/llama-stack-client-python
 Project-URL: Repository, https://github.com/llamastack/llama-stack-client-python
@@ -32,6 +32,9 @@ Requires-Dist: sniffio
 Requires-Dist: termcolor
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions<5,>=4.7
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # Llama Stack Client Python API library

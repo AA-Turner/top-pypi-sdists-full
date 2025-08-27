@@ -35,6 +35,7 @@ from tinybird.tb.modules.agent.prompts import (
     load_custom_project_rules,
     resources_prompt,
     secrets_prompt,
+    service_datasources_prompt,
 )
 from tinybird.tb.modules.agent.testing_agent import TestingAgent
 from tinybird.tb.modules.agent.tools.analyze import analyze_file, analyze_url
@@ -286,6 +287,10 @@ class TinybirdAgent:
             return resources_prompt(self.project)
 
         @self.agent.instructions
+        def get_service_datasources(ctx: RunContext[TinybirdAgentContext]) -> str:
+            return service_datasources_prompt()
+
+        @self.agent.instructions
         def get_secrets(ctx: RunContext[TinybirdAgentContext]) -> str:
             return secrets_prompt(self.project)
 
@@ -293,14 +298,12 @@ class TinybirdAgent:
         self.messages.append(message)
 
     def _build_agent_deps(self, config: dict[str, Any], run_id: Optional[str] = None) -> TinybirdAgentContext:
-        client = TinyB(token=self.token, host=self.host)
         project = self.project
         folder = self.project.folder
         local_client = get_tinybird_local_client(config, test=False, silent=False)
         test_client = get_tinybird_local_client(config, test=True, silent=True)
         return TinybirdAgentContext(
             # context does not support the whole client, so we need to pass only the functions we need
-            explore_data=client.explore_data,
             build_project=partial(build_project, project=project, config=config),
             deploy_project=partial(deploy_project, project=project, config=config),
             deploy_check_project=partial(deploy_check_project, project=project, config=config),

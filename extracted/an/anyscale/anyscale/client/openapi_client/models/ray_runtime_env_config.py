@@ -35,6 +35,8 @@ class RayRuntimeEnvConfig(object):
     openapi_types = {
         'working_dir': 'str',
         'py_modules': 'list[str]',
+        'relative_working_dir': 'str',
+        'relative_py_modules': 'list[str]',
         'py_executable': 'str',
         'pip': 'list[str]',
         'conda': 'object',
@@ -46,6 +48,8 @@ class RayRuntimeEnvConfig(object):
     attribute_map = {
         'working_dir': 'working_dir',
         'py_modules': 'py_modules',
+        'relative_working_dir': 'relative_working_dir',
+        'relative_py_modules': 'relative_py_modules',
         'py_executable': 'py_executable',
         'pip': 'pip',
         'conda': 'conda',
@@ -54,7 +58,7 @@ class RayRuntimeEnvConfig(object):
         'image_uri': 'image_uri'
     }
 
-    def __init__(self, working_dir=None, py_modules=None, py_executable=None, pip=None, conda=None, env_vars=None, config=None, image_uri=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, working_dir=None, py_modules=None, relative_working_dir=None, relative_py_modules=None, py_executable=None, pip=None, conda=None, env_vars=None, config=None, image_uri=None, local_vars_configuration=None):  # noqa: E501
         """RayRuntimeEnvConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +66,8 @@ class RayRuntimeEnvConfig(object):
 
         self._working_dir = None
         self._py_modules = None
+        self._relative_working_dir = None
+        self._relative_py_modules = None
         self._py_executable = None
         self._pip = None
         self._conda = None
@@ -74,6 +80,10 @@ class RayRuntimeEnvConfig(object):
             self.working_dir = working_dir
         if py_modules is not None:
             self.py_modules = py_modules
+        if relative_working_dir is not None:
+            self.relative_working_dir = relative_working_dir
+        if relative_py_modules is not None:
+            self.relative_py_modules = relative_py_modules
         if py_executable is not None:
             self.py_executable = py_executable
         if pip is not None:
@@ -132,6 +142,52 @@ class RayRuntimeEnvConfig(object):
         """
 
         self._py_modules = py_modules
+
+    @property
+    def relative_working_dir(self):
+        """Gets the relative_working_dir of this RayRuntimeEnvConfig.  # noqa: E501
+
+        Relative path to the working directory that your code will run in. The appropriate cloud deployment object storage will be prepended to this path.  # noqa: E501
+
+        :return: The relative_working_dir of this RayRuntimeEnvConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._relative_working_dir
+
+    @relative_working_dir.setter
+    def relative_working_dir(self, relative_working_dir):
+        """Sets the relative_working_dir of this RayRuntimeEnvConfig.
+
+        Relative path to the working directory that your code will run in. The appropriate cloud deployment object storage will be prepended to this path.  # noqa: E501
+
+        :param relative_working_dir: The relative_working_dir of this RayRuntimeEnvConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._relative_working_dir = relative_working_dir
+
+    @property
+    def relative_py_modules(self):
+        """Gets the relative_py_modules of this RayRuntimeEnvConfig.  # noqa: E501
+
+        Relative paths to python modules that will be installed along with your runtime env. The appropriate cloud deployment object storage will be prepended to these paths. If `py_modules` are specified, they will be also be installed.  # noqa: E501
+
+        :return: The relative_py_modules of this RayRuntimeEnvConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._relative_py_modules
+
+    @relative_py_modules.setter
+    def relative_py_modules(self, relative_py_modules):
+        """Sets the relative_py_modules of this RayRuntimeEnvConfig.
+
+        Relative paths to python modules that will be installed along with your runtime env. The appropriate cloud deployment object storage will be prepended to these paths. If `py_modules` are specified, they will be also be installed.  # noqa: E501
+
+        :param relative_py_modules: The relative_py_modules of this RayRuntimeEnvConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._relative_py_modules = relative_py_modules
 
     @property
     def py_executable(self):

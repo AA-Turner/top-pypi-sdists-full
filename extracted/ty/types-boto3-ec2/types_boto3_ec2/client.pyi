@@ -58,7 +58,10 @@ from .paginator import (
     DescribeHostReservationsPaginator,
     DescribeHostsPaginator,
     DescribeIamInstanceProfileAssociationsPaginator,
+    DescribeImageReferencesPaginator,
     DescribeImagesPaginator,
+    DescribeImageUsageReportEntriesPaginator,
+    DescribeImageUsageReportsPaginator,
     DescribeImportImageTasksPaginator,
     DescribeImportSnapshotTasksPaginator,
     DescribeInstanceConnectEndpointsPaginator,
@@ -334,6 +337,8 @@ from .type_defs import (
     CreateFpgaImageResultTypeDef,
     CreateImageRequestTypeDef,
     CreateImageResultTypeDef,
+    CreateImageUsageReportRequestTypeDef,
+    CreateImageUsageReportResultTypeDef,
     CreateInstanceConnectEndpointRequestTypeDef,
     CreateInstanceConnectEndpointResultTypeDef,
     CreateInstanceEventWindowRequestTypeDef,
@@ -495,6 +500,8 @@ from .type_defs import (
     DeleteFlowLogsResultTypeDef,
     DeleteFpgaImageRequestTypeDef,
     DeleteFpgaImageResultTypeDef,
+    DeleteImageUsageReportRequestTypeDef,
+    DeleteImageUsageReportResultTypeDef,
     DeleteInstanceConnectEndpointRequestTypeDef,
     DeleteInstanceConnectEndpointResultTypeDef,
     DeleteInstanceEventWindowRequestTypeDef,
@@ -729,8 +736,14 @@ from .type_defs import (
     DescribeIdFormatRequestTypeDef,
     DescribeIdFormatResultTypeDef,
     DescribeImageAttributeRequestTypeDef,
+    DescribeImageReferencesRequestTypeDef,
+    DescribeImageReferencesResultTypeDef,
     DescribeImagesRequestTypeDef,
     DescribeImagesResultTypeDef,
+    DescribeImageUsageReportEntriesRequestTypeDef,
+    DescribeImageUsageReportEntriesResultTypeDef,
+    DescribeImageUsageReportsRequestTypeDef,
+    DescribeImageUsageReportsResultTypeDef,
     DescribeImportImageTasksRequestTypeDef,
     DescribeImportImageTasksResultTypeDef,
     DescribeImportSnapshotTasksRequestTypeDef,
@@ -1517,6 +1530,7 @@ from .waiter import (
     ExportTaskCompletedWaiter,
     ImageAvailableWaiter,
     ImageExistsWaiter,
+    ImageUsageReportAvailableWaiter,
     InstanceExistsWaiter,
     InstanceRunningWaiter,
     InstanceStatusOkWaiter,
@@ -2401,6 +2415,17 @@ class EC2Client(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_image)
         """
 
+    def create_image_usage_report(
+        self, **kwargs: Unpack[CreateImageUsageReportRequestTypeDef]
+    ) -> CreateImageUsageReportResultTypeDef:
+        """
+        Creates a report that shows how your image is used across other Amazon Web
+        Services accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_image_usage_report.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_image_usage_report)
+        """
+
     def create_instance_connect_endpoint(
         self, **kwargs: Unpack[CreateInstanceConnectEndpointRequestTypeDef]
     ) -> CreateInstanceConnectEndpointResultTypeDef:
@@ -3268,6 +3293,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_fpga_image.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_fpga_image)
+        """
+
+    def delete_image_usage_report(
+        self, **kwargs: Unpack[DeleteImageUsageReportRequestTypeDef]
+    ) -> DeleteImageUsageReportResultTypeDef:
+        """
+        Deletes the specified image usage report.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_image_usage_report.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_image_usage_report)
         """
 
     def delete_instance_connect_endpoint(
@@ -4550,6 +4585,39 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_image_attribute.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_image_attribute)
+        """
+
+    def describe_image_references(
+        self, **kwargs: Unpack[DescribeImageReferencesRequestTypeDef]
+    ) -> DescribeImageReferencesResultTypeDef:
+        """
+        Describes your Amazon Web Services resources that are referencing the specified
+        images.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_image_references.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_image_references)
+        """
+
+    def describe_image_usage_report_entries(
+        self, **kwargs: Unpack[DescribeImageUsageReportEntriesRequestTypeDef]
+    ) -> DescribeImageUsageReportEntriesResultTypeDef:
+        """
+        Describes the entries in image usage reports, showing how your images are used
+        across other Amazon Web Services accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_image_usage_report_entries.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_image_usage_report_entries)
+        """
+
+    def describe_image_usage_reports(
+        self, **kwargs: Unpack[DescribeImageUsageReportsRequestTypeDef]
+    ) -> DescribeImageUsageReportsResultTypeDef:
+        """
+        Describes the configuration and status of image usage reports, filtered by
+        report IDs or image IDs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_image_usage_reports.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_image_usage_reports)
         """
 
     def describe_images(
@@ -9036,6 +9104,39 @@ class EC2Client(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_image_references"]
+    ) -> DescribeImageReferencesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_image_usage_report_entries"]
+    ) -> DescribeImageUsageReportEntriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_image_usage_reports"]
+    ) -> DescribeImageUsageReportsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_images"]
     ) -> DescribeImagesPaginator:
         """
@@ -10460,6 +10561,17 @@ class EC2Client(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["image_exists"]
     ) -> ImageExistsWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_waiter.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["image_usage_report_available"]
+    ) -> ImageUsageReportAvailableWaiter:
         """
         Returns an object that can wait for some condition.
 

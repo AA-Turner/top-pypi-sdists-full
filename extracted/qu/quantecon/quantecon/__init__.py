@@ -3,7 +3,7 @@
 Import the main names to top level.
 """
 
-__version__ = '0.9.0'
+__version__ = '0.10.0'
 
 try:
     import numba
@@ -52,4 +52,4 @@ from .markov import mc_compute_stationary, mc_sample_path
 #<-
 from ._rank_nullspace import rank_est, nullspace
 from ._robustlq import RBLQ
-from .util import searchsorted, fetch_nb_dependencies, tic, tac, toc, Timer
+from .util import searchsorted, fetch_nb_dependencies, tic, tac, toc, Timer, timeit

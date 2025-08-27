@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: canvas
-Version: 0.57.1
+Version: 0.58.1
 Summary: SDK to customize event-driven actions in your Canvas instance
 Author-email: Canvas Team <engineering@canvasmedical.com>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Requires-Dist: django-stubs[compatible-mypy]<6,>=5.1.1
 Requires-Dist: django-timezone-utils<0.16,>=0.15.0
 Requires-Dist: django<6,>=5.1.1
 Requires-Dist: env-tools<3,>=2.4.0
+Requires-Dist: factory-boy>=3.3.3
 Requires-Dist: frozendict>=2.4.6
 Requires-Dist: grpcio<2,>=1.60.1
 Requires-Dist: ipython<9,>=8.21.0
@@ -32,6 +33,8 @@ Requires-Dist: statsd<5,>=4.0.1
 Requires-Dist: typer
 Requires-Dist: typing-extensions<4.13,>=4.8
 Requires-Dist: websocket-client<2,>=1.7.0
+Provides-Extra: test-utils
+Requires-Dist: pytest-canvas; extra == 'test-utils'
 Description-Content-Type: text/markdown
 
 [![codecov](https://codecov.io/gh/canvas-medical/canvas-plugins/graph/badge.svg?token=P8JJUOJ8FH)](https://codecov.io/gh/canvas-medical/canvas-plugins)

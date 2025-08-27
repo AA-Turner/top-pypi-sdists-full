@@ -344,7 +344,7 @@ def tensorleap_custom_visualizer(name: str, visualizer_type: LeapDataType,
         def inner(*args, **kwargs):
             _validate_input_args(*args, **kwargs)
 
-            result = inner_without_validate()
+            result = inner_without_validate(*args, **kwargs)
 
             _validate_result(result)
             return result

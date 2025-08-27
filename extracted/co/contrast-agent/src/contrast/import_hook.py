@@ -63,7 +63,7 @@ def analyze_for_unsafe_code_execution(module_name: str):
     if scope.in_contrast_scope():
         return
     with scope.contrast_scope():
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context and context.assess_enabled:
             unsafe_code_execution.apply_rule(
                 "importlib", "__import__", None, (module_name,), {}
@@ -82,6 +82,6 @@ class _ContrastImportHookChainedLoader(_ImportHookChainedLoader):
             if (
                 not in_scope
                 and Settings().is_inventory_enabled()
-                and (context := contrast.CS__CONTEXT_TRACKER.current()) is not None
+                and (context := contrast.REQUEST_CONTEXT.get()) is not None
             ):
                 context.observed_libraries.add_module(module)

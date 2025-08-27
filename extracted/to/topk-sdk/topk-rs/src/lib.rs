@@ -51,7 +51,7 @@ pub mod query {
         use crate::proto::v1::data::{FunctionExpr, Value};
 
         pub fn vector_distance(field: impl Into<String>, query: impl Into<Value>) -> FunctionExpr {
-            FunctionExpr::vector_distance(field, query)
+            FunctionExpr::vector_distance(field, query, false)
         }
 
         pub fn semantic_similarity(
@@ -93,5 +93,15 @@ pub mod query {
                 weight: weight.unwrap_or(1.0),
             }],
         )
+    }
+
+    /// Evaluates to true if each `expr` is true.
+    pub fn all(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> LogicalExpr {
+        LogicalExpr::all(exprs)
+    }
+
+    /// Evaluates to true if at least one `expr` is true.
+    pub fn any(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> LogicalExpr {
+        LogicalExpr::any(exprs)
     }
 }

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class Throwable:
     """
     Represents a throwable entity (such as an exception or error) within the framework.

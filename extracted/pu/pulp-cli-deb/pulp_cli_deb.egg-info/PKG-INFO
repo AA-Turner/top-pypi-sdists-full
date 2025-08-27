@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pulp-cli-deb
-Version: 0.4.0
+Version: 0.4.1
 Summary: Command line interface to talk to pulpcore's REST API. (Deb plugin commands)
 Author-email: Pulp Team <pulp-list@redhat.com>
 License: GPLv2+

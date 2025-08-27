@@ -71,7 +71,8 @@ class PrivateServiceSDK(WorkloadSDK):
         new_applications = copy.deepcopy(config.applications)
         new_runtime_envs = [app.get("runtime_env", {}) for app in new_applications]
 
-        new_runtime_envs = self.override_and_upload_local_dirs(
+        # Multi-deployment compute configs are not supported for services.
+        new_runtime_envs = self.override_and_upload_local_dirs_single_deployment(
             new_runtime_envs,
             working_dir_override=config.working_dir,
             excludes_override=config.excludes,

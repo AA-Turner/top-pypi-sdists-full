@@ -20,10 +20,15 @@ UTF_QUEUE_SERVER_PATTERN = (
 )
 
 
-def prepare_queue_central_url(username, password):
+def prepare_queue_central_url(username, password, is_dev_queue: bool = False):
     if username is None or password is None:
         raise RuntimeError("username or password must be provided if using queue")
-    hostname = os.environ.get("UTF_QUEUE_HOSTNAME", "utf-queue-central.silabs.net")
+    dev = ""
+    if is_dev_queue:
+        dev = ".dev"
+    hostname = os.environ.get(
+        "UTF_QUEUE_HOSTNAME", f"utf-queue-central{dev}.silabs.net"
+    )
     scheme = os.environ.get("UTF_QUEUE_SCHEME", "amqps")
     port = os.environ.get("UTF_QUEUE_PORT", "443")
     virtual_host = os.environ.get("UTF_QUEUE_VIRTUAL_HOST", "%2f")

@@ -46,7 +46,6 @@ __all__ = (
     "CancelParticipantAuthenticationRequestTypeDef",
     "CompleteAttachmentUploadRequestTypeDef",
     "ConnectionCredentialsTypeDef",
-    "ConnectionDataTypeDef",
     "CreateParticipantConnectionRequestTypeDef",
     "CreateParticipantConnectionResponseTypeDef",
     "DescribeViewRequestTypeDef",
@@ -59,9 +58,7 @@ __all__ = (
     "GetTranscriptRequestTypeDef",
     "GetTranscriptResponseTypeDef",
     "ItemTypeDef",
-    "MediaPlacementTypeDef",
     "MeetingFeaturesConfigurationTypeDef",
-    "MeetingTypeDef",
     "MessageMetadataTypeDef",
     "ReceiptTypeDef",
     "ResponseMetadataTypeDef",
@@ -75,6 +72,9 @@ __all__ = (
     "UploadMetadataTypeDef",
     "ViewContentTypeDef",
     "ViewTypeDef",
+    "WebRTCConnectionTypeDef",
+    "WebRTCMediaPlacementTypeDef",
+    "WebRTCMeetingTypeDef",
     "WebsocketTypeDef",
 )
 
@@ -147,13 +147,6 @@ class StartPositionTypeDef(TypedDict):
     AbsoluteTime: NotRequired[str]
     MostRecent: NotRequired[int]
 
-class MediaPlacementTypeDef(TypedDict):
-    AudioHostUrl: NotRequired[str]
-    AudioFallbackUrl: NotRequired[str]
-    SignalingUrl: NotRequired[str]
-    TurnControlUrl: NotRequired[str]
-    EventIngestionUrl: NotRequired[str]
-
 class ReceiptTypeDef(TypedDict):
     DeliveredTimestamp: NotRequired[str]
     ReadTimestamp: NotRequired[str]
@@ -187,6 +180,12 @@ class ViewContentTypeDef(TypedDict):
     InputSchema: NotRequired[str]
     Template: NotRequired[str]
     Actions: NotRequired[List[str]]
+
+class WebRTCMediaPlacementTypeDef(TypedDict):
+    AudioHostUrl: NotRequired[str]
+    AudioFallbackUrl: NotRequired[str]
+    SignalingUrl: NotRequired[str]
+    EventIngestionUrl: NotRequired[str]
 
 class MeetingFeaturesConfigurationTypeDef(TypedDict):
     Audio: NotRequired[AudioFeaturesTypeDef]
@@ -236,9 +235,8 @@ class ViewTypeDef(TypedDict):
     Version: NotRequired[int]
     Content: NotRequired[ViewContentTypeDef]
 
-class MeetingTypeDef(TypedDict):
-    MediaRegion: NotRequired[str]
-    MediaPlacement: NotRequired[MediaPlacementTypeDef]
+class WebRTCMeetingTypeDef(TypedDict):
+    MediaPlacement: NotRequired[WebRTCMediaPlacementTypeDef]
     MeetingFeatures: NotRequired[MeetingFeaturesConfigurationTypeDef]
     MeetingId: NotRequired[str]
 
@@ -264,9 +262,9 @@ class DescribeViewResponseTypeDef(TypedDict):
     View: ViewTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ConnectionDataTypeDef(TypedDict):
+class WebRTCConnectionTypeDef(TypedDict):
     Attendee: NotRequired[AttendeeTypeDef]
-    Meeting: NotRequired[MeetingTypeDef]
+    Meeting: NotRequired[WebRTCMeetingTypeDef]
 
 class GetTranscriptResponseTypeDef(TypedDict):
     InitialContactId: str
@@ -277,5 +275,5 @@ class GetTranscriptResponseTypeDef(TypedDict):
 class CreateParticipantConnectionResponseTypeDef(TypedDict):
     Websocket: WebsocketTypeDef
     ConnectionCredentials: ConnectionCredentialsTypeDef
-    WebRTCConnection: ConnectionDataTypeDef
+    WebRTCConnection: WebRTCConnectionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

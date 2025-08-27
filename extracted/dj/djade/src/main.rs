@@ -1,8 +1,10 @@
 mod cli;
 
 use clap::Parser;
+use cli::get_target_version;
 use regex::Regex;
 use std::fs;
+use std::io::{self, Read};
 use std::sync::LazyLock;
 
 fn main() {
@@ -12,51 +14,59 @@ fn main() {
 }
 
 fn main_impl(args: &cli::Args, writer: &mut dyn std::io::Write) -> i32 {
-    let target_version: Option<(u8, u8)> = {
-        if args.target_version.is_none() {
-            None
-        } else {
-            let version = args.target_version.as_ref().unwrap();
-            let parts: Vec<&str> = version.split('.').collect();
-            if parts.len() != 2 {
-                panic!("Invalid target version format. Expected 'major.minor'");
-            }
-            Some((
-                parts[0].parse().expect("Invalid major version number"),
-                parts[1].parse().expect("Invalid minor version number"),
-            ))
-        }
-    };
+    let target_version: Option<(u8, u8)> =
+        get_target_version(&args.target_version).map(|v| v.as_tuple());
 
     let mut returncode = 0;
     let mut reformatted_count = 0;
     let mut already_formatted_count = 0;
     for filename in &args.filenames {
-        match fs::read_to_string(filename) {
-            Ok(content) => {
-                let formatted = format(&content, target_version);
-                if formatted != content {
-                    if args.check {
-                        writeln!(writer, "Would reformat: {}", filename).unwrap();
-                        returncode = 1;
-                        reformatted_count += 1;
-                    } else {
-                        fs::write(filename, formatted).expect("Could not write {filename}");
-                        returncode = 1;
-                        reformatted_count += 1;
-                    }
-                } else {
-                    already_formatted_count += 1;
+        let (content, is_stdin) = if filename == "-" {
+            let mut buffer = String::new();
+            match io::stdin().read_to_string(&mut buffer) {
+                Ok(_) => (buffer, true),
+                Err(e) => {
+                    writeln!(writer, "Error reading from stdin: {}", e).unwrap();
+                    returncode = 1;
+                    continue;
                 }
             }
-            Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
-                writeln!(writer, "{} is non-UTF-8 (not supported)", filename).unwrap();
-                returncode = 1;
+        } else {
+            match fs::read_to_string(filename) {
+                Ok(content) => (content, false),
+                Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
+                    writeln!(writer, "{} is non-UTF-8 (not supported)", filename).unwrap();
+                    returncode = 1;
+                    continue;
+                }
+                Err(e) => {
+                    writeln!(writer, "Error reading {}: {}", filename, e).unwrap();
+                    returncode = 1;
+                    continue;
+                }
             }
-            Err(e) => {
-                writeln!(writer, "Error reading {}: {}", filename, e).unwrap();
+        };
+
+        let formatted = format(&content, target_version);
+        if formatted != content {
+            if args.check {
+                let display_name = if is_stdin { "stdin" } else { filename };
+                writeln!(writer, "Would reformat: {}", display_name).unwrap();
                 returncode = 1;
+                reformatted_count += 1;
+            } else if is_stdin {
+                print!("{}", formatted);
+                reformatted_count += 1;
+            } else {
+                fs::write(filename, formatted).expect("Could not write {filename}");
+                returncode = 1;
+                reformatted_count += 1;
             }
+        } else {
+            if is_stdin && !args.check {
+                print!("{}", content);
+            }
+            already_formatted_count += 1;
         }
     }
 
@@ -127,7 +137,7 @@ fn lex(template_string: &str) -> Vec<Token> {
     let mut lineno = 1;
     let mut last_end = 0;
 
-    for cap in (&*TAG_RE).captures_iter(template_string) {
+    for cap in TAG_RE.captures_iter(template_string) {
         let token_match = cap.get(0).unwrap();
         let (start, end) = (token_match.start(), token_match.end());
 
@@ -223,19 +233,18 @@ static FILTER_RE: LazyLock<Regex> = LazyLock::new(|| {
     regex::RegexBuilder::new(&format!(
         r#"(?x)
         ^(?P<constant>{constant})|
-        ^(?P<var>[{var_chars}]+|{num})|
+        ^(?P<var>[{var_chars}]+)|
          (?:\s*{filter_sep}\s*
              (?P<filter_name>\w+)
                  (?:{arg_sep}
                      (?:
                       (?P<constant_arg>{constant})|
-                      (?P<var_arg>[{var_chars}]+|{num})
+                      (?P<var_arg>[{var_chars}]+)
                      )
                  )?
          )"#,
         constant = constant_string,
-        num = r"[-+.]?\d[\d.e]*",
-        var_chars = r"\w\.",
+        var_chars = r"\w\.\+-",
         filter_sep = regex::escape("|"),
         arg_sep = regex::escape(":"),
     ))
@@ -269,7 +278,7 @@ fn lex_filter_expression(expr: &str) -> FilterExpression {
     };
     let mut upto = 0;
     let mut variable = false;
-    for captures in (&*FILTER_RE).captures_iter(expr) {
+    for captures in FILTER_RE.captures_iter(expr) {
         let start = captures.get(0).unwrap().start();
         if upto != start {
             // Syntax error - ignore it and return whole expression as constant
@@ -453,7 +462,7 @@ fn format_variable(filter_expression: FilterExpression, result: &mut String) {
 static LENGTH_IS_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"([\w.]+)\|length_is:(\w+)").unwrap());
 
-fn migrate_length_is(tokens: &mut Vec<Token>, target_version: Option<(u8, u8)>) {
+fn migrate_length_is(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (4, 2) {
         return;
     }
@@ -474,7 +483,7 @@ fn migrate_length_is(tokens: &mut Vec<Token>, target_version: Option<(u8, u8)>) 
     }
 }
 
-fn migrate_empty_json_script(tokens: &mut Vec<Token>, target_version: Option<(u8, u8)>) {
+fn migrate_empty_json_script(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (4, 1) {
         return;
     }
@@ -497,7 +506,7 @@ fn migrate_empty_json_script(tokens: &mut Vec<Token>, target_version: Option<(u8
     }
 }
 
-fn migrate_translation_tags(tokens: &mut Vec<Token>, target_version: Option<(u8, u8)>) {
+fn migrate_translation_tags(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (3, 1) {
         return;
     }
@@ -534,7 +543,7 @@ fn migrate_translation_tags(tokens: &mut Vec<Token>, target_version: Option<(u8,
     }
 }
 
-fn migrate_ifequal_tags(tokens: &mut Vec<Token>, target_version: Option<(u8, u8)>) {
+fn migrate_ifequal_tags(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (3, 1) {
         return;
     }
@@ -599,7 +608,7 @@ fn migrate_ifequal_tags(tokens: &mut Vec<Token>, target_version: Option<(u8, u8)
     }
 }
 
-fn migrate_static_load_tags(tokens: &mut Vec<Token>, target_version: Option<(u8, u8)>) {
+fn migrate_static_load_tags(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (2, 1) {
         return;
     }
@@ -616,9 +625,9 @@ fn migrate_static_load_tags(tokens: &mut Vec<Token>, target_version: Option<(u8,
                         }
                     }
                 } else {
-                    for i in 1..bits.len() {
-                        if bits[i] == "admin_static" || bits[i] == "staticfiles" {
-                            bits[i] = "static".to_string();
+                    for bit in bits.iter_mut().skip(1) {
+                        if bit == "admin_static" || bit == "staticfiles" {
+                            *bit = "static".to_string();
                         }
                     }
                 }
@@ -627,7 +636,7 @@ fn migrate_static_load_tags(tokens: &mut Vec<Token>, target_version: Option<(u8,
     }
 }
 
-fn migrate_assignments(tokens: &mut Vec<Token>) {
+fn migrate_assignments(tokens: &mut [Token]) {
     for token in tokens.iter_mut() {
         if let Token::Block { bits, .. } = token {
             match bits[0].as_str() {
@@ -724,10 +733,8 @@ fn migrate_assignments_blocktranslate_tag(bits: &mut Vec<String>) {
 static LEADING_BLANK_LINES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*\n)+").unwrap());
 
 fn update_leading_trailing_whitespace(tokens: &mut Vec<Token>, newline: &str) {
-    if let Some(mut token) = tokens.first_mut() {
-        if let Token::Text { contents, .. } = &mut token {
-            *contents = (&*LEADING_BLANK_LINES).replace(contents, "").to_string();
-        }
+    if let Some(Token::Text { contents, .. }) = tokens.first_mut() {
+        *contents = LEADING_BLANK_LINES.replace(contents, "").to_string();
     }
 
     if let Some(mut token) = tokens.last_mut() {
@@ -816,7 +823,7 @@ fn update_load_tags(tokens: &mut Vec<Token>) {
     }
 }
 
-fn update_endblock_labels(tokens: &mut Vec<Token>) {
+fn update_endblock_labels(tokens: &mut [Token]) {
     let mut block_stack = Vec::new();
     let mut i = 0;
     while i < tokens.len() {
@@ -856,7 +863,7 @@ fn update_endblock_labels(tokens: &mut Vec<Token>) {
     }
 }
 
-fn update_top_level_block_indentation(tokens: &mut Vec<Token>) {
+fn update_top_level_block_indentation(tokens: &mut [Token]) {
     let mut after_extends = false;
     let mut block_depth = 0;
 
@@ -876,10 +883,8 @@ fn update_top_level_block_indentation(tokens: &mut Vec<Token>) {
                     if after_extends && block_depth == 0 {
                         unindent_token(tokens, i);
                     }
-                } else {
-                    if block_depth == 0 {
-                        return;
-                    }
+                } else if block_depth == 0 {
+                    return;
                 }
             }
             _ => continue,
@@ -889,15 +894,15 @@ fn update_top_level_block_indentation(tokens: &mut Vec<Token>) {
 
 static INDENTATION_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^[ \t]+$\z").unwrap());
 
-fn unindent_token(tokens: &mut Vec<Token>, index: usize) {
+fn unindent_token(tokens: &mut [Token], index: usize) {
     if index > 0 {
         if let Token::Text { contents, .. } = &mut tokens[index - 1] {
-            *contents = (&INDENTATION_LINE).replace_all(contents, "").to_string();
+            *contents = INDENTATION_LINE.replace_all(contents, "").to_string();
         }
     }
 }
 
-fn update_top_level_block_spacing(tokens: &mut Vec<Token>, newline: &str) {
+fn update_top_level_block_spacing(tokens: &mut [Token], newline: &str) {
     let mut has_extends = false;
     let mut depth = 0;
     let mut last_top_level_tag = None;
@@ -960,7 +965,7 @@ mod tests {
         // Run the main function with our non-UTF-8 file
         let args = cli::Args {
             filenames: vec![file_path.to_str().unwrap().to_string()],
-            target_version: None,
+            target_version: "auto".to_string(),
             check: false,
         };
 
@@ -984,7 +989,7 @@ mod tests {
         // Run the main function with our non-UTF-8 file
         let args = cli::Args {
             filenames: vec![file_path.to_str().unwrap().to_string()],
-            target_version: None,
+            target_version: "auto".to_string(),
             check: false,
         };
 
@@ -1015,7 +1020,7 @@ mod tests {
         // Run the main function with our non-UTF-8 file
         let args = cli::Args {
             filenames: vec![file_path.to_str().unwrap().to_string()],
-            target_version: None,
+            target_version: "auto".to_string(),
             check: false,
         };
 
@@ -1040,7 +1045,7 @@ mod tests {
 
         let args = cli::Args {
             filenames: vec![file_path.to_str().unwrap().to_string()],
-            target_version: None,
+            target_version: "auto".to_string(),
             check: true,
         };
 
@@ -1058,6 +1063,99 @@ mod tests {
         // Verify the file wasn't actually changed
         let content = fs::read_to_string(&file_path).unwrap();
         assert_eq!(content, "{{name}}");
+    }
+
+    #[test]
+    fn test_main_impl_auto_version_with_pyproject() {
+        let dir = tempdir().unwrap();
+        let old_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+
+        let pyproject_content = r#"
+[project]
+dependencies = [
+    "django>=4.2,<5.0",
+    "requests>=2.0",
+]
+"#;
+        fs::write("pyproject.toml", pyproject_content).unwrap();
+
+        // Create a test template file
+        let template_content = "{% block content %}\nHello\n{% endblock %}";
+        let template_path = dir.path().join("test.html");
+        fs::write(&template_path, template_content).unwrap();
+
+        let args = cli::Args {
+            filenames: vec![template_path.to_str().unwrap().to_string()],
+            target_version: "auto".to_string(),
+            check: false,
+        };
+
+        let mut output = Vec::new();
+        let exit_code = main_impl(&args, &mut output);
+
+        assert_eq!(exit_code, 1);
+        let output_str = String::from_utf8(output).unwrap();
+        assert!(output_str.contains("1 file reformatted"));
+
+        let reformatted_content = fs::read_to_string(&template_path).unwrap();
+        assert!(reformatted_content.contains("{% endblock content %}"));
+
+        std::env::set_current_dir(old_dir).unwrap();
+    }
+
+    #[test]
+    fn test_main_impl_auto_version_without_pyproject() {
+        let dir = tempdir().unwrap();
+        let old_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+
+        let template_content = "{% block content %}\nHello\n{% endblock %}";
+        let template_path = dir.path().join("test.html");
+        fs::write(&template_path, template_content).unwrap();
+
+        let args = cli::Args {
+            filenames: vec![template_path.to_str().unwrap().to_string()],
+            target_version: "auto".to_string(),
+            check: false,
+        };
+
+        let mut output = Vec::new();
+        let exit_code = main_impl(&args, &mut output);
+
+        assert_eq!(exit_code, 1);
+        let output_str = String::from_utf8(output).unwrap();
+        assert!(output_str.contains("1 file reformatted"));
+
+        let reformatted_content = fs::read_to_string(&template_path).unwrap();
+        assert!(reformatted_content.contains("{% endblock content %}"));
+
+        std::env::set_current_dir(old_dir).unwrap();
+    }
+
+    #[test]
+    fn test_main_impl_explicit_version() {
+        let dir = tempdir().unwrap();
+
+        let template_content = "{% block content %}\nHello\n{% endblock %}";
+        let template_path = dir.path().join("test.html");
+        fs::write(&template_path, template_content).unwrap();
+
+        let args = cli::Args {
+            filenames: vec![template_path.to_str().unwrap().to_string()],
+            target_version: "4.2".to_string(),
+            check: false,
+        };
+
+        let mut output = Vec::new();
+        let exit_code = main_impl(&args, &mut output);
+
+        assert_eq!(exit_code, 1);
+        let output_str = String::from_utf8(output).unwrap();
+        assert!(output_str.contains("1 file reformatted"));
+
+        let reformatted_content = fs::read_to_string(&template_path).unwrap();
+        assert!(reformatted_content.contains("{% endblock content %}"));
     }
 
     // detect_newline
@@ -1453,14 +1551,26 @@ mod tests {
 
     #[test]
     fn test_migrate_assignments_with_multiple_legacy() {
-        let formatted = format("{% with engines.count as total and cars.count as vehicles %}{{ total }} {{ vehicles }}{% endwith %}\n", None);
-        assert_eq!(formatted, "{% with total=engines.count vehicles=cars.count %}{{ total }} {{ vehicles }}{% endwith %}\n");
+        let formatted = format(
+            "{% with engines.count as total and cars.count as vehicles %}{{ total }} {{ vehicles }}{% endwith %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% with total=engines.count vehicles=cars.count %}{{ total }} {{ vehicles }}{% endwith %}\n"
+        );
     }
 
     #[test]
     fn test_migrate_assignments_with_mixed() {
-        let formatted = format("{% with engines.count as total and vehicles=cars.count %}{{ total }} {{ vehicles }}{% endwith %}\n", None);
-        assert_eq!(formatted, "{% with total=engines.count vehicles=cars.count %}{{ total }} {{ vehicles }}{% endwith %}\n");
+        let formatted = format(
+            "{% with engines.count as total and vehicles=cars.count %}{{ total }} {{ vehicles }}{% endwith %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% with total=engines.count vehicles=cars.count %}{{ total }} {{ vehicles }}{% endwith %}\n"
+        );
     }
 
     #[test]
@@ -1477,8 +1587,14 @@ mod tests {
 
     #[test]
     fn test_migrate_assignments_with_nested() {
-        let formatted = format("{% with outer=1 %}{% with 2 as inner %}{{ outer }} {{ inner }}{% endwith %}{% endwith %}\n", None);
-        assert_eq!(formatted, "{% with outer=1 %}{% with inner=2 %}{{ outer }} {{ inner }}{% endwith %}{% endwith %}\n");
+        let formatted = format(
+            "{% with outer=1 %}{% with 2 as inner %}{{ outer }} {{ inner }}{% endwith %}{% endwith %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% with outer=1 %}{% with inner=2 %}{{ outer }} {{ inner }}{% endwith %}{% endwith %}\n"
+        );
     }
 
     #[test]
@@ -1519,7 +1635,10 @@ mod tests {
 
     #[test]
     fn test_migrate_assignments_blocktranslate_legacy_with() {
-        let formatted = format("{% blocktranslate with engine.name as name %}Hello {{ name }}{% endblocktranslate %}\n", None);
+        let formatted = format(
+            "{% blocktranslate with engine.name as name %}Hello {{ name }}{% endblocktranslate %}\n",
+            None,
+        );
         assert_eq!(
             formatted,
             "{% blocktranslate with name=engine.name %}Hello {{ name }}{% endblocktranslate %}\n"
@@ -1540,50 +1659,98 @@ mod tests {
 
     #[test]
     fn test_migrate_assignments_blocktranslate_legacy_count() {
-        let formatted = format("{% blocktranslate count engines.count as total %}{{ total }} user{% plural %}{{ total }} users{% endblocktranslate %}\n", None);
-        assert_eq!(formatted, "{% blocktranslate count total=engines.count %}{{ total }} user{% plural %}{{ total }} users{% endblocktranslate %}\n");
+        let formatted = format(
+            "{% blocktranslate count engines.count as total %}{{ total }} user{% plural %}{{ total }} users{% endblocktranslate %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% blocktranslate count total=engines.count %}{{ total }} user{% plural %}{{ total }} users{% endblocktranslate %}\n"
+        );
     }
 
     #[test]
     fn test_migrate_assignments_blocktranslate_modern_count() {
-        let formatted = format("{% blocktranslate count total=engines.count %}{{ total }} engine{% plural %}{{ total }} engines{% endblocktranslate %}\n", None);
-        assert_eq!(formatted, "{% blocktranslate count total=engines.count %}{{ total }} engine{% plural %}{{ total }} engines{% endblocktranslate %}\n");
+        let formatted = format(
+            "{% blocktranslate count total=engines.count %}{{ total }} engine{% plural %}{{ total }} engines{% endblocktranslate %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% blocktranslate count total=engines.count %}{{ total }} engine{% plural %}{{ total }} engines{% endblocktranslate %}\n"
+        );
     }
 
     #[test]
     fn test_migrate_assignments_blocktranslate_legacy_with_and_count() {
-        let formatted = format("{% blocktranslate with engine.name as name count engines.count as total %}Hello {{ name }}, there is {{ total }} engine{% plural %}Hello {{ name }}, there are {{ total }} engines{% endblocktranslate %}\n", None);
-        assert_eq!(formatted, "{% blocktranslate with name=engine.name count total=engines.count %}Hello {{ name }}, there is {{ total }} engine{% plural %}Hello {{ name }}, there are {{ total }} engines{% endblocktranslate %}\n");
+        let formatted = format(
+            "{% blocktranslate with engine.name as name count engines.count as total %}Hello {{ name }}, there is {{ total }} engine{% plural %}Hello {{ name }}, there are {{ total }} engines{% endblocktranslate %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% blocktranslate with name=engine.name count total=engines.count %}Hello {{ name }}, there is {{ total }} engine{% plural %}Hello {{ name }}, there are {{ total }} engines{% endblocktranslate %}\n"
+        );
     }
 
     #[test]
     fn test_migrate_assignments_blocktranslate_modern_with_and_count() {
-        let formatted = format("{% blocktranslate with name=engine.name count total=engines.count %}Hello {{ name }}, there is {{ total }} engines{% plural %}Hello {{ name }}, there are {{ total }} engines{% endblocktranslate %}\n", None);
-        assert_eq!(formatted, "{% blocktranslate with name=engine.name count total=engines.count %}Hello {{ name }}, there is {{ total }} engines{% plural %}Hello {{ name }}, there are {{ total }} engines{% endblocktranslate %}\n");
+        let formatted = format(
+            "{% blocktranslate with name=engine.name count total=engines.count %}Hello {{ name }}, there is {{ total }} engines{% plural %}Hello {{ name }}, there are {{ total }} engines{% endblocktranslate %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% blocktranslate with name=engine.name count total=engines.count %}Hello {{ name }}, there is {{ total }} engines{% plural %}Hello {{ name }}, there are {{ total }} engines{% endblocktranslate %}\n"
+        );
     }
 
     #[test]
     fn test_migrate_assignments_blocktranslate_multiple_with_legacy() {
-        let formatted = format("{% blocktranslate with engine.name as name and engine.number as number %}Hello {{ name }} #{{ number }}{% endblocktranslate %}\n", None);
-        assert_eq!(formatted, "{% blocktranslate with name=engine.name number=engine.number %}Hello {{ name }} #{{ number }}{% endblocktranslate %}\n");
+        let formatted = format(
+            "{% blocktranslate with engine.name as name and engine.number as number %}Hello {{ name }} #{{ number }}{% endblocktranslate %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% blocktranslate with name=engine.name number=engine.number %}Hello {{ name }} #{{ number }}{% endblocktranslate %}\n"
+        );
     }
 
     #[test]
     fn test_migrate_assignments_blocktranslate_multiple_with_mixed() {
-        let formatted = format("{% blocktranslate with engine.name as name and number=engine.number %}Hello {{ name }} #{{ number }}{% endblocktranslate %}\n", None);
-        assert_eq!(formatted, "{% blocktranslate with name=engine.name number=engine.number %}Hello {{ name }} #{{ number }}{% endblocktranslate %}\n");
+        let formatted = format(
+            "{% blocktranslate with engine.name as name and number=engine.number %}Hello {{ name }} #{{ number }}{% endblocktranslate %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% blocktranslate with name=engine.name number=engine.number %}Hello {{ name }} #{{ number }}{% endblocktranslate %}\n"
+        );
     }
 
     #[test]
     fn test_migrate_assignments_blocktranslate_with_filters() {
-        let formatted = format("{% blocktranslate with engine.name|upper as shouty %}HELLO {{ shouty }}{% endblocktranslate %}\n", None);
-        assert_eq!(formatted, "{% blocktranslate with shouty=engine.name|upper %}HELLO {{ shouty }}{% endblocktranslate %}\n");
+        let formatted = format(
+            "{% blocktranslate with engine.name|upper as shouty %}HELLO {{ shouty }}{% endblocktranslate %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% blocktranslate with shouty=engine.name|upper %}HELLO {{ shouty }}{% endblocktranslate %}\n"
+        );
     }
 
     #[test]
     fn test_migrate_assignments_blocktranslate_context() {
-        let formatted = format("{% blocktranslate with name=engine.name context 'greeting' %}Hello {{ name }}{% endblocktranslate %}\n", None);
-        assert_eq!(formatted, "{% blocktranslate with name=engine.name context 'greeting' %}Hello {{ name }}{% endblocktranslate %}\n");
+        let formatted = format(
+            "{% blocktranslate with name=engine.name context 'greeting' %}Hello {{ name }}{% endblocktranslate %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% blocktranslate with name=engine.name context 'greeting' %}Hello {{ name }}{% endblocktranslate %}\n"
+        );
     }
 
     // Formatters
@@ -1829,8 +1996,14 @@ mod tests {
 
     #[test]
     fn test_format_second_level_blocks_indented() {
-        let formatted = format("{% extends 'egg.html' %}\n\n{% block yolk %}\n  {% block white %}\n    protein\n  {% endblock white %}\n{% endblock yolk %}\n", None);
-        assert_eq!(formatted, "{% extends 'egg.html' %}\n\n{% block yolk %}\n  {% block white %}\n    protein\n  {% endblock white %}\n{% endblock yolk %}\n");
+        let formatted = format(
+            "{% extends 'egg.html' %}\n\n{% block yolk %}\n  {% block white %}\n    protein\n  {% endblock white %}\n{% endblock yolk %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'egg.html' %}\n\n{% block yolk %}\n  {% block white %}\n    protein\n  {% endblock white %}\n{% endblock yolk %}\n"
+        );
     }
 
     #[test]
@@ -1847,58 +2020,112 @@ mod tests {
 
     #[test]
     fn test_unindent_multiple_blocks() {
-        let formatted = format("{% extends 'egg.html' %}\n\n  {% block yolk %}\n  yellow\n  {% endblock yolk %}\n\n  {% block white %}\n    protein\n  {% endblock white %}\n", None);
-        assert_eq!(formatted, "{% extends 'egg.html' %}\n\n{% block yolk %}\n  yellow\n{% endblock yolk %}\n\n{% block white %}\n    protein\n{% endblock white %}\n");
+        let formatted = format(
+            "{% extends 'egg.html' %}\n\n  {% block yolk %}\n  yellow\n  {% endblock yolk %}\n\n  {% block white %}\n    protein\n  {% endblock white %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'egg.html' %}\n\n{% block yolk %}\n  yellow\n{% endblock yolk %}\n\n{% block white %}\n    protein\n{% endblock white %}\n"
+        );
     }
 
     #[test]
     fn test_no_unindenting_inside_if() {
-        let formatted = format("{% extends 'engine.html' %}\n{% if steam %}\n  {% block whistle %}\n  peep\n  {% endblock whistle %}\n{% endif %}\n", None);
-        assert_eq!(formatted, "{% extends 'engine.html' %}\n{% if steam %}\n  {% block whistle %}\n  peep\n  {% endblock whistle %}\n{% endif %}\n");
+        let formatted = format(
+            "{% extends 'engine.html' %}\n{% if steam %}\n  {% block whistle %}\n  peep\n  {% endblock whistle %}\n{% endif %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'engine.html' %}\n{% if steam %}\n  {% block whistle %}\n  peep\n  {% endblock whistle %}\n{% endif %}\n"
+        );
     }
 
     #[test]
     fn test_unindent_with_if_inside() {
-        let formatted = format("{% extends 'engine.html' %}\n\n  {% block whistle %}\n  {% if steam %}\n  peep\n  {% endif %}\n  {% endblock whistle %}\n", None);
-        assert_eq!(formatted, "{% extends 'engine.html' %}\n\n{% block whistle %}\n  {% if steam %}\n  peep\n  {% endif %}\n{% endblock whistle %}\n");
+        let formatted = format(
+            "{% extends 'engine.html' %}\n\n  {% block whistle %}\n  {% if steam %}\n  peep\n  {% endif %}\n  {% endblock whistle %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'engine.html' %}\n\n{% block whistle %}\n  {% if steam %}\n  peep\n  {% endif %}\n{% endblock whistle %}\n"
+        );
     }
 
     // update_top_level_block_spacing
 
     #[test]
     fn test_update_top_level_block_spacing_no_change() {
-        let formatted = format("{% extends 'egg.html' %}\n\n{% block yolk %}Sunny side up{% endblock %}\n\n{% block white %}Albumin{% endblock %}\n", None);
-        assert_eq!(formatted, "{% extends 'egg.html' %}\n\n{% block yolk %}Sunny side up{% endblock %}\n\n{% block white %}Albumin{% endblock %}\n");
+        let formatted = format(
+            "{% extends 'egg.html' %}\n\n{% block yolk %}Sunny side up{% endblock %}\n\n{% block white %}Albumin{% endblock %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'egg.html' %}\n\n{% block yolk %}Sunny side up{% endblock %}\n\n{% block white %}Albumin{% endblock %}\n"
+        );
     }
 
     #[test]
     fn test_update_top_level_block_spacing_add_line() {
-        let formatted = format("{% extends 'egg.html' %}\n{% block yolk %}Sunny side up{% endblock %}\n{% block white %}Albumin{% endblock %}\n", None);
-        assert_eq!(formatted, "{% extends 'egg.html' %}\n\n{% block yolk %}Sunny side up{% endblock %}\n\n{% block white %}Albumin{% endblock %}\n");
+        let formatted = format(
+            "{% extends 'egg.html' %}\n{% block yolk %}Sunny side up{% endblock %}\n{% block white %}Albumin{% endblock %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'egg.html' %}\n\n{% block yolk %}Sunny side up{% endblock %}\n\n{% block white %}Albumin{% endblock %}\n"
+        );
     }
 
     #[test]
     fn test_update_top_level_block_spacing_add_line_with_crlf_first() {
-        let formatted = format("{% extends 'egg.html' %}\r\n{% block yolk %}Sunny side up{% endblock %}\n{% block white %}Albumin{% endblock %}\n", None);
-        assert_eq!(formatted, "{% extends 'egg.html' %}\r\n\r\n{% block yolk %}Sunny side up{% endblock %}\r\n\r\n{% block white %}Albumin{% endblock %}\r\n");
+        let formatted = format(
+            "{% extends 'egg.html' %}\r\n{% block yolk %}Sunny side up{% endblock %}\n{% block white %}Albumin{% endblock %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'egg.html' %}\r\n\r\n{% block yolk %}Sunny side up{% endblock %}\r\n\r\n{% block white %}Albumin{% endblock %}\r\n"
+        );
     }
 
     #[test]
     fn test_update_top_level_block_spacing_remove_extra_lines() {
-        let formatted = format("{% extends 'egg.html' %}\n\n\n{% block yolk %}Sunny side up{% endblock %}\n\n\n{% block white %}Albumin{% endblock %}\n", None);
-        assert_eq!(formatted, "{% extends 'egg.html' %}\n\n{% block yolk %}Sunny side up{% endblock %}\n\n{% block white %}Albumin{% endblock %}\n");
+        let formatted = format(
+            "{% extends 'egg.html' %}\n\n\n{% block yolk %}Sunny side up{% endblock %}\n\n\n{% block white %}Albumin{% endblock %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'egg.html' %}\n\n{% block yolk %}Sunny side up{% endblock %}\n\n{% block white %}Albumin{% endblock %}\n"
+        );
     }
 
     #[test]
     fn test_update_top_level_block_spacing_remove_extra_line_with_crlf_first() {
-        let formatted = format("{% extends 'egg.html' %}\r\n\r\n\r\n{% block yolk %}Sunny side up{% endblock %}\n\n\n{% block white %}Albumin{% endblock %}\n", None);
-        assert_eq!(formatted, "{% extends 'egg.html' %}\r\n\r\n{% block yolk %}Sunny side up{% endblock %}\r\n\r\n{% block white %}Albumin{% endblock %}\r\n");
+        let formatted = format(
+            "{% extends 'egg.html' %}\r\n\r\n\r\n{% block yolk %}Sunny side up{% endblock %}\n\n\n{% block white %}Albumin{% endblock %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'egg.html' %}\r\n\r\n{% block yolk %}Sunny side up{% endblock %}\r\n\r\n{% block white %}Albumin{% endblock %}\r\n"
+        );
     }
 
     #[test]
     fn test_update_top_level_block_spacing_nested_blocks() {
-        let formatted = format("{% extends 'egg.html' %}\n\n{% block yolk %}{% block inner_yolk %}Runny{% endblock %}{% endblock %}\n\n{% block white %}Firm{% endblock %}\n", None);
-        assert_eq!(formatted, "{% extends 'egg.html' %}\n\n{% block yolk %}{% block inner_yolk %}Runny{% endblock %}{% endblock %}\n\n{% block white %}Firm{% endblock %}\n");
+        let formatted = format(
+            "{% extends 'egg.html' %}\n\n{% block yolk %}{% block inner_yolk %}Runny{% endblock %}{% endblock %}\n\n{% block white %}Firm{% endblock %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% extends 'egg.html' %}\n\n{% block yolk %}{% block inner_yolk %}Runny{% endblock %}{% endblock %}\n\n{% block white %}Firm{% endblock %}\n"
+        );
     }
 
     #[test]
@@ -1916,13 +2143,13 @@ mod tests {
     #[test]
     fn test_update_top_level_block_spacing_content() {
         let formatted = format(
-                "{% extends 'egg.html' %}\n\n(not rendered)\n\n{% block yolk %}Sunny side up{% endblock %}\n",
-                None,
-            );
+            "{% extends 'egg.html' %}\n\n(not rendered)\n\n{% block yolk %}Sunny side up{% endblock %}\n",
+            None,
+        );
         assert_eq!(
-                formatted,
-                "{% extends 'egg.html' %}\n\n(not rendered)\n\n{% block yolk %}Sunny side up{% endblock %}\n"
-            );
+            formatted,
+            "{% extends 'egg.html' %}\n\n(not rendered)\n\n{% block yolk %}Sunny side up{% endblock %}\n"
+        );
     }
 
     #[test]

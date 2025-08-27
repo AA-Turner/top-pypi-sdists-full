@@ -1,5 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+import functools
 from contrast.applies import apply_rule
 from contrast.utils.patch_utils import add_watermark
 from contrast.agent.policy import patch_manager
@@ -10,6 +11,7 @@ logger = logging.getLogger("contrast")
 
 
 def build_protect_patch(original_func, patch_policy):
+    @functools.wraps(original_func)
     def protect_patch(*args, **kwargs):
         """
         Protect patch that will run in addition to running original_func.

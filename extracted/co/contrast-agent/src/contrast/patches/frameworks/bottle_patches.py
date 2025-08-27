@@ -119,7 +119,7 @@ def build_match_patch(orig_func, patch_policy):
 @fail_quietly("unable to perform bottle route coverage in Bottle match patch")
 @scope.contrast_scope()
 def do_bottle_route_observation(route, url_args):
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None:
         return
 

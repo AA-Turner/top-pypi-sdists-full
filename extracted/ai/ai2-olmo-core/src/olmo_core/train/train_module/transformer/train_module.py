@@ -2,7 +2,7 @@ import contextlib
 import logging
 from dataclasses import replace
 from functools import cached_property
-from typing import Any, Dict, Generator, Optional, Tuple, Union
+from typing import Any, Dict, Generator, Literal, Optional, Tuple, Union
 
 import torch
 import torch.distributed as dist
@@ -17,7 +17,11 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 
 from olmo_core.data.utils import get_labels, split_batch
-from olmo_core.distributed.checkpoint import _swap_param_keys
+from olmo_core.distributed.checkpoint import (
+    merge_state_dicts,
+    prune_state_dict,
+    swap_param_keys,
+)
 from olmo_core.distributed.parallel import (
     DataParallelType,
     build_world_mesh,
@@ -33,6 +37,7 @@ from olmo_core.exceptions import OLMoConfigurationError
 from olmo_core.float8 import Float8Config
 from olmo_core.nn.lm_head import LMOutputWithLoss
 from olmo_core.nn.transformer import Transformer
+from olmo_core.nn.transformer.config import TransformerActivationCheckpointingMode
 from olmo_core.optim import OptimConfig, SkipStepOptimizer
 from olmo_core.optim.scheduler import Scheduler
 from olmo_core.utils import gc_cuda, get_default_device, log_once, move_to_device
@@ -138,6 +143,15 @@ class TransformerTrainModule(TrainModule):
                 "Training parallelism configs are only valid for distributed training"
             )
 
+        if (
+            ac_config is not None
+            and ac_config.mode == TransformerActivationCheckpointingMode.budget
+            and not compile_model
+        ):
+            raise OLMoConfigurationError(
+                "Activation checkpointing with 'budget' mode requires compilation to be enabled"
+            )
+
         # Parallelize model.
         self.model = parallelize_model(
             model,
@@ -153,6 +167,7 @@ class TransformerTrainModule(TrainModule):
             ep_config=ep_config,
             ac_config=ac_config,
         )
+        self._model_mode: Optional[Literal["train", "eval"]] = None
 
         self._dp_config = dp_config
         self._cp_config = cp_config
@@ -213,8 +228,10 @@ class TransformerTrainModule(TrainModule):
     def _reduce_divide_factor(self) -> float:
         return get_reduce_divide_factor(self.world_size)
 
-    def on_attach(self):
+    def pre_train(self):
         # Validate batch size.
+        # NOTE: we run this in `pre_train()` instead of, say, `on_attach()` because callbacks
+        # like `BatchSizeScheduler` may change the global batch size after the module is attached.
         dp_ws = get_world_size(self.trainer.dp_process_group)
         if self.trainer.global_batch_size % (self.rank_microbatch_size * dp_ws) != 0:
             raise OLMoConfigurationError(
@@ -222,60 +239,95 @@ class TransformerTrainModule(TrainModule):
                 f"micro-batch size ({self.rank_microbatch_size:,d}) x DP world size ({dp_ws})"
             )
 
-    def state_dict(self, *, optim: bool = True) -> Dict[str, Any]:
+    def state_dict(self, *, optim: Optional[bool] = None) -> Dict[str, Any]:
+        if optim is None:
+            optim = True
         return self._get_state_dict(self.state_dict_save_opts, optim=optim)
 
-    def state_dict_to_load(self, metadata: Metadata, *, optim: bool = True) -> Dict[str, Any]:
-        load_opts = self.state_dict_load_opts
-
-        if "optim.param_groups.0.params" in metadata.state_dict_metadata:
-            # unflattened optimizer state
-            if load_opts.flatten_optimizer_state_dict:
-                log.warning(
-                    "Loading checkpoint with an unflattened optimizer state even though "
-                    "'flatten_optimizer_state_dict=True' in train module's 'state_dict_load_opts', "
-                    "automatically switching to 'flatten_optimizer_state_dict=False'."
-                )
-                load_opts = replace(load_opts, flatten_optimizer_state_dict=False)
-        else:
-            # flattened optimizer state
-            if not load_opts.flatten_optimizer_state_dict:
-                log.warning(
-                    "Loading checkpoint with a flattened optimizer state even though "
-                    "'flatten_optimizer_state_dict=False' in train module's 'state_dict_load_opts', "
-                    "automatically switching to 'flatten_optimizer_state_dict=True'."
-                )
-                load_opts = replace(load_opts, flatten_optimizer_state_dict=True)
-
+    def state_dict_to_load(
+        self, metadata: Metadata, *, optim: Optional[bool] = None
+    ) -> Dict[str, Any]:
         has_optim_state: bool = False
         for key in metadata.state_dict_metadata.keys():
             if key.startswith("optim."):
                 has_optim_state = True
                 break
 
-        if optim and not has_optim_state:
-            log.warning("No optimizer state found in checkpoint")
-            optim = False
+        if optim is None:
+            if not has_optim_state:
+                log.warning("No optimizer state found in checkpoint")
+                optim = False
+            else:
+                optim = True
+
+        load_opts = self.state_dict_load_opts
+        if optim:
+            if not has_optim_state:
+                raise RuntimeError(
+                    "Checkpoint does not contain optimizer state, but 'optim=True' was requested"
+                )
+
+            if "optim.param_groups.0.params" in metadata.state_dict_metadata:
+                # unflattened optimizer state
+                if load_opts.flatten_optimizer_state_dict:
+                    log.warning(
+                        "Loading checkpoint with an unflattened optimizer state even though "
+                        "'flatten_optimizer_state_dict=True' in train module's 'state_dict_load_opts', "
+                        "automatically switching to 'flatten_optimizer_state_dict=False'."
+                    )
+                    load_opts = replace(load_opts, flatten_optimizer_state_dict=False)
+            else:
+                # flattened optimizer state
+                if not load_opts.flatten_optimizer_state_dict:
+                    log.warning(
+                        "Loading checkpoint with a flattened optimizer state even though "
+                        "'flatten_optimizer_state_dict=False' in train module's 'state_dict_load_opts', "
+                        "automatically switching to 'flatten_optimizer_state_dict=True'."
+                    )
+                    load_opts = replace(load_opts, flatten_optimizer_state_dict=True)
 
         state_dict = self._get_state_dict(load_opts, optim=optim)
         if self.load_key_mapping is not None:
-            _swap_param_keys(state_dict, self.load_key_mapping, metadata=metadata)
+            swap_param_keys(state_dict, self.load_key_mapping, metadata=metadata)
+
+        if not load_opts.strict:
+            # Remove any keys in the 'state_dict' that are not present in the checkpoint.
+            pruned_keys = prune_state_dict(state_dict, set(metadata.state_dict_metadata.keys()))
+            if pruned_keys:
+                log.warning(f"Checkpoint is missing the following keys: {pruned_keys}")
 
         return state_dict
 
-    def state_dict_to_save(self, *, optim: bool = True) -> Dict[str, Any]:
+    def state_dict_to_save(self, *, optim: Optional[bool] = None) -> Dict[str, Any]:
+        if optim is None:
+            optim = True
         return self._get_state_dict(self.state_dict_save_opts, optim=optim)
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+        load_optim = "optim" in state_dict
+
         if self.load_key_mapping is not None:
-            _swap_param_keys(state_dict, self.load_key_mapping, reverse=True, quiet=True)
+            swap_param_keys(state_dict, self.load_key_mapping, reverse=True, quiet=True)
+
+        # NOTE: `dist_cp_sd.set_(model|optimizer)_state_dict()` doesn't respect `strict=False`
+        # option with missing keys, so we have to handle that on our own.
+        if not self.state_dict_load_opts.strict:
+            flatten_optimizer_state_dict = (
+                False if not load_optim else ("state" not in state_dict["optim"])
+            )
+            load_opts = replace(
+                self.state_dict_load_opts, flatten_optimizer_state_dict=flatten_optimizer_state_dict
+            )
+            full_state_dict = self._get_state_dict(load_opts, optim=load_optim)
+            merge_state_dicts(state_dict, full_state_dict)
+
         dist_cp_sd.set_model_state_dict(
             self.model,
             state_dict["model"],
             options=self.state_dict_load_opts,
         )
         gc_cuda()
-        if "optim" in state_dict:
+        if load_optim:
             dist_cp_sd.set_optimizer_state_dict(
                 self.model,
                 self.optim,
@@ -286,7 +338,7 @@ class TransformerTrainModule(TrainModule):
 
     def train_batch(self, batch: Dict[str, Any], dry_run: bool = False):
         # Set model to train mode if it isn't already.
-        self.model.train()
+        self._set_model_mode("train")
 
         # Generate labels.
         if "labels" not in batch:
@@ -298,9 +350,15 @@ class TransformerTrainModule(TrainModule):
                 "train/masked instances (%)", (~instance_mask).float().mean(), ReduceType.mean
             )
 
-        # Calculate how many tokens are going to be used in the loss.
+        # Calculate and record how many tokens are going to be used in the loss.
+        batch_num_tokens = batch["labels"].numel()
         batch_num_tokens_for_loss = move_to_device(
             (batch["labels"] != self.label_ignore_index).sum(), self.device
+        )
+        self.record_metric(
+            "train/masked labels (%)",
+            (batch_num_tokens - batch_num_tokens_for_loss) / batch_num_tokens,
+            ReduceType.mean,
         )
 
         # Batch losses to record.
@@ -323,7 +381,7 @@ class TransformerTrainModule(TrainModule):
                 input_ids, labels, model_kwargs = self._prepare_batch(micro_batch)
 
                 # Run forward pass, get losses.
-                _, ce_loss, z_loss = self.model_forward(
+                _, loss, ce_loss, z_loss = self.model_forward(
                     input_ids,
                     labels=labels,
                     ignore_index=self.label_ignore_index,
@@ -333,11 +391,6 @@ class TransformerTrainModule(TrainModule):
                     return_logits=False,
                     **model_kwargs,
                 )
-
-                # Get loss to optimize for.
-                loss = ce_loss
-                if z_loss is not None:
-                    loss += z_loss
 
                 # Update total batch CE and Z loss.
                 ce_batch_loss += get_local_tensor(ce_loss.detach())
@@ -361,10 +414,11 @@ class TransformerTrainModule(TrainModule):
         # Record loss metrics.
         if isinstance(self.optim, SkipStepOptimizer):
             # Need to reduce the loss right away for the SkipStepOptimizer.
-            ce_batch_loss.div_(self._reduce_divide_factor)
-            dist.all_reduce(ce_batch_loss)
-            ce_batch_loss.div_(self.world_size)
-            ce_batch_loss.mul_(self._reduce_divide_factor)
+            if is_distributed():
+                ce_batch_loss.div_(self._reduce_divide_factor)
+                dist.all_reduce(ce_batch_loss)
+                ce_batch_loss.div_(self.world_size)
+                ce_batch_loss.mul_(self._reduce_divide_factor)
             self.record_ce_loss(ce_batch_loss)
             self.optim.latest_loss = ce_batch_loss
         else:
@@ -415,7 +469,7 @@ class TransformerTrainModule(TrainModule):
 
         input_ids, labels, model_kwargs = self._prepare_batch(batch, labels)
 
-        self.model.eval()
+        self._set_model_mode("eval")
 
         with self._eval_batch_context():
             return self.model_forward(
@@ -440,38 +494,8 @@ class TransformerTrainModule(TrainModule):
         # Maybe adjust learning rate.
         if self.scheduler is not None:
             for group_idx, group in enumerate(self.optim.param_groups):
-                if (lr_field := self.scheduler.lr_field) not in group and (
-                    initial_lr_field := self.scheduler.initial_lr_field
-                ) not in group:
-                    group_fields_list = "\n - ".join(
-                        [f"{k}: {v}" for k, v in group.items() if k != "params"]
-                    )
-                    raise RuntimeError(
-                        f"learning rate field '{lr_field}' and initial learning rate field "
-                        f"'{initial_lr_field}' not found in optimizer param group {group_idx} "
-                        f"with {len(group['params'])} parameter(s):\n"
-                        f" - {group_fields_list}"
-                    )
-
-                # Ensure 'initial_lr' is set.
-                if group.get(self.scheduler.initial_lr_field) is None:
-                    group[self.scheduler.initial_lr_field] = group["lr"]
-
-                # Set new LR.
-                new_lr = self.scheduler.get_lr(
-                    group[self.scheduler.initial_lr_field],
-                    self.trainer.global_step,
-                    self.trainer.max_steps,
-                )
-
-                if isinstance(current_lr := group.get(self.scheduler.lr_field), torch.Tensor):
-                    current_lr.fill_(new_lr)
-                else:
-                    group[self.scheduler.lr_field] = new_lr
-
-                self.trainer.record_metric(
-                    f"LR (group {group_idx})", group[self.scheduler.lr_field], namespace="optim"
-                )
+                new_lr = self.scheduler.set_lr(group, self.trainer)
+                self.trainer.record_metric(f"LR (group {group_idx})", new_lr, namespace="optim")
 
         # Step optimizer.
         self.optim.step()
@@ -578,3 +602,13 @@ class TransformerTrainModule(TrainModule):
         if "doc_lens" in batch and "max_doc_lens" in batch:
             log_once(log, "intra-document masking enabled")
         return input_ids, labels, batch
+
+    def _set_model_mode(self, mode: Literal["train", "eval"]):
+        if self._model_mode != mode:
+            if mode == "train":
+                self.model.train()
+            elif mode == "eval":
+                self.model.eval()
+            else:
+                raise ValueError(f"Invalid model mode: {mode}")
+            self._model_mode = mode

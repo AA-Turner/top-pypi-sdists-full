@@ -51,7 +51,7 @@ def analyze_inputs() -> None:
     SecurityException), we redo input analysis with worth watching mode disabled, which
     leads to more accurate PROBED results (fewer PROBED FPs).
     """
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None:
         return
 

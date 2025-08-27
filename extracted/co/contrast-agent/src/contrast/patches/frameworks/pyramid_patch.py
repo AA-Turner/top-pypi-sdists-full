@@ -141,7 +141,7 @@ def do_pyramid_route_observation(pyramid_router_instance, request_path_arg):
         get_signature_and_path_template,
     )
 
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None:
         return
 

@@ -16,6 +16,7 @@ from typing import Dict, Any, Optional, Callable, Tuple, List, Union
 from matrice.action_tracker import ActionTracker
 from datetime import datetime, timezone
 import logging
+from matrice.deploy.utils.post_processing.core.config import AlertConfig, ZoneConfig, TrackingConfig
 
 
 class InferenceInterface:
@@ -135,12 +136,26 @@ class InferenceInterface:
                                 # Handle nested dictionaries properly
                                 if isinstance(value, dict) and hasattr(app_config, key):
                                     current_value = getattr(app_config, key)
-                                    if isinstance(current_value, dict):
-                                        # Merge dictionaries
-                                        merged_dict = {**(current_value or {}), **value}
-                                        setattr(app_config, key, merged_dict)
-                                        self.logger.debug(f"Merged nested dict for {key}: {merged_dict}")
-                                    else:
+                                    # If target attribute is a known config object, coerce dict into dataclass
+                                    try:
+                                        
+                                        if key == "alert_config":
+                                            setattr(app_config, key, AlertConfig(**value))
+                                        elif key == "zone_config":
+                                            setattr(app_config, key, ZoneConfig(**value))
+                                        elif key == "tracking_config":
+                                            setattr(app_config, key, TrackingConfig(**value))
+                                        else:
+                                            # Merge dictionaries if both are dicts
+                                            if isinstance(current_value, dict):
+                                                merged_dict = {**(current_value or {}), **value}
+                                                setattr(app_config, key, merged_dict)
+                                                self.logger.debug(f"Merged nested dict for {key}: {merged_dict}")
+                                            else:
+                                                setattr(app_config, key, value)
+                                                self.logger.debug(f"Applied config parameter {key}={value} to app config")
+                                    except Exception:
+                                        # Fallback to direct set
                                         setattr(app_config, key, value)
                                         self.logger.debug(f"Applied config parameter {key}={value} to app config")
                                 else:
@@ -180,6 +195,26 @@ class InferenceInterface:
                     self.logger.debug(f"Removing session from {usecase} config as it's not needed")
                     config_params.pop("session", None)
                 
+                # Normalize nested config dicts (JS JSON) into dataclasses where needed
+                # This ensures alert_config/zone_config/tracking_config work with JS-style JSON
+                
+                if isinstance(config_params.get("alert_config"), dict):
+                    try:
+                        config_params["alert_config"] = AlertConfig(**config_params["alert_config"])
+                    except Exception:
+                        # Leave as dict; downstream create_config will try again
+                        pass
+                if isinstance(config_params.get("zone_config"), dict):
+                    try:
+                        config_params["zone_config"] = ZoneConfig(**config_params["zone_config"])
+                    except Exception:
+                        pass
+                if isinstance(config_params.get("tracking_config"), dict):
+                    try:
+                        config_params["tracking_config"] = TrackingConfig(**config_params["tracking_config"])
+                    except Exception:
+                        pass
+
                 # Use generic config creation to avoid parameter conflicts
                 config = self.post_processor.create_config(
                     usecase, category, **config_params

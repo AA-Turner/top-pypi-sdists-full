@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: confit
-Version: 0.9.0
+Version: 0.10.0
 Summary: Smart configuration framework
 Author-email: Perceval Wajsburt <perceval.wajsburt@aphp.fr>, Thomas Petit-Jean <thomas.petitjean@aphp.fr>, Adam Remaki <adam.remaki@aphp.fr>, Alice Calliger <alice.calliger@aphp.fr>
 License: Copyright 2023 Assistance Publique - Hôpitaux de Paris
@@ -34,7 +34,7 @@ Requires-Dist: mkdocs-bibtex<3.0,>=2.0.3; extra == "dev"
 Requires-Dist: mkdocs-glightbox<1.0.0,>=0.1.6; extra == "dev"
 Requires-Dist: mkdocs-material<9.0,>=8.2; extra == "dev"
 Requires-Dist: mkdocs-material-extensions<2.0.0,>=1.1.1; extra == "dev"
-Requires-Dist: mkdocs-static-i18n<1.0.0,>=0.53; extra == "dev"
+Requires-Dist: mkdocs-static-i18n>=1; extra == "dev"
 Requires-Dist: mkdocstrings<1.0.0,>=0.18.1; extra == "dev"
 Requires-Dist: mkdocstrings-python<2.0.0,>=0.6; extra == "dev"
 Requires-Dist: pre-commit<3.0,>=2.18.1; extra == "dev"

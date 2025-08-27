@@ -13,7 +13,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from inspect import Parameter, Signature, iscoroutine
+from inspect import iscoroutine
 from itertools import count
 from warnings import warn
 
@@ -37,6 +37,7 @@ from .protocols import (
     Stageable,
     Status,
     Stoppable,
+    SyncOrAsync,
     T,
     Triggerable,
     check_supports,
@@ -58,6 +59,7 @@ from .utils import (
     RequestStop,
     RunEngineInterrupted,
     SigintHandler,
+    Subscribers,
     ensure_generator,
     normalize_subs_input,
     single_gen,
@@ -195,17 +197,6 @@ class LoggingPropertyMachine(PropertyMachine):
             return super().__get__(instance, owner)
 
 
-# See RunEngine.__call__.
-_call_sig = Signature(
-    [
-        Parameter("self", Parameter.POSITIONAL_ONLY),
-        Parameter("plan", Parameter.POSITIONAL_ONLY),
-        Parameter("subs", Parameter.POSITIONAL_ONLY, default=None),
-        Parameter("metadata_kw", Parameter.VAR_KEYWORD),
-    ]
-)
-
-
 def default_scan_id_source(md):
     return md.get("scan_id", 0) + 1
 
@@ -270,9 +261,9 @@ class RunEngine:
         Expected return: normalized metadata
 
     scan_id_source : callable, optional
-        a function that will be used to calculate scan_id. Default is to
-        increment scan_id by 1 each time. However you could pass in a
-        customized function to get a scan_id from any source.
+        a (possibly async) function that will be used to calculate scan_id.
+        Default is to increment scan_id by 1 each time. However you could pass
+        in a customized function to get a scan_id from any source.
         Expected signature: f(md)
         Expected return: updated scan_id value
 
@@ -418,7 +409,7 @@ class RunEngine:
         context_managers: typing.Optional[list] = None,
         md_validator: typing.Optional[typing.Callable] = None,
         md_normalizer: typing.Optional[typing.Callable] = None,
-        scan_id_source: typing.Optional[typing.Callable] = default_scan_id_source,
+        scan_id_source: typing.Callable[[dict], SyncOrAsync[int]] = default_scan_id_source,
         during_task: typing.Optional[DuringTask] = None,
         call_returns_result: bool = False,
     ):
@@ -872,7 +863,13 @@ class RunEngine:
         )
         return rs
 
-    def __call__(self, *args, **metadata_kw):
+    def __call__(
+        self,
+        plan: typing.Iterable[Msg],
+        subs: typing.Optional[Subscribers] = None,
+        /,
+        **metadata_kw: typing.Any,
+    ) -> typing.Union[RunEngineResult, tuple[str, ...]]:
         """Execute a plan.
 
         Any keyword arguments will be interpreted as metadata and recorded with
@@ -905,12 +902,6 @@ class RunEngine:
         """
         if self.state == "panicked":
             raise RuntimeError("The RunEngine is panicked and cannot be recovered. You must restart bluesky.")
-        # This scheme lets us make 'plan' and 'subs' POSITIONAL ONLY, reserving
-        # all keyword arguments for user metadata.
-        arguments = _call_sig.bind(self, *args, **metadata_kw).arguments
-        plan = arguments["plan"]
-        subs = arguments.get("subs", None)
-        metadata_kw = arguments.get("metadata_kw", {})
         if "raise_if_interrupted" in metadata_kw:
             warn(  # noqa: B028
                 "The 'raise_if_interrupted' flag has been removed. The "
@@ -992,8 +983,6 @@ class RunEngine:
             return run_engine_result
         else:
             return tuple(self._run_start_uids)
-
-    __call__.__signature__ = _call_sig  # type: ignore
 
     def resume(self):
         """Resume a paused plan from the last checkpoint.
@@ -1857,7 +1846,7 @@ class RunEngine:
             raise IllegalMessageSequence("A 'close_run' message was not received before the 'open_run' message")
 
         # Run scan_id calculation method
-        self.md["scan_id"] = self.scan_id_source(self.md)
+        self.md["scan_id"] = await maybe_await(self.scan_id_source(self.md))
 
         # For metadata below, info about plan passed to self.__call__ for.
         plan_type = type(self._plan).__name__

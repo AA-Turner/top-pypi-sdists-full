@@ -295,24 +295,35 @@ def test_email_valid(email_input: str, output: ValidatedEmail) -> None:
             ),
         ),
         (
-            's\u0323\u0307@nfc.tld',
+            '\"s\u0323\u0307\" <s\u0323\u0307@nfc.tld>',
             MakeValidatedEmail(
                 local_part='\u1E69',
                 smtputf8=True,
                 ascii_domain='nfc.tld',
                 domain='nfc.tld',
                 normalized='\u1E69@nfc.tld',
+                display_name='\u1E69'
+            ),
+        ),
+        (
+            '＠@fullwidth.at',
+            MakeValidatedEmail(
+                local_part='＠',
+                smtputf8=True,
+                ascii_domain='fullwidth.at',
+                domain='fullwidth.at',
+                normalized='＠@fullwidth.at',
             ),
         ),
     ],
 )
 def test_email_valid_intl_local_part(email_input: str, output: ValidatedEmail) -> None:
     # Check that it passes when allow_smtputf8 is True.
-    assert validate_email(email_input, check_deliverability=False) == output
+    assert validate_email(email_input, check_deliverability=False, allow_display_name=True) == output
 
     # Check that it fails when allow_smtputf8 is False.
     with pytest.raises(EmailSyntaxError) as exc_info:
-        validate_email(email_input, allow_smtputf8=False, check_deliverability=False)
+        validate_email(email_input, allow_smtputf8=False, check_deliverability=False, allow_display_name=True)
     assert "Internationalized characters before the @-sign are not supported: " in str(exc_info.value)
 
 
@@ -363,6 +374,8 @@ def test_domain_literal() -> None:
     'email_input,error_msg',
     [
         ('hello.world', 'An email address must have an @-sign.'),
+        ('hello＠world', 'The email address has the "full-width" at-sign (@) character instead of a regular at-sign.'),
+        ('hello﹫world', 'The email address has the "small commercial at" character instead of a regular at-sign.'),
         ('my@localhost', 'The part after the @-sign is not valid. It should have a period.'),
         ('my@.leadingdot.com', 'An email address cannot have a period immediately after the @-sign.'),
         ('my@．leadingfwdot.com', 'An email address cannot have a period immediately after the @-sign.'),
@@ -389,9 +402,7 @@ def test_domain_literal() -> None:
         ('.leadingdot@domain.com', 'An email address cannot start with a period.'),
         ('twodots..here@domain.com', 'An email address cannot have two periods in a row.'),
         ('trailingdot.@domain.email', 'An email address cannot have a period immediately before the @-sign.'),
-        ('me@⒈wouldbeinvalid.com',
-         "The part after the @-sign contains invalid characters (Codepoint U+2488 not allowed "
-         "at position 1 in '⒈wouldbeinvalid.com')."),
+        ('me@⒈wouldbeinvalid.com', "The part after the @-sign contains invalid characters: '⒈'."),
         ('me@\u037e.com', "The part after the @-sign contains invalid characters after Unicode normalization: ';'."),
         ('me@\u1fef.com', "The part after the @-sign contains invalid characters after Unicode normalization: '`'."),
         ('@example.com', 'There must be something before the @-sign.'),
@@ -404,9 +415,6 @@ def test_domain_literal() -> None:
         ('test@\n', 'The part after the @-sign contains invalid characters: U+000A.'),
         ('bad"quotes"@example.com', 'The email address contains invalid characters before the @-sign: \'"\'.'),
         ('obsolete."quoted".atom@example.com', 'The email address contains invalid characters before the @-sign: \'"\'.'),
-        ('11111111112222222222333333333344444444445555555555666666666677777@example.com', 'The email address is too long before the @-sign (1 character too many).'),
-        ('111111111122222222223333333333444444444455555555556666666666777777@example.com', 'The email address is too long before the @-sign (2 characters too many).'),
-        ('\uFB2C111111122222222223333333333444444444455555555556666666666777777@example.com', 'After Unicode normalization: The email address is too long before the @-sign (2 characters too many).'),
         ('me@1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.11111111112222222222333333333344444444445555555555.com', 'The email address is too long after the @-sign (1 character too many).'),
         ('me@中1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444.com', 'The email address is too long after the @-sign (1 byte too many after IDNA encoding).'),
         ('me@\uFB2C1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444.com', 'The email address is too long after the @-sign (5 bytes too many after IDNA encoding).'),
@@ -453,6 +461,22 @@ def test_email_invalid_syntax(email_input: str, error_msg: str) -> None:
     # checks do not arise.
     with pytest.raises(EmailSyntaxError) as exc_info:
         validate_email(email_input, check_deliverability=False)
+    assert str(exc_info.value) == error_msg
+
+
+@pytest.mark.parametrize(
+    'email_input,error_msg',
+    [
+        ('11111111112222222222333333333344444444445555555555666666666677777@example.com', 'The email address is too long before the @-sign (1 character too many).'),
+        ('111111111122222222223333333333444444444455555555556666666666777777@example.com', 'The email address is too long before the @-sign (2 characters too many).'),
+        ('\uFB2C111111122222222223333333333444444444455555555556666666666777777@example.com', 'After Unicode normalization: The email address is too long before the @-sign (2 characters too many).'),
+    ])
+def test_email_invalid_syntax_strict(email_input: str, error_msg: str) -> None:
+    # Since these all have syntax errors, deliverability
+    # checks do not arise.
+    validate_email(email_input, check_deliverability=False)  # pass without strict
+    with pytest.raises(EmailSyntaxError) as exc_info:
+        validate_email(email_input, strict=True, check_deliverability=False)
     assert str(exc_info.value) == error_msg
 
 
@@ -716,6 +740,11 @@ def test_pyisemail_tests(email_input: str, status: str) -> None:
         # with any set of parsing options.
         validate_email(email_input, test_environment=True)
         validate_email(email_input, allow_quoted_local=True, allow_domain_literal=True, test_environment=True)
+
+    elif status == "ISEMAIL_RFC5322_LOCAL_TOOLONG":
+        # Requires strict.
+        with pytest.raises(EmailSyntaxError):
+            validate_email(email_input, strict=True, test_environment=True)
 
     elif status == "ISEMAIL_RFC5321_QUOTEDSTRING":
         # Quoted-literal local parts are only valid with an option.

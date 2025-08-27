@@ -94,7 +94,7 @@ class BaseRule:
         if disabled_rules and self.name in disabled_rules:
             return False
 
-        req_ctx = contrast.CS__CONTEXT_TRACKER.current()
+        req_ctx = contrast.REQUEST_CONTEXT.get()
         if req_ctx is not None and req_ctx.excluded_protect_rules:
             return self.name not in req_ctx.excluded_protect_rules
 
@@ -310,7 +310,7 @@ class BaseRule:
         )
 
     def _append_to_context(self, attack):
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context is None:
             # do not remove; this case is not yet well-understood
             logger.debug("WARNING: failed to get request context in _append_to_context")
@@ -330,7 +330,7 @@ class BaseRule:
 
     def evaluations_for_rule(self, context=None):
         if context is None:
-            context = contrast.CS__CONTEXT_TRACKER.current()
+            context = contrast.REQUEST_CONTEXT.get()
         if context is None:
             # do not remove; this case is not yet well-understood
             logger.debug(

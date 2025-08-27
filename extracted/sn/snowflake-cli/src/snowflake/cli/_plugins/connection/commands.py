@@ -53,6 +53,7 @@ from snowflake.cli.api.commands.flags import (
     TokenFilePathOption,
     UserOption,
     WarehouseOption,
+    WorkloadIdentityProviderOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
@@ -62,7 +63,9 @@ from snowflake.cli.api.config import (
     get_all_connections,
     get_connection_dict,
     get_default_connection_name,
+    remove_connection_from_proper_file,
     set_config_value,
+    unset_config_value,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
@@ -220,6 +223,12 @@ def add(
         *AuthenticatorOption.param_decls,
         help="Chosen authenticator, if other than password-based",
     ),
+    workload_identity_provider: Optional[str] = typer.Option(
+        None,
+        "-W",
+        *WorkloadIdentityProviderOption.param_decls,
+        help="Workload identity provider type",
+    ),
     private_key_file: Optional[str] = typer.Option(
         None,
         "--private-key",
@@ -256,6 +265,7 @@ def add(
         "port": port,
         "region": region,
         "authenticator": authenticator,
+        "workload_identity_provider": workload_identity_provider,
         "private_key_file": private_key_file,
         "token_file_path": token_file_path,
     }
@@ -317,6 +327,30 @@ def add(
     )
 
 
+@app.command(requires_connection=False)
+def remove(
+    connection_name: str = typer.Argument(
+        help="Name of the connection to remove.",
+        show_default=False,
+    ),
+    **options,
+):
+    """Removes a connection from configuration file."""
+    if not connection_exists(connection_name):
+        raise UsageError(f"Connection {connection_name} does not exist.")
+
+    is_default = get_default_connection_name() == connection_name
+    if is_default:
+        unset_config_value(path=["default_connection_name"])
+
+    connections_file = remove_connection_from_proper_file(connection_name)
+
+    return MessageResult(
+        f"Removed connection {connection_name} from {connections_file}."
+        f"{' It was the default connection, so default connection is now unset.' if is_default else ''}"
+    )
+
+
 @app.command(requires_connection=True)
 def test(
     **options,
@@ -355,9 +389,9 @@ def test(
         "Host": conn.host,
         "Account": conn.account,
         "User": conn.user,
-        "Role": f'{conn.role or "not set"}',
-        "Database": f'{conn.database or "not set"}',
-        "Warehouse": f'{conn.warehouse or "not set"}',
+        "Role": f"{conn.role or 'not set'}",
+        "Database": f"{conn.database or 'not set'}",
+        "Warehouse": f"{conn.warehouse or 'not set'}",
     }
 
     if conn_ctx.enable_diag:

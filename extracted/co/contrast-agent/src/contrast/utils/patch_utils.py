@@ -354,13 +354,12 @@ def repatch_module(module):
                 exc_info=e,
             )
             continue
-
         if type(attr) is functools.partial and (
             orig_patch := patch_manager.get_patch(attr.func)
         ):
             patch = functools.partial(orig_patch, *attr.args, **attr.keywords)
         else:
-            patch = patch_manager.get_patch(patch_manager.as_func(attr))
+            patch = patch_manager.get_outer_patch(patch_manager.as_func(attr))
 
         if patch:
             logger.debug("applying repatch to %s in %s", attr_name, module.__name__)

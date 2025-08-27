@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Iterable, Tuple
 
@@ -52,6 +53,15 @@ class PublishTestResultsCommander(click.Command):
                 required=True,
             )
         )
+        self.params.append(
+            click.Option(
+                ("--is_dev_queue",),
+                help="enable if data to be published to the dev queue",
+                type=bool,
+                default=False,
+                required=False,
+            )
+        )
 
 
 @click.command(cls=PublishTestResultsCommander)
@@ -64,9 +74,10 @@ def cli(
     password: str,
     data_type: str,
     data: Iterable[Tuple[str, str]],
+    is_dev_queue: bool = False,
 ):
     with setup_telemetry():
-        url = prepare_queue_central_url(username, password)
+        url = prepare_queue_central_url(username, password, is_dev_queue)
         data_dict = {}
         for key, value in data:
             data_dict[key] = value
@@ -87,6 +98,10 @@ def publish_test_results_through_queue(url, data_type: str, data_dict: dict):
     elif data_type.upper() == "SESSION_STOP":
         test_result_producer.publish_test_session_stop(prepare_session_data(data_dict))
     elif data_type.upper() == "BUILD_RESULT":
+        package_info = "{}"
+        if data_dict.get("package_info"):
+            package_info = normalize_to_json(str(data_dict["package_info"]))
+
         app_build_result = SqaAppBuildResult(
             session_pk_id=data_dict.get("session_pk_id"),
             app_name=data_dict.get("app_name"),
@@ -104,12 +119,23 @@ def publish_test_results_through_queue(url, data_type: str, data_dict: dict):
             tool_chain=data_dict.get("tool_chain"),
             notes=data_dict.get("notes"),
             test_duration_sec=data_dict.get("test_duration_sec"),
+            package_info=package_info,
+            artifact_id=data_dict.get("artifact_id"),
+            app_version=data_dict.get("app_version"),
         )
         test_result_producer.publish_app_build_result(app_build_result)
     else:
         raise RuntimeError(
             "please provide the valid value for the parameter 'data_type'"
         )
+
+
+def normalize_to_json(raw: str) -> str:
+    try:
+        json_obj = json.loads(raw)
+        return json.dumps(json_obj)
+    except json.JSONDecodeError as e:
+        raise RuntimeError("Package info is not a valid JSON") from e
 
 
 def prepare_session_data(data_dict: dict):
@@ -138,6 +164,9 @@ def prepare_session_data(data_dict: dict):
         testFramework=data_dict.get("testFramework"),
         SDKVersion=data_dict.get("SDKVersion"),
         test_run_by=data_dict.get("test_run_by"),
+        package_datetime=data_dict.get("package_datetime"),
+        package_version=data_dict.get("package_version"),
+        package_name=data_dict.get("package_name"),
     )
 
 

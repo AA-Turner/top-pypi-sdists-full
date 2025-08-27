@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai2-olmo-core
-Version: 2.1.0
+Version: 2.2.0
 Summary: Core training module for the Open Language Model (OLMo)
 Author-email: Allen Institute for Artificial Intelligence <olmo@allenai.org>
 License:                                  Apache License
@@ -211,49 +211,57 @@ Project-URL: Changelog, https://github.com/allenai/OLMo-core/blob/main/CHANGELOG
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy<2.0
+Requires-Dist: numpy
 Requires-Dist: torch>=2.6.0
-Requires-Dist: cached-path>=1.6.6
+Requires-Dist: cached-path>=1.7.2
 Requires-Dist: requests
 Requires-Dist: packaging
 Requires-Dist: rich
 Requires-Dist: omegaconf
 Requires-Dist: safetensors
 Requires-Dist: importlib_resources
-Requires-Dist: ai2-olmo-eval==0.7.1
 Provides-Extra: dev
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: mypy<1.4,>=1.0; extra == "dev"
 Requires-Dist: black<24.0,>=23.1; extra == "dev"
+Requires-Dist: boto3; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: furo==2024.8.6; extra == "dev"
+Requires-Dist: google-cloud-storage; extra == "dev"
 Requires-Dist: isort<5.14,>=5.12; extra == "dev"
+Requires-Dist: mypy<1.4,>=1.0; extra == "dev"
+Requires-Dist: myst-parser>=1.0; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-memray; extra == "dev"
 Requires-Dist: pytest-sphinx; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: twine>=1.11.0; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
 Requires-Dist: build; extra == "dev"
 Requires-Dist: boto3; extra == "dev"
+Requires-Dist: google-cloud-compute; extra == "dev"
 Requires-Dist: google-cloud-storage; extra == "dev"
 Requires-Dist: Sphinx<9.0,>=6.0; extra == "dev"
-Requires-Dist: furo==2024.8.6; extra == "dev"
-Requires-Dist: myst-parser>=1.0; extra == "dev"
-Requires-Dist: sphinx-copybutton; extra == "dev"
 Requires-Dist: sphinx-autobuild; extra == "dev"
 Requires-Dist: sphinx-autodoc-typehints==1.23.3; extra == "dev"
+Requires-Dist: sphinx-copybutton; extra == "dev"
 Requires-Dist: sphinx-inline-tabs; extra == "dev"
+Requires-Dist: twine>=1.11.0; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
 Provides-Extra: beaker
-Requires-Dist: beaker-py>=1.32.0; extra == "beaker"
+Requires-Dist: beaker-py<2.0,>=1.36.0; extra == "beaker"
 Requires-Dist: GitPython<4.0,>=3.0; extra == "beaker"
-Provides-Extra: wandb
-Requires-Dist: wandb; extra == "wandb"
 Provides-Extra: comet
 Requires-Dist: comet_ml; extra == "comet"
+Provides-Extra: eval
+Requires-Dist: ai2-olmo-eval==0.8.5; extra == "eval"
+Provides-Extra: torchao
+Requires-Dist: torchao; extra == "torchao"
 Provides-Extra: transformers
 Requires-Dist: transformers; extra == "transformers"
+Provides-Extra: wandb
+Requires-Dist: wandb; extra == "wandb"
 Provides-Extra: all
-Requires-Dist: ai2-olmo-core[beaker,comet,dev,transformers,wandb]; extra == "all"
+Requires-Dist: ai2-olmo-core[beaker,comet,dev,eval,torchao,transformers,wandb]; extra == "all"
 Dynamic: license-file
 
 <div align="center">

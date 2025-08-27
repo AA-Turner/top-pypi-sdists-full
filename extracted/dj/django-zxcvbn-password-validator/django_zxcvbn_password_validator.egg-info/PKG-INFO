@@ -1,28 +1,46 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-zxcvbn-password-validator
-Version: 1.4.5
+Version: 1.5.1
 Summary: A translatable password validator for django, based on zxcvbn-python.
 Author-email: Pierre SASSOULAS <pierre.sassoulas@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Bug Tracker, https://github.com/Pierre-Sassoulas/django-zxcvbn-password-validator/issues
 Project-URL: Source Code, https://github.com/Pierre-Sassoulas/django-zxcvbn-password-validator
 Keywords: django,password-validator,zxcvbn
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: Arabic
+Classifier: Natural Language :: Armenian
+Classifier: Natural Language :: Chinese (Simplified)
+Classifier: Natural Language :: Czech
 Classifier: Natural Language :: Dutch
 Classifier: Natural Language :: English
 Classifier: Natural Language :: French
+Classifier: Natural Language :: German
+Classifier: Natural Language :: Hindi
+Classifier: Natural Language :: Hungarian
+Classifier: Natural Language :: Indonesian
+Classifier: Natural Language :: Italian
+Classifier: Natural Language :: Japanese
+Classifier: Natural Language :: Korean
+Classifier: Natural Language :: Polish
+Classifier: Natural Language :: Portuguese
 Classifier: Natural Language :: Portuguese (Brazilian)
+Classifier: Natural Language :: Russian
+Classifier: Natural Language :: Spanish
+Classifier: Natural Language :: Thai
+Classifier: Natural Language :: Turkish
+Classifier: Natural Language :: Ukrainian
+Classifier: Natural Language :: Vietnamese
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8.0
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: django<6,>=2
@@ -33,11 +51,12 @@ Requires-Dist: coverage; extra == "dev"
 Requires-Dist: coveralls; extra == "dev"
 Requires-Dist: django-rosetta; extra == "dev"
 Requires-Dist: mock; extra == "dev"
-Requires-Dist: pre-commit>=2.16; extra == "dev"
-Requires-Dist: pylint>=3.2; extra == "dev"
-Requires-Dist: pylint-django==2.5.5; extra == "dev"
 Requires-Dist: python-coveralls; extra == "dev"
-Requires-Dist: tox; extra == "dev"
+Provides-Extra: pylint
+Requires-Dist: pre-commit>=2.16; extra == "pylint"
+Requires-Dist: pylint>=3.2; extra == "pylint"
+Requires-Dist: pylint-django==2.5.5; extra == "pylint"
+Dynamic: license-file
 
 # django-zxcvbn-password-validator
 
@@ -59,13 +78,38 @@ appreciated if you know a language that is not yet available. See
 
 ### Language available
 
-The software is developed in english. Other available languages are :
+The software is developed in English. Other available languages are:
 
+[![Translation status](https://hosted.weblate.org/widget/django-zxcvbn-password-validator/multi-auto.svg)](https://hosted.weblate.org/engage/django-zxcvbn-password-validator/)
+
+- [x] Arabic thanks to Claude AI Assistant
+- [x] Armenian thanks to Claude AI Assistant
+- [x] Brazilian Portuguese thanks to [Andrés Martano](https://github.com/andresmrm/) and
+      Claude AI Assistant (corrections)
+- [x] Chinese Simplified thanks to Claude AI Assistant
+- [x] Czech thanks to [Michal Čihař](https://github.com/nijel/)
 - [x] Dutch thanks to [Thom Wiggers](https://github.com/thomwiggers/)
+- [x] English
 - [x] French thanks to [Pierre Sassoulas](https://github.com/Pierre-Sassoulas/) and
       [Lionel Sausin](https://github.com/ls-initiatives)
-- [x] Brazilian Portuguese thanks to [Andrés Martano](https://github.com/andresmrm/)
-- [x] English
+- [x] German thanks to Claude AI Assistant
+- [x] Hausa thanks to Claude AI Assistant
+- [x] Hindi thanks to Claude AI Assistant
+- [x] Hungarian thanks to [RViktor](https://github.com/rviktor/)
+- [x] Indonesian thanks to Claude AI Assistant
+- [x] Italian thanks to Claude AI Assistant
+- [x] Japanese thanks to Claude AI Assistant
+- [x] Korean thanks to Claude AI Assistant
+- [x] Polish thanks to Claude AI Assistant
+- [x] Portuguese thanks to Claude AI Assistant
+- [x] Russian thanks to Claude AI Assistant
+- [x] Spanish thanks to Claude AI Assistant
+- [x] Swahili thanks to Claude AI Assistant
+- [x] Thai thanks to Claude AI Assistant
+- [x] Turkish thanks to Claude AI Assistant
+- [x] Ukrainian thanks to Claude AI Assistant
+- [x] Vietnamese thanks to Claude AI Assistant
+- [x] Yoruba thanks to Claude AI Assistant
 
 ## Creating a user with django-zxcvbn-password-validator
 

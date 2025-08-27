@@ -66,8 +66,9 @@ from __future__ import division as _; del _  # noqa: E702 ;
 
 # from pygeodesy.albers import AlbersEqualAreaCylindrical  # _MODS
 from pygeodesy.basics import copysign0, isbool, _isin, isint,  typename
-from pygeodesy.constants import EPS, EPS0, EPS02, EPS1, INF, NINF, PI4, PI_2, PI_3, R_M, R_MA, R_FM, \
-                               _EPSqrt, _EPStol as _TOL, _floatuple as _T, _isfinite, _over, \
+from pygeodesy.constants import EPS, EPS_2, EPS0, EPS02, EPS1, INF, NINF, \
+                               _over, PI_2, PI_3, PI4, R_M, R_MA, R_FM, \
+                               _EPSqrt, _EPStol as _TOL, _floatuple as _T, _isfinite, \
                                _0_0s, _0_0, _0_5, _1_0, _1_EPS, _2_0, _4_0, _90_0, \
                                _0_25, _3_0  # PYCHOK used!
 from pygeodesy.errors import _AssertionError, IntersectionError, _ValueError, _xattr, _xkwds_not
@@ -95,7 +96,7 @@ from pygeodesy.utily import atan1, atan1d, atan2b, degrees90, m2radians, radians
 from math import asinh, atan, atanh, cos, degrees, exp, fabs, radians, sin, sinh, sqrt, tan  # as _tan
 
 __all__ = _ALL_LAZY.ellipsoids
-__version__ = '25.05.12'
+__version__ = '25.08.25'
 
 _f_0_0    = Float(f =_0_0)  # zero flattening
 _f__0_0   = Float(f_=_0_0)  # zero inverse flattening
@@ -1186,6 +1187,22 @@ class Ellipsoid(_NamedEnumItem):
 
         return Vector4Tuple(v.x, v.y, v.z, h, iteration=i, name__=self.height4)
 
+    def _heightB(self, sa, ca, z, p):  # in ecef.EcefSudano, ecec.EcefVeness
+        '''(INTERNAL) Height above ellipsoid (Bowring eqn 7) at C{lat}.
+        '''
+        # sa, ca = sincos2d(lat)
+        # p = hypot(x, y)  # distance to polar axis
+
+        # r = a / self.e2s(sa)  # length of normal terminated by polar axis
+        # h = p * ca + z * sa - (a * a / r)
+        return (p * ca + fabs(z * sa) - self.a * self.e2s(sa)) if sa else (p - self.a)
+
+    @Property_RO
+    def _heightMax(self):
+        '''(INTERNAL) Get the height limit (C{meter}, conventionally).
+        '''
+        return self.a / EPS_2  # self.a * _2_EPS, about 12M lightyears
+
     def _hubeny_2(self, phi2, phi1, lam21, scaled=True, squared=True):
         '''(INTERNAL) like function C{pygeodesy.flatLocal_}/C{pygeodesy.hubeny_},
            returning the I{angular} distance in C{radians squared} or C{radians}
@@ -1542,7 +1559,7 @@ class Ellipsoid(_NamedEnumItem):
 
     @deprecated_property_RO
     def rhumbx(self):
-        '''DEPRECATED on 2023.11.28, use property C{rhumbekx}. '''
+        '''DEPRECATED on 2023.11.28, use property C{rhumbekx}.'''
         return self.rhumbekx
 
     def Rlat(self, lat):
@@ -1587,16 +1604,15 @@ class Ellipsoid(_NamedEnumItem):
 
            @see: Method L{roc2_} and class L{EcefYou}.
         '''
-        if not self.f:  # .isSpherical
-            n = self.a
-        elif ca is None:
-            r = self.e2s2(sa)  # see .roc2_ and _EcefBase._forward
-            n = sqrt(self.a2 / r) if r > EPS02 else _0_0
-        elif ca:  # derived from EcefYou.forward
-            h = hypot(ca, self.b_a * sa) if sa else fabs(ca)
-            n = self.a / h
-        elif sa:
-            n = self.a2_b / fabs(sa)
+        if sa and self.f:  # .isEllipsoidal
+            if ca is None:
+                r = self.e2s2(sa)  # see .roc2_ and _EcefBase._forward
+                n = sqrt(self.a2 / r) if r > EPS02 else _0_0
+            elif ca:  # derived from EcefYou.forward
+                h = hypot(ca, self.b_a * sa)
+                n = self.a / h
+            else:
+                n = self.a2_b / fabs(sa)
         else:
             n = self.a
         return n

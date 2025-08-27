@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: later
-Version: 23.11.30
+Version: 25.7.1
 Summary: A toolbox for asyncio services
 Keywords: asyncio,later
 Author: Meta Platforms, Inc
 Author-email: Jason Fried <fried@meta.com>
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
@@ -16,10 +16,11 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
-Requires-Dist: async-timeout >= 2.0.0, < 5.0.0
-Requires-Dist: async-timeout==4.0.3 ; extra == "dev"
-Requires-Dist: coverage==4.5.4 ; extra == "dev"
-Requires-Dist: flit==3.9.0 ; extra == "dev"
+License-File: LICENSE
+Requires-Dist: async-timeout >= 2.0.0, <= 5.0.1
+Requires-Dist: async-timeout==5.0.1 ; extra == "dev"
+Requires-Dist: coverage==7.10.5 ; extra == "dev"
+Requires-Dist: flit==3.12.0 ; extra == "dev"
 Project-URL: Github, https://github.com/facebookincubator/later
 Provides-Extra: dev
 
@@ -40,18 +41,21 @@ later is a play on Async not happening now but at some point in the future.
 It was also an awesome name for a toolkit for writing AsyncIO applications. The
 *batteries* if you will for AsyncIO.
 
-later offers the following functions:
+later is a collection of asyncio *batteries* created at Meta for supporting asyncio
+services. 
 
-    - **asyncio** `Event` enhancements
-        - ``BiDirectionalEvent`` - Back channel of information for the setter to ensure the waiter has called wait() a second time
-    - **asyncio** `Task` enhancements
-        - `Watcher` - Watch tasks and ensure they don't die - take action when they do
-    - **asyncio** Unittesting enhancements
-        - `TestCase` - Use in place of `IsolatedAsyncioTestCase` for more wins
-        - `IsolatedAsyncioTestCase` is backported for 3.7 users
-
-
-`later` currently backports 3.8's `async_case` + `mock` libraries for 3.7 users.
+later offers the following:
+    - **Unittesting** 
+        - `later.unittest.TestCase` - An `IsolatedAsyncioTestCase` that insures tasks are not left orphaned and asyncio never calls its error handler. 
+        - `later.unittest.mock.AsyncContextManager` - A factory for easy mocking out `AsyncContextManager` 
+    - **Tasks***
+        - `later.cancel` - The *correct* way to cancel a Task/Future and insure it is awaited
+        - `later.as_task` - Decorator to turn coroutines into Tasks. 
+        - `later.Watcher` - Watch tasks and ensure they don't die - take action when they do. This is kinda like a `asyncio.TaskGroup`
+        - `later.herd` - A Decorator that provides coroutines with basic thundering herd protection. 
+        - `later.task.TaskSentinel` - A Completed Future, a default value for a `asyncio.Task` argument so you don't also have to accept None. 
+    - **Synchronization**
+        - `later.event.BiDirectionalEvent` - two way `asyncio.Event` for Handshake style synchronization. 
 
 License
 ==========

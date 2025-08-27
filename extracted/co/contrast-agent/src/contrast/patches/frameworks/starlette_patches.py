@@ -124,7 +124,7 @@ def do_starlette_route_observation(
 ):
     from starlette.staticfiles import StaticFiles
 
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None:
         return
 
@@ -185,7 +185,7 @@ def build_session_patch(orig_prop, patch_policy):
         """
         session_dict = orig_prop.fget(*args, **kwargs)
 
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context is None:
             return session_dict
 

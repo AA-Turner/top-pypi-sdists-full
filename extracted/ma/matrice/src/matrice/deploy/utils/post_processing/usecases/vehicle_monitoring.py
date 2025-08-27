@@ -185,6 +185,10 @@ class VehicleMonitoringUseCase(BaseProcessor):
             if start_frame is not None and end_frame is not None and start_frame == end_frame:
                 frame_number = start_frame
 
+        print("--------------------------------------")
+        print("config.zone_config",config.zone_config)
+        print(config)
+        print("--------------------------------------")
         general_counting_summary = calculate_counting_summary(data)
         counting_summary = self._count_categories(processed_data, config)
         total_counts = self.get_total_counts()

@@ -275,12 +275,14 @@ class CreatePracticeRunConfigurationRequestTypeDef(TypedDict):
     blockedWindows: NotRequired[Sequence[str]]
     blockedDates: NotRequired[Sequence[str]]
     blockingAlarms: NotRequired[Sequence[ControlConditionTypeDef]]
+    allowedWindows: NotRequired[Sequence[str]]
 
 
 class PracticeRunConfigurationTypeDef(TypedDict):
     outcomeAlarms: List[ControlConditionTypeDef]
     blockingAlarms: NotRequired[List[ControlConditionTypeDef]]
     blockedWindows: NotRequired[List[str]]
+    allowedWindows: NotRequired[List[str]]
     blockedDates: NotRequired[List[str]]
 
 
@@ -289,6 +291,7 @@ class UpdatePracticeRunConfigurationRequestTypeDef(TypedDict):
     blockedWindows: NotRequired[Sequence[str]]
     blockedDates: NotRequired[Sequence[str]]
     blockingAlarms: NotRequired[Sequence[ControlConditionTypeDef]]
+    allowedWindows: NotRequired[Sequence[str]]
     outcomeAlarms: NotRequired[Sequence[ControlConditionTypeDef]]
 
 

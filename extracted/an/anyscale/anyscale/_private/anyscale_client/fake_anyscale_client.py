@@ -47,9 +47,12 @@ from anyscale.client.openapi_client.models import (
     ProductionJob,
     ProductionJobStateTransition,
     Project,
+    ProjectBase,
+    ProjectListResponse,
     ResourceQuota,
     ServerSessionToken,
     WorkspaceDataplaneProxiedArtifacts,
+    WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.decorated_job_queue import DecoratedJobQueue
@@ -108,7 +111,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     SCHEDULE_NEXT_TRIGGER_AT_TIME = datetime.utcnow()
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._builds: Dict[str, ClusterEnvironmentBuild] = {
             self.DEFAULT_CLUSTER_ENV_BUILD_ID: ClusterEnvironmentBuild(
                 id=self.DEFAULT_CLUSTER_ENV_BUILD_ID,
@@ -155,7 +158,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._jobs: Dict[str, ProductionJob] = {}
         self._job_runs: Dict[str, List[APIJobRun]] = defaultdict(list)
         self._job_queues: Dict[str, DecoratedJobQueue] = {}
-        self._project_to_id: Dict[Optional[str] : Dict[Optional[str], str]] = {}
+        self._project_to_id: Dict[Optional[str] : Dict[Optional[str], str]] = {}  # type: ignore
+        self._projects: Dict[str, Project] = {}
         self._project_collaborators: Dict[str, List[CreateUserProjectCollaborator]] = {}
         self._rolled_out_model: Optional[ApplyProductionServiceV2Model] = None
         self._sent_workspace_notifications: List[WorkspaceNotification] = []
@@ -164,6 +168,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._archived_jobs: Dict[str, ProductionJob] = {}
         self._requirements_path: Optional[str] = None
         self._upload_uri_mapping: Dict[str, str] = {}
+        self._upload_bucket_path_mapping: Dict[
+            str, Tuple[List[Optional[str]], str]
+        ] = {}
         self._submitted_job: Optional[CreateInternalProductionJob] = None
         self._env_vars: Optional[Dict[str, str]] = None
         self._job_run_logs: Dict[str, str] = {}
@@ -680,17 +687,127 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         return None
 
+    def build_project_with_args(self, **kwargs) -> Project:
+        # set values for required fields if not provided
+        if "id" not in kwargs:
+            kwargs["id"] = f"project-id-{uuid.uuid4()!s}"
+        if "name" not in kwargs:
+            kwargs["name"] = f"project-{kwargs['id']}"
+        if "description" not in kwargs:
+            kwargs["description"] = f"project-description-{kwargs['id']}"
+        if "parent_cloud_id" not in kwargs:
+            kwargs["parent_cloud_id"] = self.DEFAULT_CLOUD_ID
+        if "created_at" not in kwargs:
+            kwargs["created_at"] = datetime.utcnow()
+        if "is_owner" not in kwargs:
+            kwargs["is_owner"] = True
+        if "is_read_only" not in kwargs:
+            kwargs["is_read_only"] = False
+        if "directory_name" not in kwargs:
+            kwargs["directory_name"] = "default"
+        if "is_default" not in kwargs:
+            kwargs["is_default"] = False
+        return Project(**kwargs, local_vars_configuration=OPENAPI_NO_VALIDATION)
+
+    def create_project_with_args(self, **kwargs) -> str:
+        project = self.build_project_with_args(**kwargs)
+        project_id: str = project.id  # type: ignore
+        self._projects[project_id] = project
+        return project_id
+
+    def get_project_by_id_or_name(
+        self, *, project_id: Optional[str] = None, project_name: Optional[str] = None,
+    ) -> Optional[Project]:
+        if project_id:
+            return self._projects.get(project_id, None)
+        if project_name:
+            for project in self._projects.values():
+                if project.name == project_name:
+                    return project
+        return None
+
     def get_project(self, project_id: str) -> Optional[Project]:
         for cloud_project_dict in self._project_to_id.values():
             for p_name, p_id in cloud_project_dict.items():
                 if p_id == project_id:
                     # return stub project
-                    return Project(
-                        name=p_name,
-                        id=p_id,
-                        local_vars_configuration=OPENAPI_NO_VALIDATION,
-                    )
+                    return self.build_project_with_args(id=p_id, name=p_name,)
         return None
+
+    def list_projects(
+        self,
+        *,
+        name_contains: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        parent_cloud_id: Optional[str] = None,
+        include_defaults: bool = True,
+        sort_field: Optional[str] = None,  # noqa: ARG002
+        sort_order: Optional[str] = None,  # noqa: ARG002
+        paging_token: Optional[str] = None,  # noqa: ARG002
+        count: Optional[int] = None,
+    ) -> ProjectListResponse:
+        projects = list(self._projects.values())
+        if name_contains:
+            projects = [p for p in projects if p.name and name_contains in p.name]
+        if creator_id:
+            projects = [p for p in projects if p.creator_id == creator_id]
+        if parent_cloud_id:
+            projects = [p for p in projects if p.parent_cloud_id == parent_cloud_id]
+        if not include_defaults:
+            projects = [p for p in projects if not p.is_default]
+        if sort_field and sort_order and sort_field == "NAME":
+            projects.sort(
+                key=lambda x: x.name if x.name else "", reverse=sort_order == "DESC"
+            )
+        if count:
+            projects = projects[:count]
+        return ProjectListResponse(
+            results=projects,
+            metadata=ListResponseMetadata(
+                next_paging_token=paging_token,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def create_project(self, project: WriteProject) -> ProjectBase:
+        project_id = f"project-id-{uuid.uuid4()!s}"
+        self._projects[project_id] = Project(
+            id=project_id,
+            name=project.name,
+            description=project.description,
+            cloud_id=project.cloud_id,
+            initial_cluster_config=project.initial_cluster_config,
+            parent_cloud_id=project.parent_cloud_id,
+            created_at=datetime.utcnow(),
+            creator_id=self.DEFAULT_USER_ID,
+            is_default=False,
+            is_owner=True,
+            is_read_only=False,
+            directory_name="default",
+            owners=[
+                MiniUser(
+                    id=self.DEFAULT_USER_ID,
+                    email=self.DEFAULT_USER_EMAIL,
+                    local_vars_configuration=OPENAPI_NO_VALIDATION,
+                )
+            ],
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+        return ProjectBase(
+            id=project_id, local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def delete_project(self, project_id: str) -> None:
+        if project_id not in self._projects:
+            raise ValueError(f"Project {project_id} not found")
+        self._projects.pop(project_id)
+
+    def get_default_project(self, parent_cloud_id: str) -> Project:
+        for project in self._projects.values():
+            if project.parent_cloud_id == parent_cloud_id and project.is_default:
+                return project
+        raise ValueError(f"No default project found for cloud {parent_cloud_id}")
 
     def add_project_collaborators(
         self, project_id: str, collaborators: List[CreateUserProjectCollaborator]
@@ -897,20 +1014,40 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def upload_local_dir_to_cloud_storage(
         self,
-        local_dir: str,  # noqa: ARG002
+        local_dir: str,
         *,
         cloud_id: str,
         excludes: Optional[List[str]] = None,  # noqa: ARG002
         overwrite_existing_file: bool = False,  # noqa: ARG002
+        cloud_deployment: Optional[str] = None,
     ) -> str:
         # Ensure that URIs are consistent for the same passed directory.
         bucket = self.CLOUD_BUCKET.format(cloud_id=cloud_id)
+        if cloud_deployment is not None:
+            bucket += f"_{cloud_deployment}"
         if local_dir not in self._upload_uri_mapping:
             self._upload_uri_mapping[
                 local_dir
             ] = f"{bucket}/fake_pkg_{str(uuid.uuid4())}.zip"
 
         return self._upload_uri_mapping[local_dir]
+
+    def upload_local_dir_to_cloud_storage_multi_deployment(
+        self,
+        local_dir: str,
+        *,
+        cloud_id: str,
+        cloud_deployments: List[Optional[str]],
+        excludes: Optional[List[str]] = None,  # noqa: ARG002
+        overwrite_existing_file: bool = False,  # noqa: ARG002
+    ) -> str:
+        bucket = self.CLOUD_BUCKET.format(cloud_id=cloud_id)
+        if local_dir not in self._upload_bucket_path_mapping:
+            self._upload_bucket_path_mapping[local_dir] = (
+                cloud_deployments,
+                f"{bucket}/fake_pkg_{str(uuid.uuid4())}.zip",
+            )
+        return self._upload_bucket_path_mapping[local_dir][1]
 
     def add_job_run_logs(self, job_run_id: str, logs: str):
         self._job_run_logs[job_run_id] = logs

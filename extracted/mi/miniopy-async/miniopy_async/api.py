@@ -36,6 +36,7 @@ from urllib.parse import urlunsplit
 from xml.etree import ElementTree as ET
 
 import certifi
+import yarl
 from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
 from aiohttp.typedefs import LooseHeaders
 from aiohttp_retry import ExponentialRetry, RetryClient
@@ -54,6 +55,7 @@ from .datatypes import (
     ListMultipartUploadsResult,
     ListObjects,
     ListPartsResult,
+    MultipartUploader,
     Object,
     Part,
     PostPolicy,
@@ -361,9 +363,10 @@ class Minio:  # pylint: disable=too-many-public-methods
         self._ensure_session()
         session = cast(ClientSession | RetryClient, self._session)
 
+        yarl_url = yarl.URL(urlunsplit(url), encoded=True)
         response = await session.request(
             method,
-            urlunsplit(url),
+            yarl_url,
             data=body,
             headers=http_headers,
         )
@@ -2296,11 +2299,140 @@ class Minio:  # pylint: disable=too-many-public-methods
         element = ET.fromstring(await response.text())
         return cast(str, findtext(element, "UploadId", True))
 
+    def multipart_uploader(
+        self,
+        bucket_name: str,
+        object_name: str,
+        content_type: str = "application/octet-stream",
+        metadata: DictType | None = None,
+        sse: Sse | None = None,
+        tags: Tags | None = None,
+        retention: Retention | None = None,
+        legal_hold: bool = False,
+        extra_headers: DictType | None = None,
+    ) -> MultipartUploader:
+        """
+        Create a multipart uploader for large data.
+
+        :param str bucket_name: Name of the bucket.
+        :param str object_name: Object name in the bucket.
+        :param str content_type: Content type of the object.
+        :param DictType | None metadata: Any additional metadata to be uploaded along
+            with your PUT request.
+        :param Sse | None sse: Server-side encryption.
+        :param Tags | None tags: :class:`Tags` for the object.
+        :param Retention | None retention: :class:`Retention` configuration object.
+        :param bool legal_hold: Flag to set legal hold for the object.
+        :param DictType | None extra_headers: Any additional headers to be added with GET request.
+        :return: :class:`MultipartUploader` object.
+        :rtype: MultipartUploader
+
+        .. code-block:: python
+
+            import asyncio
+
+            from miniopy_async import Minio
+
+            client = Minio(
+                "play.min.io",
+                access_key="Q3AM3UQ867SPQQA43P2F",
+                secret_key="zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG",
+                secure=True,  # http for False, https for True
+            )
+
+
+            async def main():
+                # Use context manager
+                print("example one")
+                async with client.multipart_uploader(
+                    "my-bucket",
+                    "my-object",
+                ) as uploader:
+                    await uploader.upload_part(b"hello" * 1024 * 1024, 1)
+                    await uploader.upload_part(b"world", 2)
+                result = uploader.result
+                print(
+                    "created {0} object; etag: {1}, version-id: {2}".format(
+                        result.object_name,
+                        result.etag,
+                        result.version_id,
+                    ),
+                )
+
+                # Use directly
+                print("example two")
+                uploader = client.multipart_uploader(
+                    "my-bucket",
+                    "my-object",
+                )
+                await uploader.upload_part(b"hello" * 1024 * 1024, 1)
+                await uploader.upload_part(b"world", 2)
+                result = await uploader.complete()
+                print(
+                    "created {0} object; etag: {1}, version-id: {2}".format(
+                        result.object_name,
+                        result.etag,
+                        result.version_id,
+                    ),
+                )
+
+                # Abort
+                print("example three")
+                uploader = client.multipart_uploader(
+                    "my-bucket",
+                    "my-object",
+                )
+                await uploader.upload_part(b"hello", 1)
+                await uploader.abort()
+
+                # Parallel upload
+                print("example four")
+                tasks = []
+                async with client.multipart_uploader(
+                    "my-bucket",
+                    "my-object",
+                ) as uploader:
+                    for i in range(1, 11):
+                        data = (f"part{i}" * 1024 * 1024).encode("utf-8")
+                        tasks.append(uploader.upload_part(data, i))
+                    await asyncio.gather(*tasks)
+                result = uploader.result
+                print(
+                    "created {0} object; etag: {1}, version-id: {2}".format(
+                        result.object_name,
+                        result.etag,
+                        result.version_id,
+                    ),
+                )
+
+
+            asyncio.run(main())
+        """
+        check_bucket_name(bucket_name, s3_check=self._base_url.is_aws_host)
+        check_object_name(object_name)
+        check_sse(sse)
+        if tags is not None and not isinstance(tags, Tags):
+            raise ValueError("tags must be Tags type")
+        if retention is not None and not isinstance(retention, Retention):
+            raise ValueError("retention must be Retention type")
+
+        headers = genheaders(metadata, sse, tags, retention, legal_hold)
+        headers["Content-Type"] = content_type or "application/octet-stream"
+        if extra_headers:
+            headers.update(extra_headers)
+
+        return MultipartUploader(
+            self,
+            bucket_name,
+            object_name,
+            headers,
+        )
+
     async def _put_object(
         self,
         bucket_name: str,
         object_name: str,
-        data: Substream,
+        data: bytes | BytesIO | Substream,
         headers: DictType | None,
         query_params: DictType | None = None,
     ) -> ObjectWriteResult:
@@ -2326,7 +2458,7 @@ class Minio:  # pylint: disable=too-many-public-methods
         self,
         bucket_name: str,
         object_name: str,
-        data: Substream,
+        data: bytes | BytesIO | Substream,
         headers: DictType | None,
         upload_id: str,
         part_number: int,
@@ -2371,6 +2503,7 @@ class Minio:  # pylint: disable=too-many-public-methods
         tags: Tags | None = None,
         retention: Retention | None = None,
         legal_hold: bool = False,
+        write_offset: int | None = None,
     ) -> ObjectWriteResult:
         """
         Uploads data from a stream to an object in a bucket.
@@ -2389,6 +2522,7 @@ class Minio:  # pylint: disable=too-many-public-methods
         :param Tags | None tags: :class:`Tags` for the object.
         :param Retention | None retention: :class:`Retention` configuration object.
         :param bool legal_hold: Flag to set legal hold for the object.
+        :param int | None write_offset: Offset byte for appending data to existing object.
         :return: :class:`ObjectWriteResult` object.
         :rtype: ObjectWriteResult
         :raise ValueError: If tags is not of type :class:`Tags`.
@@ -2493,6 +2627,12 @@ class Minio:  # pylint: disable=too-many-public-methods
             raise ValueError("retention must be Retention type")
         if not callable(getattr(data, "read")):
             raise ValueError("input data must have callable read()")
+        if write_offset is not None:
+            if write_offset < 0:
+                raise ValueError("write offset should not be negative")
+            if length < 0:
+                raise ValueError("length must be provided for write offset")
+            part_size = length if length > MIN_PART_SIZE else MIN_PART_SIZE
         part_size, part_count = get_part_info(length, part_size)
         if progress:
             # Set progress bar length and object name before upload
@@ -2500,6 +2640,8 @@ class Minio:  # pylint: disable=too-many-public-methods
 
         headers = genheaders(metadata, sse, tags, retention, legal_hold)
         headers["Content-Type"] = content_type or "application/octet-stream"
+        if write_offset:
+            headers["x-amz-write-offset-bytes"] = str(write_offset)
 
         object_size = length
         uploaded_size = 0
@@ -2605,6 +2747,169 @@ class Minio:  # pylint: disable=too-many-public-methods
                     upload_id,
                 )
             raise exc
+
+    async def append_object(
+        self,
+        bucket_name: str,
+        object_name: str,
+        data: BinaryIO,
+        length: int,
+        chunk_size: int | None = None,
+        progress: ProgressType | None = None,
+        extra_headers: DictType | None = None,
+    ) -> ObjectWriteResult:
+        """
+        Appends from a stream to existing object in a bucket.
+
+        :param str bucket_name: Name of the bucket.
+        :param str object_name: Object name in the bucket.
+        :param BinaryIO data: An object having callable read() returning bytes object.
+        :param int length: Data size; -1 for unknown size.
+        :param int chunk_size: Chunk size to optimize uploads.
+        :param ProgressType | None progress: A progress object.
+        :param DictType | None extra_headers: Any additional headers to be added with GET request.
+        :return: :class:`ObjectWriteResult` object.
+        :rtype: ObjectWriteResult
+        :raise ValueError: If length is 0.
+        :raise ValueError: If chunk_size is less than 5 MiB or greater than 5 GiB.
+        :raise IOError: If stream doesn't have enough data to read.
+
+        .. code-block:: python
+
+            import asyncio
+            import io
+            from urllib.request import urlopen
+
+            from miniopy_async import Minio
+
+            client = Minio(
+                "play.min.io",
+                access_key="Q3AM3UQ867SPQQA43P2F",
+                secret_key="zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG",
+                secure=True,  # http for False, https for True
+            )
+
+
+            async def main():
+                # Upload data.
+                result = await client.put_object(
+                    "my-bucket",
+                    "my-object",
+                    io.BytesIO(b"hello, "),
+                    7,
+                )
+                print(f"created {result.object_name} object; etag: {result.etag}")
+
+                # Append data.
+                result = await client.append_object(
+                    "my-bucket",
+                    "my-object",
+                    io.BytesIO(b"world"),
+                    5,
+                )
+                print(f"appended {result.object_name} object; etag: {result.etag}")
+
+                # Append data in chunks.
+                data = urlopen(
+                    "https://www.kernel.org/pub/linux/kernel/v6.x/linux-6.13.12.tar.xz",
+                )
+                result = await client.append_object(
+                    "my-bucket",
+                    "my-object",
+                    data,
+                    148611164,
+                    5 * 1024 * 1024,
+                )
+                print(f"appended {result.object_name} object; etag: {result.etag}")
+
+                # Append unknown sized data.
+                data = urlopen(
+                    "https://www.kernel.org/pub/linux/kernel/v6.x/linux-6.14.3.tar.xz",
+                )
+                result = await client.append_object(
+                    "my-bucket",
+                    "my-object",
+                    data,
+                    149426584,
+                    5 * 1024 * 1024,
+                )
+                print(f"appended {result.object_name} object; etag: {result.etag}")
+
+
+            asyncio.run(main())
+        """
+        if length == 0:
+            raise ValueError("length should not be zero")
+        if chunk_size is not None:
+            if chunk_size < MIN_PART_SIZE:
+                raise ValueError("chunk size must be minimum of 5 MiB")
+            if chunk_size > MAX_PART_SIZE:
+                raise ValueError("chunk size must be less than 5 GiB")
+        else:
+            chunk_size = length if length > MIN_PART_SIZE else MIN_PART_SIZE
+
+        chunk_count = -1
+        if length > 0:
+            chunk_count = int(length / chunk_size)
+            if (chunk_count * chunk_size) < length:
+                chunk_count += 1
+            chunk_count = chunk_count or 1
+
+        object_size = length
+        uploaded_size = 0
+        chunk_number = 0
+        stop = False
+
+        stat = await self.stat_object(bucket_name, object_name)
+        write_offset = cast(int, stat.size)
+        upload_result = None
+
+        while not stop:
+            chunk_number += 1
+            if chunk_count > 0:
+                if chunk_number == chunk_count:
+                    chunk_size = object_size - uploaded_size
+                    stop = True
+                chunk_data = Substream(data, uploaded_size, chunk_size)
+                if chunk_data.size != chunk_size:
+                    raise IOError(
+                        f"stream having not enough data;"
+                        f"expected: {chunk_size}, "
+                        f"got: {chunk_data.size} bytes"
+                    )
+            else:
+                chunk_data = Substream(data, uploaded_size, chunk_size)
+                if chunk_data.size == 0:
+                    break
+                if chunk_data.size < chunk_size:
+                    chunk_count = chunk_number
+                    stop = True
+                    chunk_size = chunk_data.size
+
+            if progress:
+                await progress.update(chunk_size)
+
+            uploaded_size += chunk_size
+
+            headers = extra_headers or {}
+            headers["x-amz-write-offset-bytes"] = str(write_offset)
+            upload_result = await self._put_object(
+                bucket_name,
+                object_name,
+                chunk_data,
+                headers=headers,
+            )
+            write_offset += chunk_size
+
+        upload_result = cast(ObjectWriteResult, upload_result)
+        return ObjectWriteResult(
+            cast(str, upload_result.bucket_name),
+            cast(str, upload_result.object_name),
+            upload_result.version_id,
+            upload_result.etag,
+            upload_result.http_headers,
+            location=upload_result.location,
+        )
 
     def list_objects(
         self,
@@ -4228,9 +4533,10 @@ class Minio:  # pylint: disable=too-many-public-methods
         metadata["X-Amz-Meta-Snowball-Auto-Extract"] = "true"
 
         name = staging_filename
-        mode = "w:gz" if compression else "w"
         fileobj = None if name else BytesIO()
-        with tarfile.open(name=name, mode=mode, fileobj=fileobj) as tar:
+        with tarfile.open(
+            name=name, mode="w:gz" if compression else "w", fileobj=fileobj
+        ) as tar:
             for obj in object_list:
                 if obj.filename:
                     tar.add(obj.filename, obj.object_name)

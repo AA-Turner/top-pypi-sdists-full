@@ -4,7 +4,10 @@
 Implements a single API for instrumenting all dbapi2-compliant modules
 """
 
-from contrast_fireball import AppActivityComponentType, ArchitectureComponent
+from contextlib import contextmanager
+from contrast_fireball import AppActivityComponentType, ArchitectureComponent, SpanType
+import contrast
+from contrast.agent import scope
 from contrast.applies.sqli import apply_rule
 from contrast.utils.decorators import fail_quietly
 from contrast.utils.patch_utils import (
@@ -12,6 +15,17 @@ from contrast.utils.patch_utils import (
     pack_self,
     wrap_and_watermark,
 )
+from contrast_vendor import structlog as logging
+
+
+logger = logging.getLogger("contrast")
+
+
+VENDOR_TO_DB_SYSTEM = {
+    "MySQL": "mysql",
+    "PostgreSQL": "postgresql",
+    "SQLite3": "sqlite",
+}
 
 
 class Dbapi2Patcher:
@@ -36,7 +50,11 @@ class Dbapi2Patcher:
 
     def __init__(self, adapter, vendor: str):
         self.vendor: str = vendor
+        self.system: str = VENDOR_TO_DB_SYSTEM.get(vendor, "")
         self.db_name: str = ""
+        self.user: str = ""
+        self.host: str = ""
+        self.port: str = ""
 
         self._adapter = adapter
         # this module name must match a policy node; we need to fake sqlalchemy
@@ -53,7 +71,7 @@ class Dbapi2Patcher:
             self._safe_instrument_cursor(cursor)
 
     @fail_quietly()
-    def get_db_name(self, connection, connect_args, connect_kwargs):
+    def extract_connection_attributes(self, connection, connect_args, connect_kwargs):
         """
         This method is intended to be overridden by subclasses if necessary. It must
         either assign `self.db_name` or do nothing if the database name cannot be
@@ -65,17 +83,21 @@ class Dbapi2Patcher:
         to be by far the most common case.
 
         This follows the conventions laid out in the footnotes of dbapi2:
-        https://www.python.org/dev/peps/pep-0249/#footnote-1
+        https://peps.python.org/pep-0249/#id48
 
         In SQLAlchemy, see create_connect_args() for each dialect to get an idea of how
         different adapters are used. Most, if not all, use kwargs. Some adapters support
         a DSN connection string, but that should be handled by subclasses (if at all).
         """
-        # the database name argument has several variations
-        for key in ["database", "dbname", "db"]:
-            if key in connect_kwargs:
-                self.db_name = str(connect_kwargs[key])
-                break
+        if not self.db_name:
+            # the database name argument has several variations
+            for key in ["database", "dbname", "db"]:
+                if key in connect_kwargs:
+                    self.db_name = str(connect_kwargs[key])
+                    break
+        self.user = self.user or connect_kwargs.get("user", "")
+        self.host = self.host or connect_kwargs.get("host", "")
+        self.port = self.port or connect_kwargs.get("port", "")
 
     @fail_quietly("failed to instrument database cursor class")
     def _safe_instrument_cursor(self, cursor_class):
@@ -107,6 +129,45 @@ class Dbapi2Patcher:
         connection_class = type(connection_instance)
         build_and_apply_patch(connection_class, "cursor", self._build_cursor_patch)
 
+    @contextmanager
+    def _storage_query_span(self):
+        context = contrast.REQUEST_CONTEXT.get()
+        if context is None or not context.observe_enabled or scope.in_observe_scope():
+            yield
+            return
+
+        with scope.observe_scope():
+            if (trace := context.observability_trace) is None:
+                yield
+                return
+
+            with trace.child_span(SpanType.StorageQuery) as span:
+                logger.debug(
+                    "entered new child span",
+                    child_span=span,
+                    action_type=SpanType.StorageQuery,
+                )
+                try:
+                    yield
+                finally:
+                    if span:
+                        db_attrs = {
+                            "db.system": self.system,
+                            "db.user": self.user,
+                            "db.name": self.db_name,
+                            "server.address": self.host,
+                            "server.port": self.port,
+                        }
+                        db_attrs = {
+                            name: value for name, value in db_attrs.items() if value
+                        }
+                        span.update(db_attrs)
+                        logger.debug(
+                            "updated child_span attributes",
+                            child_span=span,
+                            action_attrs=db_attrs,
+                        )
+
     @property
     def _build_execute_patch(self):
         """
@@ -118,12 +179,13 @@ class Dbapi2Patcher:
                 """
                 Patch for dbapi_adapter.connection().cursor().execute*()
                 """
-                return apply_rule(
-                    self._adapter_name,
-                    wrapper,
-                    pack_self(instance, args),
-                    kwargs,
-                )
+                with self._storage_query_span():
+                    return apply_rule(
+                        self._adapter_name,
+                        wrapper,
+                        pack_self(instance, args),
+                        kwargs,
+                    )
 
             return wrap_and_watermark(orig_func, patched_method)
 
@@ -178,7 +240,7 @@ class Dbapi2Patcher:
 
                 connection = wrapped(*args, **kwargs)
                 if not self._connect_called:
-                    self.get_db_name(connection, args, kwargs)
+                    self.extract_connection_attributes(connection, args, kwargs)
                     self._safe_instrument_connection(connection)
                     self._connect_called = True
                 self._safe_send_architecture_component()

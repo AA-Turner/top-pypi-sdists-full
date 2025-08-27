@@ -13,7 +13,7 @@ def get_propagation_node(node):
 
 @fail_quietly("Failed to analyze policy")
 def analyze_policy(name, result, args, kwargs):
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None or not context.propagate_assess or context.stop_propagation:
         return
 

@@ -29,6 +29,7 @@ from google.cloud.aiplatform import models as aiplatform_models
 from google.cloud.aiplatform import utils
 from google.cloud.aiplatform_v1beta1 import types
 from google.cloud.aiplatform_v1beta1.services import model_garden_service
+from google.cloud.aiplatform_v1beta1.services import model_service
 from vertexai import batch_prediction
 
 
@@ -38,6 +39,7 @@ from google.protobuf import duration_pb2
 _LOGGER = base.Logger(__name__)
 _DEFAULT_VERSION = compat.V1BETA1
 _DEFAULT_TIMEOUT = 2 * 60 * 60  # 2 hours, same as UI one-click deployment.
+_DEFAULT_RECOMMEND_SPEC_TIMEOUT = 1 * 60  # 1 minute.
 _DEFAULT_EXPORT_TIMEOUT = 1 * 60 * 60  # 1 hour.
 _HF_WILDCARD_FILTER = "is_hf_wildcard(true)"
 _NATIVE_MODEL_FILTER = "is_hf_wildcard(false)"
@@ -256,6 +258,17 @@ class _ModelGardenClientWithOverride(utils.ClientWithOverride):
     )
 
 
+class _ModelServiceClientWithOverride(utils.ClientWithOverride):
+    _is_temporary = True
+    _default_version = _DEFAULT_VERSION
+    _version_map = (
+        (
+            _DEFAULT_VERSION,
+            model_service.ModelServiceClient,
+        ),
+    )
+
+
 class OpenModel:
     """Represents a Model Garden Open model.
 
@@ -380,6 +393,7 @@ class OpenModel:
         reservation_affinity_key: Optional[str] = None,
         reservation_affinity_values: Optional[List[str]] = None,
         use_dedicated_endpoint: Optional[bool] = False,
+        dedicated_endpoint_disabled: Optional[bool] = False,
         fast_tryout_enabled: Optional[bool] = False,
         system_labels: Optional[Dict[str, str]] = None,
         endpoint_display_name: Optional[str] = None,
@@ -451,6 +465,10 @@ class OpenModel:
             use_dedicated_endpoint (bool): Optional. Default value is False. If set
               to True, the underlying prediction call will be made using the
               dedicated endpoint dns.
+            dedicated_endpoint_disabled (bool): Optional. Default value is False. If set
+              to False, the underlying prediction call will be made using the
+              dedicated endpoint dns. Otherwise, the prediction call will be made
+              using the shared endpoint dns.
             fast_tryout_enabled (bool): Optional. Defaults to False. If True, model
               will be deployed using faster deployment path. Useful for quick
               experiments. Not for production workloads. Only available for most
@@ -591,8 +609,14 @@ class OpenModel:
                 reservation_affinity_values
             )
 
+        # TODO(b/417560875): Remove this once notebooks are migrated to use dedicated_endpoint_disabled.
         if use_dedicated_endpoint:
             request.endpoint_config.dedicated_endpoint_enabled = use_dedicated_endpoint
+
+        if dedicated_endpoint_disabled:
+            request.endpoint_config.dedicated_endpoint_disabled = (
+                dedicated_endpoint_disabled
+            )
 
         if fast_tryout_enabled:
             request.deploy_config.fast_tryout_enabled = fast_tryout_enabled
@@ -860,6 +884,91 @@ class CustomModel:
             location_override=self._location,
         )
 
+    @functools.cached_property
+    def _model_service_client(
+        self,
+    ) -> model_service.ModelServiceClient:
+        """Returns the Model Service client."""
+        return initializer.global_config.create_client(
+            client_class=_ModelServiceClientWithOverride,
+            credentials=self._credentials,
+            location_override=self._location,
+        )
+
+    def list_deploy_options(
+        self,
+        available_machines: bool = True,
+        request_timeout: Optional[float] = None,
+    ) -> str:
+        """Lists the deploy options for the model.
+
+        Args:
+            available_machines: If true, only return the deploy options for
+              available machines.
+            request_timeout: The timeout for the recommend spec request.
+              Default is 60 seconds.
+
+        Returns:
+            str: A string of the deploy options represented by
+                machine spec and container spec.
+
+        """
+
+        def _extract_spec(spec):
+            machine_spec = spec.machine_spec
+            return {
+                "machine_type": getattr(machine_spec, "machine_type", None),
+                "accelerator_type": getattr(
+                    getattr(machine_spec, "accelerator_type", None), "name", None
+                ),
+                "accelerator_count": getattr(machine_spec, "accelerator_count", None),
+            }
+
+        def _extract_recommendation(recommendation):
+            extracted_spec = _extract_spec(recommendation.spec)
+            extracted_spec["region"] = getattr(recommendation, "region", None)
+            if (
+                recommendation.user_quota_state
+                and recommendation.user_quota_state
+                != types.RecommendSpecResponse.Recommendation.QuotaState.QUOTA_STATE_UNSPECIFIED
+            ):
+                extracted_spec["user_quota_state"] = getattr(
+                    getattr(recommendation, "user_quota_state", None), "name", None
+                )
+            return extracted_spec
+
+        request = types.RecommendSpecRequest(
+            gcs_uri=self._gcs_uri,
+            parent=f"projects/{self._project}/locations/{self._location}",
+            check_machine_availability=available_machines,
+        )
+        try:
+            response = self._model_service_client.recommend_spec(
+                request, timeout=request_timeout or _DEFAULT_RECOMMEND_SPEC_TIMEOUT
+            )
+            options = []
+            if response.recommendations:
+                options = [
+                    _extract_recommendation(recommendation)
+                    for recommendation in response.recommendations
+                    if recommendation.spec
+                ]
+            elif response.specs:
+                options = [_extract_spec(spec) for spec in response.specs if spec]
+            return "\n\n".join(
+                f"[Option {i + 1}]\n"
+                + ",\n".join(
+                    f'    {k}="{v}"' if k != "accelerator_count" else f"    {k}={v}"
+                    for k, v in config.items()
+                    if v is not None
+                )
+                for i, config in enumerate(options)
+            )
+
+        except Exception as e:
+            _LOGGER.error(f"Failed to list deploy options: {e}")
+            raise e
+
     def deploy(
         self,
         machine_type: Optional[str] = None,
@@ -906,14 +1015,14 @@ class CustomModel:
                 Created endpoint.
         """
         return self._deploy_gcs_uri(
-            machine_type,
-            min_replica_count,
-            max_replica_count,
-            accelerator_type,
-            accelerator_count,
-            endpoint_display_name,
-            model_display_name,
-            deploy_request_timeout,
+            machine_type=machine_type,
+            min_replica_count=min_replica_count,
+            max_replica_count=max_replica_count,
+            accelerator_type=accelerator_type,
+            accelerator_count=accelerator_count,
+            endpoint_display_name=endpoint_display_name,
+            model_display_name=model_display_name,
+            deploy_request_timeout=deploy_request_timeout,
         )
 
     def _deploy_model_registry_model(self) -> aiplatform.Endpoint:

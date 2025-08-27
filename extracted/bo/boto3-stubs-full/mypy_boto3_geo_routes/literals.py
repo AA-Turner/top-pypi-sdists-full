@@ -152,6 +152,7 @@ RouteFerryNoticeCodeType = Literal[
     "AccuratePolylineUnavailable",
     "NoSchedule",
     "Other",
+    "PotentialViolatedVehicleRestrictionUsage",
     "SeasonalClosure",
     "ViolatedAvoidFerry",
     "ViolatedAvoidRailFerry",

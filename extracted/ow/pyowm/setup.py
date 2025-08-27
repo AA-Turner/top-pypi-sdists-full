@@ -7,7 +7,7 @@ with open('README.md', 'r') as readme:
 
 setup(
     name='pyowm',
-    version='3.4.0',
+    version='3.5.0',
     description='A Python wrapper around OpenWeatherMap web APIs',
     author='Claudio Sparpaglione',
     author_email='csparpa@gmail.com',
@@ -22,11 +22,10 @@ setup(
         'PySocks>=1.7.1,<2',
         'requests[socks]'
     ],
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     classifiers=[
       "License :: OSI Approved :: MIT License",
       "Programming Language :: Python",
-      "Programming Language :: Python :: 3.8",
       "Programming Language :: Python :: 3.9",
       "Programming Language :: Python :: 3.10",
       "Programming Language :: Python :: 3.11",

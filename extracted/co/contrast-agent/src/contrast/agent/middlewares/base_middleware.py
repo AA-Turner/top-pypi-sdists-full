@@ -166,7 +166,7 @@ class BaseMiddleware:
         """
         Enter the pre-request contexts expected before calling the handler with the agent.
         """
-        stack.enter_context(contrast.CS__CONTEXT_TRACKER.lifespan(context))
+        stack.enter_context(contrast.lifespan(context))
         if context.observe_enabled and self.reporting_client is not None:
             context.observability_trace = stack.enter_context(
                 self.reporting_client.observability_trace(send_trace=True)

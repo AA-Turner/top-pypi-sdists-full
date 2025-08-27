@@ -461,13 +461,16 @@ class EMSys:
             await worker_sleep(20)
             console.print("\nVerifica se a nota ja foi lançada...")
             chave_nfe = int(chave_nfe)
-            status_nf_emsys = await get_status_nf_emsys(chave_nfe)
-            if status_nf_emsys.get("status") == "Lançada":
-                return RpaRetornoProcessoDTO(
-                    sucesso=True,
-                    retorno="Nota lançada com sucesso!",
-                    status=RpaHistoricoStatusEnum.Sucesso,
-                )
+            try:
+                status_nf_emsys = await get_status_nf_emsys(chave_nfe)
+                if status_nf_emsys.get("status") == "Lançada":
+                    return RpaRetornoProcessoDTO(
+                        sucesso=True,
+                        retorno="Nota lançada com sucesso!",
+                        status=RpaHistoricoStatusEnum.Sucesso,
+                    )
+            except:
+                pass
 
         if chave_cte is not None:
             await worker_sleep(20)

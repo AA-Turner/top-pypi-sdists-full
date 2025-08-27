@@ -1,7 +1,7 @@
 from typing import Generic, overload
 from xml.sax.handler import ContentHandler
 
-from ._types import _ET, SupportsLaxItems, Unused, _ElementFactory, _ElementOrTree
+from ._types import _ET, SupportsLaxItems, Unused, _ElementOrTree
 from .etree import LxmlError, _ElementTree, _ProcessingInstruction
 
 class SaxError(LxmlError): ...
@@ -16,17 +16,15 @@ class ElementTreeContentHandler(Generic[_ET], ContentHandler):
     _new_mappings: dict[str | None, str]
     # Not adding _get_etree(), already available as public property
     @overload
-    def __new__(
-        cls, makeelement: _ElementFactory[_ET]
-    ) -> ElementTreeContentHandler[_ET]: ...
+    def __new__(cls, makeelement: type[_ET]) -> ElementTreeContentHandler[_ET]: ...
     @overload
-    def __new__(cls, makeelement: None = None) -> ElementTreeContentHandler: ...
+    def __new__(cls, makeelement: None = None) -> ElementTreeContentHandler[_ET]: ...
     @property
     def etree(self) -> _ElementTree[_ET]: ...
 
     # Incompatible method overrides; some args are similar
     # but use other structures or names
-    def startElementNS(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def startElementNS(  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         ns_name: tuple[str, str],
         qname: Unused,
@@ -34,7 +32,7 @@ class ElementTreeContentHandler(Generic[_ET], ContentHandler):
     ) -> None: ...
     def endElementNS(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
-        ns_name: tuple[str, str],
+        ns_name: tuple[str | None, str],
         qname: Unused,
     ) -> None: ...
     def characters(  # pyright: ignore[reportIncompatibleMethodOverride]

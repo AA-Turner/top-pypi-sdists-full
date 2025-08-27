@@ -46,7 +46,9 @@ logger = logging.getLogger(__name__)
 
 # TODO(austin): refactor to read requirements.txt and .skip_packages_tracking from s3 or gcs directly.
 # Default cluster storage directory.
-CLUSTER_STORAGE_DIR = "/mnt/cluster_storage"
+CLUSTER_STORAGE_DIR = os.environ.get(
+    "ANYSCALE_CLUSTER_STORAGE_DIR", "/mnt/cluster_storage"
+)
 
 # Location of the directory containing workspace configurations.
 WORKSPACE_CONF_DIR = os.environ.get(

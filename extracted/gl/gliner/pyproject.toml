@@ -36,7 +36,7 @@ maintainers = [
 
 dependencies = [
     "torch>=2.0.0",
-    "transformers>=4.38.2",
+    "transformers>=4.38.2,<=4.51.0",
     "huggingface_hub>=0.21.4",
     "tqdm",
     "onnxruntime",
@@ -51,12 +51,16 @@ tokenizers = [
     "langdetect",
     "python-mecab-ko",
     "janome",
-    "jieba",
+    "jieba3",
     "camel_tools",
     "indic-nlp-library",
-    "spacy"
+    "spacy",
+    "stanza"
 ]
-
+stanza = [
+    "stanza",
+    "langdetect"
+]
 
 [project.urls]
 Homepage = "https://github.com/urchade/GLiNER"

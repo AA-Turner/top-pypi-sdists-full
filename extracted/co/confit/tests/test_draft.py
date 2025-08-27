@@ -14,13 +14,13 @@ class Custom:
 
 
 def test_draft_from_config(registry):
-    @registry.misc_bis.register("partial", auto_draft_in_config=True)
+    @registry.misc_bis.register("partial")
     def partial_function(required_val: int, param: int = 3) -> Custom:
         return Custom(required_val + param)
 
     config = """
 [model]
-@misc_bis = "partial"
+@misc_bis = partial !draft
 param = 3
 """
     obj = Config().from_str(config).resolve(registry=registry)["model"]
@@ -43,15 +43,13 @@ def test_draft_from_python(registry):
     def partial_function(required_val: int, param: int = 3) -> Custom:
         return Custom(required_val + param)
 
-    partial_function = registry.misc_bis.register(
-        "partial", func=partial_function, auto_draft_in_config=True
-    )
+    partial_function = registry.misc_bis.register("partial", func=partial_function)
 
     @validate_arguments
     def use_draft(draft: Draft[Custom]) -> Custom:
         return draft.instantiate(required_val=2)
 
-    assert partial_function.draft(required_val=2).value == 5
+    assert partial_function.draft(required_val=2).instantiate().value == 5
 
     obj = partial_function.draft(param=3)
     assert use_draft(obj).value == 5
@@ -76,8 +74,8 @@ def test_draft_from_type(registry):
         def __init__(self, value: int):
             self.value = value
 
-    MyClass = registry.misc_bis.register("partial", auto_draft_in_config=True)(MyClass)
-    assert MyClass.draft(value=3).value == 3
+    MyClass = registry.misc_bis.register("partial")(MyClass)
+    assert isinstance(MyClass.draft(value=3), Draft)
 
     obj = MyClass.draft()
     assert str(obj) == "Draft[test_draft_from_type.<locals>.MyClass]"
@@ -91,9 +89,7 @@ def test_draft_error_from_function(registry):
     def partial_function(required_val: int, param: int = 3) -> CustomError:
         return CustomError(required_val + param)
 
-    partial_function = registry.misc_bis.register("partial", auto_draft_in_config=True)(
-        partial_function
-    )
+    partial_function = registry.misc_bis.register("partial")(partial_function)
 
     obj = partial_function.draft()
 
@@ -118,9 +114,7 @@ def test_draft_error_from_type(registry):
         def __init__(self, value: int):
             self.value = value
 
-    CustomError = registry.misc_bis.register("partial", auto_draft_in_config=True)(
-        CustomError
-    )
+    CustomError = registry.misc_bis.register("partial")(CustomError)
 
     obj = CustomError.draft()
 

@@ -105,7 +105,7 @@ def propagator_check():
     print(f"Platform: {get_platform()}, Python: {version}\n")
 
     num_fails = 0
-    with contrast.CS__CONTEXT_TRACKER.lifespan(ContextDuck()):
+    with contrast.lifespan(ContextDuck()):
         for name, tester in PROPAGATOR_TESTS.items():
             is_ok = get_properties(tester()) is not None
             # NOTE: maybe add command-line option for no unicode/emoji output

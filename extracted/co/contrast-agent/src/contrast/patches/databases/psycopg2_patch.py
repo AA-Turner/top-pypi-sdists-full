@@ -21,7 +21,7 @@ VENDOR = "PostgreSQL"
 
 class Psycopg2Patcher(dbapi2.Dbapi2Patcher):
     @fail_quietly("failed to get database inventory information")
-    def get_db_name(self, connection, connect_args, connect_kwargs):
+    def extract_connection_attributes(self, connection, connect_args, connect_kwargs):
         """
         Record DB inventory for a Postgres connection.
 
@@ -49,6 +49,7 @@ class Psycopg2Patcher(dbapi2.Dbapi2Patcher):
             or os.environ.get("PGDATABASE", "unknown_database")
         )
         self.db_name = dbname
+        super().extract_connection_attributes(connection, connect_args, connect_kwargs)
 
 
 def instrument_psycopg2(psycopg2):

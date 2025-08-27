@@ -28,7 +28,6 @@ from olmo_core.train import (
 from olmo_core.train.callbacks import (
     BeakerCallback,
     Callback,
-    CometCallback,
     ConfigSaverCallback,
     DownstreamEvaluatorCallbackConfig,
     GarbageCollectorCallback,
@@ -36,7 +35,6 @@ from olmo_core.train.callbacks import (
     LMEvaluatorCallbackConfig,
     ProfilerCallback,
     SlackNotifierCallback,
-    WandBCallback,
 )
 from olmo_core.train.train_module import TransformerTrainModuleConfig
 from olmo_core.utils import prepare_cli_environment, seed_all
@@ -67,6 +65,7 @@ class ExperimentConfig(Config):
     train_module: TransformerTrainModuleConfig
     trainer: TrainerConfig
     init_seed: int = 12536
+    backend: Optional[str] = "cpu:gloo,cuda:nccl"
 
 
 class SubCmd(StrEnum):
@@ -77,11 +76,11 @@ class SubCmd(StrEnum):
     launch_prep = "launch_prep"
     dry_run = "dry_run"
 
-    def prepare_environment(self):
+    def prepare_environment(self, config: ExperimentConfig):
         if self in (SubCmd.launch, SubCmd.dry_run, SubCmd.prep, SubCmd.launch_prep):
             prepare_cli_environment()
         elif self == SubCmd.train:
-            prepare_training_environment()
+            prepare_training_environment(backend=config.backend)
         elif self == SubCmd.train_single:
             prepare_training_environment(backend=None)
         else:
@@ -144,6 +143,7 @@ def build_common_components(
     include_instance_filter: bool = False,
     beaker_image: str = OLMoCoreBeakerImage.stable,
     num_nodes: int = 1,
+    beaker_workspace: str = "ai2/OLMo-core",
 ) -> CommonComponents:
     root_dir = get_root_dir(cluster)
 
@@ -159,9 +159,10 @@ def build_common_components(
             root_dir=root_dir,
             cmd=[script, cmd_to_launch, run_name, cluster, *overrides],
             cluster=cluster,
-            nccl_debug=False,
+            nccl_debug=True,
             beaker_image=beaker_image,
             num_nodes=num_nodes,
+            workspace=beaker_workspace,
         )
 
     tokenizer_config = TokenizerConfig.dolma2()
@@ -312,8 +313,6 @@ def train(config: ExperimentConfig):
 
     # Record the config to W&B/Comet and each checkpoint dir.
     config_dict = config.as_config_dict()
-    cast(CometCallback, trainer.callbacks["comet"]).config = config_dict
-    cast(WandBCallback, trainer.callbacks["wandb"]).config = config_dict
     cast(ConfigSaverCallback, trainer.callbacks["config_saver"]).config = config_dict
 
     # Train.
@@ -333,6 +332,7 @@ def main(
     include_instance_filter: bool = False,
     beaker_image: str = OLMoCoreBeakerImage.stable,
     num_nodes: int = 1,
+    beaker_workspace: str = "ai2/OLMo-core",
 ):
     usage = f"""
 [yellow]Usage:[/] [i blue]python[/] [i cyan]{sys.argv[0]}[/] [i b magenta]{'|'.join(SubCmd)}[/] [i b]RUN_NAME CLUSTER[/] [i][OVERRIDES...][/]
@@ -359,7 +359,6 @@ $ [i]python {sys.argv[0]} {SubCmd.launch} run01 ai2/pluto-cirrascale --launch.nu
     script, cmd, run_name, cluster, *overrides = sys.argv
 
     cmd = SubCmd(cmd)
-    cmd.prepare_environment()
 
     config = build_config(
         script,
@@ -378,6 +377,8 @@ $ [i]python {sys.argv[0]} {SubCmd.launch} run01 ai2/pluto-cirrascale --launch.nu
         include_instance_filter=include_instance_filter,
         beaker_image=beaker_image,
         num_nodes=num_nodes,
+        beaker_workspace=beaker_workspace,
     )
 
+    cmd.prepare_environment(config)
     cmd.run(config)

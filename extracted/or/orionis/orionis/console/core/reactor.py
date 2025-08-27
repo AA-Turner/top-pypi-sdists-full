@@ -5,13 +5,15 @@ import re
 from typing import Any, List, Optional
 from orionis.console.args.argument import CLIArgument
 from orionis.console.base.command import BaseCommand
-from orionis.console.contracts.command import IBaseCommand
+from orionis.console.contracts.base_command import IBaseCommand
+from orionis.console.contracts.cli_request import ICLIRequest
+from orionis.console.contracts.command import ICommand
 from orionis.console.contracts.reactor import IReactor
-from orionis.console.enums.command import Command
+from orionis.console.entities.command import Command
 from orionis.console.exceptions import CLIOrionisValueError
 from orionis.console.exceptions.cli_runtime_error import CLIOrionisRuntimeError
-from orionis.console.output.contracts.console import IConsole
-from orionis.console.output.contracts.executor import IExecutor
+from orionis.console.contracts.executor import IExecutor
+from orionis.console.request.cli_request import CLIRequest
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.introspection.modules.reflection import ReflectionModule
 from orionis.services.log.contracts.log_service import ILogger
@@ -58,30 +60,180 @@ class Reactor(IReactor):
         # Initialize the application instance, using provided app or creating new Orionis instance
         self.__app = app
 
-        # Set the project root directory to current working directory for module path resolution
-        self.__root = self.__app.path('root')
-
         # Initialize the internal command registry as an empty dictionary
         self.__commands: dict[str, Command] = {}
 
-        # Automatically discover and load command classes from the console commands directory
-        cli_commands_path = (Path(self.__app.path('console')) / 'commands').resolve()
-        self.__loadCommands(cli_commands_path, self.__root)
-
-        # Load core command classes provided by the Orionis framework
-        self.__loadCoreCommands()
-
         # Initialize the executor for command output management
         self.__executer: IExecutor = self.__app.make('x-orionis.console.output.executor')
-
-        # Initialize the console for command output
-        self.__console: IConsole = self.__app.make('x-orionis.console.output.console')
 
         # Initialize the logger service for logging command execution details
         self.__logger: ILogger = self.__app.make('x-orionis.services.log.log_service')
 
         # Initialize the performance counter for measuring command execution time
         self.__performance_counter: IPerformanceCounter = self.__app.make('x-orionis.support.performance.counter')
+
+        # List to hold fluent command definitions
+        self.__fluent_commands: List[ICommand] = []
+
+        # Flag to indicate whether commands have been loaded
+        self.__load_commands: bool = False
+
+    def __loadCommands(self) -> None:
+        """
+        Loads all available commands for the console application.
+
+        This method orchestrates the loading of both custom user-defined commands and
+        core framework commands into the reactor's internal command registry. It implements
+        a lazy loading pattern using an internal flag to ensure commands are loaded only
+        once during the reactor instance's lifetime, preventing duplicate registrations
+        and improving performance on subsequent calls.
+
+        The loading process follows a specific order: custom commands are loaded first,
+        followed by core framework commands. This ensures that custom commands can
+        potentially override core commands if they share the same signature, giving
+        users the flexibility to customize framework behavior.
+
+        Returns
+        -------
+        None
+            This method does not return any value. All discovered commands are
+            registered internally in the reactor's command registry and become
+            available for execution through the `call` and `callAsync` methods.
+
+        Notes
+        -----
+        - Commands are loaded only once per reactor instance to prevent duplicates
+        - Custom commands are loaded before core commands to allow potential overrides
+        - The internal `__load_commands` flag tracks whether commands have been loaded
+        - Both loading methods handle their own error handling and validation
+        """
+        # Check if commands have already been loaded to prevent duplicate loading
+        if not self.__load_commands:
+
+            # Load custom user-defined commands from the project's commands directory
+            self.__loadCustomCommands()
+
+            # Load core framework commands that are bundled with Orionis
+            self.__loadCoreCommands()
+
+            # Load commands defined using the fluent interface
+            self.__loadFluentCommands()
+
+            # Set the flag to indicate that commands have been successfully loaded
+            self.__load_commands = True
+
+    def __loadFluentCommands(self) -> None:
+        """
+        Loads and registers commands defined using the fluent interface.
+
+        This method iterates through all commands that have been defined using the
+        fluent interface pattern and registers them in the reactor's internal command
+        registry. Each fluent command is validated for structure and metadata before
+        being added to ensure proper integration and discoverability.
+
+        Returns
+        -------
+        None
+            This method does not return any value. All fluent commands are
+            registered internally in the reactor's command registry for later lookup
+            and execution.
+        """
+
+        # Import library for dynamic module importing
+        import importlib
+
+        # Get the routes directory path from the application instance
+        routes_path = self.__app.path('routes')
+
+        # Check if routes directory exists
+        if not os.path.exists(routes_path):
+            return
+
+        # Get the project root directory for module path resolution
+        root_path = self.__app.getBasePath()
+
+        # List all .py files in the routes directory and subdirectories
+        for current_directory, _, files in os.walk(routes_path):
+            for file in files:
+
+                # Only process Python files
+                if file.endswith('.py'):
+                    file_path = os.path.join(current_directory, file)
+
+                    # Read file content to check for 'Reactor.command'
+                    try:
+
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+
+                        # Check if the file contains 'Reactor.command'
+                        if 'Reactor.command' in content:
+
+                            # Sanitize the module path for import
+                            pre_module = current_directory.replace(root_path, '')\
+                                                      .replace(os.sep, '.')\
+                                                      .lstrip('.')
+
+                            # Remove virtual environment paths
+                            pre_module = re.sub(r'[^.]*\.(?:Lib|lib)\.(?:python[^.]*\.)?site-packages\.?', '', pre_module)
+                            pre_module = re.sub(r'\.?v?env\.?', '', pre_module)
+                            pre_module = re.sub(r'\.+', '.', pre_module).strip('.')
+
+                            # Skip if module name is empty after cleaning
+                            if not pre_module:
+                                continue
+
+                            # Create the reflection module path
+                            module_name = f"{pre_module}.{file[:-3]}"
+
+                            try:
+
+                                # Import the module natively using importlib
+                                importlib.import_module(module_name)
+
+                            except Exception as e:
+
+                                # Raise a runtime error if module import fails
+                                raise CLIOrionisRuntimeError(
+                                    f"Failed to import module '{module_name}' from file '{file_path}': {e}"
+                                ) from e
+
+                    except Exception as e:
+
+                        # Raise a runtime error if file reading fails
+                        raise CLIOrionisRuntimeError(
+                            f"Failed to read file '{file_path}' for fluent command loading: {e}"
+                        ) from e
+
+        # Iterate through all fluent command definitions
+        for f_command in self.__fluent_commands:
+
+            signature, command_entity = f_command.get()
+
+            # Build the arguments dictionary from the CLIArgument instances
+            required_args: List[CLIArgument] = command_entity.args
+
+            # Create an ArgumentParser instance to handle the command arguments
+            arg_parser = argparse.ArgumentParser(
+                usage=f"python -B reactor {signature} [options]",
+                description=f"Command [{signature}] : {command_entity.description}",
+                formatter_class=argparse.RawTextHelpFormatter,
+                add_help=True,
+                allow_abbrev=False,
+                exit_on_error=True,
+                prog=signature
+            )
+            for arg in required_args:
+                arg.addToParser(arg_parser)
+
+            self.__commands[signature] = Command(
+                obj=command_entity.obj,
+                method=command_entity.method,
+                timestamps=command_entity.timestamps,
+                signature=signature,
+                description=command_entity.description,
+                args=arg_parser
+            )
 
     def __loadCoreCommands(self) -> None:
         """
@@ -141,13 +293,14 @@ class Reactor(IReactor):
             # Register the command in the internal registry with all its metadata
             self.__commands[signature] = Command(
                 obj=obj,
+                method='handle',
                 timestamps=timestamp,
                 signature=signature,
                 description=description,
                 args=args
             )
 
-    def __loadCommands(self, commands_path: str, root_path: str) -> None:
+    def __loadCustomCommands(self) -> None:
         """
         Loads command classes from Python files in the specified commands directory.
 
@@ -155,13 +308,6 @@ class Reactor(IReactor):
         and registers command classes that inherit from BaseCommand. It performs module path
         sanitization to handle virtual environment paths and validates command structure
         before registration.
-
-        Parameters
-        ----------
-        commands_path : str
-            The absolute path to the directory containing command modules to load.
-        root_path : str
-            The root path of the project, used for module path normalization.
 
         Returns
         -------
@@ -176,6 +322,10 @@ class Reactor(IReactor):
         - Command classes must inherit from BaseCommand to be registered
         - Each discovered command class undergoes structure validation via __ensureStructure
         """
+
+        # Ensure the provided commands_path is a valid directory
+        commands_path = (Path(self.__app.path('console')) / 'commands').resolve()
+        root_path = self.__app.getBasePath()
 
         # Iterate through the command path and load command modules
         for current_directory, _, files in os.walk(commands_path):
@@ -222,6 +372,7 @@ class Reactor(IReactor):
                             # Add the command to the internal registry
                             self.__commands[signature] = Command(
                                 obj=obj,
+                                method='handle',
                                 timestamps=timestamp,
                                 signature=signature,
                                 description=description,
@@ -477,6 +628,60 @@ class Reactor(IReactor):
             # Return an empty dictionary if no arguments were parsed
             return {}
 
+    def command(
+        self,
+        signature: str,
+        handler: Any
+    ) -> ICommand:
+        """
+        Define a new command using a fluent interface.
+
+        This method allows defining a new command with a specified signature and handler
+        function using a fluent interface pattern. The command can be further configured
+        by chaining additional method calls to set properties such as timestamps,
+        description, and arguments.
+
+        Parameters
+        ----------
+        signature : str
+            The unique signature identifier for the command. Must follow naming conventions
+            (alphanumeric characters, underscores, colons, cannot start/end with underscore
+            or colon, cannot start with a number).
+        handler : Any
+            The function or callable that will be executed when the command is invoked.
+            This should be a valid function that accepts parameters matching the command's
+            defined arguments.
+
+        Returns
+        -------
+        ICommand
+            Returns an instance of ICommand that allows further configuration of the command
+            through method chaining.
+
+        Raises
+        ------
+        TypeError
+            If the signature is not a string or if the handler is not callable.
+        ValueError
+            If the signature does not meet the required naming conventions.
+        """
+
+        # Import the FluentCommand class here to avoid circular imports
+        from orionis.console.fluent.command import Command as FluentCommand
+
+        # Create a new FluentCommand instance with the provided signature and handler
+        f_command = FluentCommand(
+            signature=signature,
+            concrete=handler[0],
+            method=handler[1] if len(handler) > 1 else 'handle'
+        )
+
+        # Append the new command to the internal list of fluent commands
+        self.__fluent_commands.append(f_command)
+
+        # Return the newly created command for further configuration
+        return self.__fluent_commands[-1]
+
     def info(self) -> List[dict]:
         """
         Retrieves a list of all registered commands with their metadata.
@@ -492,6 +697,9 @@ class Reactor(IReactor):
             A list of dictionaries representing the registered commands, where each dictionary
             contains the command's signature, description, and timestamps status.
         """
+
+        # Ensure commands are loaded before retrieving information
+        self.__loadCommands()
 
         # Prepare a list to hold command information
         commands_info = []
@@ -558,51 +766,64 @@ class Reactor(IReactor):
         - All exceptions are logged and displayed in the console.
         """
 
-        # Retrieve the command from the registry by its signature
-        command: Command = self.__commands.get(signature)
-        if command is None:
-            raise CLIOrionisValueError(f"Command '{signature}' not found.")
+        # Scope Request instances to this command execution context
+        with self.__app.createContext():
 
-        # Start execution timer for performance measurement
-        self.__performance_counter.start()
+            # Ensure commands are loaded before attempting to execute
+            self.__loadCommands()
 
-        # Log the command execution start with RUNNING state if timestamps are enabled
-        if command.timestamps:
-            self.__executer.running(program=signature)
+            # Retrieve the command from the registry by its signature
+            command: Command = self.__commands.get(signature)
+            if command is None:
+                raise CLIOrionisValueError(f"Command '{signature}' not found.")
 
-        try:
-            # Instantiate the command class using the application container
-            command_instance: IBaseCommand = self.__app.make(command.obj)
+            # Start execution timer for performance measurement
+            self.__performance_counter.start()
 
-            # Inject parsed arguments into the command instance
-            command_instance._args = self.__parseArgs(command, args)
-
-            # Execute the command's handle method and capture its output
-            output = self.__app.call(command_instance, 'handle')
-
-            # Calculate elapsed time and log completion with DONE state if command.timestamps are enabled
-            elapsed_time = round(self.__performance_counter.stop(), 2)
+            # Log the command execution start with RUNNING state if timestamps are enabled
             if command.timestamps:
-                self.__executer.done(program=signature, time=f"{elapsed_time}s")
+                self.__executer.running(program=signature)
 
-            # Log successful execution in the logger service
-            self.__logger.info(f"Command '{signature}' executed successfully in ({elapsed_time}) seconds.")
+            try:
+                # Instantiate the command class using the application container
+                command_instance: IBaseCommand = self.__app.make(command.obj)
 
-            # Return the output produced by the command, if any
-            return output
+                # Inject parsed arguments into the command instance
+                _args = self.__parseArgs(command, args)
+                command_instance._args = _args.copy()
 
-        except Exception as e:
+                # Inject a scoped CLIRequest instance into the application container for the command's context
+                self.__app.scopedInstance(ICLIRequest, CLIRequest(
+                    command=signature,
+                    args=_args.copy()
+                ))
 
-            # Log the error in the logger service
-            self.__logger.error(f"Command '{signature}' execution failed: {e}")
+                # Execute the command's handle method and capture its output
+                output = self.__app.call(command_instance, command.method)
 
-            # Calculate elapsed time and log failure with ERROR state if command.timestamps are enabled
-            elapsed_time = round(self.__performance_counter.stop(), 2)
-            if command.timestamps:
-                self.__executer.fail(program=signature, time=f"{elapsed_time}s")
+                # Calculate elapsed time and log completion with DONE state if command.timestamps are enabled
+                elapsed_time = round(self.__performance_counter.stop(), 2)
+                if command.timestamps:
+                    self.__executer.done(program=signature, time=f"{elapsed_time}s")
 
-            # Propagate the exception after logging
-            raise
+                # Log successful execution in the logger service
+                self.__logger.info(f"Command '{signature}' executed successfully in ({elapsed_time}) seconds.")
+
+                # Return the output produced by the command, if any
+                return output
+
+            except Exception as e:
+
+                # Log the error in the logger service
+                self.__logger.error(f"Command '{signature}' execution failed: {e}")
+
+                # Calculate elapsed time and log failure with ERROR state if command.timestamps are enabled
+                elapsed_time = round(self.__performance_counter.stop(), 2)
+                if command.timestamps:
+                    self.__executer.fail(program=signature, time=f"{elapsed_time}s")
+
+                # Propagate the exception after logging
+                raise
 
     async def callAsync(
         self,
@@ -646,48 +867,61 @@ class Reactor(IReactor):
         - All exceptions are logged and displayed in the console.
         """
 
-        # Retrieve the command from the registry by its signature
-        command: Command = self.__commands.get(signature)
-        if command is None:
-            raise CLIOrionisValueError(f"Command '{signature}' not found.")
+        # Scope Request instances to this command execution context
+        with self.__app.createContext():
 
-        # Start execution timer for performance measurement
-        self.__performance_counter.start()
+            # Ensure commands are loaded before attempting to execute
+            self.__loadCommands()
 
-        # Log the command execution start with RUNNING state if timestamps are enabled
-        if command.timestamps:
-            self.__executer.running(program=signature)
+            # Retrieve the command from the registry by its signature
+            command: Command = self.__commands.get(signature)
+            if command is None:
+                raise CLIOrionisValueError(f"Command '{signature}' not found.")
 
-        try:
-            # Instantiate the command class using the application container
-            command_instance: IBaseCommand = self.__app.make(command.obj)
+            # Start execution timer for performance measurement
+            self.__performance_counter.start()
 
-            # Inject parsed arguments into the command instance
-            command_instance._args = self.__parseArgs(command, args)
-
-            # Execute the command's handle method asynchronously and capture its output
-            output = await self.__app.callAsync(command_instance, 'handle')
-
-            # Calculate elapsed time and log completion with DONE state if command.timestamps are enabled
-            elapsed_time = round(self.__performance_counter.stop(), 2)
+            # Log the command execution start with RUNNING state if timestamps are enabled
             if command.timestamps:
-                self.__executer.done(program=signature, time=f"{elapsed_time}s")
+                self.__executer.running(program=signature)
 
-            # Log successful execution in the logger service
-            self.__logger.info(f"Command '{signature}' executed successfully in ({elapsed_time}) seconds.")
+            try:
+                # Instantiate the command class using the application container
+                command_instance: IBaseCommand = self.__app.make(command.obj)
 
-            # Return the output produced by the command, if any
-            return output
+                # Inject parsed arguments into the command instance
+                _args = self.__parseArgs(command, args)
+                command_instance._args = _args.copy()
 
-        except Exception as e:
+                # Inject a scoped CLIRequest instance into the application container for the command's context
+                self.__app.scopedInstance(ICLIRequest, CLIRequest(
+                    command=signature,
+                    args=_args.copy()
+                ))
 
-            # Log the error in the logger service
-            self.__logger.error(f"Command '{signature}' execution failed: {e}")
+                # Execute the command's handle method asynchronously and capture its output
+                output = await self.__app.callAsync(command_instance, 'handle')
 
-            # Calculate elapsed time and log failure with ERROR state if command.timestamps are enabled
-            elapsed_time = round(self.__performance_counter.stop(), 2)
-            if command.timestamps:
-                self.__executer.fail(program=signature, time=f"{elapsed_time}s")
+                # Calculate elapsed time and log completion with DONE state if command.timestamps are enabled
+                elapsed_time = round(self.__performance_counter.stop(), 2)
+                if command.timestamps:
+                    self.__executer.done(program=signature, time=f"{elapsed_time}s")
 
-            # Propagate the exception after logging
-            raise
+                # Log successful execution in the logger service
+                self.__logger.info(f"Command '{signature}' executed successfully in ({elapsed_time}) seconds.")
+
+                # Return the output produced by the command, if any
+                return output
+
+            except Exception as e:
+
+                # Log the error in the logger service
+                self.__logger.error(f"Command '{signature}' execution failed: {e}")
+
+                # Calculate elapsed time and log failure with ERROR state if command.timestamps are enabled
+                elapsed_time = round(self.__performance_counter.stop(), 2)
+                if command.timestamps:
+                    self.__executer.fail(program=signature, time=f"{elapsed_time}s")
+
+                # Propagate the exception after logging
+                raise

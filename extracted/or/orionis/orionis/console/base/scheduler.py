@@ -1,5 +1,5 @@
 from datetime import datetime
-from orionis.console.contracts.scheduler import IBaseScheduler
+from orionis.console.contracts.base_scheduler import IBaseScheduler
 from orionis.console.contracts.schedule import ISchedule
 from orionis.console.entities.job_error import JobError
 from orionis.console.entities.scheduler_paused import SchedulerPaused

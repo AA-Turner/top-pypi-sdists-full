@@ -10,6 +10,7 @@ from tinybird.tb.modules.agent.models import create_model
 from tinybird.tb.modules.agent.prompts import (
     explore_data_instructions,
     resources_prompt,
+    service_datasources_prompt,
     tone_and_style_instructions,
 )
 from tinybird.tb.modules.agent.tools.diff_resource import diff_resource
@@ -74,6 +75,10 @@ Once you finish the task, return a valid response for the task to complete.
         @self.agent.instructions
         def get_project_files(ctx: RunContext[TinybirdAgentContext]) -> str:
             return resources_prompt(self.project)
+
+        @self.agent.instructions
+        def get_service_datasources(ctx: RunContext[TinybirdAgentContext]) -> str:
+            return service_datasources_prompt()
 
     def run(self, task: str, deps: TinybirdAgentContext, usage: Usage):
         result = self.agent.run_sync(

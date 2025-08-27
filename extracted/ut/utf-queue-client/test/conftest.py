@@ -14,6 +14,7 @@ from utf_queue_client.clients.async_consumer import AsyncConsumerBase, MessageCo
 from utf_queue_client.models import (
     SqaAppBuildResult,
     SqaTestResult,
+    SqaTestResultApps,
     SqaTestSession,
 )
 from utf_queue_client.models.schemas.utf_queue_models.models.python.generated_models import (
@@ -95,6 +96,14 @@ def sqa_test_result():
         customer_type="wearables",
         jenkins_test_case_results_url="dummy",
         test_case_uuid="23122702-2334-4323-6723-822dee7f8168",
+    )
+
+
+@pytest.fixture()
+def sqa_test_result_apps():
+    yield SqaTestResultApps(
+        test_case_uuid="23122702-2334-4323-6723-822dee7f8168",
+        artifact_id="d99d8631-8d1e-4b42-8a2c-c586982736as",
     )
 
 

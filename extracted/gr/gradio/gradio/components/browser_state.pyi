@@ -8,13 +8,13 @@ from typing import Any
 
 from gradio_client.documentation import document
 
-from gradio.components.base import FormComponent
+from gradio.components.base import Component
 from gradio.events import Events
 
 from gradio.events import Dependency
 
 @document()
-class BrowserState(FormComponent):
+class BrowserState(Component):
     EVENTS = [Events.change]
     """
     Special component that stores state in the browser's localStorage in an encrypted format.
@@ -74,6 +74,10 @@ class BrowserState(FormComponent):
 
     def example_value(self) -> Any:
         return "test"
+
+    def breaks_grouping(self) -> bool:
+        """BrowserState components should not break wrapper grouping chains."""
+        return False
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block
     if TYPE_CHECKING:

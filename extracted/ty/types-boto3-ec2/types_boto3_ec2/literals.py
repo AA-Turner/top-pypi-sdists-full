@@ -138,6 +138,9 @@ __all__ = (
     "DescribeHostReservationsPaginatorName",
     "DescribeHostsPaginatorName",
     "DescribeIamInstanceProfileAssociationsPaginatorName",
+    "DescribeImageReferencesPaginatorName",
+    "DescribeImageUsageReportEntriesPaginatorName",
+    "DescribeImageUsageReportsPaginatorName",
     "DescribeImagesPaginatorName",
     "DescribeImportImageTasksPaginatorName",
     "DescribeImportSnapshotTasksPaginatorName",
@@ -318,8 +321,11 @@ __all__ = (
     "ImageBlockPublicAccessDisabledStateType",
     "ImageBlockPublicAccessEnabledStateType",
     "ImageExistsWaiterName",
+    "ImageReferenceOptionNameType",
+    "ImageReferenceResourceTypeType",
     "ImageStateType",
     "ImageTypeValuesType",
+    "ImageUsageReportAvailableWaiterName",
     "ImdsSupportValuesType",
     "InitializationTypeType",
     "InstanceAttributeNameType",
@@ -870,6 +876,9 @@ DescribeHostsPaginatorName = Literal["describe_hosts"]
 DescribeIamInstanceProfileAssociationsPaginatorName = Literal[
     "describe_iam_instance_profile_associations"
 ]
+DescribeImageReferencesPaginatorName = Literal["describe_image_references"]
+DescribeImageUsageReportEntriesPaginatorName = Literal["describe_image_usage_report_entries"]
+DescribeImageUsageReportsPaginatorName = Literal["describe_image_usage_reports"]
 DescribeImagesPaginatorName = Literal["describe_images"]
 DescribeImportImageTasksPaginatorName = Literal["describe_import_image_tasks"]
 DescribeImportSnapshotTasksPaginatorName = Literal["describe_import_snapshot_tasks"]
@@ -1151,10 +1160,19 @@ ImageAvailableWaiterName = Literal["image_available"]
 ImageBlockPublicAccessDisabledStateType = Literal["unblocked"]
 ImageBlockPublicAccessEnabledStateType = Literal["block-new-sharing"]
 ImageExistsWaiterName = Literal["image_exists"]
+ImageReferenceOptionNameType = Literal["state-name", "version-depth"]
+ImageReferenceResourceTypeType = Literal[
+    "ec2:Instance",
+    "ec2:LaunchTemplate",
+    "imagebuilder:ContainerRecipe",
+    "imagebuilder:ImageRecipe",
+    "ssm:Parameter",
+]
 ImageStateType = Literal[
     "available", "deregistered", "disabled", "error", "failed", "invalid", "pending", "transient"
 ]
 ImageTypeValuesType = Literal["kernel", "machine", "ramdisk"]
+ImageUsageReportAvailableWaiterName = Literal["image_usage_report_available"]
 ImdsSupportValuesType = Literal["v2.0"]
 InitializationTypeType = Literal["default", "provisioned-rate"]
 InstanceAttributeNameType = Literal[
@@ -2474,6 +2492,7 @@ ResourceTypeType = Literal[
     "fpga-image",
     "host-reservation",
     "image",
+    "image-usage-report",
     "import-image-task",
     "import-snapshot-task",
     "instance",
@@ -3288,6 +3307,9 @@ PaginatorName = Literal[
     "describe_host_reservations",
     "describe_hosts",
     "describe_iam_instance_profile_associations",
+    "describe_image_references",
+    "describe_image_usage_report_entries",
+    "describe_image_usage_reports",
     "describe_images",
     "describe_import_image_tasks",
     "describe_import_snapshot_tasks",
@@ -3420,6 +3442,7 @@ WaiterName = Literal[
     "export_task_completed",
     "image_available",
     "image_exists",
+    "image_usage_report_available",
     "instance_exists",
     "instance_running",
     "instance_status_ok",

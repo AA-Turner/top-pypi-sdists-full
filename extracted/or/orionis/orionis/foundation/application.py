@@ -2,7 +2,7 @@ import asyncio
 import time
 from pathlib import Path
 from typing import Any, List, Type
-from orionis.console.contracts.scheduler import IBaseScheduler
+from orionis.console.contracts.base_scheduler import IBaseScheduler
 from orionis.console.base.scheduler import BaseScheduler
 from orionis.container.container import Container
 from orionis.container.contracts.service_provider import IServiceProvider
@@ -469,10 +469,10 @@ class Application(Container, IApplication):
         if self.__exception_handler is None:
 
             # Return the default exception handler instance
-            return BaseExceptionHandler()
+            return self.make(BaseExceptionHandler)
 
         # Instantiate and return the registered exception handler
-        return self.__exception_handler()
+        return self.make(self.__exception_handler)
 
     def setScheduler(
         self,

@@ -40,7 +40,7 @@ def build_group_hook(original_func, patch_policy, propagator):
     del patch_policy
 
     def group_hook(wrapped, instance, args, kwargs):
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         result = wrapped(*args, **kwargs)
         if (
             context is not None
@@ -92,7 +92,7 @@ def _analyze_sub(node, retval, repl_results, args, kwargs, new_args):
 
 @fail_quietly("Failed to analyze redos trigger")
 def _trigger_redos(name, result, args, kwargs):
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None:
         return
 
@@ -178,7 +178,7 @@ def build_sub_hook(original_func, policy_node):
         propagate any calls that are made within this function if necessary.
         """
         # Get the non-propagation case out of the way here
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context is None or not context.propagate_assess or context.stop_propagation:
             return wrapped(*args, **kwargs)
         context.propagated()

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-ec2
-Version: 1.40.17
-Summary: Type annotations for boto3 EC2 1.40.17 service generated with mypy-boto3-builder 8.11.0
+Version: 1.40.18
+Summary: Type annotations for boto3 EC2 1.40.18 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 EC2 1.40.17](https://pypi.org/project/boto3/)
+Type annotations for [boto3 EC2 1.40.18](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -123,7 +123,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.17' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.18' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `EC2` service.
 4. Use provided commands to install generated packages.
@@ -413,6 +413,9 @@ from mypy_boto3_ec2.paginator import (
     DescribeHostReservationsPaginator,
     DescribeHostsPaginator,
     DescribeIamInstanceProfileAssociationsPaginator,
+    DescribeImageReferencesPaginator,
+    DescribeImageUsageReportEntriesPaginator,
+    DescribeImageUsageReportsPaginator,
     DescribeImagesPaginator,
     DescribeImportImageTasksPaginator,
     DescribeImportSnapshotTasksPaginator,
@@ -629,6 +632,15 @@ describe_host_reservations_paginator: DescribeHostReservationsPaginator = client
 describe_hosts_paginator: DescribeHostsPaginator = client.get_paginator("describe_hosts")
 describe_iam_instance_profile_associations_paginator: DescribeIamInstanceProfileAssociationsPaginator = client.get_paginator(
     "describe_iam_instance_profile_associations"
+)
+describe_image_references_paginator: DescribeImageReferencesPaginator = client.get_paginator(
+    "describe_image_references"
+)
+describe_image_usage_report_entries_paginator: DescribeImageUsageReportEntriesPaginator = (
+    client.get_paginator("describe_image_usage_report_entries")
+)
+describe_image_usage_reports_paginator: DescribeImageUsageReportsPaginator = client.get_paginator(
+    "describe_image_usage_reports"
 )
 describe_images_paginator: DescribeImagesPaginator = client.get_paginator("describe_images")
 describe_import_image_tasks_paginator: DescribeImportImageTasksPaginator = client.get_paginator(
@@ -1001,6 +1013,7 @@ from mypy_boto3_ec2.waiter import (
     ExportTaskCompletedWaiter,
     ImageAvailableWaiter,
     ImageExistsWaiter,
+    ImageUsageReportAvailableWaiter,
     InstanceExistsWaiter,
     InstanceRunningWaiter,
     InstanceStatusOkWaiter,
@@ -1053,6 +1066,9 @@ export_task_cancelled_waiter: ExportTaskCancelledWaiter = client.get_waiter("exp
 export_task_completed_waiter: ExportTaskCompletedWaiter = client.get_waiter("export_task_completed")
 image_available_waiter: ImageAvailableWaiter = client.get_waiter("image_available")
 image_exists_waiter: ImageExistsWaiter = client.get_waiter("image_exists")
+image_usage_report_available_waiter: ImageUsageReportAvailableWaiter = client.get_waiter(
+    "image_usage_report_available"
+)
 instance_exists_waiter: InstanceExistsWaiter = client.get_waiter("instance_exists")
 instance_running_waiter: InstanceRunningWaiter = client.get_waiter("instance_running")
 instance_status_ok_waiter: InstanceStatusOkWaiter = client.get_waiter("instance_status_ok")

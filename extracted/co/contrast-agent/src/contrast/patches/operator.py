@@ -54,7 +54,7 @@ def build_mod_propagator(policy_node):
         if not isinstance(fmt_str, bytearray) and ret is fmt_str:
             return
 
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context is None or context.stop_propagation:
             return
 

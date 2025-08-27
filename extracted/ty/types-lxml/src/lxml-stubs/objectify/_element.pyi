@@ -50,7 +50,9 @@ class ObjectifiedElement(ElementBase):
     def addattr(self, tag: _TagName, value: object) -> None: ...
     def countchildren(self) -> int: ...
     def descendantpaths(self, prefix: str | list[str] | None = None) -> list[str]: ...
-    def getchildren(self) -> list[ObjectifiedElement]: ...
+    def getchildren(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+    ) -> list[ObjectifiedElement]: ...
     def __iter__(self) -> Iterator[ObjectifiedElement]: ...
     def __reversed__(self) -> Iterator[ObjectifiedElement]: ...
     def __getattr__(self, __name: str) -> ObjectifiedElement: ...
@@ -62,7 +64,11 @@ class ObjectifiedElement(ElementBase):
     @overload
     def __getitem__(self, key: int | str | bytes, /) -> ObjectifiedElement: ...
     @overload
-    def __getitem__(self, key: slice, /) -> list[ObjectifiedElement]: ...
+    def __getitem__(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        key: slice,
+        /,
+    ) -> list[ObjectifiedElement]: ...
     @overload
     def __setitem__(self, key: int | str | bytes, value: object, /) -> None: ...
     @overload
@@ -71,7 +77,7 @@ class ObjectifiedElement(ElementBase):
     # TODO Check if _Element methods need overriding
     # CSS selector is not a normal use case for objectified
     # element (and unnecessary), but still usable nonetheless
-    def cssselect(
+    def cssselect(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         expr: str,
         *,
@@ -102,18 +108,16 @@ class ObjectifiedDataElement(ObjectifiedElement):
         For use in subclasses only. Don't use unless you know what you are
         doing.
         """
-    def _setValueParser(self, function: Callable[[Any], Any]) -> None:
+
+class NumberElement(ObjectifiedDataElement, metaclass=abc.ABCMeta):
+    @property  # type: ignore[misc]
+    def text(self) -> str: ...  # type: ignore[override]
+    def _setValueParser(self, function: Callable[[str], Any]) -> None:
         """Set the function that parses the Python value from a string
 
-        Annotation notice
-        -----------------
-        This func originates from an abstract subclass of data element
-        called `NumberElement`. Since there is no intention to construct
-        such class in type annotation (yet?), the function is placed here.
-
-        Original Docstring
-        ------------------
-        Do not use this unless you know what you are doing.
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.objectify.html#lxml.objectify.NumberElement._setValueParser)
         """
 
 # Forget about LongElement, which is only for Python 2.x.
@@ -125,17 +129,13 @@ class ObjectifiedDataElement(ObjectifiedElement):
 #
 # Not doing the same for StringElement and BoolElement though,
 # each for different reason.
-class IntElement(ObjectifiedDataElement, int):
+class IntElement(NumberElement, int):
     @property
     def pyval(self) -> int: ...
-    @property  # type: ignore[misc]
-    def text(self) -> str: ...  # type: ignore[override]
 
-class FloatElement(ObjectifiedDataElement, float):
+class FloatElement(NumberElement, float):
     @property
     def pyval(self) -> float: ...
-    @property  # type: ignore[misc]
-    def text(self) -> str: ...  # type: ignore[override]
 
 class StringElement(ObjectifiedDataElement):
     """String data class

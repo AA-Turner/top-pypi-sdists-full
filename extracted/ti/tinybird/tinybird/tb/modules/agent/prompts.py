@@ -12,6 +12,7 @@ from tinybird.prompts import (
     pipe_instructions,
     sink_pipe_instructions,
 )
+from tinybird.service_datasources import get_organization_service_datasources, get_tinybird_service_datasources
 from tinybird.tb.modules.project import Project
 
 available_commands = [
@@ -118,11 +119,6 @@ sql_instructions = """
     - When you use defined function with a paremeter inside, do NOT add quotes around the parameter:
     <invalid_defined_function_with_parameter>{% if defined('my_param') %}</invalid_defined_function_with_parameter>
     <valid_defined_function_without_parameter>{% if defined(my_param) %}</valid_defined_function_without_parameter>
-    - Use datasource names as table names when doing SELECT statements.
-    - Do not use pipe names as table names.
-    - The available datasource names to use in the SQL are the ones present in the existing_resources section or the ones you will create.
-    - Use node names as table names only when nodes are present in the same file.
-    - Do not reference the current node name in the SQL.
     - SQL queries only accept SELECT statements with conditions, aggregations, joins, etc.
     - ONLY SELECT statements are allowed in any sql query.
     - When using functions try always ClickHouse functions first, then SQL functions.
@@ -133,7 +129,7 @@ sql_instructions = """
 datafile_instructions = """
 <datafile_instructions>
 - Endpoint files will be created under the `/endpoints` folder.
-- Materialized pipe files will be created under the `/materialized` folder.
+- Materialized pipe files will be created under the `/materializations` folder.
 - Sink pipe files will be created under the `/sinks` folder.
 - Copy pipe files will be created under the `/copies` folder.
 - Connection files will be created under the `/connections` folder.
@@ -184,7 +180,7 @@ def resources_prompt(project: Project) -> str:
                 "content": file_path.read_text(),
             }
             resources.append(resource)
-        resources_content = format_as_xml(resources, root_tag="resources", item_tag="resource")
+        resources_content += format_as_xml(resources, root_tag="resources", item_tag="resource")
     else:
         resources_content += "No resources found"
 
@@ -198,12 +194,56 @@ def resources_prompt(project: Project) -> str:
                 "name": file_path.stem,
             }
             fixtures.append(fixture)
-        fixture_content = format_as_xml(fixtures, root_tag="fixtures", item_tag="fixture")
+        fixture_content += format_as_xml(fixtures, root_tag="fixtures", item_tag="fixture")
 
     else:
         fixture_content += "No fixture files found"
 
     return resources_content + "\n" + fixture_content
+
+
+def service_datasources_prompt() -> str:
+    def build_content(ds: dict[str, Any]) -> str:
+        content = "DESCRIPTION >\n"
+        content += f"  {ds.get('description', 'No description')}\n"
+
+        content += "SCHEMA >\n"
+        for column in ds.get("columns", []):
+            content += f"  `{column.get('name', '')}` {column.get('type', '')}\n"
+
+        if engine := ds.get("engine", {}).get("engine", ""):
+            content += f"ENGINE {engine}\n"
+        if sorting_key := ds.get("engine", {}).get("sorting_key", ""):
+            content += f"ENGINE_SORTING_KEY {sorting_key}\n"
+        if partition_key := ds.get("engine", {}).get("partition_key", ""):
+            content += f"ENGINE_PARTITION_KEY {partition_key}\n"
+
+        return content
+
+    skip_datasources = ["tinybird.bi_stats", "tinybird.bi_stats_rt", "tinybird.releases_log", "tinybird.hook_log"]
+    service_datasources = [
+        {"name": ds["name"], "content": build_content(ds)}
+        for ds in get_tinybird_service_datasources()
+        if ds["name"] not in skip_datasources
+    ]
+    content = "# Service datasources:\n"
+    content += format_as_xml(
+        service_datasources, root_tag="workspace_service_datasources", item_tag="service_datasource"
+    )
+    content += "\n#Organization service datasources:\n"
+    skip_datasources = ["organization.bi_stats", "organization.bi_stats_rt"]
+    org_service_datasources = [
+        {"name": ds["name"], "content": build_content(ds)}
+        for ds in get_organization_service_datasources()
+        if ds["name"] not in skip_datasources
+    ]
+    content += format_as_xml(
+        org_service_datasources,
+        root_tag="organization_service_datasources",
+        item_tag="service_datasource",
+    )
+
+    return content
 
 
 def secrets_prompt(project: Project) -> str:
@@ -224,7 +264,7 @@ def secrets_prompt(project: Project) -> str:
         secrets_list.append(secret)
 
     if secrets_list:
-        secrets_content = format_as_xml(secrets_list, root_tag="secrets", item_tag="secret")
+        secrets_content += format_as_xml(secrets_list, root_tag="secrets", item_tag="secret")
 
     return secrets_content
 
@@ -245,7 +285,7 @@ def tests_files_prompt(project: Project) -> str:
                 "content": file_path.read_text(),
             }
             resources.append(resource)
-        resources_content = format_as_xml(resources, root_tag="resources", item_tag="resource")
+        resources_content += format_as_xml(resources, root_tag="resources", item_tag="resource")
     else:
         resources_content += "No resources found"
 
@@ -260,7 +300,7 @@ def tests_files_prompt(project: Project) -> str:
                 "content": file_path.read_text(),
             }
             tests.append(test)
-        test_content = format_as_xml(tests, root_tag="tests", item_tag="test")
+        test_content += format_as_xml(tests, root_tag="tests", item_tag="test")
     else:
         test_content += "No test files found"
 
@@ -956,6 +996,14 @@ They can be run on a schedule, or executed on demand.
 # Working with SQL queries:
 {sql_agent_instructions}
 {sql_instructions}
+
+## Referencing tables in SQL queries:
+The following resources can be used as tables in SQL queries:
+- Datasources (.datasource files)
+- Materialized views (.datasource files target of .pipe files with `TYPE MATERIALIZED` defined)
+- Endpoints (.pipe files with `TYPE ENDPOINT` defined)
+- Default pipes (.pipe files with no `TYPE` defined)
+- Node names present in the same .pipe file
 
 {secrets_instructions}
 

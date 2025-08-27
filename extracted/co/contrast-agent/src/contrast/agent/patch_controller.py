@@ -164,6 +164,8 @@ def enable_patches(*, preinstrument: bool):
     if agent_state.module.assess_enabled or preinstrument:
         _enable_assess_patches(settings)
         import_hook.register_path_finder()
+    if agent_state.module.observe_enabled or preinstrument:
+        register_policy_patches(protect_mode=False)
 
     logger.debug("revisiting imported modules to apply patches")
     repatch_imported_modules()

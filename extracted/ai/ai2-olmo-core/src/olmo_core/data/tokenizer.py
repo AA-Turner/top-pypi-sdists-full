@@ -19,6 +19,11 @@ class TokenizerName(StrEnum):
     The dolma2 tokenizer.
     """
 
+    dolma2_sigdig = "allenai/dolma2-tokenizer-sigdig"
+    """
+    The R2L dolma2 tokenizer.
+    """
+
     gpt_neox_olmo_dolma_v1_5 = "allenai/gpt-neox-olmo-dolma-v1_5"
     """
     A modified GPT NeoX tokenizer.
@@ -81,6 +86,19 @@ class TokenizerConfig(Config):
         )
 
     @classmethod
+    def dolma2_sigdig(cls) -> "TokenizerConfig":
+        """
+        Get a :data:`~TokenizerName.dolma2_sigdig` tokenizer config.
+        """
+        return cls(
+            vocab_size=100278,
+            eos_token_id=100257,
+            pad_token_id=100277,
+            bos_token_id=100257,
+            identifier=TokenizerName.dolma2_sigdig,
+        )
+
+    @classmethod
     def gpt_neox_olmo_dolma_v1_5(cls) -> "TokenizerConfig":
         """
         Get a :data:`~TokenizerName.gpt_neox_olmo_dolma_v1_5` tokenizer config.
@@ -116,7 +134,12 @@ class TokenizerConfig(Config):
 
         from cached_path import cached_path
 
-        with cached_path(f"hf://{identifier}/config.json").open() as f:
+        try:
+            config_path = cached_path(f"hf://{identifier}/config.json")
+        except FileNotFoundError:
+            config_path = cached_path(f"hf://{identifier}/tokenizer_config.json")
+
+        with config_path.open() as f:
             config = json.load(f)
 
         return cls(

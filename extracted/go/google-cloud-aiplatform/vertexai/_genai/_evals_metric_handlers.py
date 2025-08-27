@@ -28,6 +28,7 @@ from tqdm import tqdm
 from typing_extensions import override
 
 from . import _evals_common
+from . import _evals_constant
 from . import evals
 from . import types
 
@@ -130,7 +131,7 @@ class MetricHandler(abc.ABC):
         self.metric = metric
 
     @abc.abstractmethod
-    def process(
+    def get_metric_result(
         self, eval_case: types.EvalCase, response_index: int
     ) -> types.EvalCaseMetricResult:
         """Processes a single evaluation case for a specific metric."""
@@ -235,7 +236,7 @@ class ComputationMetricHandler(MetricHandler):
         return request_payload
 
     @override
-    def process(
+    def get_metric_result(
         self, eval_case: types.EvalCase, response_index: int
     ) -> types.EvalCaseMetricResult:
         """Processes a single evaluation case for a specific computation metric."""
@@ -354,7 +355,7 @@ class TranslationMetricHandler(MetricHandler):
         return request_payload
 
     @override
-    def process(
+    def get_metric_result(
         self, eval_case: types.EvalCase, response_index: int
     ) -> types.EvalCaseMetricResult:
         """Processes a single evaluation case for a specific translation metric."""
@@ -453,7 +454,6 @@ class LLMMetricHandler(MetricHandler):
     ) -> dict[str, Any]:
         """Builds the payload for a rubric-based LLM metric."""
         eval_case_dict = eval_case.model_dump(exclude={"responses"})
-        # TODO: b/414660471 - add rubric_groups to eval_case type definition.
         rubric_groups_data = eval_case_dict.get("rubric_groups")
 
         if not isinstance(rubric_groups_data, dict):
@@ -472,7 +472,9 @@ class LLMMetricHandler(MetricHandler):
             rubrics_list = []
 
         rubric_enhanced_contents = {
-            "prompt": [eval_case.prompt.model_dump(mode="json", exclude_none=True)],
+            "prompt": [eval_case.prompt.model_dump(mode="json", exclude_none=True)]
+            if eval_case.prompt
+            else None,
             "response": [response_content.model_dump(mode="json", exclude_none=True)],
             "rubric_groups": {
                 self.metric.rubric_group_name: {
@@ -516,7 +518,7 @@ class LLMMetricHandler(MetricHandler):
             if isinstance(value, genai_types.Content):
                 content_list_to_serialize = [value]
             elif isinstance(value, types.ResponseCandidate):
-                if value.response:
+                if value.response:  # pytype: disable=attribute-error
                     content_list_to_serialize = [value.response]
             elif isinstance(value, list) and value:
                 if isinstance(value[0], genai_types.Content):
@@ -529,19 +531,25 @@ class LLMMetricHandler(MetricHandler):
                             role = msg_obj.content.role or msg_obj.author or "user"
                             history_texts.append(f"{role}: {msg_text}")
                     content_list_to_serialize = [
-                        types.Content(parts=[types.Part(text="\n".join(history_texts))])
+                        genai_types.Content(
+                            parts=[genai_types.Part(text="\n".join(history_texts))]
+                        )
                     ]
                 else:
                     content_list_to_serialize = [
-                        types.Content(parts=[types.Part(text=json.dumps(value))])
+                        genai_types.Content(
+                            parts=[genai_types.Part(text=json.dumps(value))]
+                        )
                     ]
             elif isinstance(value, dict):
                 content_list_to_serialize = [
-                    types.Content(parts=[types.Part(text=json.dumps(value))])
+                    genai_types.Content(
+                        parts=[genai_types.Part(text=json.dumps(value))]
+                    )
                 ]
             else:
                 content_list_to_serialize = [
-                    types.Content(parts=[types.Part(text=str(value))])
+                    genai_types.Content(parts=[genai_types.Part(text=str(value))])
                 ]
 
             content_map_values[key] = types.ContentMapContents(
@@ -554,7 +562,7 @@ class LLMMetricHandler(MetricHandler):
 
         metric_spec_payload = {"metric_prompt_template": self.metric.prompt_template}
         if self.metric.return_raw_output is not None:
-            metric_spec_payload["custom_output_format_config"] = {
+            metric_spec_payload["custom_output_format_config"] = {  # type: ignore[assignment]
                 "return_raw_output": self.metric.return_raw_output
             }
         if self.metric.judge_model_system_instruction:
@@ -569,13 +577,13 @@ class LLMMetricHandler(MetricHandler):
             }
         }
 
-    def _add_autorater_config(self, payload: dict[str, Any]):
+    def _add_autorater_config(self, payload: dict[str, Any]) -> None:
         """Adds autorater config to the request payload if specified."""
         autorater_config = {}
         if self.metric.judge_model:
             autorater_config["autorater_model"] = self.metric.judge_model
         if self.metric.judge_model_sampling_count:
-            autorater_config["sampling_count"] = self.metric.judge_model_sampling_count
+            autorater_config["sampling_count"] = self.metric.judge_model_sampling_count  # type: ignore[assignment]
 
         if not autorater_config:
             return
@@ -610,7 +618,7 @@ class LLMMetricHandler(MetricHandler):
         return payload
 
     @override
-    def process(
+    def get_metric_result(
         self, eval_case: types.EvalCase, response_index: int
     ) -> types.EvalCaseMetricResult:
         """Processes a single evaluation case for a specific LLM metric."""
@@ -627,11 +635,11 @@ class LLMMetricHandler(MetricHandler):
                     rubric_verdicts=result_data.rubric_verdicts if result_data else [],
                 )
             else:
-                result_data = response.pointwise_metric_result
+                result_data = response.pointwise_metric_result  # type: ignore[assignment]
                 return types.EvalCaseMetricResult(
                     metric_name=metric_name,
                     score=result_data.score if result_data else None,
-                    explanation=result_data.explanation if result_data else None,
+                    explanation=result_data.explanation if result_data else None,  # type: ignore[attr-defined]
                 )
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(
@@ -719,7 +727,7 @@ class CustomMetricHandler(MetricHandler):
             )
 
     @override
-    def process(
+    def get_metric_result(
         self, eval_case: types.EvalCase, response_index: int
     ) -> types.EvalCaseMetricResult:
         """Processes a single evaluation case for a custom metric."""
@@ -804,6 +812,124 @@ class CustomMetricHandler(MetricHandler):
         return _default_aggregate_scores(self.metric.name, eval_case_metric_results)
 
 
+class PredefinedMetricHandler(MetricHandler):
+    """Metric handler for predefined metrics."""
+
+    def __init__(self, module: "evals.Evals", metric: types.Metric):
+        super().__init__(module=module, metric=metric)
+        if self.metric.name not in _evals_constant.SUPPORTED_PREDEFINED_METRICS:
+            raise ValueError(
+                f"Metric '{self.metric.name}' is not a supported predefined metric."
+            )
+
+    @staticmethod
+    def _content_to_instance_data(
+        content: Optional[genai_types.Content],
+    ) -> Optional[types.InstanceData]:
+        """Converts a genai_types.Content object to a types.InstanceData object."""
+        if not content:
+            return None
+        return types.InstanceData(
+            contents=types.InstanceDataContents(contents=[content])
+        )
+
+    def _build_request_payload(
+        self, eval_case: types.EvalCase, response_index: int
+    ) -> dict[str, Any]:
+        """Builds the request parameters for evaluate instances request."""
+        if not eval_case.responses or response_index >= len(eval_case.responses):
+            raise IndexError(f"response_index {response_index} is out of bounds.")
+
+        response_content = eval_case.responses[response_index].response
+        if not response_content:
+            raise ValueError(
+                f"Response content missing for candidate {response_index}."
+            )
+
+        reference_instance_data = None
+        if eval_case.reference:
+            reference_instance_data = PredefinedMetricHandler._content_to_instance_data(
+                eval_case.reference.response
+            )
+
+        instance_payload = types.EvaluationInstance(
+            prompt=PredefinedMetricHandler._content_to_instance_data(eval_case.prompt),
+            response=PredefinedMetricHandler._content_to_instance_data(
+                response_content
+            ),
+            reference=reference_instance_data,
+            rubric_groups=eval_case.rubric_groups,
+        )
+
+        return {
+            "instance": instance_payload,
+        }
+
+    @override
+    def get_metric_result(
+        self, eval_case: types.EvalCase, response_index: int
+    ) -> types.EvalCaseMetricResult:
+        """Processes a single evaluation case for a specific predefined metric."""
+        metric_name = self.metric.name
+        try:
+            payload = self._build_request_payload(eval_case, response_index)
+            api_response = self.module._evaluate_instances(
+                metrics=[self.metric],
+                instance=payload.get("instance"),
+            )
+
+            if (
+                api_response
+                and hasattr(api_response, "metric_results")
+                and api_response.metric_results
+            ):
+                result_data = api_response.metric_results[0]
+                error_message = None
+                if result_data.error:
+                    error_message = f"Error in metric result: {result_data.error}"
+                return types.EvalCaseMetricResult(
+                    metric_name=metric_name,
+                    score=result_data.score,
+                    explanation=result_data.explanation,
+                    rubric_verdicts=result_data.rubric_verdicts,
+                    error_message=error_message,
+                )
+            else:
+                logger.error(
+                    "Metric results missing in API response for predefined metric '%s'."
+                    " API response: %s",
+                    metric_name,
+                    (
+                        api_response.model_dump_json(exclude_none=True)
+                        if api_response
+                        else "None"
+                    ),
+                )
+                return types.EvalCaseMetricResult(
+                    metric_name=metric_name,
+                    error_message="Metric results missing in API response.",
+                )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(
+                "Error processing metric %s for case %s: %s",
+                metric_name,
+                eval_case.eval_case_id,
+                e,
+                exc_info=True,
+            )
+            return types.EvalCaseMetricResult(
+                metric_name=metric_name, error_message=str(e)
+            )
+
+    @override
+    def aggregate(
+        self, eval_case_metric_results: list[types.EvalCaseMetricResult]
+    ) -> types.AggregatedMetricResult:
+        """Aggregates the metric results for a predefined metric."""
+        logger.debug("Aggregating results for predefined metric: %s", self.metric.name)
+        return _default_aggregate_scores(self.metric.name, eval_case_metric_results)
+
+
 _METRIC_HANDLER_MAPPING = [
     (
         lambda m: m.custom_function and isinstance(m.custom_function, Callable),
@@ -817,6 +943,10 @@ _METRIC_HANDLER_MAPPING = [
         lambda m: m.name in TranslationMetricHandler.SUPPORTED_TRANSLATION_METRICS,
         TranslationMetricHandler,
     ),
+    (
+        lambda m: m.name in _evals_constant.SUPPORTED_PREDEFINED_METRICS,
+        PredefinedMetricHandler,
+    ),
     (lambda m: isinstance(m, types.LLMMetric), LLMMetricHandler),
 ]
 
@@ -826,6 +956,7 @@ MetricHandlerType = TypeVar(
     TranslationMetricHandler,
     LLMMetricHandler,
     CustomMetricHandler,
+    PredefinedMetricHandler,
 )
 
 
@@ -853,7 +984,7 @@ def calculate_win_rates(eval_result: types.EvaluationResult) -> dict[str, Any]:
     )
     if max_models == 0:
         return {}
-    stats = collections.defaultdict(
+    stats: collections.defaultdict[str, dict[str, Any]] = collections.defaultdict(
         lambda: {"wins": [0] * max_models, "ties": 0, "valid_comparisons": 0}
     )
     for case in eval_result.eval_case_results:
@@ -1009,7 +1140,7 @@ def compute_metrics_and_aggregate(
                     for response_index in range(actual_num_candidates_for_case):
                         try:
                             future = executor.submit(
-                                metric_handler_instance.process,
+                                metric_handler_instance.get_metric_result,
                                 eval_case,
                                 response_index,
                             )

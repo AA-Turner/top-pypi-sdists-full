@@ -1,8 +1,12 @@
+import functools as ft
 import gzip
 import math
 import os
 import random
+from collections import defaultdict, deque
 from contextlib import contextmanager
+from dataclasses import dataclass
+from itertools import islice
 from pathlib import Path
 from typing import (
     Any,
@@ -15,6 +19,7 @@ from typing import (
     Sequence,
     Tuple,
     Type,
+    TypeVar,
     Union,
 )
 
@@ -23,8 +28,16 @@ import torch
 import torch.nn.functional as F
 
 from olmo_core.aliases import PathOrStr
-from olmo_core.io import add_cached_path_clients, get_bytes_range, is_url, resource_path
+from olmo_core.io import (
+    add_cached_path_clients,
+    get_bytes_range,
+    get_file_size,
+    is_url,
+    resource_path,
+)
 from olmo_core.utils import capped_powers_of_2
+
+from .types import LongDocStrategy
 
 
 def split_batch(batch: Dict[str, Any], num_microbatch_instances: int) -> List[Dict[str, Any]]:
@@ -156,6 +169,7 @@ def write_document_indices(data_path: Path, *, dtype, eos_token_id: int) -> Path
 
 def iter_document_indices(
     data_path: PathOrStr,
+    *,
     local_cache: Optional[PathOrStr] = None,
     use_array_if_local: Optional[bool] = None,
     eos_token_id: Optional[int] = None,
@@ -193,15 +207,57 @@ def iter_document_indices(
             yield start_idx, end_idx
             start_idx = end_idx
     else:
-        metadata_path = resource_path(
-            os.path.dirname(data_path),
-            os.path.basename(data_path).replace(".npy", ".csv.gz"),
-            local_cache=local_cache,
-        )
+        metadata_filename = os.path.basename(data_path).replace(".npy", ".csv.gz")
+        try:
+            metadata_path = resource_path(
+                os.path.dirname(data_path),
+                metadata_filename,
+                local_cache=local_cache,
+            )
+        except FileNotFoundError as e:
+            raise RuntimeError(
+                f"Source metadata file '{metadata_filename}' is required to calculate document indices for '{data_path}'. "
+                "If the source data file is local (on-disk) and 'eos_token_id' and 'dtype' are provided, then the document "
+                "indices can be inferred from the source file."
+            ) from e
+
         with gzip.open(metadata_path, "rt") as f:
             for line in f:
                 start_index, end_index, *_ = line.split(",")
                 yield int(start_index), int(end_index)
+
+
+def iter_document_indices_with_max_sequence_length(
+    data_path: PathOrStr,
+    max_sequence_length: int,
+    *,
+    local_cache: Optional[PathOrStr] = None,
+    use_array_if_local: Optional[bool] = None,
+    eos_token_id: Optional[int] = None,
+    dtype=None,
+    long_doc_strategy: LongDocStrategy = LongDocStrategy.truncate,
+) -> Generator[Tuple[int, int], None, None]:
+    """
+    Like :func:`iter_document_indices` but will either truncate or split documents that are
+    longer than ``max_sequence_length``.
+    """
+    for start_idx, end_idx in iter_document_indices(
+        data_path,
+        local_cache=local_cache,
+        use_array_if_local=use_array_if_local,
+        eos_token_id=eos_token_id,
+        dtype=dtype,
+    ):
+        if end_idx - start_idx > max_sequence_length:
+            if long_doc_strategy == LongDocStrategy.truncate:
+                yield start_idx, start_idx + max_sequence_length
+            elif long_doc_strategy == LongDocStrategy.fragment:
+                for new_start_idx in range(start_idx, end_idx, max_sequence_length):
+                    yield new_start_idx, min(end_idx, new_start_idx + max_sequence_length)
+            else:
+                raise NotImplementedError(long_doc_strategy)
+        else:
+            yield start_idx, end_idx
 
 
 def get_document_indices(
@@ -255,22 +311,40 @@ def load_array_slice_into_tensor(
         return torch.tensor(array.astype(np.int_), dtype=torch.long)
 
 
-def get_document_lengths(input_ids: torch.Tensor, eos_token_id: int) -> torch.Tensor:
+def get_document_lengths(
+    input_ids: torch.Tensor, eos_token_id: int, bos_token_id: Optional[int] = None
+) -> torch.Tensor:
     """
     Get the length of documents.
 
     :param input_ids: An integer-type tensor of token IDs.
     :param eos_token_id: The ID of the EOS token (use to denote document boundaries).
+    :param bos_token_id: The ID of the BOS token (use to denote document boundaries). When provided,
+        every document must start with a BOS token.
     """
-    doc_boundaries = torch.cat(
-        [
-            torch.tensor([-1], dtype=torch.int32),
-            (input_ids == eos_token_id).nonzero(as_tuple=True)[0].to(dtype=torch.int32),
-            torch.tensor(
-                [] if input_ids[-1] == eos_token_id else [input_ids.shape[0] - 1], dtype=torch.int32
-            ),
-        ]
-    )
+
+    if bos_token_id is None:
+        doc_boundaries = torch.cat(
+            [
+                torch.tensor([-1], dtype=torch.int32),
+                (input_ids == eos_token_id).nonzero(as_tuple=True)[0].to(dtype=torch.int32),
+                torch.tensor(
+                    [] if input_ids[-1] == eos_token_id else [input_ids.shape[0] - 1],
+                    dtype=torch.int32,
+                ),
+            ]
+        )
+    else:
+        doc_boundaries = torch.cat(
+            [
+                torch.tensor([-1], dtype=torch.int32),
+                torch.logical_and(input_ids[:-1] == eos_token_id, input_ids[1:] == bos_token_id)
+                .nonzero(as_tuple=True)[0]
+                .to(dtype=torch.int32),
+                torch.tensor([input_ids.shape[0] - 1], dtype=torch.int32),
+            ]
+        )
+
     return doc_boundaries[1:] - doc_boundaries[:-1]
 
 
@@ -331,7 +405,7 @@ def memmap_to_write(
     file until the context exists successfully.
     """
     path.parent.mkdir(exist_ok=True, parents=True)
-    tmp_path = path.with_suffix(f".{random.randint(0,2**32)}.npy.tmp")
+    tmp_path = path.with_suffix(f".{random.randint(0, 2**32)}.npy.tmp")
     mmap = np.memmap(tmp_path, dtype=dtype, mode="w+", shape=shape)
     try:
         yield mmap
@@ -340,6 +414,18 @@ def memmap_to_write(
     mmap.flush()
     del mmap
     tmp_path.replace(path)
+
+
+def write_array_to_disk(arr: np.ndarray, path: Path):
+    """
+    Write a numpy array to disk in the same simple format that ``np.memmap`` uses.
+    """
+    with memmap_to_write(
+        path,
+        dtype=arr.dtype,
+        shape=arr.shape,
+    ) as mmap:
+        mmap[:] = arr
 
 
 def divide_into_buckets(n: int, b: int) -> List[int]:
@@ -592,3 +678,253 @@ def find_periodic_sequences(
                 # cannot accurately determine the period of a sequence that repeats
                 # less than 3 times with this algorithm
                 yield out
+
+
+T = TypeVar("T")
+
+
+def _take(n: int, iterable: Iterable[T]) -> List[T]:
+    return list(islice(iterable, n))
+
+
+def chunked(iterable: Iterable[T], n: int) -> Iterable[List[T]]:
+    """
+    Group items in the iterable into chunks of size `n`, at most. This is equivalent to the function
+    from ``more-itertools`` with the same name and ``strict=False``.
+    """
+    return iter(ft.partial(_take, n, iter(iterable)), [])
+
+
+#########################################################################################################################
+# Implementation of the Optimized Best-Fit Decreasing (OBFD) bin packing algorithm from https://arxiv.org/pdf/2404.10830.
+# See Appendix B for a detailed illustration of the algorithm.
+#########################################################################################################################
+
+
+@dataclass
+class SegmentTreeNode:
+    weight: int = 0
+    parent: Optional["SegmentTreeNode"] = None
+    children: Optional[Tuple["SegmentTreeNode", "SegmentTreeNode"]] = None
+    leaf_id: Optional[int] = None
+
+    @property
+    def is_root(self) -> bool:
+        return self.parent is None
+
+    @property
+    def is_leaf(self) -> bool:
+        return self.children is None
+
+    def update(self, weight: Optional[int] = None):
+        if weight is not None:
+            assert self.is_leaf
+            self.weight = weight
+        else:
+            assert self.children is not None
+            self.weight = max(self.children[0].weight, self.children[1].weight)
+        if self.parent is not None:
+            self.parent.update()
+
+
+class SegmentTree:
+    def __init__(self, N: int):
+        assert math.log2(N) % 1 == 0, "N should be a power of 2"
+        self.root_node = SegmentTreeNode()
+        self.leaf_nodes: List[SegmentTreeNode] = []
+
+        max_depth = int(math.log2(N))
+        leaf_id = 0
+        queue: deque[Tuple[SegmentTreeNode, int]] = deque([(self.root_node, 0)])
+        while queue:
+            parent, depth = queue.popleft()
+            if depth < max_depth:
+                parent.children = (SegmentTreeNode(parent=parent), SegmentTreeNode(parent=parent))
+                queue.append((parent.children[0], depth + 1))
+                queue.append((parent.children[1], depth + 1))
+            else:
+                parent.leaf_id = leaf_id
+                self.leaf_nodes.append(parent)
+                leaf_id += 1
+
+        assert len(self.leaf_nodes) == N
+        self.leaf_nodes[-1].update(N)
+
+    def query(self, weight: int) -> SegmentTreeNode:
+        node = self.root_node
+        while not node.is_leaf:
+            assert weight <= node.weight
+            assert node.children is not None
+            left_child, right_child = node.children
+            if weight <= left_child.weight:
+                node = left_child
+            else:
+                node = right_child
+        return node
+
+
+class InstancePacker:
+    def __init__(self, max_sequence_length: int):
+        self.max_sequence_length = max_sequence_length
+        self.seg_tree = SegmentTree(max_sequence_length)
+        self.instance_bins: List[List[int]] = []
+        self.space_to_bins: Dict[int, deque[int]] = defaultdict(deque)
+
+    @property
+    def total_padding(self) -> int:
+        total_padding = 0
+        for i in range(1, self.max_sequence_length):
+            if i in self.space_to_bins:
+                total_padding += i * len(self.space_to_bins[i])
+        return total_padding
+
+    @property
+    def total_tokens(self) -> int:
+        return self.max_sequence_length * len(self.instance_bins) - self.total_padding
+
+    def _pack_document(self, document_id: int, document_length: int) -> int:
+        # Query for best-fit capacity.
+        best_fit_leaf_id = self.seg_tree.query(document_length).leaf_id
+        assert best_fit_leaf_id is not None
+        best_fit_capacity = best_fit_leaf_id + 1
+
+        if best_fit_capacity == self.max_sequence_length:
+            # Need a new bin.
+            self.instance_bins.append([])
+            bin_id = len(self.instance_bins) - 1
+        else:
+            # Get first bin with the best-fit capacity left.
+            bins = self.space_to_bins[best_fit_capacity]
+            bin_id = bins.popleft()
+
+            if len(bins) == 0:
+                self.seg_tree.leaf_nodes[best_fit_capacity - 1].update(weight=0)
+
+        # Add document to the target bin.
+        bin = self.instance_bins[bin_id]
+        bin.append(document_id)
+
+        # Maybe update space-to-bins table and segment tree for bin's new capacity.
+        bin_space = best_fit_capacity - document_length
+        if bin_space > 0:
+            bins = self.space_to_bins[bin_space]
+            if len(bins) == 0:
+                self.seg_tree.leaf_nodes[bin_space - 1].update(weight=bin_space)
+            self.space_to_bins[bin_space].append(bin_id)
+
+        return bin_id
+
+    def pack_documents(
+        self, document_indices: np.ndarray
+    ) -> Tuple[List[List[int]], np.ndarray, int]:
+        if self.instance_bins or self.space_to_bins:
+            raise RuntimeError(
+                f"You must call '{self.__class__.__name__}.reset()' before "
+                f"calling '{self.__class__.__name__}.pack_documents()' again."
+            )
+
+        # Sort document indices by document length, decreasing.
+        document_lengths = document_indices[:, 1] - document_indices[:, 0]
+        sorted_index = np.argsort(-1 * document_lengths)
+        document_indices = np.take(document_indices, sorted_index, axis=0)
+
+        # Pack documents into instances.
+        for document_id, (start_idx, end_idx) in enumerate(document_indices):
+            document_len = int(end_idx - start_idx)
+            self._pack_document(document_id, document_len)
+        instances = self.instance_bins  # list[list[int]] of document IDs in each instance
+
+        return instances, document_indices, self.total_tokens
+
+    def reset(self):
+        self.seg_tree = SegmentTree(self.max_sequence_length)
+        self.instance_bins.clear()
+        self.space_to_bins.clear()
+
+
+def pack_documents_into_instances(
+    *paths: PathOrStr,
+    max_sequence_length: int,
+    eos_token_id: int,
+    dtype: Union[Type[np.uint8], Type[np.uint16], Type[np.uint32], Type[np.uint64]],
+    indices_dtype: Union[
+        Type[np.uint8], Type[np.uint16], Type[np.uint32], Type[np.uint64]
+    ] = np.uint64,
+    long_doc_strategy: LongDocStrategy = LongDocStrategy.truncate,
+) -> Tuple[List[List[int]], np.ndarray, int]:
+    """
+    Pack document from source files into instances of at most ``max_sequence_length`` using
+    a best-fit-decreasing algorithm described in https://arxiv.org/pdf/2404.10830.
+
+    :param paths: Paths/URLs to the source files of token IDs. When multiple sources are given, they'll
+        be treated as if they've been concatenated together into a single source file.
+    :param max_sequence_length: The maximum sequence length of each *instance*.
+    :param eos_token_id: The EOS token ID, used to find document boundaries.
+    :param dtype: The numpy datatype of the source file.
+    :param indices_dtype: The numpy datatype to use for document indices.
+    :param long_doc_strategy: Specifies how to handle document that are longer than ``max_sequence_length``.
+        If set to "truncate" then those documents are just truncated to ``max_sequence_length`` and
+        the excess tokens are discarded.
+        If set to "fragment" then those documents are split into smaller documents so that no tokens
+        are discarded, but you end up with fragmented documents.
+
+    :returns: A list of instances, where each instance is a list of document IDs, a 2D array
+        of the corresponding document start and end indices, with shape ``(num_documents, 2)``,
+        and the total number of tokens packed into instances.
+    """
+    if len(paths) == 0:
+        raise RuntimeError("At least one source path must be provided")
+
+    def doc_idx_gen() -> Generator[int, None, None]:
+        start_offset = 0
+        for path in paths:
+            for start_idx, end_idx in iter_document_indices_with_max_sequence_length(
+                path,
+                max_sequence_length,
+                eos_token_id=eos_token_id,
+                dtype=dtype,
+                long_doc_strategy=long_doc_strategy,
+            ):
+                yield start_offset + start_idx
+                yield start_offset + end_idx
+            start_offset += get_file_size(path) // dtype(0).itemsize
+
+    # shape: (num_docs, 2)
+    document_indices = np.fromiter(doc_idx_gen(), dtype=indices_dtype).reshape(-1, 2)
+
+    # Pack documents into instances.
+    instance_packer = InstancePacker(max_sequence_length)
+    return instance_packer.pack_documents(document_indices)
+
+
+def attention_mask_to_cache_leftpad(
+    attention_mask: torch.Tensor,
+) -> torch.Tensor:
+    """Convert a left-padding attention mask into a cache leftpad for Flash-Attention.
+
+    The mask is expected to be a boolean or 0/1 tensor of shape ``(batch, seq_len)`` where
+    ``True``/1 indicates a *valid* token and the padding is on the **left** side of the
+    sequence (i.e. all padding tokens come *before* all valid tokens).
+
+    Returns:
+        cache_leftpad: (batch_size,), dtype torch.int32. The index that the KV cache starts.
+    """
+    if attention_mask.ndim != 2:
+        raise ValueError(
+            f"expected 2-D attention_mask (batch, seq_len), got shape {attention_mask.shape}"
+        )
+    if attention_mask.dtype != torch.bool:
+        attention_mask = attention_mask != 0
+
+    # Verify prefix-padding property
+    # Check that once we see a valid token (True), we don't see any padding tokens (False) after it
+    prefix_ok = (attention_mask.cummax(dim=1).values & ~attention_mask).any().item() is False
+    if not prefix_ok:
+        raise ValueError(
+            "attention_mask must represent *prefix padding* (all padding tokens precede valid tokens) "
+            "for conversion to flash attention cache leftpad."
+        )
+
+    # Find the first True value in each row (where valid tokens start)
+    cache_leftpad = attention_mask.int().argmax(dim=-1).int()  # (B,)
+    return cache_leftpad

@@ -1,16 +1,18 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# Licensed under the Apache License, Version 2.0 (the "License"); you may
-# not use this file except in compliance with the License. You may obtain
-# a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and limitations
-# under the License.
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# pyre-strict
 from __future__ import annotations
 
 import asyncio
@@ -18,27 +20,19 @@ import contextvars
 import functools
 import logging
 import threading
+from collections.abc import Awaitable, Callable, Coroutine, Hashable, Mapping, Sequence
 
-from collections.abc import Coroutine, Generator
 from functools import partial, wraps
 from inspect import isawaitable
 from types import TracebackType
 from typing import (
     AbstractSet,
     Any,
-    Awaitable,
-    Callable,
     cast,
-    Dict,
-    Hashable,
-    List,
-    Mapping,
     NewType,
-    Optional,
     overload,
-    Sequence,
-    Tuple,
-    Type,
+    ParamSpec,
+    Protocol,
     TypeVar,
     Union,
 )
@@ -48,9 +42,9 @@ from .event import BiDirectionalEvent
 
 
 FixerType = Callable[[asyncio.Task], Union[asyncio.Task, Awaitable[asyncio.Task]]]
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 T = TypeVar("T")
-F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
+TParams = ParamSpec("TParams")
 
 __all__: Sequence[str] = [
     "Watcher",
@@ -65,9 +59,9 @@ __all__: Sequence[str] = [
 class TaskSentinel(asyncio.Task):
     """When you need a done task for typing"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         fake = Mock()
-        asyncio.Future.__init__(self, loop=fake)  # typing: ignore, don't create a loop
+        asyncio.Future.__init__(self, loop=fake)
         asyncio.Future.set_result(self, None)
 
 
@@ -87,7 +81,7 @@ async def cancel(fut: asyncio.Future) -> None:
     if fut.done():
         return  # nothing to do
     fut.cancel()
-    exc: Optional[asyncio.CancelledError] = None
+    exc: asyncio.CancelledError | None = None
     while not fut.done():
         shielded = asyncio.shield(fut)
         try:
@@ -118,18 +112,20 @@ async def cancel(fut: asyncio.Future) -> None:
     )
 
 
-def as_task(func: F) -> F:
+def as_task(
+    func: Callable[TParams, Coroutine[object, object, T]],
+) -> Callable[TParams, asyncio.Task[T]]:
     """
     Decorate a function, So that when called it is wrapped in a task
     on the running loop.
     """
 
     @wraps(func)
-    def create_task(*args, **kws):
+    def create_task(*args: TParams.args, **kws: TParams.kwargs) -> asyncio.Task[T]:
         loop = asyncio.get_running_loop()
         return loop.create_task(func(*args, **kws))
 
-    return cast(F, create_task)
+    return create_task
 
 
 # Sentinel Task
@@ -145,15 +141,15 @@ class WatcherError(RuntimeError):
     pass
 
 
-# pyre-fixme[13]: Attribute `loop` is never initialized.
 class Watcher:
-    _tasks: Dict[asyncio.Future, Optional[FixerType]]
-    _scheduled: List[FixerType]
+    _tasks: dict[asyncio.Future, FixerType | None]
+    _scheduled: list[FixerType]
     _tasks_changed: BiDirectionalEvent
     _cancelled: asyncio.Event
     _cancel_timeout: float
-    _preexit_callbacks: List[Callable[[], None]]
-    _shielded_tasks: Dict[asyncio.Task, asyncio.Future]
+    _preexit_callbacks: list[Callable[[], None]]
+    _shielded_tasks: dict[asyncio.Task, asyncio.Future]
+    # pyre-ignore[13]: loop is initialized in __aenter__
     loop: asyncio.AbstractEventLoop
     running: bool
     done_ok: bool
@@ -178,12 +174,12 @@ class Watcher:
         if context:
             WATCHER_CONTEXT.set(self)
         self._cancel_timeout = cancel_timeout
-        self._tasks = {}
-        self._scheduled = []
+        self._tasks: dict[asyncio.Future, FixerType | None] = {}
+        self._scheduled: list[FixerType] = []
         self._tasks_changed = BiDirectionalEvent()
         self._cancelled = asyncio.Event()
         self._preexit_callbacks = []
-        self._shielded_tasks = {}
+        self._shielded_tasks: dict[asyncio.Task, asyncio.Future] = {}
         self.running = False
         self.done_ok = done_ok
 
@@ -203,7 +199,7 @@ class Watcher:
     async def unwatch(
         self,
         task: asyncio.Task = START_TASK,
-        fixer: Optional[FixerType] = None,
+        fixer: FixerType | None = None,
         *,
         shield: bool = False,
     ) -> bool:
@@ -218,14 +214,16 @@ class Watcher:
         as the one passed in we will cancel it, and await it.
         """
 
-        async def tasks_changed():
+        async def tasks_changed() -> None:
             if self.running:
                 await self._tasks_changed.set()
 
         if shield:
             if task in self._shielded_tasks:
-                del self._tasks[self._shielded_tasks[task]]
-                del self._shielded_tasks[task]
+                shield_task = self._shielded_tasks.pop(task)
+                # no task left behind, lets cancel it for safety
+                await cancel(shield_task)
+                del self._tasks[shield_task]
                 await tasks_changed()
                 return True
         elif fixer is not None:
@@ -246,7 +244,7 @@ class Watcher:
     def watch(
         self,
         task: asyncio.Task = START_TASK,
-        fixer: Optional[FixerType] = None,
+        fixer: FixerType | None = None,
         *,
         shield: bool = False,
     ) -> None:
@@ -277,6 +275,8 @@ class Watcher:
         elif shield:
             if fixer:
                 raise ValueError("`fixer` can not be used with shield=True")
+            # pyre-fixme[1001]: Awaitable assigned to `self._shielded_tasks` is
+            #  never awaited.
             self._shielded_tasks[task] = asyncio.shield(task)
             self._tasks[self._shielded_tasks[task]] = None
         else:
@@ -284,7 +284,9 @@ class Watcher:
         self._tasks_changed.set_nowait()
 
     def create_task(
-        self, coro: Generator[Any, None, T] | Coroutine[Any, Any, T], **kws
+        self,
+        coro: Coroutine[object, object, T],
+        **kws: Any,
     ) -> asyncio.Task[T]:
         t = asyncio.create_task(coro, **kws)
         self.watch(t)
@@ -296,7 +298,9 @@ class Watcher:
         """
         self._cancelled.set()
 
-    def add_preexit_callback(self, callback: Callable[..., None], *args, **kws) -> None:
+    def add_preexit_callback(
+        self, callback: Callable[..., None], *args: Any, **kws: Any
+    ) -> None:
         self._preexit_callbacks.append(partial(callback, *args, **kws))
 
     def _run_preexit_callbacks(self) -> None:
@@ -308,16 +312,16 @@ class Watcher:
                     f"ignoring exception from pre-exit callback {callback}: {e}"
                 )
 
-    async def __aenter__(self) -> "Watcher":
+    async def __aenter__(self) -> Watcher:
         WATCHER_CONTEXT.set(self)
         self.loop = asyncio.get_running_loop()
         return self
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc: Optional[BaseException],
-        tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
     ) -> bool:
         cancel_task: asyncio.Task = self.loop.create_task(self._cancelled.wait())
         changed_task: asyncio.Task = START_TASK
@@ -355,7 +359,7 @@ class Watcher:
             self._shielded_tasks.clear()
         return False
 
-    async def _event_task_cleanup(self, *tasks):
+    async def _event_task_cleanup(self, *tasks: asyncio.Task) -> None:
         for task in tasks:
             if task is not START_TASK:
                 await cancel(task)
@@ -384,16 +388,17 @@ class Watcher:
                 f"{fixer}(task) failed to return a task, returned:" f"{new_task}!"
             ) from exc
 
-    async def _handle_cancel(self):
+    async def _handle_cancel(self) -> None:
         tasks = [task for task in self._tasks if not task.done()]
         if not tasks:
             return
 
+        # pyre-fixme[1001]: Awaitable assigned to `task` is never awaited.
         for task in tasks:
             task.cancel()
 
         done, pending = await asyncio.wait(tasks, timeout=self._cancel_timeout)
-        bad_tasks: List[asyncio.Task] = []
+        bad_tasks: list[asyncio.Future] = []
         for task in done:
             if task.cancelled():
                 continue
@@ -408,73 +413,88 @@ class Watcher:
             )
 
 
-CacheKey = NewType("CacheKey", Sequence[Hashable])
+CacheKey = NewType("CacheKey", tuple[Hashable, ...])
 ArgID = Union[int, str]
 
 
 class _CountTask:
     """So herd can track herd size and task together for cancellation"""
 
-    task: Optional[asyncio.Task] = None
+    task: asyncio.Task | None = None
     count: int = 0
 
 
-def _get_local(local: threading.local, field: str) -> Dict[CacheKey, object]:
+def _get_local(local: threading.local, field: str) -> dict[CacheKey, object]:
     """
     helper for attempting to fetch a named attr from a threading.local
     """
     try:
-        return cast(Dict[CacheKey, object], getattr(local, field))
+        return cast(dict[CacheKey, object], getattr(local, field))
     except AttributeError:
-        container: Dict[CacheKey, object] = {}
+        container: dict[CacheKey, object] = {}
         setattr(local, field, container)
         return container
 
 
 def _build_key(
-    args: Tuple[object, ...],
+    args: tuple[object, ...],
     kwargs: Mapping[str, object],
-    ignored_args: Optional[AbstractSet[ArgID]] = None,
+    ignored_args: AbstractSet[ArgID] | None = None,
 ) -> CacheKey:
     """
     Build a key for caching Hashable args and kwargs.
     Allow for not including certain fields from args or kwargs
     """
     if not ignored_args:
-        # pyre-fixme[45]: Cannot instantiate abstract class `CacheKey`.
         return CacheKey((args, tuple(sorted(kwargs.items()))))
 
     # If we do want to ignore something then do so
-    # pyre-fixme[45]: Cannot instantiate abstract class `CacheKey`.
     return CacheKey(
         (
             tuple((value for idx, value in enumerate(args) if idx not in ignored_args)),
             tuple(
-                (item for item in sorted(kwargs.items()) if item[0] not in ignored_args)
+                item for item in sorted(kwargs.items()) if item[0] not in ignored_args
             ),
         )
     )
 
 
-@overload  # noqa: 811
+class AsyncCallable(Protocol):
+    def __call__(
+        self, fn: Callable[TParams, Coroutine[object, object, T]]
+    ) -> Callable[TParams, Coroutine[object, object, T]]:  # pragma: nocover
+        ...
+
+
+@overload
 def herd(
-    fn: F, *, ignored_args: Optional[AbstractSet[ArgID]] = None
-) -> F:  # pragma: nocover
-    ...
-
-
-@overload  # noqa: 811
-def herd(
-    fn: Optional[F] = None, *, ignored_args: Optional[AbstractSet[ArgID]] = None
-) -> Callable[[F], F]:  # pragma: nocover
-    ...
-
-
-def herd(
-    fn=None,
+    fn: Callable[TParams, Coroutine[object, object, T]],
     *,
-    ignored_args: Optional[AbstractSet[ArgID]] = None,
-):  # noqa: 811
+    ignored_args: AbstractSet[ArgID] | None = None,
+) -> Callable[TParams, Coroutine[object, object, T]]:  # pragma: nocover
+    ...
+
+
+@overload
+def herd(
+    fn: None = None,
+    *,
+    ignored_args: AbstractSet[ArgID] | None = None,
+) -> AsyncCallable:  # pragma: nocover
+    ...
+
+
+def herd(
+    fn: Callable[TParams, Coroutine[object, object, T]] | None = None,
+    *,
+    ignored_args: AbstractSet[ArgID] | None = None,
+) -> (
+    Callable[TParams, Coroutine[object, object, T]]
+    | Callable[
+        [Callable[TParams, Coroutine[object, object, T]]],
+        Callable[TParams, Coroutine[object, object, T]],
+    ]
+):
     """
     Provide a simple thundering herd protection as a decorator.
     if requests comes in while and existing request with those same args is pending,
@@ -488,12 +508,14 @@ def herd(
     Each member of the herd is "shielded" from cancellation effecting other herd members
     """
 
-    def decorator(fn: F) -> F:
-        local = threading.local()
+    def decorator(
+        fn: Callable[TParams, Coroutine[object, object, T]],
+    ) -> Callable[TParams, Coroutine[object, object, T]]:
+        local: threading.local = threading.local()
 
         @functools.wraps(fn)
-        async def wrapped(*args, **kwargs):
-            pending = cast(Dict[CacheKey, _CountTask], _get_local(local, "pending"))
+        async def wrapped(*args: TParams.args, **kwargs: TParams.kwargs) -> T:
+            pending = cast(dict[CacheKey, _CountTask], _get_local(local, "pending"))
             request = _build_key(tuple(args), kwargs, ignored_args)
             count_task = pending.setdefault(request, _CountTask())
             count_task.count += 1
@@ -515,10 +537,9 @@ def herd(
                     if request in pending and pending[request] is count_task:
                         del pending[request]
 
-        return cast(F, wrapped)
+        return wrapped
 
     if fn and callable(fn):
-        # pyre-fixme[6]: For 1st param expected `F` but got `(...) -> object`.
         return decorator(fn)
 
     return decorator

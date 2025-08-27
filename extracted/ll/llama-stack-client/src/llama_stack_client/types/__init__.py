@@ -8,11 +8,11 @@ from .tool import Tool as Tool
 from .model import Model as Model
 from .trace import Trace as Trace
 from .shared import (
+    Metric as Metric,
     Message as Message,
     Document as Document,
     ToolCall as ToolCall,
     ParamType as ParamType,
-    ReturnType as ReturnType,
     AgentConfig as AgentConfig,
     QueryConfig as QueryConfig,
     QueryResult as QueryResult,
@@ -24,7 +24,6 @@ from .shared import (
     SamplingParams as SamplingParams,
     BatchCompletion as BatchCompletion,
     SafetyViolation as SafetyViolation,
-    ToolCallOrString as ToolCallOrString,
     CompletionMessage as CompletionMessage,
     InterleavedContent as InterleavedContent,
     ToolParamDefinition as ToolParamDefinition,
@@ -145,6 +144,7 @@ from .vector_store_search_response import VectorStoreSearchResponse as VectorSto
 from .telemetry_query_traces_params import TelemetryQueryTracesParams as TelemetryQueryTracesParams
 from .scoring_function_list_response import ScoringFunctionListResponse as ScoringFunctionListResponse
 from .telemetry_get_span_tree_params import TelemetryGetSpanTreeParams as TelemetryGetSpanTreeParams
+from .telemetry_query_metrics_params import TelemetryQueryMetricsParams as TelemetryQueryMetricsParams
 from .telemetry_query_spans_response import TelemetryQuerySpansResponse as TelemetryQuerySpansResponse
 from .tool_runtime_list_tools_params import ToolRuntimeListToolsParams as ToolRuntimeListToolsParams
 from .eval_evaluate_rows_alpha_params import EvalEvaluateRowsAlphaParams as EvalEvaluateRowsAlphaParams
@@ -155,6 +155,7 @@ from .inference_chat_completion_params import InferenceChatCompletionParams as I
 from .list_post_training_jobs_response import ListPostTrainingJobsResponse as ListPostTrainingJobsResponse
 from .scoring_function_register_params import ScoringFunctionRegisterParams as ScoringFunctionRegisterParams
 from .telemetry_get_span_tree_response import TelemetryGetSpanTreeResponse as TelemetryGetSpanTreeResponse
+from .telemetry_query_metrics_response import TelemetryQueryMetricsResponse as TelemetryQueryMetricsResponse
 from .tool_runtime_list_tools_response import ToolRuntimeListToolsResponse as ToolRuntimeListToolsResponse
 from .inference_batch_completion_params import InferenceBatchCompletionParams as InferenceBatchCompletionParams
 from .synthetic_data_generation_response import SyntheticDataGenerationResponse as SyntheticDataGenerationResponse

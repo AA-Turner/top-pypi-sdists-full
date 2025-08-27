@@ -144,6 +144,8 @@ from .literals import (
     IamInstanceProfileAssociationStateType,
     Igmpv2SupportValueType,
     ImageAttributeNameType,
+    ImageReferenceOptionNameType,
+    ImageReferenceResourceTypeType,
     ImageStateType,
     ImageTypeValuesType,
     InitializationTypeType,
@@ -698,6 +700,8 @@ __all__ = (
     "CreateImageRequestInstanceCreateImageTypeDef",
     "CreateImageRequestTypeDef",
     "CreateImageResultTypeDef",
+    "CreateImageUsageReportRequestTypeDef",
+    "CreateImageUsageReportResultTypeDef",
     "CreateInstanceConnectEndpointRequestTypeDef",
     "CreateInstanceConnectEndpointResultTypeDef",
     "CreateInstanceEventWindowRequestTypeDef",
@@ -905,6 +909,8 @@ __all__ = (
     "DeleteFlowLogsResultTypeDef",
     "DeleteFpgaImageRequestTypeDef",
     "DeleteFpgaImageResultTypeDef",
+    "DeleteImageUsageReportRequestTypeDef",
+    "DeleteImageUsageReportResultTypeDef",
     "DeleteInstanceConnectEndpointRequestTypeDef",
     "DeleteInstanceConnectEndpointResultTypeDef",
     "DeleteInstanceEventWindowRequestTypeDef",
@@ -1205,6 +1211,16 @@ __all__ = (
     "DescribeIdentityIdFormatResultTypeDef",
     "DescribeImageAttributeRequestImageDescribeAttributeTypeDef",
     "DescribeImageAttributeRequestTypeDef",
+    "DescribeImageReferencesRequestPaginateTypeDef",
+    "DescribeImageReferencesRequestTypeDef",
+    "DescribeImageReferencesResultTypeDef",
+    "DescribeImageUsageReportEntriesRequestPaginateTypeDef",
+    "DescribeImageUsageReportEntriesRequestTypeDef",
+    "DescribeImageUsageReportEntriesResultTypeDef",
+    "DescribeImageUsageReportsRequestPaginateTypeDef",
+    "DescribeImageUsageReportsRequestTypeDef",
+    "DescribeImageUsageReportsRequestWaitTypeDef",
+    "DescribeImageUsageReportsResultTypeDef",
     "DescribeImagesRequestPaginateTypeDef",
     "DescribeImagesRequestTypeDef",
     "DescribeImagesRequestWaitExtraTypeDef",
@@ -1971,7 +1987,14 @@ __all__ = (
     "ImageDiskContainerTypeDef",
     "ImageMetadataTypeDef",
     "ImageRecycleBinInfoTypeDef",
+    "ImageReferenceTypeDef",
     "ImageTypeDef",
+    "ImageUsageReportEntryTypeDef",
+    "ImageUsageReportTypeDef",
+    "ImageUsageResourceTypeOptionRequestTypeDef",
+    "ImageUsageResourceTypeOptionTypeDef",
+    "ImageUsageResourceTypeRequestTypeDef",
+    "ImageUsageResourceTypeTypeDef",
     "ImportClientVpnClientCertificateRevocationListRequestTypeDef",
     "ImportClientVpnClientCertificateRevocationListResultTypeDef",
     "ImportImageLicenseConfigurationRequestTypeDef",
@@ -2573,6 +2596,8 @@ __all__ = (
     "ResetSnapshotAttributeRequestTypeDef",
     "ResourceStatementRequestTypeDef",
     "ResourceStatementTypeDef",
+    "ResourceTypeOptionTypeDef",
+    "ResourceTypeRequestTypeDef",
     "ResponseErrorTypeDef",
     "ResponseLaunchTemplateDataTypeDef",
     "ResponseMetadataTypeDef",
@@ -4428,6 +4453,11 @@ class DeleteFpgaImageRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
+class DeleteImageUsageReportRequestTypeDef(TypedDict):
+    ReportId: str
+    DryRun: NotRequired[bool]
+
+
 class DeleteInstanceConnectEndpointRequestTypeDef(TypedDict):
     InstanceConnectEndpointId: str
     DryRun: NotRequired[bool]
@@ -5104,6 +5134,21 @@ class DescribeImageAttributeRequestTypeDef(TypedDict):
     Attribute: ImageAttributeNameType
     ImageId: str
     DryRun: NotRequired[bool]
+
+
+class ImageReferenceTypeDef(TypedDict):
+    ImageId: NotRequired[str]
+    ResourceType: NotRequired[ImageReferenceResourceTypeType]
+    Arn: NotRequired[str]
+
+
+class ImageUsageReportEntryTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    ReportId: NotRequired[str]
+    UsageCount: NotRequired[int]
+    AccountId: NotRequired[str]
+    ImageId: NotRequired[str]
+    ReportCreationTime: NotRequired[datetime]
 
 
 class DescribeInstanceAttributeRequestInstanceDescribeAttributeTypeDef(TypedDict):
@@ -6513,6 +6558,16 @@ class ImageRecycleBinInfoTypeDef(TypedDict):
 class StateReasonTypeDef(TypedDict):
     Code: NotRequired[str]
     Message: NotRequired[str]
+
+
+class ImageUsageResourceTypeOptionRequestTypeDef(TypedDict):
+    OptionName: NotRequired[str]
+    OptionValues: NotRequired[Sequence[str]]
+
+
+class ImageUsageResourceTypeOptionTypeDef(TypedDict):
+    OptionName: NotRequired[str]
+    OptionValues: NotRequired[List[str]]
 
 
 class ImportClientVpnClientCertificateRevocationListRequestTypeDef(TypedDict):
@@ -8040,6 +8095,11 @@ class ResetSnapshotAttributeRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
+class ResourceTypeOptionTypeDef(TypedDict):
+    OptionName: NotRequired[ImageReferenceOptionNameType]
+    OptionValues: NotRequired[Sequence[str]]
+
+
 class RestoreAddressToClassicRequestTypeDef(TypedDict):
     PublicIp: str
     DryRun: NotRequired[bool]
@@ -8722,6 +8782,11 @@ class CreateImageResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateImageUsageReportResultTypeDef(TypedDict):
+    ReportId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreatePublicIpv4PoolResultTypeDef(TypedDict):
     PoolId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8748,6 +8813,11 @@ class DeleteEgressOnlyInternetGatewayResultTypeDef(TypedDict):
 
 
 class DeleteFpgaImageResultTypeDef(TypedDict):
+    Return: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteImageUsageReportResultTypeDef(TypedDict):
     Return: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -11850,6 +11920,40 @@ class DescribeIamInstanceProfileAssociationsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class DescribeImageUsageReportEntriesRequestPaginateTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeImageUsageReportEntriesRequestTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+
+
+class DescribeImageUsageReportsRequestPaginateTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeImageUsageReportsRequestTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+
+
 class DescribeImagesRequestPaginateTypeDef(TypedDict):
     ExecutableUsers: NotRequired[Sequence[str]]
     ImageIds: NotRequired[Sequence[str]]
@@ -13707,6 +13811,16 @@ class DescribeExportTasksRequestWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
+class DescribeImageUsageReportsRequestWaitTypeDef(TypedDict):
+    ImageIds: NotRequired[Sequence[str]]
+    ReportIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
 class DescribeImagesRequestWaitExtraTypeDef(TypedDict):
     ExecutableUsers: NotRequired[Sequence[str]]
     ImageIds: NotRequired[Sequence[str]]
@@ -14036,6 +14150,18 @@ class DescribeFastSnapshotRestoresResultTypeDef(TypedDict):
 
 class DescribeHostReservationOfferingsResultTypeDef(TypedDict):
     OfferingSet: List[HostOfferingTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeImageReferencesResultTypeDef(TypedDict):
+    ImageReferences: List[ImageReferenceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeImageUsageReportEntriesResultTypeDef(TypedDict):
+    ImageUsageReportEntries: List[ImageUsageReportEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -14669,6 +14795,16 @@ class LocalGatewayRouteTableTypeDef(TypedDict):
     Tags: NotRequired[List[TagTypeDef]]
     Mode: NotRequired[LocalGatewayRouteTableModeType]
     StateReason: NotRequired[StateReasonTypeDef]
+
+
+class ImageUsageResourceTypeRequestTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    ResourceTypeOptions: NotRequired[Sequence[ImageUsageResourceTypeOptionRequestTypeDef]]
+
+
+class ImageUsageResourceTypeTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    ResourceTypeOptions: NotRequired[List[ImageUsageResourceTypeOptionTypeDef]]
 
 
 class ImportInstanceLaunchSpecificationTypeDef(TypedDict):
@@ -15322,6 +15458,11 @@ class RegisterTransitGatewayMulticastGroupMembersResultTypeDef(TypedDict):
 class RegisterTransitGatewayMulticastGroupSourcesResultTypeDef(TypedDict):
     RegisteredMulticastGroupSources: TransitGatewayMulticastRegisteredGroupSourcesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ResourceTypeRequestTypeDef(TypedDict):
+    ResourceType: NotRequired[ImageReferenceResourceTypeType]
+    ResourceTypeOptions: NotRequired[Sequence[ResourceTypeOptionTypeDef]]
 
 
 class RouteServerPeerTypeDef(TypedDict):
@@ -17431,6 +17572,18 @@ class DescribeLocalGatewayRouteTablesResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ImageUsageReportTypeDef(TypedDict):
+    ImageId: NotRequired[str]
+    ReportId: NotRequired[str]
+    ResourceTypes: NotRequired[List[ImageUsageResourceTypeTypeDef]]
+    AccountIds: NotRequired[List[str]]
+    State: NotRequired[str]
+    StateReason: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    ExpirationTime: NotRequired[datetime]
+    Tags: NotRequired[List[TagTypeDef]]
+
+
 class ImportInstanceRequestTypeDef(TypedDict):
     Platform: Literal["windows"]
     DryRun: NotRequired[bool]
@@ -17901,6 +18054,23 @@ class DescribeSecurityGroupRulesResultTypeDef(TypedDict):
     SecurityGroupRules: List[SecurityGroupRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class DescribeImageReferencesRequestPaginateTypeDef(TypedDict):
+    ImageIds: Sequence[str]
+    IncludeAllResourceTypes: NotRequired[bool]
+    ResourceTypes: NotRequired[Sequence[ResourceTypeRequestTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeImageReferencesRequestTypeDef(TypedDict):
+    ImageIds: Sequence[str]
+    IncludeAllResourceTypes: NotRequired[bool]
+    ResourceTypes: NotRequired[Sequence[ResourceTypeRequestTypeDef]]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
 
 
 class CreateRouteServerPeerResultTypeDef(TypedDict):
@@ -18840,6 +19010,15 @@ class CreateImageRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     NoReboot: NotRequired[bool]
     BlockDeviceMappings: NotRequired[Sequence[BlockDeviceMappingTypeDef]]
+
+
+class CreateImageUsageReportRequestTypeDef(TypedDict):
+    ImageId: str
+    ResourceTypes: Sequence[ImageUsageResourceTypeRequestTypeDef]
+    DryRun: NotRequired[bool]
+    AccountIds: NotRequired[Sequence[str]]
+    ClientToken: NotRequired[str]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
 
 
 class CreateInstanceConnectEndpointRequestTypeDef(TypedDict):
@@ -20108,6 +20287,12 @@ class CreateNetworkInsightsPathResultTypeDef(TypedDict):
 
 class DescribeNetworkInsightsPathsResultTypeDef(TypedDict):
     NetworkInsightsPaths: List[NetworkInsightsPathTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeImageUsageReportsResultTypeDef(TypedDict):
+    ImageUsageReports: List[ImageUsageReportTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

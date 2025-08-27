@@ -16,9 +16,10 @@ See https://docs.python.org/3/library/site.html for additional details
 # We attempt to repatch imported modules, but there still could be gaps.
 
 import sys
+import os
 
 MIN_SUPPORTED_VERSION = (3, 9)
-MAX_SUPPORTED_VERSION = (3, 13)
+MAX_SUPPORTED_VERSION = (3, 14) if os.environ.get("CONTRAST_ALLOW_PY314") else (3, 13)
 # We need to check the version_info because certain installation tools bypass
 # pip and setuptools, so the version check in setup.py is skipped. For example,
 # the agent operator and the universal agent bundle the agent distribution and
@@ -39,8 +40,6 @@ if MIN_SUPPORTED_VERSION <= sys.version_info[:2] <= MAX_SUPPORTED_VERSION:
 
 
 ### Attempt to import the next sitecustomize.py file ###
-
-import os  # noqa: E402
 
 loader_dir = os.path.dirname(__file__)
 if loader_dir not in sys.path:

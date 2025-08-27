@@ -1,45 +1,127 @@
-from typing import List
-from orionis.console.entities.request import CLIRequest as CLIRequestEntity
+from typing import Any
+from orionis.console.contracts.cli_request import ICLIRequest
 from orionis.console.exceptions.cli_orionis_value_error import CLIOrionisValueError
 
-class CLIRequest:
-    def __call__(self, args: List[str]) -> "CLIRequestEntity":
-        """
-        Processes command-line arguments and returns a CLIRequest instance.
+class CLIRequest(ICLIRequest):
 
-        Parameters
-        ----------
-        args : List[str]
-            The list of command-line arguments. The first argument is expected to be the script name.
+    def __init__(
+        self,
+        command: str,
+        args: dict
+    ):
+        """
+        Initialize a CLI request object with command line arguments.
+
+        Args:
+            args (dict, optional): Dictionary containing command line arguments and their values.
+                                  Defaults to an empty dictionary.
+
+        Raises:
+            CLIOrionisValueError: If the provided args parameter is not a dictionary.
+
+        Note:
+            The args dictionary is stored privately and used to manage CLI request parameters
+            throughout the lifecycle of the CLI request object.
+        """
+
+        # Validate that args is a dictionary
+        if not isinstance(args, dict):
+            raise CLIOrionisValueError("Args must be a dictionary")
+
+        # Validate that command is a string
+        if not isinstance(command, str):
+            raise CLIOrionisValueError("Command must be a string")
+
+        # Store the args dictionary as a private attribute
+        self.__command = command
+        self.__args = args if args is not None else {}
+
+    def command(self) -> str:
+        """
+        Retrieve the command name associated with this CLI request.
+
+        This method provides access to the command string that was specified during
+        the initialization of the CLIRequest object. The command represents the
+        primary action or operation that should be executed based on the CLI input.
 
         Returns
         -------
-        CLIRequestEntity
-            An instance representing the parsed command and its arguments.
+        str
+            The command name stored as a string. This is the exact command value
+            that was passed to the constructor during object initialization.
 
-        Raises
-        ------
-        CLIOrionisValueError
-            If the provided arguments are not a list or if no command is provided.
+        Notes
+        -----
+        The returned command string is immutable and represents the core action
+        identifier for this CLI request. This value is essential for determining
+        which operation should be performed by the CLI handler.
         """
-        if not isinstance(args, list):
-            raise CLIOrionisValueError(
-                f"Failed to handle command line arguments: expected list, got {type(args).__module__}.{type(args).__name__}."
-            )
 
-        if len(args) <= 1:
-            raise CLIOrionisValueError("No command provided to execute.")
+        # Return the command name stored in the private attribute
+        # This provides access to the command specified during initialization
+        return self.__command
 
-        # Remove the script name
-        args = args[1:]
+    def all(self) -> dict:
+        """
+        Retrieve all command line arguments as a complete dictionary.
 
-        if not args or not args[0]:
-            raise CLIOrionisValueError("No command provided to execute.")
+        This method provides access to the entire collection of command line arguments
+        that were passed during the initialization of the CLIRequest object. It returns
+        a reference to the internal arguments dictionary, allowing for comprehensive
+        access to all parsed CLI parameters.
 
-        return CLIRequestEntity(
-            command=args[0],
-            args=args[1:]
-        )
+        Returns
+        -------
+        dict
+            A dictionary containing all the parsed command line arguments as key-value
+            pairs, where keys are argument names (str) and values are the corresponding
+            argument values of any type. If no arguments were provided during
+            initialization, returns an empty dictionary.
 
-# Export the CLIRequest Singleton
-Request = CLIRequest()
+        Notes
+        -----
+        This method returns a reference to the internal arguments dictionary rather
+        than a copy. Modifications to the returned dictionary will affect the
+        internal state of the CLIRequest object.
+        """
+
+        # Return the complete arguments dictionary containing all CLI parameters
+        return self.__args
+
+    def argument(self, name: str, default: Any = None):
+        """
+        Retrieve the value of a specific command line argument by its name.
+
+        This method provides access to individual command line arguments that were
+        passed during initialization. It safely retrieves argument values without
+        raising exceptions if the argument doesn't exist.
+
+        Parameters
+        ----------
+        name : str
+            The name of the command line argument to retrieve. This should match
+            the key used when the argument was originally parsed and stored.
+        default : Any, optional
+            The default value to return if the specified argument name does not
+            exist in the arguments dictionary. Defaults to None.
+
+        Returns
+        -------
+        Any or None
+            The value associated with the specified argument name if it exists
+            in the arguments dictionary. Returns None if the argument name is
+            not found or was not provided during CLI execution.
+
+        Notes
+        -----
+        This method uses the dictionary's get() method to safely access values,
+        ensuring that missing arguments return None rather than raising a KeyError.
+        """
+
+        # Safely retrieve the argument value using dict.get() to avoid KeyError
+        # Returns None if the argument name doesn't exist in the dictionary
+        if name not in self.__args or self.__args[name] is None:
+            return default
+
+        # Return the value associated with the specified argument name
+        return self.__args.get(name, default)

@@ -1,16 +1,18 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# Licensed under the Apache License, Version 2.0 (the "License"); you may
-# not use this file except in compliance with the License. You may obtain
-# a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and limitations
-# under the License
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# pyre-strict
 from __future__ import annotations
 
 import asyncio
@@ -26,15 +28,16 @@ from later.unittest.mock import AsyncMock
 class TaskTests(TestCase):
     async def test_as_task(self) -> None:
         tsleep = later.as_task(asyncio.sleep)
-        # pep484 is still limited on typing around decorators, best to cast
-        task: asyncio.Task = cast(asyncio.Task, tsleep(500))
+        task = tsleep(500)
         self.assertIsInstance(task, asyncio.Task)
+        # pyre-fixme[6]: For 1st argument expected `Future[Any]` but got `Task[None]`.
         await later.cancel(task)
         self.assertTrue(task.done())
         self.assertTrue(task.cancelled())
 
     async def test_cancel_task(self) -> None:
         task: asyncio.Task = asyncio.get_running_loop().create_task(asyncio.sleep(500))
+        # pyre-fixme[6]: For 1st argument expected `Future[Any]` but got `Task[None]`.
         await later.cancel(task)
         self.assertTrue(task.done())
         self.assertTrue(task.cancelled())
@@ -43,7 +46,7 @@ class TaskTests(TestCase):
         started = False
 
         @later.as_task
-        async def _coro():
+        async def _coro() -> None:
             nonlocal started
             started = True
             try:
@@ -51,10 +54,12 @@ class TaskTests(TestCase):
             except asyncio.CancelledError:
                 raise TypeError
 
-        task: asyncio.Task = cast(asyncio.Task, _coro())
+        task: asyncio.Task = _coro()
         await asyncio.sleep(0)
         self.assertTrue(started)
         with self.assertRaises(TypeError):
+            # pyre-fixme[6]: For 1st argument expected `Future[Any]` but got
+            #  `Task[None]`.
             await later.cancel(task)
         self.assertTrue(task.done())
         self.assertFalse(task.cancelled())
@@ -63,21 +68,22 @@ class TaskTests(TestCase):
         started = False
 
         @later.as_task
-        async def _coro():
+        async def _coro() -> None:
             nonlocal started
             started = True
 
-        task: asyncio.Task = cast(asyncio.Task, _coro())
+        task: asyncio.Task = _coro()
         await asyncio.sleep(0)
         self.assertTrue(started)
         self.assertTrue(task.done())
+        # pyre-fixme[6]: For 1st argument expected `Future[Any]` but got `Task[None]`.
         await later.cancel(task)
 
     async def test_cancel_task_completes(self) -> None:
         started = False
 
         @later.as_task
-        async def _coro():
+        async def _coro() -> int | None:
             nonlocal started
             started = True
             try:
@@ -85,10 +91,15 @@ class TaskTests(TestCase):
             except asyncio.CancelledError:
                 return 5
 
-        task: asyncio.Task = cast(asyncio.Task, _coro())
+        task: asyncio.Task = _coro()
         await asyncio.sleep(0)
         self.assertTrue(started)
+        # pyre-fixme[6]: For 1st argument expected `Union[Type[Variable[_E (bound to
+        #  BaseException)]], typing.Tuple[Type[Variable[_E (bound to BaseException)]],
+        #  ...]]` but got `Type[InvalidStateError]`.
         with self.assertRaises(asyncio.InvalidStateError):
+            # pyre-fixme[6]: For 1st argument expected `Future[Any]` but got
+            #  `Task[Optional[int]]`.
             await later.cancel(task)
         self.assertTrue(task.done())
         self.assertFalse(task.cancelled())
@@ -97,7 +108,7 @@ class TaskTests(TestCase):
         started, cancelled = False, False
 
         @later.as_task
-        async def test():
+        async def test() -> None:
             nonlocal cancelled, started
             started = True
             try:
@@ -109,9 +120,10 @@ class TaskTests(TestCase):
 
         # neat :P
         cancel_as_task = later.as_task(later.cancel)
-        otask = cast(asyncio.Task, test())  # task created a scheduled.
+        otask = test()  # task created a scheduled.
         await asyncio.sleep(0)  # let test start
         self.assertTrue(started)
+        # pyre-fixme[6]: For 1st argument expected `Future[Any]` but got `Task[None]`.
         ctask = cast(asyncio.Task, cancel_as_task(otask))
         await asyncio.sleep(0)  # let the cancel as task start
         self.assertFalse(otask.cancelled())
@@ -144,13 +156,13 @@ class WatcherTests(TestCase):
         callback.assert_has_calls([call(1, 2)])
 
     async def test_add_task_and_remove_task(self) -> None:
-        loop = asyncio.get_running_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
 
         def fixer(orig_task: asyncio.Task) -> asyncio.Task:
             return loop.create_task(asyncio.sleep(0.5))
 
         task: asyncio.Task = loop.create_task(asyncio.sleep(10))
-        watcher = later.Watcher(context=True)
+        watcher: later.Watcher = later.Watcher(context=True)
         watcher.watch(fixer=fixer)
 
         async def work() -> None:
@@ -206,6 +218,7 @@ class WatcherTests(TestCase):
                 watcher.watch(task)
                 loop.call_later(0.2, watcher.cancel)
         # insure the task isn't still pending so we don't fail the later TestCase checks
+        # pyre-fixme[6]: For 1st argument expected `Future[Any]` but got `Task[None]`.
         await later.cancel(task)
 
     async def test_watcher_cancel(self) -> None:
@@ -282,6 +295,7 @@ class WatcherTests(TestCase):
     async def test_watcher_canceled_parent_aexit(self) -> None:
         loop = asyncio.get_running_loop()
         task: asyncio.Task = loop.create_task(asyncio.sleep(500))
+        # pyre-fixme[16]: Module `builtins` has no attribute `TimeoutError`.
         with self.assertRaises(asyncio.TimeoutError):
             async with later.timeout(0.2):
                 async with later.Watcher() as watcher:
@@ -323,9 +337,9 @@ class WatcherTests(TestCase):
             watcher.watch(asyncio.sleep(1))
 
     async def test_watcher_context(self) -> None:
-        loop = asyncio.get_running_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
 
-        def start_a_task():
+        def start_a_task() -> None:
             later.Watcher.get().watch(loop.create_task(asyncio.sleep(5)))
 
         async with later.Watcher() as watcher:
@@ -333,9 +347,9 @@ class WatcherTests(TestCase):
             start_a_task()
 
     async def test_watcher_context_at_init(self) -> None:
-        loop = asyncio.get_running_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
 
-        def start_a_task():
+        def start_a_task() -> None:
             later.Watcher.get().watch(loop.create_task(asyncio.sleep(5)))
 
         watcher = later.Watcher(context=True)
@@ -387,6 +401,7 @@ class HerdTests(TestCase):
         self.assertEqual(called, 1)
         self.assertFalse(original_cancelled)
 
+        # pyre-fixme[6]: For 1st argument expected `Future[Any]` but got `Task[Any]`.
         await later.cancel(call1)
         self.assertFalse(original_cancelled)
 
@@ -396,6 +411,7 @@ class HerdTests(TestCase):
 
         # Only after there is only one pending left do we allow the original task
         # to be cancelled.
+        # pyre-fixme[6]: For 1st argument expected `Future[Any]` but got `Task[Any]`.
         await later.cancel(call2)
         self.assertTrue(original_cancelled)
 

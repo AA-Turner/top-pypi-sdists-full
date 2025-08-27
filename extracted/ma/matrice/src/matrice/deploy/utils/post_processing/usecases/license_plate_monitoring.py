@@ -185,7 +185,19 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if not input_bytes:
                 return self.create_error_result("input_bytes (video/image) is required for license plate monitoring",
                                                usecase=self.name, category=self.category, context=context)
+                                               
+            print("--------------------------------------")
+            print("config.alert_config",config.alert_config)
+            print(config)
+            print("--------------------------------------")
             
+            # Normalize alert_config if provided as a plain dict (JS JSON)
+            if isinstance(getattr(config, 'alert_config', None), dict):
+                try:
+                    config.alert_config = AlertConfig(**config.alert_config)  # type: ignore[arg-type]
+                except Exception:
+                    pass
+
             # Initialize OCR extractor if not already done
             if self.ocr_model is None:
                 self.logger.info("Lazy initialisation fallback (should rarely happen)")
@@ -220,7 +232,10 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # Step 3: Filter to target categories (handle dict or list)
             if isinstance(processed_data, dict):
                 processed_data = processed_data.get("detections", [])
-            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
+            # Accept case-insensitive category values and allow overriding via config
+            effective_targets = getattr(config, 'target_categories', self.target_categories) or self.target_categories
+            targets_lower = {str(cat).lower() for cat in effective_targets}
+            processed_data = [d for d in processed_data if str(d.get('category', '')).lower() in targets_lower]
             #self.logger.debug("Applied category filtering")
             
             raw_processed_data = [copy.deepcopy(det) for det in processed_data]
@@ -641,14 +656,20 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             detections.append(detection_obj)
         
         alert_settings = []
-        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+        # Build alert settings tolerating dict or dataclass for alert_config
+        if config.alert_config:
+            alert_cfg = config.alert_config
+            alert_type = getattr(alert_cfg, 'alert_type', None) if not isinstance(alert_cfg, dict) else alert_cfg.get('alert_type')
+            alert_value = getattr(alert_cfg, 'alert_value', None) if not isinstance(alert_cfg, dict) else alert_cfg.get('alert_value')
+            count_thresholds = getattr(alert_cfg, 'count_thresholds', None) if not isinstance(alert_cfg, dict) else alert_cfg.get('count_thresholds')
+            alert_type = alert_type if isinstance(alert_type, list) else (list(alert_type) if alert_type is not None else ['Default'])
+            alert_value = alert_value if isinstance(alert_value, list) else (list(alert_value) if alert_value is not None else ['JSON'])
             alert_settings.append({
-                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                "alert_type": alert_type,
                 "incident_category": self.CASE_TYPE,
-                "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                "threshold_level": count_thresholds or {},
                 "ascending": True,
-                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']), 
-                                                  getattr(config.alert_config, 'alert_value', ['JSON']))}
+                "settings": {t: v for t, v in zip(alert_type, alert_value)}
             })
         
         if alerts:
@@ -693,27 +714,32 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         if not config.alert_config:
             return alerts
 
-        if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
-            for category, threshold in config.alert_config.count_thresholds.items():
+        # Extract thresholds regardless of dict/dataclass
+        _alert_cfg = config.alert_config
+        _thresholds = getattr(_alert_cfg, 'count_thresholds', None) if not isinstance(_alert_cfg, dict) else _alert_cfg.get('count_thresholds')
+        _types = getattr(_alert_cfg, 'alert_type', None) if not isinstance(_alert_cfg, dict) else _alert_cfg.get('alert_type')
+        _values = getattr(_alert_cfg, 'alert_value', None) if not isinstance(_alert_cfg, dict) else _alert_cfg.get('alert_value')
+        _types = _types if isinstance(_types, list) else (list(_types) if _types is not None else ['Default'])
+        _values = _values if isinstance(_values, list) else (list(_values) if _values is not None else ['JSON'])
+        if _thresholds:
+            for category, threshold in _thresholds.items():
                 if category == "all" and total_detections > threshold:
                     alerts.append({
-                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                        "alert_type": _types,
                         "alert_id": f"alert_{category}_{frame_key}",
                         "incident_category": self.CASE_TYPE,
                         "threshold_level": threshold,
                         "ascending": get_trend(self._ascending_alert_list),
-                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']), 
-                                                          getattr(config.alert_config, 'alert_value', ['JSON']))}
+                        "settings": {t: v for t, v in zip(_types, _values)}
                     })
                 elif category in per_category_count and per_category_count[category] > threshold:
                     alerts.append({
-                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                        "alert_type": _types,
                         "alert_id": f"alert_{category}_{frame_key}",
                         "incident_category": self.CASE_TYPE,
                         "threshold_level": threshold,
                         "ascending": get_trend(self._ascending_alert_list),
-                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']), 
-                                                          getattr(config.alert_config, 'alert_value', ['JSON']))}
+                        "settings": {t: v for t, v in zip(_types, _values)}
                     })
         return alerts
 
@@ -778,14 +804,19 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             human_text = "\n".join(human_text_lines)
 
             alert_settings = []
-            if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            if config.alert_config:
+                _alert_cfg = config.alert_config
+                _types = getattr(_alert_cfg, 'alert_type', None) if not isinstance(_alert_cfg, dict) else _alert_cfg.get('alert_type')
+                _values = getattr(_alert_cfg, 'alert_value', None) if not isinstance(_alert_cfg, dict) else _alert_cfg.get('alert_value')
+                _thresholds = getattr(_alert_cfg, 'count_thresholds', None) if not isinstance(_alert_cfg, dict) else _alert_cfg.get('count_thresholds')
+                _types = _types if isinstance(_types, list) else (list(_types) if _types is not None else ['Default'])
+                _values = _values if isinstance(_values, list) else (list(_values) if _values is not None else ['JSON'])
                 alert_settings.append({
-                    "alert_type": getattr(config.alert_config, 'alert_type', ['Default']),
+                    "alert_type": _types,
                     "incident_category": self.CASE_TYPE,
-                    "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                    "threshold_level": _thresholds or {},
                     "ascending": True,
-                    "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']), 
-                                                      getattr(config.alert_config, 'alert_value', ['JSON']))}
+                    "settings": {t: v for t, v in zip(_types, _values)}
                 })
         
             event = self.create_incident(

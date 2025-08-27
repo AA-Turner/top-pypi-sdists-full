@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-tdlib
-Version: 10.6.8
+Version: 10.6.9
 Summary: passagemath: Tree decompositions with tdlib
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors

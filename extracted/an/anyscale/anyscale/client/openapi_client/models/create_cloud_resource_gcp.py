@@ -39,6 +39,8 @@ class CreateCloudResourceGCP(object):
         'kubernetes_zones': 'list[str]',
         'kubernetes_dataplane_identity': 'str',
         'kubernetes_nfs_persistent_volume_claim': 'str',
+        'persistent_volume_claim': 'str',
+        'csi_ephemeral_volume_driver': 'str',
         'cloud_storage_bucket_name': 'str',
         'cloud_storage_bucket_endpoint': 'str',
         'cloud_storage_bucket_region': 'str',
@@ -62,6 +64,8 @@ class CreateCloudResourceGCP(object):
         'kubernetes_zones': 'kubernetes_zones',
         'kubernetes_dataplane_identity': 'kubernetes_dataplane_identity',
         'kubernetes_nfs_persistent_volume_claim': 'kubernetes_nfs_persistent_volume_claim',
+        'persistent_volume_claim': 'persistent_volume_claim',
+        'csi_ephemeral_volume_driver': 'csi_ephemeral_volume_driver',
         'cloud_storage_bucket_name': 'cloud_storage_bucket_name',
         'cloud_storage_bucket_endpoint': 'cloud_storage_bucket_endpoint',
         'cloud_storage_bucket_region': 'cloud_storage_bucket_region',
@@ -78,7 +82,7 @@ class CreateCloudResourceGCP(object):
         'memorystore_instance_config': 'memorystore_instance_config'
     }
 
-    def __init__(self, compute_stack=None, kubernetes_ingress_external_address=None, kubernetes_namespaces=None, kubernetes_zones=None, kubernetes_dataplane_identity=None, kubernetes_nfs_persistent_volume_claim=None, cloud_storage_bucket_name=None, cloud_storage_bucket_endpoint=None, cloud_storage_bucket_region=None, nfs_mount_targets=None, nfs_mount_path=None, gcp_vpc_id=None, gcp_subnet_ids=None, gcp_cluster_node_service_account_email=None, gcp_anyscale_iam_service_account_email=None, gcp_filestore_config=None, gcp_firewall_policy_ids=None, gcp_cloud_storage_bucket_id=None, gcp_deployment_manager_id=None, memorystore_instance_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, compute_stack=None, kubernetes_ingress_external_address=None, kubernetes_namespaces=None, kubernetes_zones=None, kubernetes_dataplane_identity=None, kubernetes_nfs_persistent_volume_claim=None, persistent_volume_claim=None, csi_ephemeral_volume_driver=None, cloud_storage_bucket_name=None, cloud_storage_bucket_endpoint=None, cloud_storage_bucket_region=None, nfs_mount_targets=None, nfs_mount_path=None, gcp_vpc_id=None, gcp_subnet_ids=None, gcp_cluster_node_service_account_email=None, gcp_anyscale_iam_service_account_email=None, gcp_filestore_config=None, gcp_firewall_policy_ids=None, gcp_cloud_storage_bucket_id=None, gcp_deployment_manager_id=None, memorystore_instance_config=None, local_vars_configuration=None):  # noqa: E501
         """CreateCloudResourceGCP - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -90,6 +94,8 @@ class CreateCloudResourceGCP(object):
         self._kubernetes_zones = None
         self._kubernetes_dataplane_identity = None
         self._kubernetes_nfs_persistent_volume_claim = None
+        self._persistent_volume_claim = None
+        self._csi_ephemeral_volume_driver = None
         self._cloud_storage_bucket_name = None
         self._cloud_storage_bucket_endpoint = None
         self._cloud_storage_bucket_region = None
@@ -118,6 +124,10 @@ class CreateCloudResourceGCP(object):
             self.kubernetes_dataplane_identity = kubernetes_dataplane_identity
         if kubernetes_nfs_persistent_volume_claim is not None:
             self.kubernetes_nfs_persistent_volume_claim = kubernetes_nfs_persistent_volume_claim
+        if persistent_volume_claim is not None:
+            self.persistent_volume_claim = persistent_volume_claim
+        if csi_ephemeral_volume_driver is not None:
+            self.csi_ephemeral_volume_driver = csi_ephemeral_volume_driver
         if cloud_storage_bucket_name is not None:
             self.cloud_storage_bucket_name = cloud_storage_bucket_name
         if cloud_storage_bucket_endpoint is not None:
@@ -280,10 +290,56 @@ class CreateCloudResourceGCP(object):
         self._kubernetes_nfs_persistent_volume_claim = kubernetes_nfs_persistent_volume_claim
 
     @property
+    def persistent_volume_claim(self):
+        """Gets the persistent_volume_claim of this CreateCloudResourceGCP.  # noqa: E501
+
+        For Kubernetes deployments, the name of the persistent volume claim used to mount shared storage into pods.  # noqa: E501
+
+        :return: The persistent_volume_claim of this CreateCloudResourceGCP.  # noqa: E501
+        :rtype: str
+        """
+        return self._persistent_volume_claim
+
+    @persistent_volume_claim.setter
+    def persistent_volume_claim(self, persistent_volume_claim):
+        """Sets the persistent_volume_claim of this CreateCloudResourceGCP.
+
+        For Kubernetes deployments, the name of the persistent volume claim used to mount shared storage into pods.  # noqa: E501
+
+        :param persistent_volume_claim: The persistent_volume_claim of this CreateCloudResourceGCP.  # noqa: E501
+        :type: str
+        """
+
+        self._persistent_volume_claim = persistent_volume_claim
+
+    @property
+    def csi_ephemeral_volume_driver(self):
+        """Gets the csi_ephemeral_volume_driver of this CreateCloudResourceGCP.  # noqa: E501
+
+        For Kubernetes deployments, the CSI ephemeral volume driver used to mount shared storage into pods.  # noqa: E501
+
+        :return: The csi_ephemeral_volume_driver of this CreateCloudResourceGCP.  # noqa: E501
+        :rtype: str
+        """
+        return self._csi_ephemeral_volume_driver
+
+    @csi_ephemeral_volume_driver.setter
+    def csi_ephemeral_volume_driver(self, csi_ephemeral_volume_driver):
+        """Sets the csi_ephemeral_volume_driver of this CreateCloudResourceGCP.
+
+        For Kubernetes deployments, the CSI ephemeral volume driver used to mount shared storage into pods.  # noqa: E501
+
+        :param csi_ephemeral_volume_driver: The csi_ephemeral_volume_driver of this CreateCloudResourceGCP.  # noqa: E501
+        :type: str
+        """
+
+        self._csi_ephemeral_volume_driver = csi_ephemeral_volume_driver
+
+    @property
     def cloud_storage_bucket_name(self):
         """Gets the cloud_storage_bucket_name of this CreateCloudResourceGCP.  # noqa: E501
 
-        A fully qualified storage bucket name for cloud storage, e.g. s3://bucket-name, gs://bucket-name, or azure://bucket-name.  # noqa: E501
+        A fully qualified storage bucket name for cloud storage, e.g. s3://bucket-name, gs://bucket-name, or abfss://bucket-name@account.dfs.core.windows.net.  # noqa: E501
 
         :return: The cloud_storage_bucket_name of this CreateCloudResourceGCP.  # noqa: E501
         :rtype: str
@@ -294,7 +350,7 @@ class CreateCloudResourceGCP(object):
     def cloud_storage_bucket_name(self, cloud_storage_bucket_name):
         """Sets the cloud_storage_bucket_name of this CreateCloudResourceGCP.
 
-        A fully qualified storage bucket name for cloud storage, e.g. s3://bucket-name, gs://bucket-name, or azure://bucket-name.  # noqa: E501
+        A fully qualified storage bucket name for cloud storage, e.g. s3://bucket-name, gs://bucket-name, or abfss://bucket-name@account.dfs.core.windows.net.  # noqa: E501
 
         :param cloud_storage_bucket_name: The cloud_storage_bucket_name of this CreateCloudResourceGCP.  # noqa: E501
         :type: str

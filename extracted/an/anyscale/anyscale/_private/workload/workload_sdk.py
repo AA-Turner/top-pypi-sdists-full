@@ -112,7 +112,7 @@ class WorkloadSDK(BaseSDK):
 
         return new_runtime_envs
 
-    def override_and_upload_local_dirs(
+    def override_and_upload_local_dirs_single_deployment(  # noqa: PLR0912
         self,
         runtime_envs: List[Dict[str, Any]],
         *,
@@ -122,7 +122,7 @@ class WorkloadSDK(BaseSDK):
         autopopulate_in_workspace: bool = True,
         additional_py_modules: Optional[List[str]] = None,
         py_executable_override: Optional[str] = None,
-        has_multiple_cloud_deployments: bool = False,
+        cloud_deployment: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Returns modified runtime_envs with all local dirs converted to remote URIs.
 
@@ -142,15 +142,13 @@ class WorkloadSDK(BaseSDK):
             if target in local_path_to_uri:
                 return local_path_to_uri[target]
 
-            if has_multiple_cloud_deployments:
-                self.logger.warning(
-                    "For compute configurations with multiple cloud deployments, local directories will only be uploaded to the object storage of the primary cloud deployment."
-                )
-
             self.logger.info(f"Uploading local dir '{target}' to cloud storage.")
             assert cloud_id is not None
             uri = self._client.upload_local_dir_to_cloud_storage(
-                target, cloud_id=cloud_id, excludes=excludes,
+                target,
+                cloud_id=cloud_id,
+                excludes=excludes,
+                cloud_deployment=cloud_deployment,
             )
             local_path_to_uri[target] = uri
             return uri
@@ -186,6 +184,103 @@ class WorkloadSDK(BaseSDK):
                     _upload_dir_memoized(py_module, excludes=final_excludes)
                     for py_module in final_py_modules
                 ]
+
+            if py_executable_override:
+                runtime_env["py_executable"] = py_executable_override
+
+        return new_runtime_envs
+
+    def override_and_upload_local_dirs_multi_deployment(  # noqa: PLR0912
+        self,
+        runtime_envs: List[Dict[str, Any]],
+        *,
+        working_dir_override: Optional[str],
+        excludes_override: Optional[List[str]],
+        cloud_deployments: List[Optional[str]],
+        cloud_id: Optional[str] = None,
+        autopopulate_in_workspace: bool = True,
+        additional_py_modules: Optional[List[str]] = None,
+        py_executable_override: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Returns modified runtime_envs with all local dirs converted to remote bucket paths,
+        stored in the "relative_working_dir" and "relative_py_modules" fields.
+
+        The precedence for overrides is: explicit overrides passed in > fields in the existing
+        runtime_envs > workspace defaults (if `autopopulate_in_workspace == True`).
+
+        Each unique local directory across these fields will be uploaded once to cloud storage,
+        then all occurrences of it in the config will be replaced with the corresponding remote URI.
+        """
+        new_runtime_envs = copy.deepcopy(runtime_envs)
+
+        local_path_to_bucket_path: Dict[str, str] = {}
+
+        def _upload_dir_memoized(target: str, *, excludes: Optional[List[str]]) -> str:
+            if target in local_path_to_bucket_path:
+                return local_path_to_bucket_path[target]
+
+            self.logger.info(
+                f"Uploading local dir '{target}' to object storage for all {len(cloud_deployments)} cloud deployments in the compute config."
+            )
+            assert cloud_id is not None
+            bucket_path = self._client.upload_local_dir_to_cloud_storage_multi_deployment(
+                target,
+                cloud_id=cloud_id,
+                excludes=excludes,
+                cloud_deployments=cloud_deployments,
+            )
+            local_path_to_bucket_path[target] = bucket_path
+            return bucket_path
+
+        for runtime_env in new_runtime_envs:
+            # Extend, don't overwrite, excludes if it's provided.
+            if excludes_override is not None:
+                existing_excludes = runtime_env.get("excludes", None) or []
+                runtime_env["excludes"] = existing_excludes + excludes_override
+
+            final_excludes = runtime_env.get("excludes", [])
+
+            new_working_dir = None
+            if working_dir_override is not None:
+                new_working_dir = working_dir_override
+            elif "working_dir" in runtime_env:
+                new_working_dir = runtime_env["working_dir"]
+            elif autopopulate_in_workspace and self._client.inside_workspace():
+                new_working_dir = "."
+
+            if new_working_dir is not None:
+                if is_dir_remote_uri(new_working_dir):
+                    runtime_env["working_dir"] = new_working_dir
+                else:
+                    runtime_env["relative_working_dir"] = _upload_dir_memoized(
+                        new_working_dir, excludes=final_excludes
+                    )
+                    runtime_env.pop("working_dir", None)
+
+            if additional_py_modules:
+                existing_py_modules = runtime_env.get("py_modules", [])
+                runtime_env["py_modules"] = existing_py_modules + additional_py_modules
+
+            final_py_modules = runtime_env.get("py_modules", None)
+            if final_py_modules is not None:
+                py_modules = [
+                    py_module
+                    for py_module in final_py_modules
+                    if is_dir_remote_uri(py_module)
+                ]
+                if len(py_modules) > 0:
+                    runtime_env["py_modules"] = py_modules
+                else:
+                    # If there are no py_modules, remove the field.
+                    runtime_env.pop("py_modules", None)
+
+                relative_py_modules = [
+                    _upload_dir_memoized(py_module, excludes=final_excludes)
+                    for py_module in final_py_modules
+                    if not is_dir_remote_uri(py_module)
+                ]
+                if len(relative_py_modules) > 0:
+                    runtime_env["relative_py_modules"] = relative_py_modules
 
             if py_executable_override:
                 runtime_env["py_executable"] = py_executable_override

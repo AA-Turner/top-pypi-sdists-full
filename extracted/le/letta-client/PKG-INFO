@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: letta-client
-Version: 0.1.277
+Version: 0.1.285
 Summary: 
 Requires-Python: >=3.8,<4.0
 Classifier: Intended Audience :: Developers
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=https%3A%2F%2Fgithub.com%2Fletta-ai%2Fletta-python)
 [![pypi](https://img.shields.io/pypi/v/letta-client)](https://pypi.python.org/pypi/letta-client)
 
-The Letta Python library provides convenient access to the Letta API from Python.
+The Letta Python library provides convenient access to the Letta APIs from Python.
 
 ## Installation
 

@@ -7,8 +7,7 @@ from types import ModuleType
 
 
 from contrast.utils.patch_utils import register_module_patcher
-from contrast.agent.policy import patch_manager
-from contrast.agent.policy import registry
+from contrast.agent.policy import patch_manager, registry
 from contrast.agent.protect.policy import apply_protect_patch
 from contrast.agent.assess.policy.patches import (
     build_assess_method,
@@ -188,6 +187,38 @@ def apply_module_patches(module: ModuleType):
     """
     logger.debug("Applying module patches", module=module.__name__)
 
+    _apply_v1_patches(module)
+    _apply_v2_patches(module)
+
+    # It's possible that the current module contains multiple references to the
+    # function we replaced, but that only one of them is represented in policy. We do a
+    # quick repatching pass over the current module here to make sure we cover all of
+    # the references that may have been missed.
+    repatch_module(module)
+
+    # EDGE CASE PYT-1065: Werkzeug==0.16.x
+    # This version of Werkzeug keeps a reference to the module in _real_module
+    # which requires us to repatch functions in this second reference, too.
+    if hasattr(module, "_real_module"):
+        repatch_module(module._real_module)
+
+
+def reverse_module_patches(module: ModuleType):
+    """
+    Reverse all patches applied to a module.
+    """
+    for patch_policy in registry.get_policy_by_module(module.__name__):
+        if patch_policy.name in PATCH_LOCATIONS:
+            PATCH_LOCATIONS.remove(patch_policy.name)
+        if patch_policy.class_name:
+            patch_manager.reverse_patches_by_owner(
+                getattr(module, patch_policy.class_name)
+            )
+
+    patch_manager.reverse_patches_by_owner(module)
+
+
+def _apply_v1_patches(module: ModuleType):
     module_policy = registry.get_policy_by_module(module.__name__)
     if module_policy is None:
         logger.debug("WARNING: No module policy found", module=module.__name__)
@@ -246,32 +277,40 @@ def apply_module_patches(module: ModuleType):
 
         PATCH_LOCATIONS.add(patch_policy.name)
 
-    # It's possible that the current module contains multiple references to the
-    # function we replaced, but that only one of them is represented in policy. We do a
-    # quick repatching pass over the current module here to make sure we cover all of
-    # the references that may have been missed.
-    repatch_module(module)
 
-    # EDGE CASE PYT-1065: Werkzeug==0.16.x
-    # This version of Werkzeug keeps a reference to the module in _real_module
-    # which requires us to repatch functions in this second reference, too.
-    if hasattr(module, "_real_module"):
-        repatch_module(module._real_module)
+@functools.cache
+def _apply_v2_patches(module: ModuleType):
+    from contrast.agent.policy import registry_v2
 
+    patch_locations = {
+        location
+        for location in registry_v2.get_policy_locations()
+        if location.module == module.__name__
+    }
+    if len(patch_locations) == 0:
+        logger.debug("No v2 module policy found", module=module.__name__)
+        return
 
-def reverse_module_patches(module: ModuleType):
-    """
-    Reverse all patches applied to a module.
-    """
-    for patch_policy in registry.get_policy_by_module(module.__name__):
-        if patch_policy.name in PATCH_LOCATIONS:
-            PATCH_LOCATIONS.remove(patch_policy.name)
-        if patch_policy.class_name:
-            patch_manager.reverse_patches_by_owner(
-                getattr(module, patch_policy.class_name)
+    for location in patch_locations:
+        patch_site = (
+            module
+            if location.class_name is None
+            else getattr(module, location.class_name, None)
+        )
+        if patch_site is None:
+            logger.debug(
+                "Patch site not found for %s in module %s", location, module.__name__
             )
+            continue
+        original_func = getattr(patch_site, location.method_name)
 
-    patch_manager.reverse_patches_by_owner(module)
+        patch_manager.patch(
+            patch_site,
+            location.method_name,
+            registry_v2.build_generic_contrast_wrapper(
+                original_func, module_name=location.module
+            ),
+        )
 
 
 def register_policy_patches(*, protect_mode: bool):
@@ -282,7 +321,11 @@ def register_policy_patches(*, protect_mode: bool):
     protect_mode: true.
     If not protect_mode, we will patch all module patches with assess.
     """
-    modules_to_patch = registry.get_patch_policies(protect=protect_mode)
+    from contrast.agent.policy import registry_v2
+
+    modules_to_patch = set(registry.get_patch_policies(protect=protect_mode)) | {
+        location.module for location in registry_v2.get_policy_locations()
+    }
 
     for module_name in modules_to_patch:
         logger.debug("Registering import hook for %s", module_name)

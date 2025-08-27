@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: appian-locust
-Version: 2.26.4
+Version: 2.26.6
 Summary: Tools and functions to make testing Appian with Locust easier
 Home-page: https://gitlab.com/appian-oss/appian-locust
 Author: Appian Performance & Reliability Engineering Squad
@@ -14,6 +14,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: locust>=2.37.3
 Requires-Dist: uritemplate>=4.1.1
+Requires-Dist: sseclient-py>=1.8.0
 Dynamic: author
 Dynamic: description
 Dynamic: description-content-type

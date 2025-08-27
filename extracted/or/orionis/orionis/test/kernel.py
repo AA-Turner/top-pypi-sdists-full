@@ -1,4 +1,4 @@
-from orionis.console.output.contracts.console import IConsole
+from orionis.console.contracts.console import IConsole
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.log.contracts.log_service import ILogger
 from orionis.test.contracts.kernel import ITestKernel

@@ -142,8 +142,13 @@ class LMHeadConfig(Config):
 
 class LMOutputWithLoss(NamedTuple):
     logits: Optional[torch.Tensor]
+    """The LM logits."""
+    loss: torch.Tensor
+    """The loss to optimize for."""
     ce_loss: torch.Tensor
+    """The CE loss (for logging only)."""
     z_loss: Optional[torch.Tensor]
+    """The Z loss (for logging only)."""
 
 
 class LMHead(nn.Module):
@@ -203,15 +208,37 @@ class LMHead(nn.Module):
         z_loss_multiplier: Optional[float] = None,
         loss_div_factor: Optional[Union[torch.Tensor, float]] = None,
         return_logits: Optional[bool] = None,
+        logits_to_keep: Union[int, torch.Tensor] = 0,
     ) -> Union[torch.Tensor, LMOutputWithLoss]:
         """
-        Apply the LM head to the hidden state ``x`` with shape ``(B, S, D)``..
+        Applies the language modeling (LM) head to the input hidden states.
 
-        :returns: The logits if ``labels`` is ``None`` or a named tuple which will include the loss(es).
+        :param x: The input hidden states of shape ``(batch_size, seq_len, d_model)``.
+        :param labels: (Optional) Target token IDs of shape ``(batch_size, seq_len)``. If provided, the method computes and returns the loss.
+        :param ignore_index: Specifies a target value that is ignored and does not contribute to the loss.
+        :param loss_reduction: Specifies the reduction to apply to the output loss: "mean", "sum", or "none".
+        :param z_loss_multiplier: (Optional) Multiplier for the z-loss regularization term.
+        :param loss_div_factor: (Optional) Divisor for the loss, can be a scalar or tensor.
+        :param return_logits: If True, returns logits along with the loss when labels are provided.
+        :param logits_to_keep: If nonzero, restricts computation to the last N positions (if int) or to specific positions (if tensor).
+
+        :returns: If ``labels`` is ``None``, returns the logits tensor of shape ``(batch_size, seq_len, vocab_size)``.
+                  If ``labels`` is provided, returns an ``LMOutputWithLoss`` named tuple containing the loss and optionally the logits.
         """
         B = x.shape[0]
 
         h = self.norm(x) if self.norm is not None else x
+
+        if isinstance(logits_to_keep, int):
+            if logits_to_keep != 0:
+                # Keep only the last logits_to_keep positions
+                h = h[:, -logits_to_keep:, :]
+                if labels is not None:
+                    labels = labels[:, -logits_to_keep:]
+        else:  # logits_to_keep is a tensor specifying positions to keep
+            h = h.gather(1, logits_to_keep.unsqueeze(-1).expand(-1, -1, h.size(-1)))
+            if labels is not None:
+                labels = labels.gather(1, logits_to_keep)
 
         if labels is None:
             if return_logits is False:
@@ -219,6 +246,7 @@ class LMHead(nn.Module):
             return self.w_out(h)
 
         logits: Optional[torch.Tensor]
+        loss: torch.Tensor
         ce_loss: torch.Tensor
         z_loss: Optional[torch.Tensor]
         if self.loss_implementation == LMLossImplementation.default:
@@ -226,24 +254,32 @@ class LMHead(nn.Module):
             assert logits is not None
             ce_loss, z_loss = cross_entropy_loss(
                 get_local_tensor(logits).view(-1, self.vocab_size),
-                get_local_tensor(labels).view(-1),
+                get_local_tensor(labels).contiguous().view(-1),
                 ignore_index=ignore_index,
                 reduction=loss_reduction,
                 compute_z_loss=z_loss_multiplier is not None,
                 z_loss_multiplier=z_loss_multiplier or 1e-4,
             )
+            if z_loss is not None:
+                loss = ce_loss + z_loss
+            else:
+                loss = ce_loss
         elif self.loss_implementation == LMLossImplementation.fused_linear:
             logits = None
-            ce_loss, z_loss = fused_linear_cross_entropy_loss(
-                get_local_tensor(h).view(-1, self.d_model),
-                get_local_tensor(self.w_out.weight),
-                get_local_tensor(labels).view(-1),
+            loss, z_loss = fused_linear_cross_entropy_loss(
+                get_local_tensor(h).contiguous().view(-1, self.d_model),
+                weight=get_local_tensor(self.w_out.weight),
+                labels=get_local_tensor(labels).contiguous().view(-1),
                 bias=get_local_tensor(self.w_out.bias) if self.w_out.bias is not None else None,
                 ignore_index=ignore_index,
                 reduction=loss_reduction,
                 compute_z_loss=z_loss_multiplier is not None,
                 z_loss_multiplier=z_loss_multiplier or 1e-4,
             )
+            if z_loss is not None:
+                ce_loss = loss - z_loss
+            else:
+                ce_loss = loss
         else:
             raise NotImplementedError(
                 f"'{self.loss_implementation}' loss implementation is not supported by {self.__class__.__name__}"
@@ -256,54 +292,28 @@ class LMHead(nn.Module):
                 f"'return_logits=True' is not compatible '{self.loss_implementation}' loss implementation"
             )
 
-        ce_loss = self._finalize_loss(
-            ce_loss, B, loss_reduction=loss_reduction, loss_div_factor=loss_div_factor
+        return LMOutputWithLoss(
+            logits=logits,
+            loss=self._finalize_loss(
+                loss, B, loss_reduction=loss_reduction, loss_div_factor=loss_div_factor
+            ),
+            ce_loss=self._finalize_loss(
+                ce_loss.detach(),
+                B,
+                loss_reduction=loss_reduction,
+                loss_div_factor=loss_div_factor,
+                reduce_across_tp_group=False,
+            ),
+            z_loss=None
+            if z_loss is None
+            else self._finalize_loss(
+                z_loss.detach(),
+                B,
+                loss_reduction=loss_reduction,
+                loss_div_factor=loss_div_factor,
+                reduce_across_tp_group=False,
+            ),
         )
-        if z_loss is not None:
-            z_loss = self._finalize_loss(
-                z_loss, B, loss_reduction=loss_reduction, loss_div_factor=loss_div_factor
-            )
-
-        return LMOutputWithLoss(logits=logits, ce_loss=ce_loss, z_loss=z_loss)
-
-    def compute_loss(
-        self,
-        logits: torch.Tensor,
-        labels: torch.Tensor,
-        *,
-        ignore_index: int = -100,
-        loss_reduction: Literal["mean", "sum", "none"] = "mean",
-        z_loss_multiplier: Optional[float] = None,
-        loss_div_factor: Optional[Union[torch.Tensor, float]] = None,
-        return_logits: bool = True,
-    ) -> LMOutputWithLoss:
-        B = logits.shape[0]
-
-        ce_loss: torch.Tensor
-        z_loss: Optional[torch.Tensor]
-        if self.loss_implementation == LMLossImplementation.default:
-            ce_loss, z_loss = cross_entropy_loss(
-                get_local_tensor(logits).view(-1, self.vocab_size),
-                get_local_tensor(labels).view(-1),
-                ignore_index=ignore_index,
-                reduction=loss_reduction,
-                compute_z_loss=z_loss_multiplier is not None,
-                z_loss_multiplier=z_loss_multiplier or 1e-4,
-            )
-        else:
-            raise NotImplementedError(
-                f"'{self.loss_implementation}' loss implementation is not supported by '{self.__class__.__name__}.compute_loss()'"
-            )
-
-        ce_loss = self._finalize_loss(
-            ce_loss, B, loss_reduction=loss_reduction, loss_div_factor=loss_div_factor
-        )
-        if z_loss is not None:
-            z_loss = self._finalize_loss(
-                z_loss, B, loss_reduction=loss_reduction, loss_div_factor=loss_div_factor
-            )
-
-        return LMOutputWithLoss(logits if return_logits else None, ce_loss, z_loss)
 
     def _finalize_loss(
         self,
@@ -312,7 +322,11 @@ class LMHead(nn.Module):
         *,
         loss_reduction: str,
         loss_div_factor: Optional[Union[torch.Tensor, float]] = None,
+        reduce_across_tp_group: Optional[bool] = None,
     ) -> torch.Tensor:
+        if reduce_across_tp_group is None:
+            reduce_across_tp_group = self.tp_enabled
+
         if loss_reduction == "none":
             # Reshape to `(B, S)`
             loss = loss.view(B, -1)
@@ -321,7 +335,7 @@ class LMHead(nn.Module):
             if self.tp_enabled:
                 assert self._tp_mesh is not None
                 loss = DTensor.from_local(loss, self._tp_mesh, (Shard(1),))
-        elif self.tp_enabled:
+        elif reduce_across_tp_group:
             # Wrap with DTensor and finish the reduction.
             assert self._tp_mesh is not None
             loss = DTensor.from_local(loss.unsqueeze(0), self._tp_mesh, (Shard(0),))
@@ -335,9 +349,15 @@ class LMHead(nn.Module):
                 raise NotImplementedError(loss_reduction)
 
         if loss_div_factor is not None:
+            # Adjust divide factor to account for parallel strategy.
+            if self.tp_enabled and not reduce_across_tp_group:
+                assert self._tp_mesh is not None
+                loss_div_factor = loss_div_factor / self._tp_mesh.size()
             if self.cp_enabled:
                 assert self._cp_mesh is not None
                 loss_div_factor = loss_div_factor / self._cp_mesh.size()
+
+            # Apply divide factor.
             loss = loss / loss_div_factor
 
         return loss
@@ -347,12 +367,23 @@ class LMHead(nn.Module):
         tp_mesh: DeviceMesh,
         input_layouts: Optional[Tuple[Placement, Placement]] = None,
     ):
+        # NOTE: there's a few cases to consider...
+        # 1. If we're not using 'fused_linear' loss and we have a norm, then we do sequence-parallel through
+        #    the norm, colwise-parallel through 'w_out', then back to sequence-parallel for the loss.
+        # 2. If we're not using 'fused_linear' loss and we don't have a norm, then we start with
+        #    the input replicated and proceed the same way.
+        # 3. If we're using 'fused_linear' loss we do sequence-parallel all the way through.
         parallelize_module(
             module=self,
             device_mesh=tp_mesh,
             parallelize_plan=PrepareModuleInput(
                 input_layouts=None if input_layouts is None else input_layouts[0],
-                desired_input_layouts=Shard(1) if self.norm is not None else Replicate(),
+                desired_input_layouts=Shard(1)
+                if (
+                    self.loss_implementation == LMLossImplementation.fused_linear
+                    or self.norm is not None
+                )
+                else Replicate(),
                 input_kwarg_layouts=None if input_layouts is None else {"labels": input_layouts[1]},
                 desired_input_kwarg_layouts={"labels": Shard(1)},
             ),
@@ -365,11 +396,18 @@ class LMHead(nn.Module):
                 parallelize_plan=SequenceParallel(),
             )
 
-        parallelize_module(
-            module=self.w_out,
-            device_mesh=tp_mesh,
-            parallelize_plan=ColwiseParallel(output_layouts=Shard(1), use_local_output=False),
-        )
+        if self.loss_implementation == LMLossImplementation.fused_linear:
+            parallelize_module(
+                module=self.w_out,
+                device_mesh=tp_mesh,
+                parallelize_plan=SequenceParallel(),
+            )
+        else:
+            parallelize_module(
+                module=self.w_out,
+                device_mesh=tp_mesh,
+                parallelize_plan=ColwiseParallel(output_layouts=Shard(1), use_local_output=False),
+            )
 
         self._tp_mesh = tp_mesh
 
@@ -425,7 +463,21 @@ class NormalizedLMHead(LMHead):
         z_loss_multiplier: Optional[float] = None,
         loss_div_factor: Optional[Union[torch.Tensor, float]] = None,
         return_logits: Optional[bool] = None,
+        logits_to_keep: Union[int, torch.Tensor] = 0,
     ) -> Union[torch.Tensor, LMOutputWithLoss]:
+        B = x.shape[0]
+
+        if isinstance(logits_to_keep, int):
+            if logits_to_keep != 0:
+                # Keep only the last logits_to_keep positions
+                x = x[:, -logits_to_keep:, :]
+                if labels is not None:
+                    labels = labels[:, -logits_to_keep:]
+        else:  # logits_to_keep is a tensor specifying positions to keep
+            x = x.gather(1, logits_to_keep.unsqueeze(-1).expand(-1, -1, x.size(-1)))
+            if labels is not None:
+                labels = labels.gather(1, logits_to_keep)
+
         sz = self.sz * (self.sz_init_value / self.sz_init_scaling)
         logits = sz * self.w_out(x)
         if labels is None:
@@ -433,14 +485,55 @@ class NormalizedLMHead(LMHead):
                 raise RuntimeError("'return_logits=False' is only valid when 'labels' is provided")
             return logits
 
-        return self.compute_loss(
-            logits,
-            labels,
-            ignore_index=ignore_index,
-            loss_reduction=loss_reduction,
-            z_loss_multiplier=z_loss_multiplier,
-            loss_div_factor=loss_div_factor,
-            return_logits=True if return_logits is None else return_logits,
+        loss: torch.Tensor
+        ce_loss: torch.Tensor
+        z_loss: Optional[torch.Tensor]
+        if self.loss_implementation == LMLossImplementation.default:
+            ce_loss, z_loss = cross_entropy_loss(
+                get_local_tensor(logits).view(-1, self.vocab_size),
+                get_local_tensor(labels).contiguous().view(-1),
+                ignore_index=ignore_index,
+                reduction=loss_reduction,
+                compute_z_loss=z_loss_multiplier is not None,
+                z_loss_multiplier=z_loss_multiplier or 1e-4,
+            )
+            if z_loss is not None:
+                loss = ce_loss + z_loss
+            else:
+                loss = ce_loss
+        else:
+            raise NotImplementedError(
+                f"'{self.loss_implementation}' loss implementation is not supported by '{self.__class__.__name__}'"
+            )
+
+        if return_logits is False:
+            logits = None
+        elif return_logits is True and logits is None:
+            raise RuntimeError(
+                f"'return_logits=True' is not compatible '{self.loss_implementation}' loss implementation"
+            )
+
+        return LMOutputWithLoss(
+            logits=logits,
+            loss=self._finalize_loss(
+                loss, B, loss_reduction=loss_reduction, loss_div_factor=loss_div_factor
+            ),
+            ce_loss=self._finalize_loss(
+                ce_loss.detach(),
+                B,
+                loss_reduction=loss_reduction,
+                loss_div_factor=loss_div_factor,
+                reduce_across_tp_group=False,
+            ),
+            z_loss=None
+            if z_loss is None
+            else self._finalize_loss(
+                z_loss.detach(),
+                B,
+                loss_reduction=loss_reduction,
+                loss_div_factor=loss_div_factor,
+                reduce_across_tp_group=False,
+            ),
         )
 
     def apply_tp(

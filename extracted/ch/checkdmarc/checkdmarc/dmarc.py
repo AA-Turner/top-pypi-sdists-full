@@ -20,6 +20,7 @@ from pyleri import (
 from checkdmarc.utils import (
     WSP_REGEX,
     query_dns,
+    normalize_domain,
     get_base_domain,
     MAILTO_REGEX,
     DNSException,
@@ -395,6 +396,7 @@ dmarc_tags = OrderedDict(
 
 def _query_dmarc_record(
     domain: str,
+    *,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
     timeout: float = 2.0,
@@ -413,7 +415,7 @@ def _query_dmarc_record(
     Returns:
         str: A record string or None
     """
-    domain = domain.lower()
+    domain = normalize_domain(domain)
     target = f"_dmarc.{domain}"
     txt_prefix = "v=DMARC1"
     dmarc_record = None
@@ -465,7 +467,7 @@ def _query_dmarc_record(
             for record in records:
                 if record.startswith(txt_prefix):
                     raise DMARCRecordInWrongLocation(
-                        "The DMARC record must be located at " f"{target}, not {domain}"
+                        f"The DMARC record must be located at {target}, not {domain}"
                     )
         except dns.resolver.NoAnswer:
             pass
@@ -490,6 +492,7 @@ def _query_dmarc_record(
 
 def query_dmarc_record(
     domain: str,
+    *,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
     timeout: float = 2.0,
@@ -544,7 +547,7 @@ def query_dmarc_record(
         )
         for root_record in root_records:
             if root_record.startswith("v=DMARC1"):
-                warnings.append(f"DMARC record at root of {domain} " "has no effect")
+                warnings.append(f"DMARC record at root of {domain} has no effect")
     except dns.resolver.NXDOMAIN:
         raise DMARCRecordNotFound(f"The domain {domain} does not exist")
     except dns.exception.DNSException:
@@ -658,6 +661,7 @@ def parse_dmarc_report_uri(uri: str) -> OrderedDict:
 
 def check_wildcard_dmarc_report_authorization(
     domain: str,
+    *,
     nameservers: list[str] = None,
     ignore_unrelated_records: bool = False,
     resolver: dns.resolver.Resolver = None,
@@ -721,6 +725,7 @@ def check_wildcard_dmarc_report_authorization(
 def verify_dmarc_report_destination(
     source_domain: str,
     destination_domain: str,
+    *,
     nameservers: list[str] = None,
     ignore_unrelated_records: bool = False,
     resolver: dns.resolver.Resolver = None,
@@ -800,6 +805,7 @@ def verify_dmarc_report_destination(
 def parse_dmarc_record(
     record: str,
     domain: str,
+    *,
     parked: bool = False,
     include_tag_descriptions: bool = False,
     nameservers: list[str] = None,
@@ -908,13 +914,18 @@ def parse_dmarc_record(
             raise InvalidDMARCTag(f"{tag} is not a valid DMARC tag")
         tag_value = tags[tag]["value"]
         allowed_values = None
+        explicit = tags[tag]["explicit"]
         if "values" in dmarc_tags[tag]:
             allowed_values = dmarc_tags[tag]["values"]
+        if tag == "p" and tag_value == "none":
+            warnings.append("A p tag value of none has no effect on email")
+        if tag == "sp" and tag_value == "none" and explicit:
+            warnings.append("An sp tag value of none has no effect on email")
         if tag == "fo":
             tag_value = tag_value.split(":")
             if "0" in tag_value and "1" in tag_value:
                 warnings.append(
-                    "When 1 is present in the fo tag, including 0 is " "redundant"
+                    "When 1 is present in the fo tag, including 0 is redundant"
                 )
             for value in tag_value:
                 if value not in allowed_values:
@@ -926,7 +937,7 @@ def parse_dmarc_record(
             for value in tag_value:
                 if value not in allowed_values:
                     raise InvalidDMARCTagValue(
-                        f"{value} is not a valid option for the DMARC " "rf tag"
+                        f"{value} is not a valid option for the DMARC rf tag"
                     )
 
         elif allowed_values and tag_value not in allowed_values:
@@ -1069,7 +1080,7 @@ def parse_dmarc_record(
         warning_msg = "Policy (p=) should be reject for parked domains"
         warnings.append(str(_DMARCBestPracticeWarning(warning_msg)))
     if parked and tags["sp"]["value"] != "reject":
-        warning_msg = "Subdomain policy (sp=) should be reject for " "parked domains"
+        warning_msg = "Subdomain policy (sp=) should be reject for parked domains"
         warnings.append(str(_DMARCBestPracticeWarning(warning_msg)))
 
     # Add descriptions if requested
@@ -1087,6 +1098,7 @@ def parse_dmarc_record(
 
 def get_dmarc_record(
     domain: str,
+    *,
     include_tag_descriptions: bool = False,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
@@ -1145,6 +1157,7 @@ def get_dmarc_record(
 
 def check_dmarc(
     domain: str,
+    *,
     parked: bool = False,
     include_dmarc_tag_descriptions: bool = False,
     ignore_unrelated_records: bool = False,

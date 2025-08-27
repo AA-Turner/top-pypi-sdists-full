@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: prediction-market-agent-tooling
-Version: 0.69.2
+Version: 0.69.4
 Summary: Tools to benchmark, deploy and monitor prediction market agents.
 Author: Gnosis
 Requires-Python: >=3.10,<3.13

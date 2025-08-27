@@ -35,24 +35,43 @@ class ColorDetectionConfig(BaseConfig):
     frame_skip: int = 1
     usecase_categories: List[str] = field(
         default_factory=lambda: [
-            "bicycle", "car", "motorbike", "auto rickshaw", "bus", "garbagevan",
-            "truck", "minibus", "army vehicle", "pickup", "policecar", "rickshaw",
-            "scooter", "suv", "taxi", "three wheelers -CNG-", "human hauler", "van", "wheelbarrow"
+            "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
+            "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog",
+            "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
+            "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite",
+            "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle",
+            "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich",
+            "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+            "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote",
+            "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book",
+            "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
         ]
     )
     target_categories: List[str] = field(
-        default_factory=lambda: ['car', 'bicycle', 'bus', 'garbagevan', 'truck', 'motorbike', 'van']
+        default_factory=lambda: [
+            "car", "bicycle", "bus", "motorcycle"]
     )
     fps: Optional[float] = None
     bbox_format: str = "auto"
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0: "ambulance", 1: "army vehicle", 2: "car", 3: "bicycle", 4: "bus",
-            5: "auto rickshaw", 6: "garbagevan", 7: "truck", 8: "minibus", 9: "minivan",
-            10: "motorbike", 11: "pickup", 12: "policecar", 13: "rickshaw", 14: "scooter",
-            15: "suv", 16: "taxi", 17: "three wheelers -CNG-", 18: "human hauler",
-            19: "van", 20: "wheelbarrow"
-        }
+                0: "person", 1: "bicycle", 2: "car", 3: "motorcycle", 4: "airplane", 5: "bus",
+                6: "train", 7: "truck", 8: "boat", 9: "traffic light", 10: "fire hydrant",
+                11: "stop sign", 12: "parking meter", 13: "bench", 14: "bird", 15: "cat",
+                16: "dog", 17: "horse", 18: "sheep", 19: "cow", 20: "elephant", 21: "bear",
+                22: "zebra", 23: "giraffe", 24: "backpack", 25: "umbrella", 26: "handbag",
+                27: "tie", 28: "suitcase", 29: "frisbee", 30: "skis", 31: "snowboard",
+                32: "sports ball", 33: "kite", 34: "baseball bat", 35: "baseball glove",
+                36: "skateboard", 37: "surfboard", 38: "tennis racket", 39: "bottle",
+                40: "wine glass", 41: "cup", 42: "fork", 43: "knife", 44: "spoon", 45: "bowl",
+                46: "banana", 47: "apple", 48: "sandwich", 49: "orange", 50: "broccoli",
+                51: "carrot", 52: "hot dog", 53: "pizza", 54: "donut", 55: "cake", 56: "chair",
+                57: "couch", 58: "potted plant", 59: "bed", 60: "dining table", 61: "toilet",
+                62: "tv", 63: "laptop", 64: "mouse", 65: "remote", 66: "keyboard",
+                67: "cell phone", 68: "microwave", 69: "oven", 70: "toaster", 71: "sink",
+                72: "refrigerator", 73: "book", 74: "clock", 75: "vase", 76: "scissors",
+                77: "teddy bear", 78: "hair drier", 79: "toothbrush"
+            }
     )
     alert_config: Optional[AlertConfig] = None
     time_window_minutes: int = 60
@@ -357,6 +376,11 @@ class ColorDetectionUseCase(BaseProcessor):
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
+
+            print("--------------------------------------")
+            print("config.zone_config",config.zone_config)
+            print(config)
+            print("--------------------------------------")
             
             self.logger.info(f"Processing color detection with format: {input_format.value}")
             
@@ -461,6 +485,7 @@ class ColorDetectionUseCase(BaseProcessor):
             general_summary = self._calculate_general_summary(processed_data, config)
             
             # Step 10: Zone analysis
+            
             zone_analysis = {}
             if config.zone_config and config.zone_config['zones']:
                 frame_data = color_processed_data

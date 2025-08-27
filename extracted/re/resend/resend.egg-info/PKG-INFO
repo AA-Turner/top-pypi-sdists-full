@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: resend
-Version: 2.13.0
+Version: 2.13.1
 Summary: Resend Python SDK
 Home-page: https://github.com/resendlabs/resend-python
 Author: Derich Pacheco
@@ -75,6 +75,6 @@ params: resend.Emails.SendParams = {
     ],
 }
 
-email: resend.Email = resend.Emails.send(params)
+email: resend.Emails.SendResponse = resend.Emails.send(params)
 print(email)
 ```

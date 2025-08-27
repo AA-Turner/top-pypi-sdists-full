@@ -58,7 +58,7 @@ def apply_rule(adapter_name, orig_func, args, kwargs):
 
     @return: Returns the object that is returned by calling orig_func
     """
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     result = None
 
     if context is not None and context.protect_enabled:

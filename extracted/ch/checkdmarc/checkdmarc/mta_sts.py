@@ -16,7 +16,7 @@ from pyleri import (
     List,
 )
 
-from checkdmarc.utils import query_dns, WSP_REGEX
+from checkdmarc.utils import normalize_domain, query_dns, WSP_REGEX
 from checkdmarc._constants import SYNTAX_ERROR_MARKER, USER_AGENT, DEFAULT_HTTP_TIMEOUT
 
 """Copyright 2019-2023 Sean Whalen
@@ -141,6 +141,7 @@ STS_TAG_VALUE_REGEX = re.compile(MTA_STS_TAG_VALUE_REGEX_STRING, re.IGNORECASE)
 
 def query_mta_sts_record(
     domain: str,
+    *,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
     timeout: float = 2.0,
@@ -166,7 +167,7 @@ def query_mta_sts_record(
         :exc:`checkdmarc.mta_sts.MultipleMTASTSRecords`
 
     """
-    domain = domain.lower()
+    domain = normalize_domain(domain)
     logging.debug(f"Checking for an MTA-STS record on {domain}")
     warnings = []
     target = f"_mta-sts.{domain}"
@@ -209,8 +210,7 @@ def query_mta_sts_record(
             for record in records:
                 if record.startswith(txt_prefix):
                     raise MTASTSRecordInWrongLocation(
-                        "The MTA-STS record must be located at "
-                        f"{target}, not {domain}"
+                        f"The MTA-STS record must be located at {target}, not {domain}"
                     )
         except dns.resolver.NoAnswer:
             pass
@@ -231,6 +231,7 @@ def query_mta_sts_record(
 
 def parse_mta_sts_record(
     record: str,
+    *,
     include_tag_descriptions: bool = False,
     syntax_error_marker: str = SYNTAX_ERROR_MARKER,
 ) -> OrderedDict:
@@ -309,7 +310,7 @@ def parse_mta_sts_record(
 
 
 def download_mta_sts_policy(
-    domain: str, http_timeout: float = DEFAULT_HTTP_TIMEOUT
+    domain: str, *, http_timeout: float = DEFAULT_HTTP_TIMEOUT
 ) -> OrderedDict:
     """
     Downloads a domains MTA-HTS policy
@@ -401,7 +402,7 @@ def parse_mta_sts_policy(policy: str) -> OrderedDict:
         elif key == "mode" and value not in modes:
             MTASTSPolicySyntaxError(f"Line {line}: Invalid mode: {value}")
         elif key == "max_age":
-            error_msg = "max_age must be an integer value between 0 and " "31557600"
+            error_msg = "max_age must be an integer value between 0 and 31557600"
             if "." in value:
                 raise MTASTSPolicySyntaxError(error_msg)
             try:
@@ -414,17 +415,15 @@ def parse_mta_sts_policy(policy: str) -> OrderedDict:
             parsed_policy[key] = value
         else:
             if len(MTA_STS_MX_REGEX.findall(value)) == 0:
-                raise MTASTSPolicySyntaxError(
-                    f"Line {line}: Invalid mx " f"value: {value}"
-                )
+                raise MTASTSPolicySyntaxError(f"Line {line}: Invalid mx value: {value}")
             mx.append(value)
     for required_key in required_keys:
         if required_key not in parsed_policy:
-            raise MTASTSPolicySyntaxError(f"Missing required key: " f"{required_key}")
+            raise MTASTSPolicySyntaxError(f"Missing required key: {required_key}")
 
     if parsed_policy["mode"] != "none" and len(mx) == 0:
         raise MTASTSPolicySyntaxError(
-            f"{parsed_policy['mode']} mode requires " f"at least one mx value"
+            f"{parsed_policy['mode']} mode requires at least one mx value"
         )
     parsed_policy["mx"] = mx
 
@@ -433,6 +432,7 @@ def parse_mta_sts_policy(policy: str) -> OrderedDict:
 
 def check_mta_sts(
     domain: str,
+    *,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
     timeout: float = 2.0,
@@ -461,7 +461,7 @@ def check_mta_sts(
                       - ``error`` - Tne error message
                       - ``valid`` - False
     """
-    domain = domain.lower()
+    domain = normalize_domain(domain)
     mta_sts_results = OrderedDict([("valid", True)])
     try:
         mta_sts_record = query_mta_sts_record(

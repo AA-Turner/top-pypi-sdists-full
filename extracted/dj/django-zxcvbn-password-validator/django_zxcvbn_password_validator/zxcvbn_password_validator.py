@@ -56,51 +56,54 @@ class ZxcvbnPasswordValidator:
                     new_feedbacks = [new_feedbacks]
                 for new_feedback in new_feedbacks:
                     old_feedbacks.append(
-                        f"{feedback_type} : {translate_zxcvbn_text(new_feedback)}"
+                        f"{feedback_type} {translate_zxcvbn_text(new_feedback)}"
                     )
 
         user_inputs = []
         if user:
             for value in user.__dict__.values():
                 user_inputs.append(value)
-        results = self.zxcvbn_implementation(password, user_inputs=user_inputs)
+        try:
+            results = self.zxcvbn_implementation(password, user_inputs=user_inputs)
+        except ValueError as error:
+            # zxcvbn raises ValueError only if the password is too long.
+            raise ValidationError(
+                _("Your password exceeds the maximal length of 72 characters.")
+            ) from error
         password_strength = results["score"]
         if password_strength < self.password_minimal_strength:
-            crack_time = results["crack_times_display"]
+            crack_time = results["crack_times_seconds"]
             offline_time = crack_time["offline_slow_hashing_1e4_per_second"]
 
             feedbacks = [
                 "{} {}".format(  # pylint: disable=consider-using-f-string
-                    _("Your password is too guessable :"),
+                    _("Your password is too guessable:"),
                     _("It would take an offline attacker %(time)s to guess it.")
                     % {"time": translate_zxcvbn_time_estimate(offline_time)},
                 )
             ]
             append_translated_feedback(
-                feedbacks, _("Warning"), results["feedback"]["warning"]
+                feedbacks, _("Warning:"), results["feedback"]["warning"]
             )
             append_translated_feedback(
-                feedbacks, _("Advice"), results["feedback"]["suggestions"]
+                feedbacks, _("Advice:"), results["feedback"]["suggestions"]
             )
             raise ValidationError(feedbacks)
 
     def get_help_text(self):
-        expectations = _("We expect")
         if self.password_minimal_strength == 0:
-            expectations += " " + _("nothing: you can use any password you want.")
-            return expectations
-        expectations += " " + _("a password that cannot be guessed")
+            return _("We expect nothing: you can use any password you want.")
+        expectations = _("We expect a password that cannot be guessed %s")
         hardness = {
             1: _("by your familly or friends."),
             2: _("by attackers online."),
             3: _("without access to our database."),
             4: _("without a dedicated team and an access to our database."),
         }
-        expectations += f" {hardness.get(self.password_minimal_strength)}"
         # pylint: disable=consider-using-f-string
         return "{} {} {} {}".format(
             _("There is no specific rule for a great password,"),
             _("however if your password is too easy to guess,"),
             _("we will tell you how to make a better one."),
-            expectations,
+            expectations % hardness.get(self.password_minimal_strength),
         )

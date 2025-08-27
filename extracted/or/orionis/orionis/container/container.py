@@ -17,6 +17,7 @@ from orionis.services.introspection.callables.reflection import ReflectionCallab
 from orionis.services.introspection.concretes.reflection import ReflectionConcrete
 from orionis.services.introspection.dependencies.entities.argument import Argument
 from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
+from orionis.services.introspection.dependencies.reflection import ReflectDependencies
 
 class Container(IContainer):
 
@@ -206,9 +207,72 @@ class Container(IContainer):
 
         try:
 
-            # Check if the callable is a coroutine function
-            result = fn(*args, **kwargs)
-            return self.__handleSyncAsyncResult(result)
+            # Count the total number of provided arguments
+            total_provided_args = len(args) + len(kwargs)
+
+            # Inspect the callable to determine its signature and parameters
+            dependencies = ReflectDependencies(fn).getCallableDependencies()
+            total_dependencies = len(dependencies.resolved) + len(dependencies.unresolved)
+
+            # If the callable does not require any dependencies, invoke directly
+            if total_dependencies == 0:
+                result = fn(*args, **kwargs)
+                return self.__handleSyncAsyncResult(result)
+
+            # If enough arguments are provided, invoke directly
+            if total_provided_args >= total_dependencies:
+                result = fn(*args, **kwargs)
+                return self.__handleSyncAsyncResult(result)
+
+            # If not enough arguments are provided, attempt to resolve missing dependencies
+            if total_provided_args < total_dependencies:
+
+                # New lists to hold the final arguments to pass to the callable
+                n_args = []
+                n_kwargs = {}
+
+                # Iterate through the function's required arguments in order
+                args_index = 0
+
+                # Iterate over all dependencies in the order they were defined
+                for name, dep in dependencies.ordered.items():
+
+                    # Check if the argument was provided positionally and hasn't been used yet
+                    if args_index < len(args) and name not in kwargs:
+
+                        # Add the positional argument to the new list
+                        n_args.append(args[args_index])
+
+                        # Move to the next positional argument
+                        args_index += 1
+
+                    # Check if the argument was provided as a keyword argument
+                    elif name in kwargs:
+
+                        # Add the keyword argument to the new dictionary
+                        n_kwargs[name] = kwargs[name]
+
+                        # Remove the argument from the original kwargs to avoid duplication
+                        del kwargs[name]
+
+                    # If not provided, attempt to resolve it from the container
+                    else:
+
+                        n_kwargs[name] = self.__resolveSingleDependency(
+                            getattr(fn, '__name__', str(fn)),
+                            name,
+                            dep
+                        )
+
+                # Add any remaining positional arguments that weren't mapped to specific parameters
+                n_args.extend(args[args_index:])
+
+                # Add any remaining keyword arguments that weren't processed
+                n_kwargs.update(kwargs)
+
+                # Invoke the function with the resolved arguments
+                result = fn(*n_args, **n_kwargs)
+                return self.__handleSyncAsyncResult(result)
 
         except TypeError as e:
 
@@ -219,8 +283,9 @@ class Container(IContainer):
 
             # Raise a more informative exception with the function name and signature
             raise OrionisContainerException(
-                f"Failed to invoke function [{function_name}] with the provided arguments: {e}\n"
-                f"Expected function signature: [{signature}]"
+                f"Failed to invoke function [{function_name}] with the provided arguments: {e}. "
+                f"Note that this may include a reference to the same 'self' object.\n"
+                f"Expected function signature: {function_name}{signature}"
             ) from e
 
     def transient(
@@ -471,6 +536,101 @@ class Container(IContainer):
 
         # Register the alias
         self.__aliases[alias] = self.__bindings[abstract]
+
+        # Return True to indicate successful registration
+        return True
+
+    def scopedInstance(
+        self,
+        abstract: Callable[..., Any],
+        instance: Any,
+        *,
+        alias: str = None,
+        enforce_decoupling: bool = False
+    ) -> Optional[bool]:
+        """
+        Registers an instance of a class or interface in the container with scoped lifetime.
+
+        Parameters
+        ----------
+        abstract : Callable[..., Any]
+            The abstract class or interface to associate with the instance.
+        instance : Any
+            The concrete instance to register.
+        alias : str, optional
+            An optional alias to register the instance under. If not provided,
+            the abstract's `__name__` attribute will be used as the alias if available.
+        enforce_decoupling : bool, optional
+            Whether to enforce decoupling between abstract and concrete types.
+
+        Returns
+        -------
+        bool
+            True if the instance was successfully registered.
+
+        Raises
+        ------
+        TypeError
+            If `abstract` is not an abstract class or if `alias` is not a valid string.
+        ValueError
+            If `instance` is not a valid instance of `abstract`.
+        OrionisContainerException
+            If no active scope is found.
+
+        Notes
+        -----
+        This method registers the instance with scoped lifetime, meaning it will be
+        available only within the current active scope. If no scope is active,
+        an exception will be raised.
+        """
+
+        # Ensure that the abstract is an abstract class
+        IsAbstractClass(abstract, f"Instance {Lifetime.SCOPED}")
+
+        # Ensure that the instance is a valid instance
+        IsInstance(instance)
+
+        # Ensure that instance is NOT a subclass of abstract
+        if enforce_decoupling:
+            IsNotSubclass(abstract, instance.__class__)
+        else:
+            # Validate that instance is a subclass of abstract
+            IsSubclass(abstract, instance.__class__)
+
+        # Ensure implementation
+        ImplementsAbstractMethods(
+            abstract=abstract,
+            instance=instance
+        )
+
+        # Ensure that the alias is a valid string if provided
+        if alias:
+            IsValidAlias(alias)
+        else:
+            rf_asbtract = ReflectionAbstract(abstract)
+            alias = rf_asbtract.getModuleWithClassName()
+
+        # If the service is already registered in container bindings, drop it
+        self.drop(abstract, alias)
+
+        # Register the binding in the container for future scope resolutions
+        self.__bindings[abstract] = Binding(
+            contract=abstract,
+            instance=instance,
+            lifetime=Lifetime.SCOPED,
+            enforce_decoupling=enforce_decoupling,
+            alias=alias
+        )
+
+        # Register the alias
+        self.__aliases[alias] = self.__bindings[abstract]
+
+        # Store the instance directly in the current scope
+        scope = ScopedContext.getCurrentScope()
+        if scope:
+            scope[abstract] = instance
+            if alias != abstract:
+                scope[alias] = instance
 
         # Return True to indicate successful registration
         return True
@@ -1694,6 +1854,11 @@ class Container(IContainer):
             If the dependency cannot be resolved through any available method.
         """
 
+        # Check if the dependency is already in the current scope (for SCOPED lifetime)
+        scoped = ScopedContext.getCurrentScope()
+        if scoped and (dependency.type in scoped or dependency.full_class_path in scoped):
+            return scoped[dependency.type] if dependency.type in scoped else scoped[dependency.full_class_path]
+
         # If the dependency has a default value, use it
         if dependency.default is not None:
             return dependency.default
@@ -1709,10 +1874,12 @@ class Container(IContainer):
             )
 
         # Try to resolve from container using type (Abstract or Interface)
+        # This will automatically handle SCOPED lifetime through resolve() -> __resolveScoped()
         if self.bound(dependency.type):
             return self.resolve(self.getBinding(dependency.type))
 
         # Try to resolve from container using full class path
+        # This will also handle SCOPED lifetime appropriately
         if self.bound(dependency.full_class_path):
             return self.resolve(self.getBinding(dependency.full_class_path))
 
@@ -2359,6 +2526,79 @@ class Container(IContainer):
             raise OrionisContainerException(
                 f"Method '{method_name}' not found or not callable on instance '{type(instance).__name__}'."
             )
+
+    def invoke(
+        self,
+        fn: Callable,
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Invokes a callable with automatic dependency injection and sync/async handling.
+
+        Parameters
+        ----------
+        fn : Callable
+            The callable to invoke.
+        *args : tuple
+            Positional arguments to pass to the callable.
+        **kwargs : dict
+            Keyword arguments to pass to the callable.
+
+        Returns
+        -------
+        Any
+            The result of the callable invocation.
+        """
+
+        # Validate that fn is indeed callable
+        if not callable(fn):
+            raise OrionisContainerException(
+                f"Provided fn '{getattr(fn, '__name__', str(fn))}' is not callable."
+            )
+
+        # Execute the callable with appropriate handling
+        return self.__executeMethod(fn, *args, **kwargs)
+
+    async def invokeAsync(
+        self,
+        fn: Callable,
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Async version of invoke for when you're in an async context and need to await the result.
+
+        Parameters
+        ----------
+        fn : Callable
+            The callable to invoke.
+        *args : tuple
+            Positional arguments to pass to the callable.
+        **kwargs : dict
+            Keyword arguments to pass to the callable.
+
+        Returns
+        -------
+        Any
+            The result of the callable invocation, properly awaited if async.
+        """
+
+        # Validate that fn is indeed callable
+        if not callable(fn):
+            raise OrionisContainerException(
+                f"Provided fn '{getattr(fn, '__name__', str(fn))}' is not callable."
+            )
+
+        # Execute the callable with appropriate handling
+        result = self.__executeMethod(fn, *args, **kwargs)
+
+        # If the result is a coroutine, await it
+        if asyncio.iscoroutine(result):
+            return await result
+
+        # Otherwise, return the result directly
+        return result
 
     def __executeMethod(
         self,

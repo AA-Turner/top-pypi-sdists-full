@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.5.0
+Version: 1.6.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -28,7 +28,7 @@ Requires-Dist: mcp<2.0.0,>=1.11.0
 Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-instrumentation-threading<1.00b0,>=0.51b0
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
-Requires-Dist: pydantic<3.0.0,>=2.0.0
+Requires-Dist: pydantic<3.0.0,>=2.4.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Requires-Dist: watchdog<7.0.0,>=6.0.0
 Provides-Extra: a2a
@@ -55,12 +55,12 @@ Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
 Requires-Dist: openai<1.100.0; extra == 'all'
 Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'all'
-Requires-Dist: pre-commit<4.2.0,>=3.2.0; extra == 'all'
-Requires-Dist: pytest-asyncio<0.27.0,>=0.26.0; extra == 'all'
-Requires-Dist: pytest-cov<5.0.0,>=4.1.0; extra == 'all'
+Requires-Dist: pre-commit<4.4.0,>=3.2.0; extra == 'all'
+Requires-Dist: pytest-asyncio<1.2.0,>=1.0.0; extra == 'all'
+Requires-Dist: pytest-cov<7.0.0,>=6.0.0; extra == 'all'
 Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'all'
 Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'all'
-Requires-Dist: ruff<0.5.0,>=0.4.4; extra == 'all'
+Requires-Dist: ruff<0.13.0,>=0.12.0; extra == 'all'
 Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'all'
 Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: sphinx<6.0.0,>=5.0.0; extra == 'all'
@@ -73,12 +73,12 @@ Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'dev'
 Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'dev'
 Requires-Dist: moto<6.0.0,>=5.1.0; extra == 'dev'
 Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'dev'
-Requires-Dist: pre-commit<4.2.0,>=3.2.0; extra == 'dev'
-Requires-Dist: pytest-asyncio<0.27.0,>=0.26.0; extra == 'dev'
-Requires-Dist: pytest-cov<5.0.0,>=4.1.0; extra == 'dev'
+Requires-Dist: pre-commit<4.4.0,>=3.2.0; extra == 'dev'
+Requires-Dist: pytest-asyncio<1.2.0,>=1.0.0; extra == 'dev'
+Requires-Dist: pytest-cov<7.0.0,>=6.0.0; extra == 'dev'
 Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'dev'
 Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'dev'
-Requires-Dist: ruff<0.5.0,>=0.4.4; extra == 'dev'
+Requires-Dist: ruff<0.13.0,>=0.12.0; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'docs'

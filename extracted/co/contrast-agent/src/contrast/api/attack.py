@@ -39,7 +39,7 @@ class Attack:
         self.rule_id: str = rule_id
         self.samples: list[Sample] = []
         self.response: ProtectResponse | None = None
-        self.start_time_ms = contrast.CS__CONTEXT_TRACKER.current().request.timestamp_ms
+        self.start_time_ms = contrast.REQUEST_CONTEXT.get().request.timestamp_ms
 
     @property
     def blocked(self) -> bool:

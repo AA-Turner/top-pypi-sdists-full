@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edk2-pytool-library
-Version: 0.23.7
+Version: 0.23.8
 Summary: Python library supporting UEFI EDK2 firmware development
 Maintainer-email: EDK2 Pytool Maintainers <edk2-pytools@microsoft.com>
 Project-URL: homepage, https://github.com/tianocore/edk2-pytool-library/
@@ -31,7 +31,7 @@ Requires-Dist: pytest==8.3.5; extra == "dev"
 Requires-Dist: coverage==7.6.12; extra == "dev"
 Requires-Dist: pre-commit==4.0.1; extra == "dev"
 Provides-Extra: publish
-Requires-Dist: setuptools==75.8.2; extra == "publish"
+Requires-Dist: setuptools==80.9.0; extra == "publish"
 Requires-Dist: build==1.2.2.post1; extra == "publish"
 Requires-Dist: twine==6.1.0; extra == "publish"
 Provides-Extra: docs

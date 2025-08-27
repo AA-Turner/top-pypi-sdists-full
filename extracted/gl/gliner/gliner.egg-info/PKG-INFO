@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gliner
-Version: 0.2.21
+Version: 0.2.22
 Summary: Generalist model for NER (Extract any entity types from texts)
 Author: Urchade Zaratiana, Nadi Tomeh, Pierre Holat, Thierry Charnois
 Maintainer: Urchade Zaratiana
@@ -11,7 +11,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.0.0
-Requires-Dist: transformers>=4.38.2
+Requires-Dist: transformers<=4.51.0,>=4.38.2
 Requires-Dist: huggingface_hub>=0.21.4
 Requires-Dist: tqdm
 Requires-Dist: onnxruntime
@@ -22,10 +22,14 @@ Provides-Extra: tokenizers
 Requires-Dist: langdetect; extra == "tokenizers"
 Requires-Dist: python-mecab-ko; extra == "tokenizers"
 Requires-Dist: janome; extra == "tokenizers"
-Requires-Dist: jieba; extra == "tokenizers"
+Requires-Dist: jieba3; extra == "tokenizers"
 Requires-Dist: camel_tools; extra == "tokenizers"
 Requires-Dist: indic-nlp-library; extra == "tokenizers"
 Requires-Dist: spacy; extra == "tokenizers"
+Requires-Dist: stanza; extra == "tokenizers"
+Provides-Extra: stanza
+Requires-Dist: stanza; extra == "stanza"
+Requires-Dist: langdetect; extra == "stanza"
 Dynamic: license-file
 
 # 👑 GLiNER: Generalist and Lightweight Model for Named Entity Recognition

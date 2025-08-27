@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyowm
-Version: 3.4.0
+Version: 3.5.0
 Summary: A Python wrapper around OpenWeatherMap web APIs
 Home-page: https://github.com/csparpa/pyowm
 Author: Claudio Sparpaglione
@@ -9,7 +9,6 @@ License: MIT
 Keywords: openweathermap web api client weather forecast uv alerting owm pollution meteostation agro agriculture
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -20,7 +19,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests<3,>=2.20.0
@@ -40,7 +39,7 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-[![logo](logos/180x180.png)](https://github.com/csparpa)
+[![logo](https://raw.githubusercontent.com/csparpa/pyowm/master/logos/180x180.png)](https://github.com/csparpa)
 
 #  PyOWM  
 **A Python wrapper around OpenWeatherMap web APIs**
@@ -60,7 +59,7 @@ Dynamic: summary
 ##  What is it?
 PyOWM is a client Python wrapper library for OpenWeatherMap (OWM) web APIs. It allows quick and easy consumption of OWM data from Python applications via a simple object model and in a human-friendly fashion.
 
-PyOWM runs on Python 3.8+
+PyOWM runs on Python 3.9+
 
 **Former Dark Sky API users**: you can can use PyOWM to get [OpenWeatherMap's OneCall API](https://openweathermap.org/api/one-call-api) data as an easy replacement to Dark Sky
 
@@ -158,7 +157,7 @@ The [Code recipes](https://pyowm.readthedocs.io/en/latest/v3/code-recipes.html) 
 
 Here are [some cool projects](https://github.com/csparpa/pyowm/wiki/Community-Projects-using-PyOWM) that use PyOWM
 
-_Contributors (coding, testing, packaging, reporting issues) are welcome!_ See the [the official documentation website](https://pyowm.readthedocs.io/) for details or the [CONTRIBUTING.md](https://github.com/csparpa/pyowm/blob/master/CONTRIBUTING.md) file for a quick primer.
+_Contributors (coding, testing, packaging, reporting issues) are welcome!_ See the [the official documentation website](https://pyowm.readthedocs.io/) for details.
 
 
 ## License

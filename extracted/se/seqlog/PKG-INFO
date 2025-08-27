@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: seqlog
-Version: 0.4.2
+Version: 0.4.3
 Summary: SeqLog enables logging from Python to Seq.
 Home-page: https://github.com/tintoy/seqlog
 Author: Adam Friedman
@@ -19,6 +19,20 @@ Classifier: Programming Language :: Python :: 3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
+Requires-Dist: python_dateutil>=2.5.3
+Requires-Dist: requests>=2.10.0
+Requires-Dist: PyYAML>=3.11
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 ===============================
 SeqLog
@@ -49,6 +63,11 @@ It also adds support for logging with named format arguments (via keyword argume
 =======
 History
 =======
+
+0.4.3 (2025-07-26)
+------------------
+
+* Implement CI and automatic package publishing to PyPI (tintoy/seqlog#94).
 
 0.4.2 (2025-07-26)
 ------------------

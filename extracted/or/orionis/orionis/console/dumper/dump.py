@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.traceback import install
-from orionis.console.dumper.contracts.dump import IDebug
+from orionis.console.contracts.dump import IDebug
 
 class Debug(IDebug):
 

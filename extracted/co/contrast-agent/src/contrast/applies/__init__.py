@@ -6,7 +6,7 @@ from contrast.agent.settings import Settings
 
 
 def apply_rule(patch_policy, orig_func, args, kwargs):
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
 
     if (
         context is not None

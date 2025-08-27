@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: imodels
-Version: 2.0.2
+Version: 2.0.3
 Summary: Implementations of various interpretable models
 Author: Keyan Nasseri, Matthew Epland, Yan Shuo Tan, Omer Ronen, Tiffany Tang, Abhineet Agarwal, Theo Saarinen
 Author-email: Chandan Singh <csinva23@gmail.com>, Bin Yu <binyu@berkeley.edu>

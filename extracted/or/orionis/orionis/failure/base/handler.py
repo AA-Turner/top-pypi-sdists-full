@@ -1,6 +1,6 @@
 from typing import Any, List
-from orionis.console.entities.request import CLIRequest
-from orionis.console.output.contracts.console import IConsole
+from orionis.console.contracts.cli_request import ICLIRequest
+from orionis.console.contracts.console import IConsole
 from orionis.failure.contracts.handler import IBaseExceptionHandler
 from orionis.failure.entities.throwable import Throwable
 from orionis.services.log.contracts.log_service import ILogger
@@ -13,7 +13,7 @@ class BaseExceptionHandler(IBaseExceptionHandler):
         # Example: OrionisContainerException
     ]
 
-    async def destructureException(self, e: BaseException) -> Throwable:
+    async def destructureException(self, exception: BaseException) -> Throwable:
         """
         Converts an exception into a structured `Throwable` object containing detailed information.
 
@@ -35,13 +35,13 @@ class BaseExceptionHandler(IBaseExceptionHandler):
 
         # Create and return a Throwable object with detailed exception information
         return Throwable(
-            classtype=type(e),                              # The class/type of the exception
-            message=str(e),                                 # The exception message as a string
-            args=e.args,                                    # The arguments passed to the exception
-            traceback=getattr(e, '__traceback__', None)     # The traceback object, if available
+            classtype=type(exception),                              # The class/type of the exception
+            message=str(exception),                                 # The exception message as a string
+            args=exception.args,                                    # The arguments passed to the exception
+            traceback=getattr(exception, '__traceback__', None)     # The traceback object, if available
         )
 
-    async def shouldIgnoreException(self, e: BaseException) -> bool:
+    async def shouldIgnoreException(self, exception: BaseException) -> bool:
         """
         Determines if the exception should be ignored (not handled) by the handler.
 
@@ -57,11 +57,11 @@ class BaseExceptionHandler(IBaseExceptionHandler):
         """
 
         # Ensure the provided object is an exception
-        if not isinstance(e, BaseException):
-            raise TypeError(f"Expected BaseException, got {type(e).__name__}")
+        if not isinstance(exception, BaseException):
+            raise TypeError(f"Expected BaseException, got {type(exception).__name__}")
 
         # Convert the exception into a structured Throwable object
-        throwable = await self.destructureException(e)
+        throwable = await self.destructureException(exception)
 
         # Check if the exception type is in the list of exceptions to ignore
         return hasattr(self, 'dont_catch') and throwable.classtype in self.dont_catch
@@ -92,7 +92,7 @@ class BaseExceptionHandler(IBaseExceptionHandler):
         # Return the structured exception
         return throwable
 
-    async def renderCLI(self, request: CLIRequest, exception: BaseException, log: ILogger, console: IConsole) -> Any:
+    async def renderCLI(self, exception: BaseException, request: ICLIRequest, log: ILogger, console: IConsole) -> Any:
         """
         Render the exception message for CLI output.
 
@@ -110,14 +110,14 @@ class BaseExceptionHandler(IBaseExceptionHandler):
             raise TypeError(f"Expected BaseException, got {type(exception).__name__}")
 
         # Ensure the request is a CLIRequest
-        if not isinstance(request, CLIRequest):
-            raise TypeError(f"Expected CLIRequest, got {type(request).__name__}")
+        if not isinstance(request, ICLIRequest):
+            raise TypeError(f"Expected ICLIRequest, got {type(request).__name__}")
 
         # Convert the exception into a structured Throwable object
         throwable = await self.destructureException(exception)
 
         # Convert the request arguments to a string for logging
-        string_args = ' '.join(request.args)
+        string_args = ', '.join(request.all().keys()) if request.all() else 'No arguments'
 
         # Log the CLI error message with arguments
         log.error(f"CLI Error: {throwable.message} (Args: {string_args})")

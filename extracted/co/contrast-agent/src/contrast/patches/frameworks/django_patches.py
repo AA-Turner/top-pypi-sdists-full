@@ -56,7 +56,7 @@ def build_mark_safe_patch(orig_func, _):
             # we don't want to do any analysis.
             result = wrapped(*args, **kwargs)
 
-            if contrast.CS__CONTEXT_TRACKER.current() is not None:
+            if contrast.REQUEST_CONTEXT.get() is not None:
                 try:
                     logger.debug("Analyzing in %s custom propagator.", MARK_SAFE_NAME)
                     source = _get_source(pack_self(instance, args), kwargs)

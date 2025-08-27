@@ -59170,17 +59170,23 @@ class scout_compute_resolved_api_FftNode(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode)
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
+            'window': ConjureFieldDefinition('window', OptionalTypeWrapper[scout_compute_api_FftWindow])
         }
 
-    __slots__: List[str] = ['_input']
+    __slots__: List[str] = ['_input', '_window']
 
-    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode") -> None:
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", window: Optional["scout_compute_api_FftWindow"] = None) -> None:
         self._input = input
+        self._window = window
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
         return self._input
+
+    @builtins.property
+    def window(self) -> Optional["scout_compute_api_FftWindow"]:
+        return self._window
 
 
 scout_compute_resolved_api_FftNode.__name__ = "FftNode"
@@ -63907,18 +63913,24 @@ class scout_compute_resolved_api_UnitConversionSeriesNode(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
+            'input_unit': ConjureFieldDefinition('inputUnit', scout_units_api_UnitSymbol),
             'output_unit': ConjureFieldDefinition('outputUnit', scout_units_api_UnitSymbol)
         }
 
-    __slots__: List[str] = ['_input', '_output_unit']
+    __slots__: List[str] = ['_input', '_input_unit', '_output_unit']
 
-    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", output_unit: str) -> None:
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", input_unit: str, output_unit: str) -> None:
         self._input = input
+        self._input_unit = input_unit
         self._output_unit = output_unit
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
         return self._input
+
+    @builtins.property
+    def input_unit(self) -> str:
+        return self._input_unit
 
     @builtins.property
     def output_unit(self) -> str:

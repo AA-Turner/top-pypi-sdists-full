@@ -24,6 +24,7 @@ def test_result_producer_central_queue(
     amqp_url,
     queue_consumer,
     use_http_producer,
+    sqa_test_result_apps,
 ):
     os.environ["UTF_PRODUCER_APP_ID"] = request.node.name
     os.environ["UTF_QUEUE_USE_HTTP_PRODUCER"] = "true" if use_http_producer else "false"
@@ -38,11 +39,16 @@ def test_result_producer_central_queue(
     queue_consumer.expect_messages(3)
     producer.publish_test_result(sqa_test_result)
     queue_consumer.expect_messages(4)
+    producer.publish_test_result_apps(sqa_test_result_apps)
+    queue_consumer.expect_messages(5)
 
 
-def test_dummy_producer(sqa_app_build_result, sqa_test_result, sqa_test_session):
+def test_dummy_producer(
+    sqa_app_build_result, sqa_test_result, sqa_test_session, sqa_test_result_apps
+):
     producer = DummySqaTestResultProducer()
     producer.publish_app_build_result(sqa_app_build_result)
     producer.publish_test_session_start(sqa_test_session)
     producer.publish_test_session_stop(sqa_test_session)
     producer.publish_test_result(sqa_test_result)
+    producer.publish_test_result_apps(sqa_test_result_apps)

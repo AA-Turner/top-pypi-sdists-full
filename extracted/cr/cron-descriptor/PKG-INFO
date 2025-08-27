@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cron_descriptor
-Version: 2.0.4
+Version: 2.0.5
 Summary: A Python library that converts cron expressions into human readable strings.
 Author-email: Adam Schubert <adam.schubert@sg1-game.net>
 License-Expression: MIT
@@ -13,13 +13,16 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development
-Requires-Python: >=3.11
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: typing_extensions
 Provides-Extra: dev
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
@@ -78,7 +81,7 @@ descriptor = ExpressionDescriptor(
 
 # GetDescription uses DescriptionTypeEnum.FULL by default:
 print(descriptor.get_description())
-print("{}".format(descriptor))
+print(f"{descriptor = }")
 
 # Or passing Options class as second argument:
 

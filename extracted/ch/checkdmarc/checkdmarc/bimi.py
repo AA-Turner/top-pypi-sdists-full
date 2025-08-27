@@ -37,7 +37,13 @@ from OpenSSL.crypto import (
 
 import checkdmarc.resources
 from checkdmarc._constants import SYNTAX_ERROR_MARKER, USER_AGENT, DEFAULT_HTTP_TIMEOUT
-from checkdmarc.utils import WSP_REGEX, HTTPS_REGEX, query_dns, get_base_domain
+from checkdmarc.utils import (
+    WSP_REGEX,
+    HTTPS_REGEX,
+    query_dns,
+    normalize_domain,
+    get_base_domain,
+)
 
 """Copyright 2019-2023 Sean Whalen
 
@@ -58,7 +64,6 @@ BIMI_TAG_VALUE_REGEX_STRING = (
     rf"([a-z]{{1,2}}){WSP_REGEX}*={WSP_REGEX}*(bimi1|{HTTPS_REGEX})?"
 )
 BIMI_TAG_VALUE_REGEX = re.compile(BIMI_TAG_VALUE_REGEX_STRING, re.IGNORECASE)
-
 
 # Load the certificates included in MVACAs.pem into a certificate store
 X509STORE = X509Store()
@@ -216,7 +221,7 @@ def get_svg_metadata(raw_xml: Union[str, bytes]) -> OrderedDict:
             metadata["description"] = description
         metadata["width"] = width
         metadata["height"] = height
-        metadata["filesize"] = f"{getsizeof(raw_xml)/1000} KB"
+        metadata["filesize"] = f"{getsizeof(raw_xml) / 1000} KB"
         metadata["sha256"] = hashlib.sha256(raw_xml.encode("utf-8")).hexdigest()
         return metadata
     except Exception as e:
@@ -278,7 +283,7 @@ def extract_logo_from_certificate(cert: Union[bytes, X509]) -> bytes:
             return logo
 
 
-def get_certificate_metadata(pem_crt: Union[str, bytes], domain=None) -> OrderedDict:
+def get_certificate_metadata(pem_crt: Union[str, bytes], *, domain=None) -> OrderedDict:
     """Get metadata about a Verified Mark Certificate"""
     metadata = OrderedDict()
     valid = False
@@ -336,7 +341,7 @@ def get_certificate_metadata(pem_crt: Union[str, bytes], domain=None) -> Ordered
     except Exception as e:
         validation_errors.append(str(e))
     if domain is not None:
-        base_domain = get_base_domain(domain)
+        base_domain = get_base_domain(domain).encode("utf-8").decode("unicode_escape")
         if base_domain not in san:
             validation_errors.append(
                 f"{base_domain} does not match the certificate domains, {san}"
@@ -348,6 +353,7 @@ def get_certificate_metadata(pem_crt: Union[str, bytes], domain=None) -> Ordered
 
 def _query_bimi_record(
     domain: str,
+    *,
     selector: str = "default",
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
@@ -367,7 +373,7 @@ def _query_bimi_record(
     Returns:
         str: A record string or None
     """
-    domain = domain.lower()
+    domain = normalize_domain(domain)
     target = f"{selector}._bimi.{domain}"
     txt_prefix = "v=BIMI1"
     bimi_record = None
@@ -408,7 +414,7 @@ def _query_bimi_record(
             for record in records:
                 if record.startswith(txt_prefix):
                     raise BIMIRecordInWrongLocation(
-                        "The BIMI record must be located at " f"{target}, not {domain}"
+                        f"The BIMI record must be located at {target}, not {domain}"
                     )
         except dns.resolver.NoAnswer:
             pass
@@ -427,6 +433,7 @@ def _query_bimi_record(
 
 def query_bimi_record(
     domain: str,
+    *,
     selector: str = "default",
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
@@ -472,7 +479,7 @@ def query_bimi_record(
         )
         for root_record in root_records:
             if root_record.startswith("v=BIMI1"):
-                warnings.append(f"BIMI record at root of {domain} " "has no effect")
+                warnings.append(f"BIMI record at root of {domain} has no effect")
     except dns.resolver.NXDOMAIN:
         raise BIMIRecordNotFound(f"The domain {domain} does not exist")
     except dns.exception.DNSException:
@@ -496,7 +503,9 @@ def query_bimi_record(
 
 def parse_bimi_record(
     record: str,
+    *,
     domain: str = None,
+    parsed_dmarc_record: dict = None,
     include_tag_descriptions: bool = False,
     syntax_error_marker: str = SYNTAX_ERROR_MARKER,
     http_timeout: float = DEFAULT_HTTP_TIMEOUT,
@@ -507,6 +516,7 @@ def parse_bimi_record(
     Args:
         record (str): A BIMI record
         domain (str): The domain where the BIMI record was located
+        parsed_dmarc_record (dict): A parsed DMARC record
         include_tag_descriptions (bool): Include descriptions in parsed results
         syntax_error_marker (str): The maker for pointing out syntax errors
         http_timeout (float): HTTP timeout in seconds
@@ -623,8 +633,32 @@ def parse_bimi_record(
                 results["certificate"] = dict(
                     error=f"Failed to download the mark certificate at {tag_value} - {str(e)}"
                 )
+    if parsed_dmarc_record and not tags["l"] == "":
+        if not parsed_dmarc_record["valid"]:
+            warnings.append(
+                "The domain does not have a valid DMARC record. A DMARC policy of quarantine or reject must be in place"
+            )
+        else:
+            if parsed_dmarc_record["tags"]["p"]["value"] not in [
+                "quarantine",
+                "reject",
+            ]:
+                warnings.append(
+                    "The DMARC policy (p tag) must not be set to quarantine or reject"
+                )
+            if parsed_dmarc_record["tags"]["sp"]["value"] not in [
+                "quarantine",
+                "reject",
+            ]:
+                warnings.append(
+                    "The DMARC subdomain policy (sp tag) must be set to quarantine or reject if it is used"
+                )
+            if parsed_dmarc_record["tags"]["pct"]["value"] != 100:
+                warnings.append(
+                    "The DMARC pct tag must be set to 100 (the implicit default) if it is used"
+                )
     certificate_provided = hash_match and cert_metadata["valid"]
-    if not certificate_provided:
+    if ("l" in tags and tags["l"]["value"] != "") and not certificate_provided:
         warnings.append(
             "Most email providers will not display a BIMI image without a valid mark certificate"
         )
@@ -640,7 +674,9 @@ def parse_bimi_record(
 
 def check_bimi(
     domain: str,
+    *,
     selector: str = "default",
+    parsed_dmarc_record: dict = None,
     include_tag_descriptions: bool = False,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
@@ -657,6 +693,8 @@ def check_bimi(
     Args:
         domain (str): A domain name
         selector (str): The BIMI selector
+        parsed_dmarc_record (dict): A parsed DMARC record
+
         include_tag_descriptions (bool): Include descriptions in parsed results
         nameservers (list): A list of nameservers to query
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
@@ -693,6 +731,7 @@ def check_bimi(
             bimi_results["record"],
             include_tag_descriptions=include_tag_descriptions,
             domain=domain,
+            parsed_dmarc_record=parsed_dmarc_record,
             http_timeout=timeout,
         )
         bimi_results["tags"] = parsed_bimi["tags"]

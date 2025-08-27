@@ -371,7 +371,7 @@ class Dataset(DataSource):
         Args:
             extractor: ContainerizedExtractor instance (or rid of one) to use for extracting and ingesting data.
             sources: Mapping of environment variables to source files to use with the extractor.
-             NOTE: these must match the registered inputs of the containerized extractor exactly
+                NOTE: these must match the registered inputs of the containerized extractor exactly
             tag: Tag of the Docker container which hosts the extractor.
                 NOTE: if not provided, the default registered docker tag will be used.
         """
@@ -464,6 +464,26 @@ class Dataset(DataSource):
             files = filter(lambda f: f.ingest_status.type == "success", files)
         for file in files:
             yield DatasetFile._from_conjure(self._clients, file)
+
+    def get_dataset_file(self, dataset_file_id: str) -> DatasetFile:
+        """Retrieve the given dataset file by ID
+
+        Args:
+            dataset_file_id: ID of the file to retrieve from the dataset
+
+        Returns:
+            Metadata for the requested dataset file
+
+        Raises:
+            FileNotFoundError: Details about the requested file could not be found
+        """
+        try:
+            raw_file = self._clients.catalog.get_dataset_file(self._clients.auth_header, self.rid, dataset_file_id)
+            return DatasetFile._from_conjure(self._clients, raw_file)
+        except Exception as ex:
+            raise FileNotFoundError(
+                f"Failed to retrieve dataset file {dataset_file_id} from dataset {self.rid}"
+            ) from ex
 
     def get_log_stream(
         self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: protovalidate
-Version: 0.14.1
+Version: 0.15.0
 Summary: Protocol Buffer Validation for Python
 Project-URL: Homepage, https://github.com/bufbuild/protovalidate-python
 Project-URL: Source, https://github.com/bufbuild/protovalidate-python
@@ -17,11 +17,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Requires-Dist: cel-python==0.2.*
+Requires-Dist: google-re2>=1
+Requires-Dist: google-re2>=1.1.20250722; python_version == '3.13'
+Requires-Dist: google-re2>=1.1; python_version == '3.12'
 Requires-Dist: protobuf>=5
-Provides-Extra: re2
-Requires-Dist: google-re2>=1; extra == 're2'
-Requires-Dist: google-re2>=1.1.20250722; (python_version == '3.13') and extra == 're2'
-Requires-Dist: google-re2>=1.1; (python_version == '3.12') and extra == 're2'
 Description-Content-Type: text/markdown
 
 [![The Buf logo](https://raw.githubusercontent.com/bufbuild/protovalidate/main/.github/buf-logo.svg)][buf]
@@ -76,12 +75,6 @@ To install the package, use `pip`:
 
 ```shell
 pip install protovalidate
-```
-
-Protovalidate also has an optional dependency on [google-re2](https://pypi.org/project/google-re2/). If you require re2 syntax for your regular expressions, install the extra dep as follows:
-
-```shell
-pip install protovalidate[re2]
 ```
 
 ## Documentation

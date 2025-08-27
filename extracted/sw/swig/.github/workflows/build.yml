@@ -59,17 +59,30 @@ jobs:
             build: "musllinux_"
             artifact_suffix: "musllinux_s390x"
             use_qemu: true
-          - os: windows-2019
+          - os: ubuntu-latest
+            arch: "riscv64"
+            build: "manylinux_"
+            artifact_suffix: "manylinux_riscv64"
+            use_qemu: true
+          - os: ubuntu-latest
+            arch: "riscv64"
+            build: "musllinux_"
+            artifact_suffix: "musllinux_riscv64"
+            use_qemu: true
+          - os: windows-2022
             arch: "AMD64"
             msystem: "mingw64"
             mingw_env: "x86_64"
             artifact_suffix: "windows_x86_64"
+          - os: windows-11-arm
+            arch: "ARM64"
+            artifact_suffix: "windows_arm64"
           - os: macos-14
             arch: "universal2"
             artifact_suffix: "macos"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # ensure history is present for automatic versioning
 
@@ -83,7 +96,7 @@ jobs:
           msystem: ${{ matrix.msystem }}
           install: >-
             mingw-w64-${{matrix.mingw_env}}-toolchain
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && runner.arch == 'X64'
 
       - name: Install ninja (macOS)
         run: which ninja || brew install ninja
@@ -93,7 +106,7 @@ jobs:
         run: which pipx || brew install pipx
         if: runner.os == 'macOS'
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.23.2
+        uses: pypa/cibuildwheel@v3.1.4
         env:
           CIBW_ARCHS: "${{ matrix.arch }}"
           CIBW_BUILD: "cp39-${{ matrix.build || '' }}*"
@@ -107,7 +120,7 @@ jobs:
     name: Build source distributions
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # ensure history is present for automatic versioning
 
@@ -124,7 +137,7 @@ jobs:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: dist
           merge-multiple: true
@@ -142,7 +155,7 @@ jobs:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
     - name: Download Python package dist artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         path: dist
         merge-multiple: true

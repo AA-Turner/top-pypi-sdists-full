@@ -272,6 +272,9 @@ class Client(ReportingClient):
             yield trace
         finally:
             self._end_trace(trace_id, trace.send_trace)
+            logger.debug(
+                "Trace sent to Fireball", trace_id=trace_id, send_trace=trace.send_trace
+            )
 
     @_handle_errors()
     def _start_trace(

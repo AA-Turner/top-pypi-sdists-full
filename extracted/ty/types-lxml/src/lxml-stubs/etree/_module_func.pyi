@@ -1,5 +1,13 @@
 import sys
-from typing import Any, Collection, Iterable, Literal, final, overload
+from typing import (
+    Any,
+    Collection,
+    Iterable,
+    Literal,
+    TypeVar,
+    final,
+    overload,
+)
 
 if sys.version_info >= (3, 11):
     from typing import Never
@@ -27,7 +35,9 @@ from .._types import (
     _TextArg,
 )
 from ._element import _Element, _ElementTree
-from ._parser import HTMLParser, XMLParser
+from ._parser import CustomTargetParser, HTMLParser, XMLParser
+
+_T = TypeVar("_T")
 
 @overload
 def HTML(
@@ -47,8 +57,29 @@ def HTML(
     Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Using-specialised-class-directly#no-automatic-change-of-subscript)
     on how to create such annotation-only specialized parsers.
 
-    Returning result of custom parser target is unsupported in stubs.
-    Please use `typing.cast()` directly in such case.
+    See Also
+    --------
+    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.HTML)
+    """
+
+@overload
+def HTML(
+    text: str | Buffer,
+    parser: CustomTargetParser[_T],
+    *,
+    base_url: str | bytes | None = None,
+) -> _T:
+    """Parses an HTML document or fragment from a string constant.
+    Returns the root node (or the result returned by a parser target).
+
+    Annotation
+    ----------
+    When specially constructed parser with custom parser target is supplied,
+    `HTML()` returns that value dictated in parser target definition, that is
+    the parser target `.close()` method return value.
+
+    Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Custom-target-parser)
+    on how to create fully annotated parser with custom target object.
 
     See Also
     --------
@@ -64,6 +95,10 @@ def HTML(
 ) -> _Element:
     """Parses an HTML document or fragment from a string constant.
     Returns the root node (or the result returned by a parser target).
+
+    Annotation
+    ----------
+    This overload handles usage of `HTML()` with default parser.
 
     See Also
     --------
@@ -88,8 +123,29 @@ def XML(
     Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Using-specialised-class-directly#no-automatic-change-of-subscript)
     on how to create such annotation-only specialized parsers.
 
-    Returning result of custom parser target is unsupported in stubs.
-    Please use `typing.cast()` directly in such case.
+    See Also
+    --------
+    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.XML)
+    """
+
+@overload
+def XML(
+    text: str | Buffer,
+    parser: CustomTargetParser[_T],
+    *,
+    base_url: str | bytes | None = None,
+) -> _T:
+    """Parses an XML document or fragment from a string constant.
+    Returns the root node (or the result returned by a parser target).
+
+    Annotation
+    ----------
+    When specially constructed parser with custom parser target is supplied,
+    `XML()` returns that value dictated in parser target definition, that is
+    the parser target `.close()` method return value.
+
+    Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Custom-target-parser)
+    on how to create fully annotated parser with custom target object.
 
     See Also
     --------
@@ -106,12 +162,16 @@ def XML(
     """Parses an XML document or fragment from a string constant.
     Returns the root node (or the result returned by a parser target).
 
+    Annotation
+    ----------
+    This overload handles usage of `XML()` with default parser.
+
     See Also
     --------
     [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.XML)
     """
 
-@overload
+@overload  # common parser
 def parse(
     source: _FileReadSource,
     parser: _DefEtreeParsers[_ET_co],
@@ -129,15 +189,35 @@ def parse(
     Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Using-specialised-class-directly#no-automatic-change-of-subscript)
     on how to create such annotation-only specialized parsers.
 
-    Returning result of custom parser target is unsupported in stubs.
-    Please use `typing.cast()` directly in such case.
+    See Also
+    --------
+    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.parse)
+    """
+
+@overload  # custom target parser
+def parse(
+    source: _FileReadSource,
+    parser: CustomTargetParser[_T],
+    *,
+    base_url: str | bytes | None = None,
+) -> _T:
+    """Return an ElementTree object loaded with source elements.
+
+    Annotation
+    ----------
+    When specially constructed parser with custom parser target is supplied,
+    `parse()` returns that value dictated in parser target definition,
+    that is the parser target `.close()` method return value.
+
+    Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Custom-target-parser)
+    on how to create fully annotated parser with custom target object.
 
     See Also
     --------
     [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.parse)
     """
 
-@overload
+@overload  # parser not supplied
 def parse(
     source: _FileReadSource,
     parser: None = None,
@@ -146,12 +226,16 @@ def parse(
 ) -> _ElementTree:
     """Return an ElementTree object loaded with source elements.
 
+    Annotation
+    ----------
+    This overload handles usage of `parse()` with default parser.
+
     See Also
     --------
     [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.parse)
     """
 
-@overload
+@overload  # common parser
 def fromstring(
     text: str | Buffer,
     parser: _DefEtreeParsers[_ET_co],
@@ -170,15 +254,36 @@ def fromstring(
     Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Using-specialised-class-directly#no-automatic-change-of-subscript)
     on how to create such annotation-only specialized parsers.
 
-    Returning result of custom parser target is unsupported in stubs.
-    Please use `typing.cast()` directly in such case.
+    See Also
+    --------
+    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.fromstring)
+    """
+
+@overload  # custom target parser
+def fromstring(
+    text: str | Buffer,
+    parser: CustomTargetParser[_T],
+    *,
+    base_url: str | bytes | None = None,
+) -> _T:
+    """Parses an XML document or fragment from a string.
+    Returns the root node (or the result returned by a parser target).
+
+    Annotation
+    ----------
+    When specially constructed parser with custom parser target is supplied,
+    `fromstring()` returns that value dictated in parser target definition,
+    that is the parser target `.close()` method return value.
+
+    Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Custom-target-parser)
+    on how to create fully annotated parser with custom target object.
 
     See Also
     --------
     [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.fromstring)
     """
 
-@overload
+@overload  # parser not supplied
 def fromstring(
     text: str | Buffer,
     parser: None = None,
@@ -187,6 +292,10 @@ def fromstring(
 ) -> _Element:
     """Parses an XML document or fragment from a string.
     Returns the root node (or the result returned by a parser target).
+
+    Annotation
+    ----------
+    This overload handles usage of `fromstring()` with default parser.
 
     See Also
     --------
@@ -197,8 +306,7 @@ def fromstring(
 @deprecated("Raises exception if input is a single string")
 def fromstringlist(
     strings: str | bytes,
-    *args: Any,
-    **kw: Any,
+    parser: Any = None,
 ) -> Never:
     """Parses an XML document from a sequence of strings.
     Returns the root node (or the result returned by a parser target).
@@ -213,7 +321,7 @@ def fromstringlist(
     [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.fromstringlist)
     """
 
-@overload
+@overload  # common parser
 def fromstringlist(
     strings: Iterable[str | bytes],
     parser: _DefEtreeParsers[_ET_co],
@@ -230,15 +338,34 @@ def fromstringlist(
     Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Using-specialised-class-directly#no-automatic-change-of-subscript)
     on how to create such annotation-only specialized parsers.
 
-    Returning result of custom parser target is unsupported in stubs.
-    Please use `typing.cast()` directly in such case.
+    See Also
+    --------
+    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.fromstringlist)
+    """
+
+@overload  # custom target parser
+def fromstringlist(
+    strings: Iterable[str | bytes],
+    parser: CustomTargetParser[_T],
+) -> _T:
+    """Parses an XML document from a sequence of strings.
+    Returns the root node (or the result returned by a parser target).
+
+    Annotation
+    ----------
+    When specially constructed parser with custom parser target is supplied,
+    `fromstringlist()` returns that value dictated in parser target definition,
+    that is the parser target `.close()` method return value.
+
+    Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Custom-target-parser)
+    on how to create fully annotated parser with custom target object.
 
     See Also
     --------
     [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.fromstringlist)
     """
 
-@overload
+@overload  # parser not supplied
 def fromstringlist(
     strings: Iterable[str | bytes],
     parser: None = None,
@@ -246,78 +373,13 @@ def fromstringlist(
     """Parses an XML document from a sequence of strings.
     Returns the root node (or the result returned by a parser target).
 
+    Annotation
+    ----------
+    This overload handles usage of `fromstringlist()` with default parser.
+
     See Also
     --------
     [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.fromstringlist)
-    """
-
-# Under XML Canonicalization (C14N) mode, most arguments are ignored,
-# some arguments would even raise exception outright if specified.
-@overload  # warn if inclusive_ns_prefixes is not collection
-@deprecated(
-    "`inclusive_ns_prefixes` should be collection, otherwise "
-    "will either search for wrong NS prefix or raise exception"
-)
-def tostring(
-    element_or_tree: Any,
-    *,
-    method: Literal["c14n"],
-    inclusive_ns_prefixes: _TextArg,
-    **_kw: Any,
-) -> Never:
-    """Serialize an element to an encoded string representation of its XML tree.
-
-    Annotation
-    ----------
-    This `@overload` is a guard against using plain string in
-    `inclusive_ns_prefixes` argument, which can result in subtle bug.
-    The prefix string would be split into single characters and each
-    treated as a separate namespace prefix.
-
-    See Also
-    --------
-    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.tostring)
-    """
-
-@overload  # method="c14n"
-def tostring(
-    element_or_tree: _ElementOrTree,
-    *,
-    method: Literal["c14n"],
-    exclusive: bool = False,
-    inclusive_ns_prefixes: Collection[_TextArg] | None = None,
-    with_comments: bool = True,
-) -> bytes:
-    """Serialize an element to an encoded string representation of its XML tree.
-
-    Annotation
-    ----------
-    This `@overload` covers C14N version 1 (``method="c14n"``), along with its
-    specific keyword arguments.
-
-    See Also
-    --------
-    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.tostring)
-    """
-
-@overload  # method="c14n2"
-def tostring(
-    element_or_tree: _ElementOrTree,
-    *,
-    method: Literal["c14n2"],
-    with_comments: bool = True,
-    strip_text: bool = False,
-) -> bytes:
-    """Serialize an element to an encoded string representation of its XML tree.
-
-    Annotation
-    ----------
-    This `@overload` covers C14N version 2 (``method="c14n2"``), along with its
-    specific keyword arguments.
-
-    See Also
-    --------
-    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.tostring)
     """
 
 @overload  # Native str, no XML declaration allowed
@@ -362,6 +424,76 @@ def tostring(
     ----------
     This `@overload` covers all remaining generic usage of `tostring()`.
     Returns byte string.
+
+    See Also
+    --------
+    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.tostring)
+    """
+
+# Under XML Canonicalization (C14N) mode, most arguments are ignored,
+# some arguments would even raise exception outright if specified.
+@overload  # method="c14n2"
+def tostring(
+    element_or_tree: _ElementOrTree,
+    *,
+    method: Literal["c14n2"],
+    with_comments: bool = True,
+    strip_text: bool = False,
+) -> bytes:
+    """Serialize an element to an encoded string representation of its XML tree.
+
+    Annotation
+    ----------
+    This `@overload` covers C14N version 2 (``method="c14n2"``), along with its
+    specific keyword arguments.
+
+    See Also
+    --------
+    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.tostring)
+    """
+
+@overload  # warn if inclusive_ns_prefixes is not collection
+@deprecated(
+    "`inclusive_ns_prefixes` should be collection, otherwise "
+    "will either search for wrong NS prefix or raise exception"
+)
+def tostring(
+    element_or_tree: _ElementOrTree,
+    *,
+    method: Literal["c14n"],
+    exclusive: bool = False,
+    with_comments: bool = True,
+    inclusive_ns_prefixes: _TextArg,
+) -> Never:
+    """Serialize an element to an encoded string representation of its XML tree.
+
+    Annotation
+    ----------
+    This `@overload` is a guard against using plain string in
+    `inclusive_ns_prefixes` argument, which can result in subtle bug.
+    The prefix string would be split into single characters and each
+    treated as a separate namespace prefix.
+
+    See Also
+    --------
+    [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.tostring)
+    """
+
+@overload  # method="c14n"
+def tostring(
+    element_or_tree: _ElementOrTree,
+    *,
+    method: Literal["c14n"],
+    exclusive: bool = False,
+    inclusive_ns_prefixes: Collection[_TextArg] | None = None,
+    with_comments: bool = True,
+) -> bytes:
+    """Serialize an element to an encoded string representation of its XML tree.
+
+    Annotation
+    ----------
+    This `@overload` covers C14N version 1 (``method="c14n"``), along with its
+    specific keyword arguments.
 
     See Also
     --------
@@ -418,9 +550,6 @@ def adopt_external_document(
     Please [refer to wiki](https://github.com/abelcheung/types-lxml/wiki/Using-specialised-class-directly#no-automatic-change-of-subscript)
     on how to create such annotation-only specialized parsers.
 
-    Returning result of custom parser target is unsupported in stubs.
-    Please use `typing.cast()` directly in such case.
-
     See Also
     --------
     [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.adopt_external_document)
@@ -445,6 +574,7 @@ def register_namespace(prefix: _TextArg, uri: _TextArg) -> None: ...
 def dump(
     elem: _Element, *, pretty_print: bool = True, with_tail: bool = True
 ) -> None: ...
+
 @final
 class _MemDebug:
     """Debugging support for the memory allocation in libxml2"""

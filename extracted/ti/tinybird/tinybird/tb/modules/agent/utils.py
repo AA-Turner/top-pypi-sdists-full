@@ -40,7 +40,6 @@ class TinybirdAgentContext(BaseModel):
     workspace_name: str
     thinking_animation: Any
     get_project_files: Callable[[], List[str]]
-    explore_data: Callable[[str], str]
     build_project: Callable[..., None]
     build_project_test: Callable[..., None]
     deploy_project: Callable[..., None]

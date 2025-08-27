@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slurm-usage
-Version: 3.0.8
+Version: 3.0.9
 Summary: Command to list the current cluster usage per user.
 Project-URL: Homepage, https://github.com/basnijholt/slurm-usage
 Author-email: Bas Nijholt <bas@nijho.lt>

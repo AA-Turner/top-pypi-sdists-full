@@ -1,7 +1,47 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
+from orionis.console.contracts.command import ICommand
 
 class IReactor(ABC):
+
+    @abstractmethod
+    def command(
+        self,
+        signature: str,
+        handler: Any
+    ) -> ICommand:
+        """
+        Define a new command using a fluent interface.
+
+        This method allows defining a new command with a specified signature and handler
+        function using a fluent interface pattern. The command can be further configured
+        by chaining additional method calls to set properties such as timestamps,
+        description, and arguments.
+
+        Parameters
+        ----------
+        signature : str
+            The unique signature identifier for the command. Must follow naming conventions
+            (alphanumeric characters, underscores, colons, cannot start/end with underscore
+            or colon, cannot start with a number).
+        handler : Any
+            The function or callable that will be executed when the command is invoked.
+            This should be a valid function that accepts parameters matching the command's
+            defined arguments.
+
+        Returns
+        -------
+        ICommand
+            Returns an instance of ICommand that allows further configuration of the command
+            through method chaining.
+
+        Raises
+        ------
+        TypeError
+            If the signature is not a string or if the handler is not callable.
+        ValueError
+            If the signature does not meet the required naming conventions.
+        """
 
     @abstractmethod
     def info(self) -> List[dict]:

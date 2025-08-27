@@ -62,7 +62,7 @@ class TriggerRule(BaseRule):
         if super().disabled:
             return True
 
-        ctx = contrast.CS__CONTEXT_TRACKER.current()
+        ctx = contrast.REQUEST_CONTEXT.get()
         if ctx is None:
             return False
 

@@ -32,7 +32,7 @@ def check_or_enter_scope(orig_func):
 @check_or_enter_scope  # NOTE: this decorator must come first!
 @fail_loudly("Failed to perform assess analysis.")
 def analyze(patch_policy, result, args, kwargs):
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if not context or not context.assess_enabled:
         return
 
@@ -59,7 +59,7 @@ def _analyze(patch_policy, preshift, self_obj, ret, orig_args, orig_kwargs=None)
     if not patch_policy:
         return
 
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None:
         return
 

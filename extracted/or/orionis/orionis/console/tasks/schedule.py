@@ -25,19 +25,18 @@ from orionis.console.contracts.reactor import IReactor
 from orionis.console.contracts.schedule import ISchedule
 from orionis.console.contracts.schedule_event_listener import IScheduleEventListener
 from orionis.console.entities.event_job import EventJob
-from orionis.console.entities.request import CLIRequest
 from orionis.console.entities.scheduler_error import SchedulerError
 from orionis.console.entities.scheduler_paused import SchedulerPaused
 from orionis.console.entities.scheduler_resumed import SchedulerResumed
 from orionis.console.entities.scheduler_shutdown import SchedulerShutdown
 from orionis.console.entities.scheduler_started import SchedulerStarted
-from orionis.console.enums.event import Event as EventEntity
+from orionis.console.entities.event import Event as EventEntity
 from orionis.console.enums.listener import ListeningEvent
 from orionis.console.exceptions import CLIOrionisRuntimeError
 from orionis.console.exceptions.cli_orionis_value_error import CLIOrionisValueError
+from orionis.console.request.cli_request import CLIRequest
 from orionis.failure.contracts.catch import ICatch
 from orionis.foundation.contracts.application import IApplication
-from orionis.services.asynchrony.coroutines import Coroutine
 from orionis.services.log.contracts.log_service import ILogger
 
 class Schedule(ISchedule):
@@ -167,7 +166,7 @@ class Schedule(ISchedule):
             # Store each job's signature and description in the commands dictionary
             commands[job['signature']] = {
                 'signature': job['signature'],
-                'description': job.get('description', '')
+                'description': job.get('description', 'No description available.')
             }
 
         # Return the commands dictionary
@@ -268,7 +267,7 @@ class Schedule(ISchedule):
 
         # Prevent adding new commands while the scheduler is running
         if self.isRunning():
-            raise CLIOrionisRuntimeError("Cannot add new commands while the scheduler is running.")
+            self.__raiseException(CLIOrionisValueError("Cannot add new commands while the scheduler is running."))
 
         # Validate that the command signature is a non-empty string
         if not isinstance(signature, str) or not signature.strip():
@@ -283,7 +282,7 @@ class Schedule(ISchedule):
             raise CLIOrionisValueError(f"The command '{signature}' is not available or does not exist.")
 
         # Import Event here to avoid circular dependency issues
-        from orionis.console.tasks.event import Event
+        from orionis.console.fluent.event import Event
 
         # Store the command and its arguments for scheduling
         self.__events[signature] = Event(
@@ -465,7 +464,7 @@ class Schedule(ISchedule):
 
         # Validate that the provided event is an instance of ListeningEvent
         if not isinstance(listening_vent, ListeningEvent):
-            raise CLIOrionisValueError("The event must be an instance of ListeningEvent.")
+            self.__raiseException(CLIOrionisValueError("The event must be an instance of ListeningEvent."))
 
         # Retrieve the global identifier for the event from the ListeningEvent enum
         scheduler_event = listening_vent.value
@@ -481,16 +480,9 @@ class Schedule(ISchedule):
 
                 # Invoke the listener, handling both coroutine and regular functions
                 try:
-
-                    # Use Coroutine to handle both sync and async listeners
-                    Coroutine(listener).invoke(event_data, self)
-
+                    self.__app.invoke(listener, event_data, self)
                 except BaseException as e:
-
-                    # Construct and log error message
-                    error_msg = f"An error occurred while invoking the listener for event '{scheduler_event}': {str(e)}"
-                    self.__logger.error(error_msg)
-                    raise CLIOrionisRuntimeError(error_msg) from e
+                    self.__raiseException(e)
 
     def __taskCallableListener(
         self,
@@ -528,9 +520,7 @@ class Schedule(ISchedule):
 
         # Validate that the provided event is an instance of ListeningEvent
         if not isinstance(listening_vent, ListeningEvent):
-            error_msg = "The event must be an instance of ListeningEvent."
-            self.__logger.error(error_msg)
-            raise CLIOrionisValueError(error_msg)
+            self.__raiseException(CLIOrionisValueError("The event must be an instance of ListeningEvent."))
 
         # Validate that event_data is not None and has a id attribute
         if not isinstance(event_data, EventJob) or not hasattr(event_data, 'id') or not event_data.id:
@@ -548,38 +538,25 @@ class Schedule(ISchedule):
             # Check if the listener is an instance of IScheduleEventListener
             if issubclass(listener, IScheduleEventListener):
 
-                # Initialize the listener if it's a class
-                if isinstance(listener, type):
-                    listener = listener()
+                try:
 
-                # Check if the listener has a method corresponding to the event type
-                if hasattr(listener, scheduler_event) and callable(getattr(listener, scheduler_event)):
+                    # Initialize the listener if it's a class
+                    if isinstance(listener, type):
+                        listener = self.__app.make(listener)
 
-                    # Retrieve the method from the listener
-                    listener_method = getattr(listener, scheduler_event)
+                    # Check if the listener has a method corresponding to the event type
+                    if hasattr(listener, scheduler_event) and callable(getattr(listener, scheduler_event)):
+                        self.__app.call(listener, scheduler_event, event_data, self)
 
-                    # Invoke the listener method, handling both coroutine and regular functions
-                    try:
+                except BaseException as e:
 
-                        # Use Coroutine to handle both sync and async listener methods
-                        Coroutine(listener_method).invoke(event_data, self)
-
-                    except Exception as e:
-
-                        # Construct and log error message
-                        error_msg = f"An error occurred while invoking the listener_method for event '{scheduler_event}': {str(e)}"
-                        self.__logger.error(error_msg)
-                        raise CLIOrionisRuntimeError(error_msg) from e
-
-                else:
-
-                    # Log a warning if the listener does not have the required method
-                    self.__logger.warning(f"The listener for job ID '{event_data.id}' does not have a method for event '{scheduler_event}'.")
+                    # If an error occurs while invoking the listener, raise an exception
+                    self.__raiseException(e)
 
             else:
 
-                # Log a warning if the listener is not an instance of IScheduleEventListener
-                self.__logger.warning(f"The listener for job ID '{event_data.id}' is not an instance of IScheduleEventListener.")
+                # If the listener is not a subclass of IScheduleEventListener, raise an exception
+                self.__raiseException(CLIOrionisValueError(f"The listener for job ID '{event_data.id}' must be a subclass of IScheduleEventListener."))
 
     def __startedListener(
         self,
@@ -727,10 +704,7 @@ class Schedule(ISchedule):
         self.__globalCallableListener(event_data, ListeningEvent.SCHEDULER_ERROR)
 
         # Catch any exceptions that occur during command handling
-        self.__catch.exception(self, CLIRequest(
-            command=job_event_data.id,
-            args=list(job_event_data.args) or []
-        ), event.exception)
+        self.__raiseException(event.exception)
 
     def __submittedListener(
         self,
@@ -929,7 +903,7 @@ class Schedule(ISchedule):
 
                 try:
                     # Convert the event to its entity representation
-                    entity = event.toEntity()
+                    entity: EventEntity = event.toEntity()
 
                     # Add the job to the internal jobs list
                     self.__jobs.append(entity)
@@ -944,7 +918,9 @@ class Schedule(ISchedule):
                         trigger=entity.trigger,
                         id=signature,
                         name=signature,
-                        replace_existing=True
+                        replace_existing=True,
+                        max_instances=entity.max_instances,
+                        misfire_grace_time=entity.misfire_grace_time
                     )
 
                     # If a listener is associated with the event, register it
@@ -964,6 +940,48 @@ class Schedule(ISchedule):
 
                     # Raise a runtime error if loading the scheduled event fails
                     raise CLIOrionisRuntimeError(error_msg)
+
+    def __raiseException(
+        self,
+        exception: BaseException
+    ) -> None:
+        """
+        Handle and propagate exceptions through the application's error handling system.
+
+        This private method serves as a centralized exception handler for the scheduler,
+        delegating exception processing to the application's error catching mechanism.
+        It ensures that all exceptions occurring within the scheduler context are
+        properly handled according to the application's error handling policies.
+
+        The method acts as a bridge between the scheduler's internal operations and
+        the application's global exception handling system, providing consistent
+        error handling behavior across the entire application.
+
+        Parameters
+        ----------
+        exception : BaseException
+            The exception instance that was raised during command execution. This can be
+            any type of exception that inherits from BaseException, including system
+            exceptions, custom application exceptions, and runtime errors.
+
+        Returns
+        -------
+        None
+            This method does not return any value. It delegates exception handling
+            to the application's error catching mechanism and may re-raise the
+            exception depending on the configured error handling behavior.
+
+        Notes
+        -----
+        This method is intended for internal use within the scheduler and should not
+        be called directly by external code. The error catching mechanism may perform
+        various actions such as logging, reporting, or re-raising the exception based
+        on the application's configuration.
+        """
+
+        # Delegate exception handling to the application's error catching mechanism
+        # This ensures consistent error handling across the entire application
+        self.__catch.exception(self, CLIRequest(command="schedule:work", args={}), exception)
 
     def setListener(
         self,
@@ -995,7 +1013,7 @@ class Schedule(ISchedule):
 
         Raises
         ------
-        ValueError
+        CLIOrionisValueError
             If the event name is not a non-empty string or if the listener is not callable
             or an instance of IScheduleEventListener.
         """
@@ -1006,11 +1024,11 @@ class Schedule(ISchedule):
 
         # Validate that the event name is a non-empty string
         if not isinstance(event, str) or not event.strip():
-            raise ValueError("Event name must be a non-empty string.")
+            raise CLIOrionisValueError("Event name must be a non-empty string.")
 
         # Validate that the listener is either callable or an instance of IScheduleEventListener
         if not callable(listener) and not isinstance(listener, IScheduleEventListener):
-            raise ValueError("Listener must be a callable function or an instance of IScheduleEventListener.")
+            raise CLIOrionisValueError("Listener must be a callable function or an instance of IScheduleEventListener.")
 
         # Register the listener for the specified event in the internal listeners dictionary
         self.__listeners[event] = listener
@@ -1101,19 +1119,13 @@ class Schedule(ISchedule):
             error reporting and debugging information.
             """
 
+            # Execute the asynchronous function using the container's invoke method
             try:
-                # Execute the asynchronous function using the Coroutine utility class
-                # The Coroutine class handles the event loop management and async execution
-                return Coroutine(func).invoke(*args, **kwargs)
+                self.__app.invoke(func, *args, **kwargs)
 
+            # If an error occurs during execution, raise a custom exception
             except Exception as e:
-
-                # Log the error with detailed information for debugging purposes
-                self.__logger.error(f"Error executing async function: {str(e)}")
-
-                # Re-raise the exception wrapped in a custom exception type
-                # This provides better error context and maintains the original stack trace
-                raise CLIOrionisRuntimeError(f"Failed to execute async function: {str(e)}") from e
+                self.__raiseException(e)
 
         # Return the synchronous wrapper function
         return sync_wrapper
@@ -1151,7 +1163,7 @@ class Schedule(ISchedule):
 
         # Validate that the 'at' parameter is a datetime object
         if not isinstance(at, datetime):
-            raise ValueError("The 'at' parameter must be a datetime object.")
+            CLIOrionisValueError("The 'at' parameter must be a datetime object.")
 
         # Define an async function to pause the scheduler
         async def schedule_pause():
@@ -1198,8 +1210,8 @@ class Schedule(ISchedule):
 
                         except Exception as e:
 
-                            # Log a warning if pausing a job fails, but continue with others
-                            self.__logger.warning(f"Failed to pause job '{job.id}': {str(e)}")
+                            # If an error occurs while pausing the job, raise an exception
+                            self.__raiseException(e)
 
                 # Execute the global callable listener after all jobs are paused
                 self.__globalCallableListener(SchedulerPaused(
@@ -1270,7 +1282,7 @@ class Schedule(ISchedule):
 
         # Validate that the 'at' parameter is a datetime object
         if not isinstance(at, datetime):
-            raise ValueError("The 'at' parameter must be a datetime object.")
+            raise CLIOrionisValueError("The 'at' parameter must be a datetime object.")
 
         # Define an async function to resume the scheduler
         async def schedule_resume():
@@ -1300,8 +1312,8 @@ class Schedule(ISchedule):
 
                         except Exception as e:
 
-                            # Log a warning if resuming a job fails, but continue with others
-                            self.__logger.warning(f"Failed to resume job '{job_id}': {str(e)}")
+                            # If an error occurs while resuming the job, raise an exception
+                            self.__raiseException(e)
 
                     # Clear the set after resuming all jobs
                     self.__pausedByPauseEverything.clear()
@@ -1407,8 +1419,7 @@ class Schedule(ISchedule):
                 except Exception as e:
 
                     # Log any errors that occur during shutdown
-                    error_msg = f"Error during scheduled shutdown: {str(e)}"
-                    self.__logger.error(error_msg)
+                    self.__logger.error(f"Error during scheduled shutdown: {str(e)}")
 
                     # Force stop if graceful shutdown fails
                     self.forceStop()
@@ -1542,7 +1553,7 @@ class Schedule(ISchedule):
 
         # Validate the wait parameter
         if not isinstance(wait, bool):
-            raise ValueError("The 'wait' parameter must be a boolean value.")
+            self.__raiseException(CLIOrionisValueError("The 'wait' parameter must be a boolean value."))
 
         # If the scheduler is not running, there's nothing to shut down
         if not self.isRunning():
@@ -1570,9 +1581,9 @@ class Schedule(ISchedule):
         except Exception as e:
 
             # Handle exceptions that may occur during shutdown
-            raise CLIOrionisRuntimeError(f"Failed to shut down the scheduler: {str(e)}") from e
+            self.__raiseException(CLIOrionisRuntimeError(f"Failed to shut down the scheduler: {str(e)}"))
 
-    def pause(self, signature: str) -> bool:
+    def pauseTask(self, signature: str) -> bool:
         """
         Pause a scheduled job in the AsyncIO scheduler.
 
@@ -1600,7 +1611,7 @@ class Schedule(ISchedule):
 
         # Validate that the signature is a non-empty string
         if not isinstance(signature, str) or not signature.strip():
-            raise CLIOrionisValueError("Signature must be a non-empty string.")
+            self.__raiseException(CLIOrionisValueError("Signature must be a non-empty string."))
 
         try:
 
@@ -1618,7 +1629,7 @@ class Schedule(ISchedule):
             # Return False if the job could not be paused (e.g., it does not exist)
             return False
 
-    def resume(self, signature: str) -> bool:
+    def resumeTask(self, signature: str) -> bool:
         """
         Resume a paused job in the AsyncIO scheduler.
 
@@ -1646,7 +1657,7 @@ class Schedule(ISchedule):
 
         # Validate that the signature is a non-empty string
         if not isinstance(signature, str) or not signature.strip():
-            raise CLIOrionisValueError("Signature must be a non-empty string.")
+            self.__raiseException(CLIOrionisValueError("Signature must be a non-empty string."))
 
         try:
             # Attempt to resume the job with the given signature
@@ -1663,7 +1674,7 @@ class Schedule(ISchedule):
             # Return False if the job could not be resumed (e.g., it does not exist)
             return False
 
-    def remove(self, signature: str) -> bool:
+    def removeTask(self, signature: str) -> bool:
         """
         Remove a scheduled job from the AsyncIO scheduler.
 
@@ -1692,7 +1703,7 @@ class Schedule(ISchedule):
 
         # Validate that the signature is a non-empty string
         if not isinstance(signature, str) or not signature.strip():
-            raise CLIOrionisValueError("Signature must be a non-empty string.")
+            self.__raiseException(CLIOrionisValueError("Signature must be a non-empty string."))
 
         try:
 

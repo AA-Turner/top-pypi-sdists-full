@@ -17,7 +17,6 @@ import json
 import os
 import statistics
 from unittest import mock
-import warnings
 
 import google.auth.credentials
 from google.cloud import aiplatform
@@ -29,7 +28,6 @@ from vertexai._genai import _evals_metric_handlers
 from vertexai._genai import evals
 from vertexai._genai import types as vertexai_genai_types
 from google.genai import client
-from google.genai import errors as genai_errors
 from google.genai import types as genai_types
 import pandas as pd
 import pytest
@@ -114,14 +112,16 @@ def mock_eval_dependencies(mock_api_client_fixture):
         mock_upload_to_gcs.return_value = (
             "gs://mock-bucket/mock_path/evaluation_result_timestamp.json"
         )
-        mock_prebuilt_safety_metric = vertexai_genai_types.LLMMetric(
-            name="safety", prompt_template="Is this safe? {response}"
+        mock_prebuilt_fluency_metric = vertexai_genai_types.LLMMetric(
+            name="fluency", prompt_template="Is this fluent? {response}"
         )
-        mock_prebuilt_safety_metric._is_predefined = True
-        mock_prebuilt_safety_metric._config_source = "gs://mock-metrics/safety/v1.yaml"
-        mock_prebuilt_safety_metric._version = "v1"
+        mock_prebuilt_fluency_metric._is_predefined = True
+        mock_prebuilt_fluency_metric._config_source = (
+            "gs://mock-metrics/fluency/v1.yaml"
+        )
+        mock_prebuilt_fluency_metric._version = "v1"
 
-        mock_fetch_prebuilt_metric.return_value = mock_prebuilt_safety_metric
+        mock_fetch_prebuilt_metric.return_value = mock_prebuilt_fluency_metric
 
         yield {
             "mock_storage_client": mock_storage_client,
@@ -129,7 +129,7 @@ def mock_eval_dependencies(mock_api_client_fixture):
             "mock_evaluate_instances": mock_evaluate_instances,
             "mock_upload_to_gcs": mock_upload_to_gcs,
             "mock_fetch_prebuilt_metric": mock_fetch_prebuilt_metric,
-            "mock_prebuilt_safety_metric": mock_prebuilt_safety_metric,
+            "mock_prebuilt_fluency_metric": mock_prebuilt_fluency_metric,
         }
 
 
@@ -145,20 +145,6 @@ class TestEvals:
             location=_TEST_LOCATION,
         )
         self.client = vertexai.Client(project=_TEST_PROJECT, location=_TEST_LOCATION)
-
-    @pytest.mark.usefixtures("google_auth_mock")
-    @mock.patch.object(client.Client, "_get_api_client")
-    @mock.patch.object(evals.Evals, "_evaluate_instances")
-    def test_evaluate_instances(self, mock_evaluate, mock_get_api_client):
-        with warnings.catch_warnings(record=True) as captured_warnings:
-            warnings.simplefilter("always")
-            self.client.evals._evaluate_instances(
-                bleu_input=vertexai_genai_types.BleuInput()
-            )
-            mock_evaluate.assert_called_once_with(
-                bleu_input=vertexai_genai_types.BleuInput()
-            )
-            assert captured_warnings[0].category == genai_errors.ExperimentalWarning
 
     @pytest.mark.usefixtures("google_auth_mock")
     def test_eval_run(self):
@@ -3156,7 +3142,7 @@ class TestEvalsRunEvaluation:
             mock_loader_instance.load.return_value = mock_openai_raw_data
 
             with mock.patch.object(
-                _evals_metric_handlers.LLMMetricHandler, "process"
+                _evals_metric_handlers.LLMMetricHandler, "get_metric_result"
             ) as mock_llm_process:
                 mock_llm_process.return_value = (
                     vertexai_genai_types.EvalCaseMetricResult(
@@ -3233,7 +3219,7 @@ class TestEvalsRunEvaluation:
         )
 
         with mock.patch(
-            "vertexai._genai._evals_metric_handlers.LLMMetricHandler.process"
+            "vertexai._genai._evals_metric_handlers.LLMMetricHandler.get_metric_result"
         ) as mock_llm_process:
             mock_llm_process.side_effect = [
                 vertexai_genai_types.EvalCaseMetricResult(
@@ -3288,7 +3274,7 @@ class TestEvalsRunEvaluation:
         )
 
         with mock.patch(
-            "vertexai._genai._evals_metric_handlers.LLMMetricHandler.process"
+            "vertexai._genai._evals_metric_handlers.LLMMetricHandler.get_metric_result"
         ) as mock_llm_process:
             mock_llm_process.side_effect = [
                 vertexai_genai_types.EvalCaseMetricResult(
@@ -3335,7 +3321,7 @@ class TestEvalsRunEvaluation:
             aggregate_summary_fn=custom_agg_fn_error,
         )
         with mock.patch(
-            "vertexai._genai._evals_metric_handlers.LLMMetricHandler.process"
+            "vertexai._genai._evals_metric_handlers.LLMMetricHandler.get_metric_result"
         ) as mock_llm_process:
             mock_llm_process.side_effect = [
                 vertexai_genai_types.EvalCaseMetricResult(
@@ -3379,7 +3365,7 @@ class TestEvalsRunEvaluation:
             aggregate_summary_fn=custom_agg_fn_invalid_type,
         )
         with mock.patch(
-            "vertexai._genai._evals_metric_handlers.LLMMetricHandler.process"
+            "vertexai._genai._evals_metric_handlers.LLMMetricHandler.get_metric_result"
         ) as mock_llm_process:
             mock_llm_process.return_value = vertexai_genai_types.EvalCaseMetricResult(
                 metric_name="invalid_type_fallback", score=0.8
@@ -3405,7 +3391,7 @@ class TestEvalsRunEvaluation:
         )
 
         lazy_metric_instance = _evals_utils.LazyLoadedPrebuiltMetric(
-            name="safety", version="v1"
+            name="fluency", version="v1"
         )
 
         result = _evals_common._execute_evaluation(
@@ -3421,7 +3407,7 @@ class TestEvalsRunEvaluation:
         assert result.evaluation_dataset == [input_dataset]
         assert len(result.summary_metrics) == 1
         summary_metric = result.summary_metrics[0]
-        assert summary_metric.metric_name == "safety"
+        assert summary_metric.metric_name == "fluency"
         assert summary_metric.mean_score == 0.9
 
     def test_execute_evaluation_prebuilt_metric_via_loader(
@@ -3434,7 +3420,7 @@ class TestEvalsRunEvaluation:
             eval_dataset_df=dataset_df
         )
 
-        prebuilt_metric = vertexai_genai_types.PrebuiltMetric.SAFETY
+        prebuilt_metric = vertexai_genai_types.RubricMetric.FLUENCY
 
         result = _evals_common._execute_evaluation(
             api_client=mock_api_client_fixture,
@@ -3449,7 +3435,7 @@ class TestEvalsRunEvaluation:
         assert result.evaluation_dataset == [input_dataset]
         assert len(result.summary_metrics) == 1
         summary_metric = result.summary_metrics[0]
-        assert summary_metric.metric_name == "safety"
+        assert summary_metric.metric_name == "fluency"
         assert summary_metric.mean_score == 0.9
 
     def test_execute_evaluation_with_gcs_destination(

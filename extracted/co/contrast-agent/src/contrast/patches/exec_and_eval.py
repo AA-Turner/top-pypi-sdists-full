@@ -41,7 +41,7 @@ orig_compile = builtins.compile
 @scope.contrast_scope()
 @fail_quietly("Error applying rule for exec/eval patch")
 def apply_rule(rule_applicator, orig_func, result, args, kwargs):
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     with scope.pop_contrast_scope():
         # need to be in original scope to correctly check if we need to perform analysis
         if not (context and context.propagate_assess):

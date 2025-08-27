@@ -29,6 +29,11 @@ class ModelGroupManagementServiceStub(object):
                 request_serializer=qwak_dot_model__group_dot_model__group__pb2.GetModelGroupInfoRequest.SerializeToString,
                 response_deserializer=qwak_dot_model__group_dot_model__group__pb2.ModelGroupBriefInfoResponse.FromString,
                 )
+        self.GetModelGroupSystemPullImageSecret = channel.unary_unary(
+                '/qwak.model_groups.management.ModelGroupManagementService/GetModelGroupSystemPullImageSecret',
+                request_serializer=qwak_dot_model__group_dot_model__group__pb2.GetModelGroupSystemPullImageSecretRequest.SerializeToString,
+                response_deserializer=qwak_dot_model__group_dot_model__group__pb2.SystemPullSecretInfoNamesResponse.FromString,
+                )
 
 
 class ModelGroupManagementServiceServicer(object):
@@ -52,6 +57,16 @@ class ModelGroupManagementServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetModelGroupSystemPullImageSecret(self, request, context):
+        """*
+        This end point gets a list of model group names and returns a list of SystemPullSecretInfo
+        that contains model group name and the secret pull image with the "system-" addition to the pull secret name
+        For example:
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ModelGroupManagementServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -69,6 +84,11 @@ def add_ModelGroupManagementServiceServicer_to_server(servicer, server):
                     servicer.GetModelGroupInfo,
                     request_deserializer=qwak_dot_model__group_dot_model__group__pb2.GetModelGroupInfoRequest.FromString,
                     response_serializer=qwak_dot_model__group_dot_model__group__pb2.ModelGroupBriefInfoResponse.SerializeToString,
+            ),
+            'GetModelGroupSystemPullImageSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetModelGroupSystemPullImageSecret,
+                    request_deserializer=qwak_dot_model__group_dot_model__group__pb2.GetModelGroupSystemPullImageSecretRequest.FromString,
+                    response_serializer=qwak_dot_model__group_dot_model__group__pb2.SystemPullSecretInfoNamesResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -128,5 +148,22 @@ class ModelGroupManagementService(object):
         return grpc.experimental.unary_unary(request, target, '/qwak.model_groups.management.ModelGroupManagementService/GetModelGroupInfo',
             qwak_dot_model__group_dot_model__group__pb2.GetModelGroupInfoRequest.SerializeToString,
             qwak_dot_model__group_dot_model__group__pb2.ModelGroupBriefInfoResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetModelGroupSystemPullImageSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.model_groups.management.ModelGroupManagementService/GetModelGroupSystemPullImageSecret',
+            qwak_dot_model__group_dot_model__group__pb2.GetModelGroupSystemPullImageSecretRequest.SerializeToString,
+            qwak_dot_model__group_dot_model__group__pb2.SystemPullSecretInfoNamesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

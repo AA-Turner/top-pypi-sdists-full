@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: sqlcipher3-wheels
-Version: 0.5.5
+Version: 0.5.5.post0
 Summary: DB-API 2.0 interface for SQLCipher 3.x
-Author-email: Charles Leifer <coleifer@gmail.com>
+Author-email: Charles Leifer <coleifer@gmail.com>, laggykiller <chaudominic2@gmail.com>
 License: zlib/libpng
 Project-URL: homepage, https://github.com/laggykiller/sqlcipher3
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: zlib/libpng License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX

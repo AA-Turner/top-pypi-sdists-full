@@ -56,7 +56,14 @@ def remove_key(js: dict, key: any) -> dict:
     no action is taken."""
     js.pop(key, None)
     return js
-
+def get_set_attr(parent,attr_name,value=None,valueFunc=None,default=False,*args,**kwargs):
+    attr_value = getattr(parent,attr_name,default)
+    if attr_value == False:
+        if value is None and valueFunc is not None:
+            value = valueFunc(*args,**kwargs)
+        setattr(parent,attr_name,value)
+        attr_value = getattr(parent,attr_name,default)
+    return attr_value
 def get_module_obj(instance: any, obj: any):
     """
     Retrieves an object from a module.

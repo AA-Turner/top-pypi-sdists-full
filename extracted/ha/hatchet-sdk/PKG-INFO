@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hatchet-sdk
-Version: 1.17.2
+Version: 1.18.1
 Summary: 
 License: MIT
 Author: Alexander Belanger
@@ -12,9 +12,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Provides-Extra: otel
-Provides-Extra: v0
+Provides-Extra: v0-sdk
 Requires-Dist: aiohttp (>=3.10.5,<4.0.0)
-Requires-Dist: cel-python (>=0.4.0,<0.5.0) ; extra == "v0"
+Requires-Dist: cel-python (>=0.4.0,<0.5.0) ; extra == "v0-sdk"
 Requires-Dist: grpcio (>=1.64.1,!=1.68.*) ; python_version < "3.13"
 Requires-Dist: grpcio (>=1.69.0) ; python_version >= "3.13"
 Requires-Dist: grpcio-tools (>=1.64.1,!=1.68.*) ; python_version < "3.13"

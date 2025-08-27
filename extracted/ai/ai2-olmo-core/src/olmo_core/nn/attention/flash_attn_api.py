@@ -1,4 +1,5 @@
-from typing import Optional
+import logging
+from typing import Optional, Tuple
 
 import torch
 import torch.distributed as dist
@@ -14,6 +15,8 @@ try:
     import ring_flash_attn  # type: ignore
 except ImportError:
     ring_flash_attn = None
+
+log = logging.getLogger(__name__)
 
 
 def _flatten_batch_dim(x: torch.Tensor) -> torch.Tensor:
@@ -35,6 +38,7 @@ def dispatch_flash_attn(
     dropout_p: float = 0.0,
     softmax_scale: Optional[float] = None,
     causal: bool = False,
+    window_size: Tuple[int, int] = (-1, -1),
 ) -> torch.Tensor:
     if flash_attn is None:
         raise RuntimeError("flash-attn is required!")
@@ -64,6 +68,7 @@ def dispatch_flash_attn(
             dropout_p=dropout_p,
             softmax_scale=softmax_scale,
             causal=causal,
+            window_size=window_size,
         )
     else:
         return flash_attn.flash_attn_func(
@@ -73,6 +78,7 @@ def dispatch_flash_attn(
             dropout_p=dropout_p,
             softmax_scale=softmax_scale,
             causal=causal,
+            window_size=window_size,
         )
 
 
@@ -84,6 +90,7 @@ def dispatch_flash_attn_qkvpacked(
     dropout_p: float = 0.0,
     softmax_scale: Optional[float] = None,
     causal: bool = False,
+    window_size: Tuple[int, int] = (-1, -1),
 ) -> torch.Tensor:
     if flash_attn is None:
         raise RuntimeError("flash-attn is required!")
@@ -96,11 +103,46 @@ def dispatch_flash_attn_qkvpacked(
             dropout_p=dropout_p,
             softmax_scale=softmax_scale,
             causal=causal,
+            window_size=window_size,
         )
     else:
         return flash_attn.flash_attn_qkvpacked_func(
-            qkv, dropout_p=dropout_p, softmax_scale=softmax_scale, causal=causal
+            qkv,
+            dropout_p=dropout_p,
+            softmax_scale=softmax_scale,
+            causal=causal,
+            window_size=window_size,
         )
+
+
+@torch._dynamo.disable()
+def dispatch_flash_attn_with_kvcache(
+    q: torch.Tensor,
+    k_cache: torch.Tensor,
+    v_cache: torch.Tensor,
+    k: Optional[torch.Tensor] = None,
+    v: Optional[torch.Tensor] = None,
+    cache_seqlens: Optional[torch.Tensor] = None,
+    cache_leftpad: Optional[torch.Tensor] = None,
+    softmax_scale: Optional[float] = None,
+    causal: bool = False,
+    window_size: Tuple[int, int] = (-1, -1),
+) -> torch.Tensor:
+    if flash_attn is None:
+        raise RuntimeError("flash-attn is required!")
+
+    return flash_attn.flash_attn_with_kvcache(
+        q,
+        k_cache,  # updated in-place if k/v are provided
+        v_cache,  # updated in-place if k/v are provided
+        k=k,
+        v=v,
+        cache_seqlens=cache_seqlens,
+        cache_leftpad=cache_leftpad,
+        softmax_scale=softmax_scale,
+        causal=causal,
+        window_size=window_size,
+    )
 
 
 @torch._dynamo.disable()
@@ -122,6 +164,7 @@ def dispatch_ring_flash_attn(
     dropout_p: float = 0.0,
     softmax_scale: Optional[float] = None,
     causal: bool = False,
+    window_size: Tuple[int, int] = (-1, -1),
 ) -> torch.Tensor:
     if ring_flash_attn is None:
         raise RuntimeError("flash-attn and ring-flash-attn are required!")
@@ -135,6 +178,12 @@ def dispatch_ring_flash_attn(
         if local_k_slice is not None:
             raise RuntimeError(f"'local_k_slice' is invalid for {strategy} load balancing strategy")
 
+        if window_size != (-1, -1):
+            # See https://github.com/zhuzilin/ring-flash-attention/issues/35
+            raise RuntimeError(
+                f"SWA is currently not supported for {strategy} load balancing strategy"
+            )
+
         if cu_seqlens is not None and max_seqlen is not None:
             out = ring_flash_attn.zigzag_ring_flash_attn_varlen_func(
                 _flatten_batch_dim(q),
@@ -146,6 +195,7 @@ def dispatch_ring_flash_attn(
                 softmax_scale=softmax_scale,
                 causal=causal,
                 group=group,
+                window_size=window_size,
             )
         else:
             out = ring_flash_attn.zigzag_ring_flash_attn_func(
@@ -156,6 +206,7 @@ def dispatch_ring_flash_attn(
                 softmax_scale=softmax_scale,
                 causal=causal,
                 group=group,
+                window_size=window_size,
             )
     elif strategy == RingAttentionLoadBalancerType.llama3:
         if any(x is not None for x in (cu_seqlens, max_seqlen)):
@@ -191,6 +242,7 @@ def dispatch_ring_flash_attn(
             softmax_scale=softmax_scale,
             causal=causal,
             group=group,
+            window_size=window_size,
         )
     else:
         raise NotImplementedError(strategy)
@@ -209,6 +261,7 @@ def dispatch_ring_flash_attn_qkvpacked(
     dropout_p: float = 0.0,
     softmax_scale: Optional[float] = None,
     causal: bool = False,
+    window_size: Tuple[int, int] = (-1, -1),
 ) -> torch.Tensor:
     if ring_flash_attn is None:
         raise RuntimeError("flash-attn and ring-flash-attn are required!")
@@ -223,6 +276,7 @@ def dispatch_ring_flash_attn_qkvpacked(
                 softmax_scale=softmax_scale,
                 causal=causal,
                 group=group,
+                window_size=window_size,
             )
         else:
             out = ring_flash_attn.zigzag_ring_flash_attn_qkvpacked_func(
@@ -231,6 +285,7 @@ def dispatch_ring_flash_attn_qkvpacked(
                 softmax_scale=softmax_scale,
                 causal=causal,
                 group=group,
+                window_size=window_size,
             )
     else:
         raise NotImplementedError(strategy)

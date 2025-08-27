@@ -24,7 +24,7 @@ class MethodTampering(BaseRule):
 
         evaluations_for_rule = self.evaluations_for_rule()
 
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
 
         # do not remove; this case is not yet well-understood
         if (

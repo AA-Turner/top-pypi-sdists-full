@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from urllib.parse import quote
 
 import click
 import requests
@@ -13,6 +14,8 @@ from rich.table import Table
 
 from hud.settings import settings
 from hud.utils.design import HUDDesign
+
+from .registry import save_to_registry
 
 
 def get_docker_manifest(image: str) -> dict | None:
@@ -59,7 +62,9 @@ def fetch_lock_from_registry(reference: str) -> dict | None:
         if "/" in reference and ":" not in reference:
             reference = f"{reference}:latest"
 
-        registry_url = f"{settings.hud_telemetry_url.rstrip('/')}/registry/envs/{reference}"
+        # URL-encode the path segments to handle special characters in tags
+        url_safe_path = "/".join(quote(part, safe="") for part in reference.split("/"))
+        registry_url = f"{settings.hud_telemetry_url.rstrip('/')}/registry/envs/{url_safe_path}"
 
         headers = {}
         if settings.api_key:
@@ -77,7 +82,18 @@ def fetch_lock_from_registry(reference: str) -> dict | None:
             else:
                 # Try to treat the whole response as lock data
                 return data
-
+        elif response.status_code == 404:
+            # Not found - expected error, return None silently
+            return None
+        elif response.status_code == 401:
+            # Authentication issue - might be a private environment
+            return None
+        else:
+            # Other errors - also return None but could log if verbose
+            return None
+    except requests.exceptions.Timeout:
+        return None
+    except requests.exceptions.ConnectionError:
         return None
     except Exception:
         return None
@@ -282,19 +298,8 @@ def pull_environment(
 
     # Store lock file locally if we have full lock data (not minimal manifest data)
     if lock_data and lock_data.get("source") != "docker-manifest":
-        # Extract digest from image ref
-        digest = image_ref.split("@sha256:")[-1][:12] if "@sha256:" in image_ref else "latest"
-
-        # Store under ~/.hud/envs/<digest>/
-        local_env_dir = Path.home() / ".hud" / "envs" / digest
-        local_env_dir.mkdir(parents=True, exist_ok=True)
-
-        local_lock_path = local_env_dir / "hud.lock.yaml"
-        with open(local_lock_path, "w") as f:
-            yaml.dump(lock_data, f, default_flow_style=False, sort_keys=False)
-
-        if verbose:
-            design.info(f"Stored lock file: {local_lock_path}")
+        # Save to local registry using the helper
+        save_to_registry(lock_data, image_ref, verbose)
 
     # Success!
     design.success("Pull complete!")

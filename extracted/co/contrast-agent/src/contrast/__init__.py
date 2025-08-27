@@ -1,5 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
 import sys
 from logging import DEBUG
 
@@ -12,17 +13,24 @@ structlog.configure(
     cache_logger_on_first_use=False,
 )
 
+from typing import TYPE_CHECKING  # noqa: E402
+
+if TYPE_CHECKING:
+    from contrast.agent.request_context import RequestContext
 
 import os  # noqa: E402
+import contextlib  # noqa: E402
+from contextvars import ContextVar  # noqa: E402
 from contrast.agent.assess.string_tracker import StringTracker  # noqa: E402
-from contrast.utils.context_tracker import ContextTracker  # noqa: E402
 from contrast.version import __version__  # noqa: E402
-from contrast.assess_extensions import cs_str  # noqa: F401 E402
+
+# aliases
 from contrast.agent.assess.utils import get_properties  # noqa: F401 E402
 
-
 # process globals
-CS__CONTEXT_TRACKER = ContextTracker()
+REQUEST_CONTEXT: ContextVar[RequestContext | None] = ContextVar(
+    "contrast_request_context", default=None
+)
 STRING_TRACKER = StringTracker()
 TELEMETRY = None
 
@@ -54,3 +62,14 @@ class SecurityException(Exception):
             f"Contrast Protect blocked an attack for rule: {rule_name}. See Contrast UI"
             " for full details."
         )
+
+
+@contextlib.contextmanager
+def lifespan(context: RequestContext):
+    # py313 - this method will no longer be necessary when we drop 3.13 because
+    # `set()` is a contextmanager in 3.14+
+    token = REQUEST_CONTEXT.set(context)
+    try:
+        yield context
+    finally:
+        REQUEST_CONTEXT.reset(token)

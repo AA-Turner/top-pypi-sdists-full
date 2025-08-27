@@ -49,7 +49,7 @@ from browser_use.filesystem.file_system import FileSystem
 from browser_use.llm.base import BaseChatModel
 from browser_use.llm.messages import UserMessage
 from browser_use.observability import observe_debug
-from browser_use.utils import time_execution_sync
+from browser_use.utils import _log_pretty_url, time_execution_sync
 
 logger = logging.getLogger(__name__)
 
@@ -287,13 +287,13 @@ class Controller(Generic[Context]):
 				memory = f'Clicked element with index {params.index}'
 				msg = f'🖱️ {memory}'
 				logger.info(msg)
-				
+
 				# Include click coordinates in metadata if available
 				return ActionResult(
-					extracted_content=memory, 
-					include_in_memory=True, 
+					extracted_content=memory,
+					include_in_memory=True,
 					long_term_memory=memory,
-					metadata=click_metadata if isinstance(click_metadata, dict) else None
+					metadata=click_metadata if isinstance(click_metadata, dict) else None,
 				)
 			except Exception as e:
 				logger.error(f'Failed to execute ClickElementEvent: {type(e).__name__}: {e}')
@@ -332,13 +332,13 @@ class Controller(Generic[Context]):
 				input_metadata = await event.event_result(raise_if_any=True, raise_if_none=False)
 				msg = f"Input '{params.text}' into element {params.index}."
 				logger.info(msg)
-				
+
 				# Include input coordinates in metadata if available
 				return ActionResult(
 					extracted_content=msg,
 					include_in_memory=True,
 					long_term_memory=f"Input '{params.text}' into element {params.index}.",
-					metadata=input_metadata if isinstance(input_metadata, dict) else None
+					metadata=input_metadata if isinstance(input_metadata, dict) else None,
 				)
 			except Exception as e:
 				# Log the full error for debugging
@@ -351,6 +351,7 @@ class Controller(Generic[Context]):
 			params: UploadFileAction, browser_session: BrowserSession, available_file_paths: list[str], file_system: FileSystem
 		):
 			# Check if file is in available_file_paths (user-provided or downloaded files)
+			# For remote browsers (is_local=False), we allow absolute remote paths even if not tracked locally
 			if params.path not in available_file_paths:
 				# Also check if it's a recently downloaded file that might not be in available_file_paths yet
 				downloaded_files = browser_session.downloaded_files
@@ -365,16 +366,26 @@ class Controller(Generic[Context]):
 							file_system_path = str(file_system.get_dir() / params.path)
 							params = UploadFileAction(index=params.index, path=file_system_path)
 						else:
-							raise BrowserError(
-								f'File path {params.path} is not available. Must be in available_file_paths, downloaded_files, or a file managed by file_system.'
-							)
+							# If browser is remote, allow passing a remote-accessible absolute path
+							if not browser_session.is_local:
+								pass
+							else:
+								raise BrowserError(
+									f'File path {params.path} is not available. Must be in available_file_paths, downloaded_files, or a file managed by file_system.'
+								)
 					else:
-						raise BrowserError(
-							f'File path {params.path} is not available. Must be in available_file_paths or downloaded_files.'
-						)
+						# If browser is remote, allow passing a remote-accessible absolute path
+						if not browser_session.is_local:
+							pass
+						else:
+							raise BrowserError(
+								f'File path {params.path} is not available. Must be in available_file_paths or downloaded_files.'
+							)
 
-			if not os.path.exists(params.path):
-				raise BrowserError(f'File {params.path} does not exist')
+			# For local browsers, ensure the file exists on the local filesystem
+			if browser_session.is_local:
+				if not os.path.exists(params.path):
+					raise BrowserError(f'File {params.path} does not exist')
 
 			# Get the selector map to find the node
 			selector_map = await browser_session.get_selector_map()
@@ -512,11 +523,16 @@ class Controller(Generic[Context]):
 			# Dispatch close tab event
 			try:
 				target_id = await browser_session.get_target_id_from_tab_id(params.tab_id)
+				cdp_session = await browser_session.get_or_create_cdp_session()
+				target_info = await cdp_session.cdp_client.send.Target.getTargetInfo(
+					params={'targetId': target_id}, session_id=cdp_session.session_id
+				)
+				tab_url = target_info['targetInfo']['url']
 				event = browser_session.event_bus.dispatch(CloseTabEvent(target_id=target_id))
 				await event
 				await event.event_result(raise_if_any=True, raise_if_none=False)
-				memory = f'Closed tab # {params.tab_id}'
-				logger.info(f'❌  {memory}')
+				memory = f'Closed tab # {params.tab_id} ({_log_pretty_url(tab_url)})'
+				logger.info(f'🗑️  {memory}')
 				return ActionResult(
 					extracted_content=memory,
 					include_in_memory=True,

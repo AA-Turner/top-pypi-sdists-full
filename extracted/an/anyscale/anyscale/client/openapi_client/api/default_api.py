@@ -15899,6 +15899,120 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_latest_cloud_deployment_api_v2_sessions_cluster_id_latest_cloud_deployment_get(self, cluster_id, **kwargs):  # noqa: E501
+        """Get Latest Cloud Deployment  # noqa: E501
+
+        Fetches the current cloud deployment of a cluster.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_latest_cloud_deployment_api_v2_sessions_cluster_id_latest_cloud_deployment_get(cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ClouddeploymentResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_latest_cloud_deployment_api_v2_sessions_cluster_id_latest_cloud_deployment_get_with_http_info(cluster_id, **kwargs)  # noqa: E501
+
+    def get_latest_cloud_deployment_api_v2_sessions_cluster_id_latest_cloud_deployment_get_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
+        """Get Latest Cloud Deployment  # noqa: E501
+
+        Fetches the current cloud deployment of a cluster.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_latest_cloud_deployment_api_v2_sessions_cluster_id_latest_cloud_deployment_get_with_http_info(cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ClouddeploymentResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_latest_cloud_deployment_api_v2_sessions_cluster_id_latest_cloud_deployment_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_latest_cloud_deployment_api_v2_sessions_cluster_id_latest_cloud_deployment_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cluster_id' in local_var_params:
+            path_params['cluster_id'] = local_var_params['cluster_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/sessions/{cluster_id}/latest_cloud_deployment', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ClouddeploymentResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_lb_resource_api_v2_clouds_with_cloud_resource_gcp_router_cloud_id_get_lb_resource_post(self, cloud_id, **kwargs):  # noqa: E501
         """Get Lb Resource  # noqa: E501
 
@@ -16339,6 +16453,141 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='str',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_metric_names_api_v2_metrics_names_get(self, **kwargs):  # noqa: E501
+        """Get Metric Names  # noqa: E501
+
+        Return all available metric names for the specified resource  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_metric_names_api_v2_metrics_names_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: The cluster id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str workspace_id: The workspace id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str ha_job_id: The production job id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str service_id: The service id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param float start: Optional start timestamp (Unix). If provided, filters metric names to those present in [start, end].
+        :param float end: Optional end timestamp (Unix). If provided with start, filters metric names present in [start, end].
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: MetricsqueryresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_metric_names_api_v2_metrics_names_get_with_http_info(**kwargs)  # noqa: E501
+
+    def get_metric_names_api_v2_metrics_names_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Get Metric Names  # noqa: E501
+
+        Return all available metric names for the specified resource  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_metric_names_api_v2_metrics_names_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: The cluster id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str workspace_id: The workspace id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str ha_job_id: The production job id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str service_id: The service id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param float start: Optional start timestamp (Unix). If provided, filters metric names to those present in [start, end].
+        :param float end: Optional end timestamp (Unix). If provided with start, filters metric names present in [start, end].
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(MetricsqueryresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id',
+            'workspace_id',
+            'ha_job_id',
+            'service_id',
+            'start',
+            'end'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_metric_names_api_v2_metrics_names_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'workspace_id' in local_var_params and local_var_params['workspace_id'] is not None:  # noqa: E501
+            query_params.append(('workspace_id', local_var_params['workspace_id']))  # noqa: E501
+        if 'ha_job_id' in local_var_params and local_var_params['ha_job_id'] is not None:  # noqa: E501
+            query_params.append(('ha_job_id', local_var_params['ha_job_id']))  # noqa: E501
+        if 'service_id' in local_var_params and local_var_params['service_id'] is not None:  # noqa: E501
+            query_params.append(('service_id', local_var_params['service_id']))  # noqa: E501
+        if 'start' in local_var_params and local_var_params['start'] is not None:  # noqa: E501
+            query_params.append(('start', local_var_params['start']))  # noqa: E501
+        if 'end' in local_var_params and local_var_params['end'] is not None:  # noqa: E501
+            query_params.append(('end', local_var_params['end']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/metrics/names', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='MetricsqueryresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

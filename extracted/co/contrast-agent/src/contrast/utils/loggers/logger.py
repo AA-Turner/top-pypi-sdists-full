@@ -180,7 +180,7 @@ def security_log_attack(attack, evaluation):
 
     ip = port = url = method_name = "-"
 
-    if (context := contrast.CS__CONTEXT_TRACKER.current()) is not None:
+    if (context := contrast.REQUEST_CONTEXT.get()) is not None:
         ip = context.request.client_addr or "-"
         port = context.request.host_port
         method_name = context.request.method

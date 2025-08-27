@@ -8,7 +8,13 @@ from uuid import uuid4
 
 from otel_extensions import instrumented
 
-from ..models import QueueMessage, SqaAppBuildResult, SqaTestResult, SqaTestSession
+from ..models import (
+    QueueMessage,
+    SqaAppBuildResult,
+    SqaTestResult,
+    SqaTestResultApps,
+    SqaTestSession,
+)
 from ..utils import UTF_QUEUE_SERVER_PATTERN
 from . import Loggable
 from .base_producer import BlockingProducer as AMQPBlockingProducer
@@ -42,6 +48,10 @@ class BaseSqaTestResultProducer(ABC):
         app_build_result: SqaAppBuildResult,
     ):
         """publish an SqaAppBuildResult object"""
+
+    @abstractmethod
+    def publish_test_result_apps(self, test_result_apps: SqaTestResultApps):
+        """publish an SqaTestResultApps object"""
 
 
 class SqaTestResultProducer(BaseSqaTestResultProducer):
@@ -115,6 +125,18 @@ class SqaTestResultProducer(BaseSqaTestResultProducer):
         )
         self._publish_message(queue_message)
 
+    @instrumented
+    def publish_test_result_apps(self, test_result_apps: SqaTestResultApps):
+        queue_message = QueueMessage(
+            payload=test_result_apps,
+            recordType=self.RECORD_TYPE,
+            recordSubType="TEST_RESULT_APP",
+            tenantKey=self.producer_app_id,
+            recordTimestamp=datetime.now().isoformat(),
+            messageId=str(uuid4()),
+        )
+        self._publish_message(queue_message)
+
 
 class LocalSqaTestResultProducer(SqaTestResultProducer):
     def __init__(self):
@@ -143,6 +165,10 @@ class DummySqaTestResultProducer(BaseSqaTestResultProducer):
         self,
         app_build_result: SqaAppBuildResult,
     ):
+        # noqa
+        pass
+
+    def publish_test_result_apps(self, test_result_apps: SqaTestResultApps):
         # noqa
         pass
 

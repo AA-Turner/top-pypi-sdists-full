@@ -82,19 +82,34 @@ class PrivateJobSDK(WorkloadSDK):
             - 'working_dir' will be set to '.'.
             - 'pip' will be set to the workspace-managed requirements file.
         """
-        runtime_env: Dict[str, Any] = {}
-        [runtime_env] = self.override_and_upload_local_dirs(
-            [runtime_env],
-            working_dir_override=config.working_dir,
-            excludes_override=config.excludes,
-            cloud_id=cloud_id,
-            autopopulate_in_workspace=autopopulate_in_workspace,
-            additional_py_modules=config.py_modules,
-            py_executable_override=config.py_executable,
-            has_multiple_cloud_deployments=self._compute_config_has_multiple_cloud_deployments(
-                compute_config=config.compute_config, cloud=config.cloud
-            ),
+        cloud_deployments = self._get_compute_config_cloud_deployments(
+            compute_config=config.compute_config, cloud=config.cloud
         )
+        assert len(cloud_deployments) > 0
+
+        runtime_env: Dict[str, Any] = {}
+        if len(cloud_deployments) == 1:
+            [runtime_env] = self.override_and_upload_local_dirs_single_deployment(
+                [runtime_env],
+                working_dir_override=config.working_dir,
+                excludes_override=config.excludes,
+                cloud_id=cloud_id,
+                autopopulate_in_workspace=autopopulate_in_workspace,
+                additional_py_modules=config.py_modules,
+                py_executable_override=config.py_executable,
+                cloud_deployment=cloud_deployments[0],
+            )
+        else:
+            [runtime_env] = self.override_and_upload_local_dirs_multi_deployment(
+                [runtime_env],
+                working_dir_override=config.working_dir,
+                excludes_override=config.excludes,
+                cloud_id=cloud_id,
+                autopopulate_in_workspace=autopopulate_in_workspace,
+                additional_py_modules=config.py_modules,
+                py_executable_override=config.py_executable,
+                cloud_deployments=cloud_deployments,
+            )
         [runtime_env] = self.override_and_load_requirements_files(
             [runtime_env],
             requirements_override=config.requirements,
@@ -106,15 +121,15 @@ class PrivateJobSDK(WorkloadSDK):
 
         return runtime_env or None
 
-    def _compute_config_has_multiple_cloud_deployments(
+    def _get_compute_config_cloud_deployments(
         self, compute_config: Union[ComputeConfigType, str, None], cloud: Optional[str]
-    ) -> bool:
+    ) -> List[Optional[str]]:
         if isinstance(compute_config, ComputeConfig):
             # single-deployment compute config
-            return False
+            return [compute_config.cloud_deployment]
 
         if isinstance(compute_config, MultiDeploymentComputeConfig):
-            return len(compute_config.configs) > 1
+            return [config.cloud_deployment for config in compute_config.configs]
 
         compute_config_id = self._resolve_compute_config_id(
             compute_config=compute_config, cloud=cloud
@@ -125,10 +140,13 @@ class PrivateJobSDK(WorkloadSDK):
                 f"The compute config '{compute_config_id}' does not exist."
             )
 
-        return (
-            compute_template.config.deployment_configs
-            and len(compute_template.config.deployment_configs) > 1
-        )
+        if compute_template.config.deployment_configs is None:
+            return [None]
+
+        return [
+            config.cloud_deployment
+            for config in compute_template.config.deployment_configs
+        ]
 
     def get_default_name(self) -> str:
         """Get a default name for the job.

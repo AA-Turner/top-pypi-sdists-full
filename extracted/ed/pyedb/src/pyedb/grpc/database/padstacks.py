@@ -93,8 +93,7 @@ class Padstacks(object):
 
     def __init__(self, p_edb: Any) -> None:
         self._pedb = p_edb
-        self._instances: Dict[int, PadstackInstance] = {}
-        self._definitions: Dict[str, Any] = {}
+        self.__definitions: Dict[str, Any] = {}
 
     @property
     def _active_layout(self) -> Any:
@@ -211,13 +210,12 @@ class Padstacks(object):
         >>> for name, definition in all_definitions.items():
         ...     print(f"Padstack: {name}")
         """
-        if len(self._definitions) == len(self.db.padstack_defs):
-            return self._definitions
-        self._definitions = {}
-        for padstack_def in self._pedb.db.padstack_defs:
+        padstack_defs = self._pedb.db.padstack_defs
+        self.__definitions = {}
+        for padstack_def in padstack_defs:
             if len(padstack_def.data.layer_names) >= 1:
-                self._definitions[padstack_def.name] = PadstackDef(self._pedb, padstack_def)
-        return self._definitions
+                self.__definitions[padstack_def.name] = PadstackDef(self._pedb, padstack_def)
+        return self.__definitions
 
     @property
     def instances(self) -> Dict[int, PadstackInstance]:
@@ -230,15 +228,11 @@ class Padstacks(object):
 
         Examples
         --------
-        >>> all_instances = edb_padstacks.instances
+        >>> all_instances = edb.padstacks.instances
         >>> for id, instance in all_instances.items():
         ...     print(f"Instance {id}: {instance.name}")
         """
-        pad_stack_inst = self._pedb.layout.padstack_instances
-        if len(self._instances) == len(pad_stack_inst):
-            return self._instances
-        self._instances = {i.edb_uid: PadstackInstance(self._pedb, i) for i in pad_stack_inst}
-        return self._instances
+        return self._pedb.layout.padstack_instances
 
     @property
     def instances_by_name(self) -> Dict[str, PadstackInstance]:
@@ -348,6 +342,7 @@ class Padstacks(object):
     @property
     def pad_type(self) -> GrpcPadType:
         """Return a PadType Enumerator."""
+        return GrpcPadType
 
     def create_circular_padstack(
         self,
@@ -800,7 +795,7 @@ class Padstacks(object):
         if net_list and not isinstance(net_list, list):
             net_list = [net_list]
         via_list = []
-        for inst in self._layout.padstack_instances:
+        for inst_id, inst in self._layout.padstack_instances.items():
             pad_layers_name = inst.padstack_def.data.layer_names
             if len(pad_layers_name) > 1:
                 if not net_list:
@@ -1150,7 +1145,7 @@ class Padstacks(object):
             padstack_instance.is_layout_pin = is_pin
             return PadstackInstance(self._pedb, padstack_instance)
         else:
-            return False
+            raise RuntimeError("Place padstack failed")
 
     def remove_pads_from_padstack(self, padstack_name: str, layer_name: Optional[str] = None):
         """Remove pads from a padstack definition on specified layers.
@@ -1287,6 +1282,29 @@ class Padstacks(object):
         self.definitions[padstack_name].data = new_padstack_def
         return True
 
+    def get_padstack_instance_by_net_name(self, net: str):
+        """Get padstack instances by net name.
+
+        .. deprecated:: 0.55.0
+        Use: :func:`get_instances` with `net_name` parameter instead.
+
+        Parameters
+        ----------
+        net : str
+            Net name to filter padstack instances.
+
+        Returns
+        -------
+        list[:class:`pyedb.grpc.database.primitive.padstack_instance.PadstackInstance`]
+            List of padstack instances associated with the specified net.
+        """
+        warnings.warn(
+            "`get_padstack_instance_by_net_name` is deprecated, use `get_instances` with `net_name` "
+            "parameter instead.",
+            DeprecationWarning,
+        )
+        return self.get_instances(net_name=net)
+
     def get_instances(
         self,
         name: Optional[str] = None,
@@ -1322,7 +1340,7 @@ class Padstacks(object):
         if pid:
             return instances_by_id[pid]
         elif name:
-            instances = [inst for inst in list(self.instances.values()) if inst.name == name]
+            instances = [inst for inst in list(self.instances.values()) if inst.aedt_name == name]
             if instances:
                 return instances
         else:

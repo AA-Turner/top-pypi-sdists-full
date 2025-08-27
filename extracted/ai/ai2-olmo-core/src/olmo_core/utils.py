@@ -188,19 +188,22 @@ def set_env_var(name: str, value: str, override: bool = False, secret: bool = Fa
     value_str = "****" if secret else value
     if name in os.environ:
         if override and os.environ[name] != value:
-            msg = f"Overriding env var '{name}' to '{value_str}'"
-            if logging_configured():
-                log.warning(msg)
-            else:
-                print(msg)
+            log_or_print(log, f"Overriding env var '{name}' to '{value_str}'", logging.WARNING)
             os.environ[name] = value
-    else:
-        msg = f"Setting env var '{name}' to '{value_str}'"
-        if logging_configured():
-            log.info(msg)
         else:
-            print(msg)
+            log_or_print(log, f"Env var '{name}' already set to '{value_str}'")
+    else:
+        log_or_print(log, f"Setting env var '{name}' to '{value_str}'")
         os.environ[name] = value
+
+
+def log_or_print(logger: logging.Logger, msg: str, level: int = logging.INFO):
+    if _LOGGING_CONFIGURED or (
+        len(logging.getLogger().handlers) > 0 and logger.getEffectiveLevel() <= level
+    ):
+        logger.log(level, msg)
+    else:
+        print(msg)
 
 
 class LogFilterType(StrEnum):
@@ -318,7 +321,7 @@ def setup_logging(
 
     if filter is not None:
         handler.addFilter(filter)  # type: ignore
-    logging.basicConfig(handlers=[handler], level=logging.INFO)
+    logging.basicConfig(handlers=[handler], level=logging.INFO, force=True)
 
     logging.captureWarnings(True)
     logging.getLogger("urllib3").setLevel(logging.ERROR)

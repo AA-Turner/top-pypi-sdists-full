@@ -9,7 +9,6 @@ from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.subscription import Subscription
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import make_ts_millis
-from datahub.emitter.rest_emitter import EmitMode
 from datahub.errors import SdkUsageError
 from datahub.metadata.urns import AssertionUrn, CorpGroupUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
@@ -117,7 +116,6 @@ class SubscriptionClient:
         existing_subscriptions = self.client.resolve.subscription(  # type: ignore[attr-defined]
             entity_urn=dataset_urn.urn(),
             actor_urn=parsed_subscriber_urn.urn(),
-            skip_cache=True,
         )
         if not existing_subscriptions:
             # new subscription
@@ -140,7 +138,7 @@ class SubscriptionClient:
                     updatedOn=self._create_audit_stamp(),
                 ),
             )
-            self.client.entities.upsert(subscription, emit_mode=EmitMode.SYNC_WAIT)
+            self.client.entities.upsert(subscription)
             logger.info(f"Subscription created: {subscription.urn}")
             return
         elif len(existing_subscriptions) == 1:
@@ -159,9 +157,7 @@ class SubscriptionClient:
                 new_assertion_urn=assertion_urn,
             )
             existing_subscription_entity.info.updatedOn = self._create_audit_stamp()
-            self.client.entities.upsert(
-                existing_subscription_entity, emit_mode=EmitMode.SYNC_WAIT
-            )
+            self.client.entities.upsert(existing_subscription_entity)
             logger.info(f"Subscription updated: {existing_subscription_entity.urn}")
             return
         else:
@@ -277,7 +273,6 @@ class SubscriptionClient:
         existing_subscription_urns = self.client.resolve.subscription(  # type: ignore[attr-defined]
             entity_urn=dataset_urn.urn(),
             actor_urn=parsed_subscriber_urn.urn(),
-            skip_cache=True,
         )
 
         if not existing_subscription_urns:
@@ -331,7 +326,7 @@ class SubscriptionClient:
         # Update the subscription with remaining change types
         subscription_entity.info.entityChangeTypes = updated_change_types
         subscription_entity.info.updatedOn = self._create_audit_stamp()
-        self.client.entities.upsert(subscription_entity, emit_mode=EmitMode.SYNC_WAIT)
+        self.client.entities.upsert(subscription_entity)
         logger.info(f"Subscription updated: {subscription_entity.urn}")
 
     def _get_entity_change_types(

@@ -682,6 +682,9 @@ def _update_external_ids_for_policy(
         for i in external_ids
     ]
 
+    # remove duplicate external IDs
+    external_ids = [sorted(set(ids)) for ids in external_ids]
+
     _ = [
         policy["Statement"][i]["Condition"]["StringEquals"].update(
             {"sts:ExternalId": external_ids[i]}

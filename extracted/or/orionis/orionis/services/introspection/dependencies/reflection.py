@@ -121,6 +121,7 @@ class ReflectDependencies(IReflectDependencies):
         # Initialize dictionaries to store categorized dependencies
         resolved_dependencies: Dict[str, Argument] = {}
         unresolved_dependencies: Dict[str, Argument] = {}
+        ordered_dependencies: Dict[str, Argument] = {}
 
         # Iterate through all parameters in the signature
         for param_name, param in signature.parameters.items():
@@ -140,6 +141,7 @@ class ReflectDependencies(IReflectDependencies):
                     type=Any,
                     full_class_path=None,
                 )
+                ordered_dependencies[param_name] = unresolved_dependencies[param_name]
                 continue
 
             # Case 2: Parameters with default values
@@ -153,6 +155,7 @@ class ReflectDependencies(IReflectDependencies):
                     full_class_path=f"{type(param.default).__module__}.{type(param.default).__name__}",
                     default=param.default
                 )
+                ordered_dependencies[param_name] = resolved_dependencies[param_name]
                 continue
 
             # Case 3: Parameters with type annotations
@@ -168,6 +171,7 @@ class ReflectDependencies(IReflectDependencies):
                         type=param.annotation,
                         full_class_path=f"{param.annotation.__module__}.{param.annotation.__name__}"
                     )
+                    ordered_dependencies[param_name] = unresolved_dependencies[param_name]
                 else:
                     # Non-builtin types with annotations are considered resolved
                     # as they can be instantiated by the dependency injection system
@@ -178,12 +182,14 @@ class ReflectDependencies(IReflectDependencies):
                         type=param.annotation,
                         full_class_path=f"{param.annotation.__module__}.{param.annotation.__name__}"
                     )
+                    ordered_dependencies[param_name] = resolved_dependencies[param_name]
                 continue
 
         # Return the categorized dependencies
         return ResolveArguments(
             resolved=resolved_dependencies,
-            unresolved=unresolved_dependencies
+            unresolved=unresolved_dependencies,
+            ordered=ordered_dependencies
         )
 
     def getConstructorDependencies(self) -> ResolveArguments:

@@ -1,0 +1,168 @@
+# Built from:
+# https://docs.github.com/en/actions/guides/building-and-testing-python
+
+name: Build and test linkml
+env:
+  UV_VERSION: "0.7.13"
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  quality-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: 3.13
+      - name: Check pyproject.toml and uv.lock
+        run: uv lock --check
+      - name: Install tox
+        run: python -m pip install tox
+      - name: Run pre-commit checks
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --all-files
+
+  test:
+    needs:
+      - quality-checks
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        # Test on Windows with only the oldest and newest Python versions
+        exclude:
+          - os: windows-latest
+            python-version: "3.10"
+          - os: windows-latest
+            python-version: "3.11"
+          - os: windows-latest
+            python-version: "3.12"
+    # See https://github.com/snok/install-poetry#running-on-windows
+    defaults:
+      run:
+        shell: bash
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tags if not run from main repo
+        if: github.repository != 'linkml/linkml'
+        run: |
+          git remote add upstream https://github.com/linkml/linkml
+          git fetch upstream --tags
+
+      - name: Install uv and setup uv caching
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5.6.0
+        id: setup-python
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2
+      - name: Generate coverage results
+        run: |
+          uv run coverage run -m pytest --with-slow --with-network
+          uv run coverage xml
+          uv run coverage report -m
+        shell: bash
+      - name: Upload coverage report
+        if: github.repository == 'linkml/linkml' && github.actor != 'dependabot[bot]'
+        uses: codecov/codecov-action@v5.4.3
+        with:
+          name: codecov-results-${{ matrix.os }}-${{ matrix.python-version }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: true
+
+  test_slow:
+    name: Slow Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+        python-version: [ "3.9", "3.13" ]
+    needs:
+      - quality-checks
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        id: setup-python
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --all-groups
+      - name: Generate coverage results
+        # Set bash shell to fail correctly on Windows https://github.com/actions/runner-images/issues/6668
+        shell: bash
+        run: |
+          uv run coverage run -m pytest --with-slow --with-biolink -m slow -n auto
+          uv run coverage xml
+          uv run coverage report -m
+      - name: Upload coverage report
+        if: github.repository == 'linkml/linkml' && github.actor != 'dependabot[bot]'
+        uses: codecov/codecov-action@v5.4.3
+        with:
+          name: codecov-results-slow-${{ matrix.os }}-${{ matrix.python-version }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: true
+
+  test_build_package:
+    name: Test Build Package
+    needs:
+      - test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: 3.13
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Build source and wheel archives
+        run: uv build

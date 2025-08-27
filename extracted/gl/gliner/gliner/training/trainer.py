@@ -2,15 +2,15 @@ from typing import Optional, Union, Any, Dict, Tuple, List
 from dataclasses import dataclass, field
 
 import torch
+from torch import nn
 import transformers
 from numpy.ma.core import negative
 from transformers.training_args import OptimizerNames
 from transformers.trainer import (
     is_sagemaker_mp_enabled,
     get_parameter_names,
-    ALL_LAYERNORM_LAYERS,
 )
-from transformers.trainer_utils import seed_worker
+from transformers.trainer_utils import set_seed
 
 if transformers.utils.is_apex_available():
     from apex import amp
@@ -18,6 +18,16 @@ if transformers.utils.is_apex_available():
 if is_sagemaker_mp_enabled():
     from transformers.trainer_pt_utils import smp_forward_backward
 from torch.utils.data import DataLoader, Dataset
+
+ALL_LAYERNORM_LAYERS = [nn.LayerNorm]
+
+
+def seed_worker(_):
+    """
+    Helper function to set worker seed during Dataloader initialization.
+    """
+    worker_seed = torch.initial_seed() % 2**32
+    set_seed(worker_seed)
 
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
@@ -27,6 +37,7 @@ class TrainingArguments(transformers.TrainingArguments):
     others_weight_decay: Optional[float] = 0.0
     focal_loss_alpha: Optional[float] = -1
     focal_loss_gamma: Optional[float] = 0
+    focal_loss_prob_margin: Optional[float] = 0
     label_smoothing: Optional[float] = 0
     loss_reduction: Optional[str] = 'sum'
     negatives: Optional[float] = 1.0
@@ -96,6 +107,7 @@ class Trainer(transformers.Trainer):
         # Forward pass
         outputs = model(alpha = self.args.focal_loss_alpha,
                         gamma = self.args.focal_loss_gamma,
+                        prob_margin = self.args.focal_loss_prob_margin,
                         label_smoothing = self.args.label_smoothing,
                         reduction = self.args.loss_reduction,
                         negatives = self.args.negatives,

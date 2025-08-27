@@ -105,7 +105,7 @@ def django_every_request(sender, **kwargs):
     logger = logging.getLogger("contrast")
     logger.debug("performing django route observation")
 
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None:
         logger.debug("not in request context - skipping route observation")
         return

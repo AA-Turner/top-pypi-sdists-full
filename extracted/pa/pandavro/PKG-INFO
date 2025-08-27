@@ -1,20 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pandavro
-Version: 1.8.0
+Version: 1.9.0
 Summary: The interface between Avro and pandas DataFrame
 Home-page: https://github.com/ynqa/pandavro
 Author: Makoto Ito
 Author-email: un.pensiero.vano@gmail.com
 License: MIT
-Requires-Python: >=3.7.0
+Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fastavro<2.0.0,>=1.5.1
-Requires-Dist: pandas>=1.1
-Requires-Dist: numpy>=1.15.4
+Requires-Dist: pandas<3.0.0,>=2.0
+Requires-Dist: numpy<3.0.0,>=2.0
 Provides-Extra: tests
 Requires-Dist: pytest==7.3.2; extra == "tests"
 Requires-Dist: tox==4.6.0; extra == "tests"
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # pandavro
 
@@ -55,7 +66,7 @@ Pandavro can handle these primitive types:
 | np.bool_                                      | boolean             |
 | np.float32                                    | float               |
 | np.float64                                    | double              |
-| np.unicode_                                   | string              |
+| np.str_                                       | string              |
 | np.object_                                    | string              |
 | np.int8, np.int16, np.int32                   | int                 |
 | np.uint8, np.uint16, np.uint32                | "unsigned" int*     |

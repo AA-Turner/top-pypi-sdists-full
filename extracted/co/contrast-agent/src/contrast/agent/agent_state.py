@@ -14,7 +14,9 @@ import sysconfig
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Optional
+from contrast import policy_v2
 from contrast.agent.framework import UNKNOWN_FRAMEWORK, Framework
+from contrast.agent.policy import registry_v2
 from contrast.utils.configuration_utils import get_platform
 
 import contrast
@@ -44,7 +46,7 @@ from contrast.utils.loggers.logger import (
 )
 from contrast.utils import timer
 from contrast.utils.namespace import Namespace
-from contrast.utils.decorators import fail_loudly
+from contrast.utils.decorators import fail_loudly, fail_quietly
 from contrast_rewriter import initialize_rewriter_logger
 from contrast_rewriter import is_rewriter_enabled
 from contrast.reporting.request_masker import RequestMasker
@@ -156,33 +158,41 @@ def free_threading_enabled() -> bool:
     return not sys._is_gil_enabled()
 
 
+@fail_quietly(return_value=False)
 def jit_available() -> bool:
     """
     Indicates whether or not the JIT is built into this version of python.
 
-    Potentially unreliable in 3.13; future versions of python will likely include
-    improved JIT introspection.
+    Potentially unreliable in 3.13.
     """
     if sys.version_info[:2] < (3, 13):
         return False
-    return "_Py_JIT" in sysconfig.get_config_var("PY_CORE_CFLAGS")
+    if sys.version_info[:2] == (3, 13):
+        return "_Py_JIT" in sysconfig.get_config_var("PY_CORE_CFLAGS")
+
+    from sys import _jit
+
+    return _jit.is_available()
 
 
+@fail_quietly(return_value=False)
 def jit_enabled() -> bool:
     """
     Indicates whether or not the JIT is currently enabled in this python process.
 
-    Potentially unreliable in 3.13; future versions of python will likely include
-    improved JIT introspection.
+    Potentially unreliable in 3.13.
     """
     if sys.version_info[:2] < (3, 13):
         return False
-    try:
+    if sys.version_info[:2] == (3, 13):
         import _testinternalcapi
 
-        return _testinternalcapi.get_optimizer() is not None
-    except Exception:
-        return False
+        get_optimizer = getattr(_testinternalcapi, "get_optimizer", lambda: None)
+        return get_optimizer() is not None
+
+    from sys import _jit
+
+    return _jit.is_enabled()
 
 
 def _log_environment(settings: Settings):
@@ -518,6 +528,13 @@ def initialize():
         runtime_environment.report_server_runtime(
             module.reporting_client,
             module.settings.config.get("server.discover_cloud_resource"),
+        )
+
+        registry_v2.register_policy_definitions(policy_v2.definitions())
+        module.event_handlers = registry_v2.generate_policy_event_handlers(
+            assess=module.assess_enabled,
+            observe=module.observe_enabled,
+            protect=module.protect_enabled,
         )
 
         patch_controller.enable_patches(preinstrument=preinstrument)

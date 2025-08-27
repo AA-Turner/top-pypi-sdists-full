@@ -22,7 +22,7 @@ def apply(rule, nodes, ret, orig_args, orig_kwargs=None, **kwargs):  # pylint: d
         with scope.trigger_scope():
             orig_kwargs = orig_kwargs or {}
 
-            context = contrast.CS__CONTEXT_TRACKER.current()
+            context = contrast.REQUEST_CONTEXT.get()
             if context is None:
                 return
 

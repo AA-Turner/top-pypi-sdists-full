@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: requests_pkcs12
-Version: 1.25
+Version: 1.26
 Summary: Add PKCS#12 support to the requests library in a clean way, without monkey patching or temporary files
 Home-page: https://github.com/m-click/requests_pkcs12
 Author: Volker Diels-Grabsch

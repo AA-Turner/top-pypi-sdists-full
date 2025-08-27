@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandera
-Version: 0.26.0
+Version: 0.26.1
 Summary: A light-weight and flexible data validation and testing tool for statistical data objects.
 Author-email: Niels Bantilan <niels.bantilan@gmail.com>
 License: MIT License

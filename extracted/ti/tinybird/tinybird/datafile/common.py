@@ -2010,7 +2010,7 @@ def parse(
             "kafka_ssl_ca_pem": kafka_ssl_ca_pem,
             "kafka_security_protocol": assign_var("kafka_security_protocol"),
             "kafka_sasl_mechanism": assign_var("kafka_sasl_mechanism"),
-            "kafka_sasl_oauthbearer_provider": assign_var("kafka_sasl_oauthbearer_provider"),
+            "kafka_sasl_oauthbearer_method": assign_var("kafka_sasl_oauthbearer_method"),
             "kafka_sasl_oauthbearer_aws_region": assign_var("kafka_sasl_oauthbearer_aws_region"),
             "kafka_sasl_oauthbearer_aws_role_arn": assign_var("kafka_sasl_oauthbearer_aws_role_arn"),
             "kafka_sasl_oauthbearer_aws_external_id": assign_var("kafka_sasl_oauthbearer_aws_external_id"),

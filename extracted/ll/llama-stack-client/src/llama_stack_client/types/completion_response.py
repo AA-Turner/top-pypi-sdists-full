@@ -4,20 +4,10 @@ from typing import List, Optional
 from typing_extensions import Literal
 
 from .._models import BaseModel
+from .shared.metric import Metric
 from .token_log_probs import TokenLogProbs
 
-__all__ = ["CompletionResponse", "Metric"]
-
-
-class Metric(BaseModel):
-    metric: str
-    """The name of the metric"""
-
-    value: float
-    """The numeric value of the metric"""
-
-    unit: Optional[str] = None
-    """(Optional) The unit of measurement for the metric value"""
+__all__ = ["CompletionResponse"]
 
 
 class CompletionResponse(BaseModel):

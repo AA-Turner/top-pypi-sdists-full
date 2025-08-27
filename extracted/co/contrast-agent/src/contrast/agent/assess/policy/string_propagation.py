@@ -56,7 +56,7 @@ def build_generic_strtype_propagator(policy_node):
         if ret is self_obj:
             return
 
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context is None or context.stop_propagation:
             return
 
@@ -96,7 +96,7 @@ def build_bytearray_propagator(policy_node):
     method_name = policy_node.method_name
 
     def propagate_bytearray(target, self_obj, ret, args, kwargs):
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context is None or context.stop_propagation:
             return
 
@@ -140,7 +140,7 @@ def build_generic_cast_propagator(policy_node):
             # don't need to do so again.
             return
 
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context is None or context.stop_propagation:
             return
 
@@ -180,7 +180,7 @@ def build_bytearray_cast_propagator(policy_node):
             track_copy_without_new_event(target, source)
             return
 
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context is None or context.stop_propagation:
             return
 

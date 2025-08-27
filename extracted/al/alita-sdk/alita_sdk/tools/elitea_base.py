@@ -90,22 +90,23 @@ BaseStepbackSearchParams = create_model(
     )),
     cut_off=(Optional[float], Field(description="Cut-off score for search results", default=0.5, ge=0, le=1)),
     search_top=(Optional[int], Field(description="Number of top results to return", default=10, ge=0)),
-    reranker=(Optional[dict], Field(
-        description="Reranker configuration. Can be a dictionary with reranking parameters.",
-        default={}
-    )),
     full_text_search=(Optional[Dict[str, Any]], Field(
         description="Full text search parameters. Can be a dictionary with search options.",
-        default=None
-    )),
-    reranking_config=(Optional[Dict[str, Dict[str, Any]]], Field(
-        description="Reranking configuration. Can be a dictionary with reranking settings.",
         default=None
     )),
     extended_search=(Optional[List[str]], Field(
         description="List of additional fields to include in the search results.",
         default=None
     )),
+    reranker=(Optional[dict], Field(
+        description="Reranker configuration. Can be a dictionary with reranking parameters.",
+        default={}
+    )),
+    reranking_config=(Optional[Dict[str, Dict[str, Any]]], Field(
+        description="Reranking configuration. Can be a dictionary with reranking settings.",
+        default=None
+    )),
+
 )
 
 BaseIndexDataParams = create_model(
@@ -136,7 +137,7 @@ class BaseToolApiWrapper(BaseModel):
 
             logger.info(message)
             dispatch_custom_event(
-                name="thinking_step",
+                name="thinking_step_update",
                 data={
                     "message": message,
                     "tool_name": tool_name,
@@ -624,6 +625,9 @@ class BaseCodeToolApiWrapper(BaseVectorStoreToolApiWrapper):
                 if is_whitelisted(file) and not is_blacklisted(file):
                     # read file ONLY if it matches whitelist and does not match blacklist
                     file_content = self._read_file(file, branch=branch or self.active_branch or self._active_branch)
+                    if not file_content:
+                        # empty file, skip
+                        continue
                     # hash the file content to ensure uniqueness
                     import hashlib
                     file_hash = hashlib.sha256(file_content.encode("utf-8")).hexdigest()

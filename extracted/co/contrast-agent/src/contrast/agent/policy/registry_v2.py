@@ -18,59 +18,28 @@ easily added/removed.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from functools import partial
 import inspect
-from typing import Callable, TypedDict
-from collections.abc import Mapping
-from collections.abc import Generator
+from typing import Callable
 
 
 import contrast
-from contrast.agent import agent_state, scope
+from contrast.agent import scope
+from contrast.agent.policy.handlers import (
+    EventDict,
+    EventHandler,
+    EventHandlerBuilder,
+    cmd_exec,
+    file_open,
+    observe_handler_builder,
+)
 from contrast.agent.request_context import RequestContext
+from contrast.policy_v2 import PolicyDefinition
+from contrast.utils.decorators import log_and_report_exception
 from contrast.utils.patch_utils import add_watermark
 from contrast_vendor import wrapt
 
-# Unfortunately, TypedDicts do not currently support arbitrary extra keys in addition to
-# required keys, so we cannot use one here.
-EventDict = dict
-"""
-Part of a v2 policy definition that contains any metadata required to build event
-handler functions. At minimum, has an event `name` key.
-"""
-
-
-class PolicyDefinition(TypedDict):
-    """
-    v2 policy definition for a group of functions that share an event type. Used for
-    literal contrast-defined policy.
-
-    Try to keep this easily JSON-serializable in case we want to support receiving
-    policy definitions from external sources in the future.
-    """
-
-    module: str
-    method_names: list[str]
-    event: EventDict
-
-
-EventHandler = Callable[..., Generator]
-"""
-A v2 policy event handler. The resulting generator must yield exactly once, and a
-`result` of the original function call will be sent to the generator via this yield.
-For example:
-
-```python
-def my_event_handler(instance, args, kwargs) -> Generator:
-    # do pre-call work here
-    result = yield
-    # post-call work here
-```
-"""
-
-EventHandlerBuilder = Callable[[EventDict], EventHandler]
-"""
-Builder function for a v2 policy event handler.
-"""
 
 NO_RESULT: object = object()
 """
@@ -79,87 +48,17 @@ value (most likely, it raised an exception instead).
 """
 
 
-# builders are all currently prototypes and eventually need to be fully implemented
-
-
-def assess_cmd_exec_pre(context: RequestContext, args: Mapping[str, object]) -> None:
-    pass
-
-
-def assess_cmd_exec_post(
-    context: RequestContext, args: Mapping[str, object], result
-) -> None:
-    pass
-
-
-def assess_cmd_exec_builder(event_dict: EventDict) -> EventHandler:
-    def assess_cmd_exec_handler(
-        context: RequestContext, args: Mapping[str, object]
-    ) -> Generator:
-        assess_cmd_exec_pre(context, args)
-        result = yield
-        assess_cmd_exec_post(context, args, result)
-
-    return assess_cmd_exec_handler
-
-
-def observe_handler_builder(event_dict: EventDict) -> EventHandler:
-    """
-    Builder function for the observe handler. The event dict must contain an `action` key
-    specifying the action span name that envelopes the patched function call. The event
-    dict may also contain `static_attributes` and `dynamic_attributes` keys, which are
-    dictionaries of attributes to set on the action span. Static attributes are set
-    directly, while dynamic attributes are set after the function call. Dynamic
-    attributes map attribute names to argument names, so that the value of the argument
-    is added as the value of the attribute.
-    """
-    reporter = agent_state.module.reporting_client
-    assert reporter is not None
-
-    action_name = event_dict["action"]
-    static_attributes = event_dict.get("static_attributes", {})
-    dynamic_attributes = event_dict.get("dynamic_attributes", {})
-
-    if mixed_attributes := set(static_attributes).intersection(dynamic_attributes):
-        raise ValueError(
-            f"Overlapping static and dynamic attributes provided: {mixed_attributes}"
-        )
-
-    def observe_handler(
-        context: RequestContext, args: Mapping[str, object]
-    ) -> Generator:
-        if (trace := context.observability_trace) is None:
-            yield
-            return
-        with trace.child_span(action_name) as child_span:
-            if child_span is None:
-                yield
-                return
-            result = yield
-            dyn_attrs = {
-                key: result if arg_name == "return" else args[arg_name]
-                for key, arg_name in dynamic_attributes.items()
-            }
-            child_span.update(static_attributes | dyn_attrs)
-
-    return observe_handler
-
-
-def protect_handler_builder(event_dict: EventDict) -> EventHandler:
-    def protect_handler(
-        context: RequestContext, args: Mapping[str, object]
-    ) -> Generator:
-        _ = yield
-
-    return protect_handler
-
-
 EVENT_HANDLER_BUILDERS: dict[str, dict[str, EventHandlerBuilder]] = {
     "cmd-exec": {
-        "assess": assess_cmd_exec_builder,
-        "observe": observe_handler_builder,
-        "protect": protect_handler_builder,
-    }
+        "observe": partial(
+            observe_handler_builder, cmd_exec.observe_span_attrs_builder
+        ),
+    },
+    "file-open": {
+        "observe": partial(
+            observe_handler_builder, file_open.observe_span_attrs_builder
+        ),
+    },
 }
 """
 event name -> {mode -> builder fn}
@@ -173,6 +72,43 @@ full function name -> event dict
 
 Central storage for v2 policy definitions at runtime.
 """
+
+
+@dataclass(frozen=True)
+class Location:
+    """
+    Represents a location of a function in the format 'module.method_name' or
+    'module.class_name.method_name'. This is used to uniquely identify a function.
+    """
+
+    module: str
+    method_name: str
+    class_name: str | None = None
+
+    @classmethod
+    def from_string(cls, name: str) -> Location:
+        parts = name.rsplit(".", maxsplit=2)
+        if len(parts) == 2:
+            return cls(module=parts[0], method_name=parts[1])
+        elif len(parts) == 3:
+            # This is a loose check for classname. It assumes we aren't dealing with
+            # modules that have names starting with uppercase letters. Our existing policy
+            # doesn't have such modules, but we should be careful if we accept policy from
+            # users.
+            if parts[1][0].isupper():
+                return cls(
+                    module=parts[0],
+                    class_name=parts[1],
+                    method_name=parts[2],
+                )
+            else:
+                return cls(
+                    module=".".join(parts[:2]), class_name=None, method_name=parts[2]
+                )
+        else:
+            raise ValueError(
+                f"Invalid location name '{name}'. Must be in the format 'module.method_name' or 'module.class_name.method_name'."
+            )
 
 
 def register_policy_definitions(definitions: list[PolicyDefinition]) -> None:
@@ -200,6 +136,10 @@ def register_policy_definitions(definitions: list[PolicyDefinition]) -> None:
     _policy_v2.update(new_definitions)
 
 
+def get_policy_locations() -> set[Location]:
+    return {Location.from_string(location) for location in _policy_v2}
+
+
 def generate_policy_event_handlers(
     *,
     assess: bool,
@@ -212,14 +152,14 @@ def generate_policy_event_handlers(
     # NOTE: we may want to cache builder invocations in the future if performance is bad
     event_handlers = {}
     for location_name, event_dict in _policy_v2.items():
-        event_builders = EVENT_HANDLER_BUILDERS[event_dict["name"]]
+        handler_builders = EVENT_HANDLER_BUILDERS[event_dict["name"]]
         handlers = []
-        if assess:
-            handlers.append(event_builders["assess"](event_dict))
-        if observe:
-            handlers.append(event_builders["observe"](event_dict))
-        if protect:
-            handlers.append(event_builders["protect"](event_dict))
+        if observe and (build_observe_handler := handler_builders.get("observe")):
+            handlers.append(build_observe_handler(event_dict))
+        if assess and (build_assess_handler := handler_builders.get("assess")):
+            handlers.append(build_assess_handler(event_dict))
+        if protect and (build_protect_handler := handler_builders.get("protect")):
+            handlers.append(build_protect_handler(event_dict))
         event_handlers[location_name] = handlers
 
     return event_handlers
@@ -235,13 +175,19 @@ def get_event_handlers(
 
     To avoid duplicate context lookups in the future, also returns the request context.
     """
-    if (context := contrast.CS__CONTEXT_TRACKER.current()) is None:
+    if (context := contrast.REQUEST_CONTEXT.get()) is None:
+        from contrast.agent import agent_state
+
         return agent_state.module.event_handlers.get(location_name, []), None
     return context.event_handlers.get(location_name, []), context
 
 
-def build_generic_contrast_wrapper(original_func):
-    location_name = f"{original_func.__module__}.{original_func.__qualname__}"
+def build_generic_contrast_wrapper(original_func, module_name: str | None = None):
+    module_name = module_name or original_func.__module__
+    location_name = f"{module_name}.{original_func.__qualname__}"
+    assert "contrast" not in location_name, (
+        f"Attempting to patch Contrast code: {location_name}"
+    )
     bind_args = event_arguments_binder(original_func)
 
     @wrapt.function_wrapper
@@ -268,11 +214,24 @@ def build_generic_contrast_wrapper(original_func):
             post = []
             event_handlers, context = get_event_handlers(location_name)
             for handler in event_handlers:
-                gen = handler(context, bound_args.arguments)
                 try:
+                    gen = handler(context, bound_args.arguments)
                     next(gen)
-                except StopIteration:
+                except StopIteration:  # noqa: PERF203
                     assert False, "Invalid event handler - did not yield"  # noqa: B011 PT015
+                except contrast.SecurityException:
+                    raise
+                except Exception as e:
+                    # If an exception is raised in the event handler, we report it and
+                    # continue with the next handler.
+                    log_and_report_exception(
+                        log_message="Exception in pre event handler",
+                        error=e,
+                        original_func=original_func,
+                        args=args,
+                        kwargs=kwargs,
+                        log_level="error",
+                    )
                 else:
                     post.append(gen)
 
@@ -285,6 +244,19 @@ def build_generic_contrast_wrapper(original_func):
                         gen.send(result)
                     except StopIteration:  # noqa: PERF203
                         pass
+                    except contrast.SecurityException:
+                        raise
+                    except Exception as e:
+                        # If an exception is raised in the event handler, we report it and
+                        # continue with the next handler.
+                        log_and_report_exception(
+                            log_message="Exception in post event handler",
+                            error=e,
+                            original_func=original_func,
+                            args=args,
+                            kwargs=kwargs,
+                            log_level="error",
+                        )
                     else:
                         assert False, "Invalid event handler - more than one yield"  # noqa: B011 PT015
 

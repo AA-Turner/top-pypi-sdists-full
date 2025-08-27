@@ -498,6 +498,7 @@ $ anyscale organization-invitation delete --email test@anyscale.com
 (anyscale +0.6s) Organization invitation for test@anyscale.com deleted.
 """
 
+
 PROJECT_ADD_COLLABORATORS_EXAMPLE = """\
 $ anyscale project add-collaborators --cloud cloud_name --project project_name --users-file collaborators.yaml
 (anyscale +1.3s) Successfully added 3 collaborators to project project_name.
@@ -511,6 +512,32 @@ collaborators:
     permission_level: "owner"
 """
 
+
+PROJECT_GET_EXAMPLE = """\
+$ anyscale project get --id my-project-id
+"""
+
+
+PROJECT_LIST_EXAMPLE = """\
+$ anyscale project list --include-defaults --non-interactive --max-items 2
+"""
+
+
+PROJECT_CREATE_EXAMPLE = """\
+$ anyscale project create --name "my-project" --cloud "my-cloud-id"
+"""
+
+
+PROJECT_DELETE_EXAMPLE = """\
+$ anyscale project delete --id project-id
+"""
+
+
+PROJECT_GET_DEFAULT_EXAMPLE = """\
+$ anyscale project get-default --cloud my-cloud-id --json
+"""
+
+
 CLOUD_ADD_COLLABORATORS_EXAMPLE = """\
 $ anyscale cloud add-collaborators --cloud cloud_name --users-file collaborators.yaml
 (anyscale +1.3s) Successfully added 2 collaborators to cloud cloud_name.
@@ -521,6 +548,7 @@ collaborators:
   - email: "test2@anyscale.com"
     permission_level: "readonly"
 """
+
 
 CLOUD_DEPLOYMENT_CREATE_EXAMPLE = """\
 $ anyscale cloud deployment create --cloud my-cloud --file new-cloud-deployment.yaml
@@ -546,46 +574,6 @@ aws_config:
   cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-role-123
   memorydb_cluster_name: my-memorydb-cluster
 """
-
-CLOUD_DEPLOYMENT_GET_EXAMPLE = """\
-$ anyscale cloud deployment get --cloud my-cloud --deployment my-deployment
-name: my-deployment
-provider: AWS
-compute_stack: VM
-region: us-west-2
-networking_mode: PUBLIC
-object_storage:
-  bucket_name: s3://my-bucket
-file_storage:
-  file_storage_id: fs-123
-aws_config:
-  vpc_id: vpc-123
-  subnet_ids:
-  - subnet-123
-  security_group_ids:
-  - sg-123
-  anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-role-123
-  cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-role-123
-  memorydb_cluster_name: my-memorydb-cluster
-"""
-
-
-CLOUD_DEPLOYMENT_UPDATE_EXAMPLE = """\
-$ anyscale cloud deployment update --cloud my-cloud --file updated-cloud-deployment.yaml
-Output
-(anyscale +3.7s) Detected the following changes:
---- +++ @@ -15,9 +15,9 @@   file_storage_id: fs-123
--name: my-cloud-deployment
-+name: my-updated-cloud-deployment
- networking_mode: PUBLIC
- object_storage:
--  bucket_name: s3://my-bucket
-+  bucket_name: s3://my-updated-bucket
- provider: AWS
-Would you like to proceed with updating this cloud deployment? [y/N]: y
-(anyscale +10.2s) Successfully updated cloud deployment my-updated-cloud-deployment in cloud my-cloud.
-"""
-
 
 CLOUD_DEPLOYMENT_DELETE_EXAMPLE = """\
 $ anyscale cloud deployment delete --cloud my-cloud --deployment my-deployment

@@ -7,9 +7,17 @@ from typing import (
     Iterator,
     Literal,
     Mapping,
+    TypeAlias,
     TypeVar,
+    final,
     overload,
 )
+
+from .. import _types as _t
+from ..cssselect import _CSSTransArg
+from ._module_misc import CDATA, DocInfo, QName
+from ._parser import CustomTargetParser
+from ._xslt import XSLTAccessControl, XSLTExtension, _Stylesheet_Param, _XSLTResultTree
 
 if sys.version_info >= (3, 11):
     from typing import Never, Self
@@ -20,11 +28,6 @@ if sys.version_info >= (3, 13):
     from warnings import deprecated
 else:
     from typing_extensions import deprecated
-
-from .. import _types as _t
-from ..cssselect import _CSSTransArg
-from ._module_misc import CDATA, DocInfo, QName
-from ._xslt import XSLTAccessControl, XSLTExtension, _Stylesheet_Param, _XSLTResultTree
 
 _T = TypeVar("_T")
 
@@ -38,6 +41,16 @@ class _Element:
     --------
     - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._Element)
     """
+
+    def __init__(  # Args identical to Element.makeelement
+        self,
+        _tag: _t._TagName,
+        /,
+        attrib: _t._AttrMapping | None = ...,
+        nsmap: _t._NSMapArg | None = ...,
+        **_extra: _t._AttrVal,
+    ) -> None: ...
+
     #
     # Common properties
     #
@@ -555,7 +568,7 @@ class _Element:
         - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._Element.itertext)
         - [Possible tag values in `iter()`](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._Element.iter)
         """
-    makeelement: _t._ElementFactory[Self]
+    makeelement: type[Self]
     """Creates a new element associated with the same document.
 
     See Also
@@ -661,6 +674,10 @@ class _Element:
         self, tag: _t._TagSelector | None = None, *tags: _t._TagSelector
     ) -> Iterator[Self]: ...
 
+Element: TypeAlias = _Element
+
+_ET2_co = TypeVar("_ET2_co", bound=_Element, default=_Element, covariant=True)
+
 # ET class notation is specialized, indicating the type of element
 # it is holding (e.g. XML element, HTML element or Objectified
 # Element).
@@ -669,17 +686,98 @@ class _Element:
 # It is considered harmful to support such corner case, which
 # adds much complexity without any benefit.
 class _ElementTree(Generic[_t._ET_co]):
+    @overload  # from element, parser ignored
+    def __new__(
+        cls,
+        element: _t._ET_co,
+        *,
+        file: None = None,
+    ) -> _ElementTree[_t._ET_co]: ...
+    @overload  # from file source, standard parser
+    def __new__(
+        cls,
+        element: None = None,
+        *,
+        file: _t._FileReadSource,
+        parser: _t._DefEtreeParsers[_t._ET_co],
+    ) -> _ElementTree[_t._ET_co]: ...
+    @overload  # from file source, custom target parser
+    def __new__(  # type: ignore[misc]
+        cls,
+        element: None = None,
+        *,
+        file: _t._FileReadSource,
+        parser: CustomTargetParser[_T],
+    ) -> _T: ...
+    @overload  # from file source, no parser supplied
+    def __new__(
+        cls,
+        element: None = None,
+        *,
+        file: _t._FileReadSource,
+        parser: None = None,
+    ) -> _ElementTree[_t._ET_co]: ...
     @property
     def parser(self) -> _t._DefEtreeParsers[_t._ET_co] | None: ...
     @property
     def docinfo(self) -> DocInfo: ...
+    @overload  # common parser
     def parse(
         self,
         source: _t._FileReadSource,
-        parser: _t._DefEtreeParsers[_t._ET_co] | None = None,
+        parser: _t._DefEtreeParsers[_ET2_co],
         *,
-        base_url: _t._AnyStr | None = None,
-    ) -> None: ...
+        base_url: str | bytes | None = None,
+    ) -> _ET2_co:
+        """Updates self with the content of source and returns its root.
+
+        Annotation
+        ----------
+        This overload handles the case where a common parser is supplied.
+
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._ElementTree.parse)
+        """
+    @overload  # custom target parser
+    def parse(
+        self,
+        source: _t._FileReadSource,
+        parser: CustomTargetParser[_ET2_co],
+        *,
+        base_url: str | bytes | None = None,
+    ) -> _ET2_co:
+        """Updates self with the content of source and returns its root.
+
+        Annotation
+        ----------
+        This overload handles the case where a custom target parser is supplied.
+        Note that target object must return an element, i.e. compatible with
+        `etree.TreeBuilder`.
+
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._ElementTree.parse)
+        """
+    @overload  # parser not supplied
+    def parse(
+        self,
+        source: _t._FileReadSource,
+        parser: None = None,
+        *,
+        base_url: str | bytes | None = None,
+    ) -> _Element:
+        """Updates self with the content of source and returns its root.
+
+        Annotation
+        ----------
+        This overload handles the case where no parser is supplied (thus
+        default parser is utilised).
+
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._ElementTree.parse)
+        """
     # Changes root node; in terms of typing, this means changing
     # specialization of ElementTree. This is not expressible in
     # current typing system.
@@ -695,47 +793,7 @@ class _ElementTree(Generic[_t._ET_co]):
     #     - method is 'c14n2', and
     #     - no compression
     #
-    @overload  # deprecated usage of docstring param
-    @deprecated('Since v3.8.0; use "doctype" parameter instead')
-    def write(
-        self,
-        *args: Any,
-        docstring: str,
-        **kw: Any,
-    ) -> None: ...
-    @overload  # warn if inclusive_ns_prefixes is not collection
-    @deprecated(
-        "'inclusive_ns_prefixes' should be collection, otherwise "
-        "will either search for wrong NS prefix or raise exception"
-    )
-    def write(
-        self,
-        *args: Any,
-        inclusive_ns_prefixes: _t._AnyStr,
-        **kw: Any,
-    ) -> None: ...
-    @overload  # method=c14n
-    def write(
-        self,
-        file: _t._FileWriteSource,
-        *,
-        method: Literal["c14n"],
-        exclusive: bool = False,
-        with_comments: bool = True,
-        compression: int | None = 0,
-        inclusive_ns_prefixes: Iterable[_t._AnyStr] | None = None,
-    ) -> None: ...
-    @overload  # method=c14n2
-    def write(
-        self,
-        file: _t._FileWriteSource,
-        *,
-        method: Literal["c14n2"],
-        with_comments: bool = True,
-        compression: int | None = 0,
-        strip_text: bool = False,
-    ) -> None: ...
-    @overload  # other write methods
+    @overload  # generic write methods
     def write(
         self,
         file: _t._FileWriteSource,
@@ -748,7 +806,112 @@ class _ElementTree(Generic[_t._ET_co]):
         standalone: bool | None = None,
         doctype: str | None = None,
         compression: int | None = 0,
-    ) -> None: ...
+    ) -> None:
+        """Write the tree to a filename, file or file-like object.
+
+        Annotation
+        ----------
+        This overload handles the most generic usage of method,
+        where the `method` argument is `"xml"` (default value),
+        `"html"` or `"text"`.
+
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._ElementTree.write)
+        """
+    @overload  # method=c14n2
+    def write(
+        self,
+        file: _t._FileWriteSource,
+        *,
+        method: Literal["c14n2"],
+        with_comments: bool = True,
+        compression: int | None = 0,
+        strip_text: bool = False,
+    ) -> None:
+        """Write the tree to a filename, file or file-like object.
+
+        Annotation
+        ----------
+        This overload handles the case where `method` is `"c14n2"`
+        (Canonical XML version 2).
+
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._ElementTree.write)
+        """
+    @overload  # guard against plain str inclusive_ns_prefixes
+    @deprecated(
+        "'inclusive_ns_prefixes' should be an iterable even when "
+        "just a single namespace prefix is included"
+    )
+    def write(
+        self,
+        file: _t._FileWriteSource,
+        *,
+        method: Literal["c14n"],
+        exclusive: bool = False,
+        with_comments: bool = True,
+        compression: int | None = 0,
+        inclusive_ns_prefixes: str | bytes,
+    ) -> None:
+        """Write the tree to a filename, file or file-like object.
+
+        Annotation
+        ----------
+        This overload guards against using a plain string in
+        `inclusive_ns_prefixes` argument which is only used in
+        `method="c14n"` (Canonical XML version 1).
+
+        If it is specified as a single string, it will be split
+        as individual letter and each treated as a namespace
+        prefix.
+
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._ElementTree.write)
+        """
+    @overload  # method=c14n
+    def write(
+        self,
+        file: _t._FileWriteSource,
+        *,
+        method: Literal["c14n"],
+        exclusive: bool = False,
+        with_comments: bool = True,
+        compression: int | None = 0,
+        inclusive_ns_prefixes: Iterable[str | bytes] | None = None,
+    ) -> None:
+        """Write the tree to a filename, file or file-like object.
+
+        Annotation
+        ----------
+        This overload handles the case where `method` is `"c14n"`
+        (Canonical XML version 1).
+
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._ElementTree.write)
+        """
+    @overload  # deprecated usage of docstring param
+    @deprecated('Since v3.8.0; use "doctype" parameter instead')
+    def write(
+        self,
+        *args: Any,
+        docstring: str,
+        **kw: Any,
+    ) -> None:
+        """Write the tree to a filename, file or file-like object.
+
+        Annotation
+        ----------
+        This overload handles the deprecated usage of `docstring`
+        parameter, which is replaced by `doctype` parameter.
+
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree._ElementTree.write)
+        """
     def getpath(self: _ElementTree[_t._ET], element: _t._ET) -> str: ...
     def getelementpath(self: _ElementTree[_t._ET], element: _t._ET) -> str: ...
     @overload
@@ -798,9 +961,8 @@ class _ElementTree(Generic[_t._ET_co]):
         self,
         _xslt: _t._ElementOrTree,
         /,
-        extensions: (
-            _t.SupportsLaxItems[tuple[_t._AnyStr, _t._AnyStr], XSLTExtension] | None
-        ) = None,
+        extensions: _t.SupportsLaxItems[tuple[str | bytes, str | bytes], XSLTExtension]
+        | None = None,
         access_control: XSLTAccessControl | None = None,
         *,  # all keywords are passed to XSLT.__call__
         profile_run: bool = False,
@@ -823,10 +985,13 @@ class _ElementTree(Generic[_t._ET_co]):
         exclusive: bool = False,
         with_comments: bool = True,
         compression: int | None = 0,
-        inclusive_ns_prefixes: Iterable[_t._AnyStr] | None = None,
+        inclusive_ns_prefixes: Iterable[str | bytes] | None = None,
     ) -> None: ...
 
+ElementTree: TypeAlias = _ElementTree
+
 # Behaves like MutableMapping but deviates a lot in details
+@final
 class _Attrib:
     def __setitem__(self, __k: _t._AttrName, __v: _t._AttrVal) -> None: ...
     def __delitem__(self, __k: _t._AttrName) -> None: ...
@@ -920,7 +1085,7 @@ class _Comment(__ContentOnlyElement):
     def tag(self) -> Callable[..., _Comment]: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     @property  # type: ignore[override]
     def text(self) -> str: ...
-    @text.setter
+    @text.setter  # type: ignore[override]
     def text(  # pyright: ignore[reportIncompatibleMethodOverride]
         self, value: _t._TextArg | None
     ) -> None: ...
@@ -931,7 +1096,7 @@ class _ProcessingInstruction(__ContentOnlyElement):
     def tag(self) -> Callable[..., _ProcessingInstruction]: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     @property  # type: ignore[override]
     def text(self) -> str: ...
-    @text.setter
+    @text.setter  # type: ignore[override]
     def text(  # pyright: ignore[reportIncompatibleMethodOverride]
         self, value: _t._TextArg | None
     ) -> None: ...

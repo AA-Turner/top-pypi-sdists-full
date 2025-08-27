@@ -30,7 +30,7 @@ def build__init__patch(orig_method, _):
 
         # Save the scope of the current thread to copy to the thread running the route function
         instance.cs__parent_scope = current_scope()
-        instance.cs__parent_context = contrast.CS__CONTEXT_TRACKER.current()
+        instance.cs__parent_context = contrast.REQUEST_CONTEXT.get()
 
         return ret
 
@@ -43,7 +43,7 @@ def build_run_patch(orig_method, _):
     """
 
     def work_item_run_patch(wrapped, instance, args, kwargs):
-        with contrast.CS__CONTEXT_TRACKER.lifespan(instance.cs__parent_context):
+        with contrast.lifespan(instance.cs__parent_context):
             set_scope(*instance.cs__parent_scope)
 
             return wrapped(*args, **kwargs)

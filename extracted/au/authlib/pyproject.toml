@@ -47,9 +47,11 @@ Blog = "https://blog.authlib.org/"
 dev = [
     "coverage",
     "cryptography",
-    "pre-commit-uv>=4.1.4",
+    "diff-cover>=9.6.0",
+    "prek>=0.1.3",
     "pytest",
     "pytest-asyncio",
+    "pytest-env",
     "tox-uv >= 1.16.0",
 ]
 
@@ -120,6 +122,10 @@ docstring-code-format = true
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 norecursedirs = ["authlib", "build", "dist", "docs", "htmlcov"]
+pythonpath = ["."]
+env = [
+    "DJANGO_SETTINGS_MODULE = tests.django_settings",
+]
 
 [tool.coverage.run]
 branch = true

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: aiogoogle
-Version: 5.15.0
+Version: 5.17.0
 Summary: Async Google API client
 Home-page: https://github.com/omarryhan/aiogoogle
 Author: Omar Ryhan
@@ -29,6 +29,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary

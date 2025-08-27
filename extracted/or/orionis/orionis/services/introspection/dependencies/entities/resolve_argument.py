@@ -43,6 +43,9 @@ class ResolveArguments(BaseEntity):
     # Unresolved dependencies as a dictionary of names to Argument instances
     unresolved: Dict[str, Argument]
 
+    # All dependencies in the order they were defined
+    ordered: Dict[str, Argument]
+
     def __post_init__(self):
         """
         Validates the types and contents of the resolved and unresolved attributes.
@@ -79,4 +82,11 @@ class ResolveArguments(BaseEntity):
         if not isinstance(self.unresolved, dict):
             raise ReflectionTypeError(
                 f"'unresolved' must be a dict, got {type(self.unresolved).__name__}"
+            )
+
+        # Validate that the 'ordered' attribute is a dictionary type
+        # This ensures that all dependencies maintain the same structure as resolved ones
+        if not isinstance(self.ordered, dict):
+            raise ReflectionTypeError(
+                f"'ordered' must be a dict, got {type(self.ordered).__name__}"
             )

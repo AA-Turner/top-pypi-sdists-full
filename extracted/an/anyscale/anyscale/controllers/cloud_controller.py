@@ -1425,18 +1425,6 @@ class CloudController(BaseController):
                 cloud_id, CloudProviders.AWS, functions_to_verify, yes,
             )
 
-    def get_cloud_deployment(
-        self, cloud_id: str, cloud_deployment_id: str
-    ) -> CloudDeployment:
-        try:
-            return self.api_client.get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get(
-                cloud_id=cloud_id, cloud_deployment_id=cloud_deployment_id,
-            ).result
-        except Exception as e:  # noqa: BLE001
-            raise ClickException(
-                f"Failed to get cloud deployment {cloud_deployment_id} for cloud {cloud_id}. Error: {e}"
-            )
-
     # Avoid displaying fields with empty values (since the values for optional fields default to None).
     def _remove_empty_values(self, d):
         if isinstance(d, dict):
@@ -1476,29 +1464,6 @@ class CloudController(BaseController):
                 for deployment in deployments
             ],
         }
-
-    def get_cloud_deployment_dict_by_name(
-        self, cloud_name: str, cloud_deployment_name: Optional[str]
-    ) -> Dict[str, Any]:
-        cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud_name)
-
-        result = self.get_cloud_deployments(cloud_id)
-        deployments = result.get("deployments", [])
-        if len(deployments) == 0:
-            raise ClickException(f"Cloud {cloud_name} has no cloud deployments.")
-
-        if cloud_deployment_name is None:
-            if len(deployments) > 1:
-                self.log.warning(
-                    f"Cloud {cloud_name} has {len(deployments)} deployments, only the primary deployment will be returned."
-                )
-            return deployments[0]
-
-        for deployment in deployments:
-            if deployment.get("name") == cloud_deployment_name:
-                return deployment
-
-        raise ClickException(f"Cloud deployment {cloud_deployment_name} not found.")
 
     def update_aws_anyscale_iam_role(
         self,
@@ -1776,85 +1741,103 @@ class CloudController(BaseController):
             f"Successfully created cloud deployment{' ' + new_deployment.name if new_deployment.name else ''} in cloud {existing_spec['name']}!"
         )
 
-    def update_cloud_deployment(  # noqa: PLR0912
+    def update_cloud_deployments(  # noqa: PLR0912, C901
         self,
-        cloud: str,
-        spec_file: str,
+        cloud_name: Optional[str],
+        cloud_id: Optional[str],
+        resources_file: str,
         skip_verification: bool = False,
         yes: bool = False,
     ):
+        if not cloud_id:
+            cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud_name)
+        assert cloud_id
+
         # Read the spec file.
-        path = pathlib.Path(spec_file)
+        path = pathlib.Path(resources_file)
         if not path.exists():
-            raise ClickException(f"{spec_file} does not exist.")
+            raise ClickException(f"{resources_file} does not exist.")
         if not path.is_file():
-            raise ClickException(f"{spec_file} is not a file.")
+            raise ClickException(f"{resources_file} is not a file.")
 
         spec = yaml.safe_load(path.read_text())
-        try:
-            updated_deployment = CloudDeployment(**spec)
-        except Exception as e:  # noqa: BLE001
-            raise ClickException(f"Failed to parse cloud deployment: {e}")
 
-        if not updated_deployment.cloud_deployment_id:
+        # Get the existing spec.
+        existing_spec = self.get_cloud_deployments(cloud_id=cloud_id)
+
+        if len(existing_spec["deployments"]) > len(spec):
             raise ClickException(
-                "The cloud deployment must include a cloud_deployment_id."
+                "Please use `anyscale cloud deployment delete` to remove cloud deployments."
+            )
+        if len(existing_spec["deployments"]) < len(spec):
+            raise ClickException(
+                "Please use `anyscale cloud deployment create` to add cloud deployments."
             )
 
-        # Get the existing cloud deployment.
-        cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud)
-        existing_deployment = self.get_cloud_deployment(
-            cloud_id=cloud_id,
-            cloud_deployment_id=updated_deployment.cloud_deployment_id,
-        )
-        if (
-            updated_deployment.provider == CloudProviders.PCP
-            or existing_deployment.provider == CloudProviders.PCP
-        ):
-            raise ClickException(
-                "Please use the `anyscale machine-pool` CLI to update machine pools."
-            )
-
-        # Diff the existing and new cloud deployments.
-        diff = self._generate_diff(
-            self._remove_empty_values(existing_deployment.to_dict()),
-            self._remove_empty_values(updated_deployment.to_dict()),
-        )
+        # Diff the existing and new specs
+        diff = self._generate_diff(existing_spec["deployments"], spec)
         if not diff:
             self.log.info("No changes detected.")
             return
 
-        # Preprocess the deployment if necessary.
-        if updated_deployment.provider == CloudProviders.AWS:
-            self._preprocess_aws(cloud_id=cloud_id, deployment=updated_deployment)
-        elif updated_deployment.provider == CloudProviders.GCP:
-            self._preprocess_gcp(deployment=updated_deployment)
-        # Skip verification for Kubernetes stacks or if explicitly requested
-        if updated_deployment.compute_stack == ComputeStack.K8S:
-            self.log.info("Skipping verification for Kubernetes compute stack.")
-        elif not skip_verification and not self.verify_cloud_deployment(
-            cloud_id=cloud_id, cloud_deployment=updated_deployment
-        ):
-            raise ClickException(
-                f"Verification failed for cloud deployment {updated_deployment.name}."
-            )
+        existing_deployments = {
+            deployment["cloud_deployment_id"]: CloudDeployment(**deployment)
+            for deployment in existing_spec["deployments"]
+        }
+
+        updated_deployments: List[CloudDeployment] = []
+        for d in spec:
+            try:
+                deployment = CloudDeployment(**d)
+            except Exception as e:  # noqa: BLE001
+                raise ClickException(f"Failed to parse deployment: {e}")
+
+            if not deployment.cloud_deployment_id:
+                raise ClickException(
+                    "All cloud deployments must include a cloud_deployment_id."
+                )
+            if deployment.cloud_deployment_id not in existing_deployments:
+                raise ClickException(
+                    f"Cloud deployment {deployment.cloud_deployment_id} not found."
+                )
+            if deployment.provider == CloudProviders.PCP:
+                raise ClickException(
+                    "Please use the `anyscale machine-pool` CLI to update machine pools."
+                )
+            if deployment != existing_deployments[deployment.cloud_deployment_id]:
+                updated_deployments.append(deployment)
 
         # Log the diff and confirm.
         self.log.info(f"Detected the following changes:\n{diff}")
 
-        confirm("Would you like to proceed with updating this cloud deployment?", yes)
+        confirm("Would you like to proceed with updating this cloud?", yes)
 
-        # Update the deployment.
+        # Preprocess the deployments if necessary.
+        for deployment in updated_deployments:
+            if deployment.provider == CloudProviders.AWS:
+                self._preprocess_aws(cloud_id=cloud_id, deployment=deployment)
+            elif deployment.provider == CloudProviders.GCP:
+                self._preprocess_gcp(deployment=deployment)
+
+            # Skip verification for Kubernetes stacks or if explicitly requested
+            if deployment.compute_stack == ComputeStack.K8S:
+                self.log.info("Skipping verification for Kubernetes compute stack.")
+            elif not skip_verification and not self.verify_cloud_deployment(
+                cloud_id=cloud_id, cloud_deployment=deployment
+            ):
+                raise ClickException(
+                    f"Verification failed for cloud deployment {deployment.name or deployment.cloud_deployment_id}."
+                )
+
+        # Update the deployments.
         try:
-            self.api_client.update_cloud_deployment_api_v2_clouds_cloud_id_update_deployment_put(
-                cloud_id=cloud_id, cloud_deployment=updated_deployment,
+            self.api_client.update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put(
+                cloud_id=cloud_id, cloud_deployment=updated_deployments,
             )
         except Exception as e:  # noqa: BLE001
-            raise ClickException(f"Failed to update cloud deployment: {e}")
+            raise ClickException(f"Failed to update cloud deployments: {e}")
 
-        self.log.info(
-            f"Successfully updated cloud deployment {updated_deployment.name or updated_deployment.cloud_deployment_id} in cloud {cloud}."
-        )
+        self.log.info(f"Successfully updated cloud {cloud_name or cloud_id}.")
 
     def remove_cloud_deployment(
         self, cloud_name: str, deployment_name: str, yes: bool,
@@ -2517,6 +2500,8 @@ class CloudController(BaseController):
         cloud_storage_bucket_region: Optional[str] = None,
         nfs_mount_targets: Optional[List[str]] = None,
         nfs_mount_path: Optional[str] = None,
+        persistent_volume_claim: Optional[str] = None,
+        csi_ephemeral_volume_driver: Optional[str] = None,
         kubernetes_zones: Optional[List[str]] = None,
         anyscale_operator_iam_identity: Optional[str] = None,
     ) -> None:
@@ -2588,6 +2573,8 @@ class CloudController(BaseController):
                             or region,
                             nfs_mount_targets=mount_targets,
                             nfs_mount_path=nfs_mount_path,
+                            persistent_volume_claim=persistent_volume_claim,
+                            csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
                         ),
                     ),
                 )
@@ -2661,6 +2648,8 @@ class CloudController(BaseController):
         compute_stack: ComputeStack = ComputeStack.VM,
         kubernetes_zones: Optional[List[str]] = None,
         anyscale_operator_iam_identity: Optional[str] = None,
+        persistent_volume_claim: Optional[str] = None,
+        csi_ephemeral_volume_driver: Optional[str] = None,
     ):
         functions_to_verify = self._validate_functional_verification_args(
             functional_verify
@@ -2824,6 +2813,8 @@ class CloudController(BaseController):
                 kubernetes_zones=kubernetes_zones,
                 kubernetes_dataplane_identity=anyscale_operator_iam_identity,
                 cloud_storage_bucket_name=cloud_storage_bucket_name,
+                persistent_volume_claim=persistent_volume_claim,
+                csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
             )
 
             # Verification is only performed for VM compute stack.
@@ -3187,6 +3178,8 @@ class CloudController(BaseController):
         compute_stack: ComputeStack = ComputeStack.VM,
         kubernetes_zones: Optional[List[str]] = None,
         anyscale_operator_iam_identity: Optional[str] = None,
+        persistent_volume_claim: Optional[str] = None,
+        csi_ephemeral_volume_driver: Optional[str] = None,
     ):
         functions_to_verify = self._validate_functional_verification_args(
             functional_verify
@@ -3336,6 +3329,8 @@ class CloudController(BaseController):
                 kubernetes_zones=kubernetes_zones,
                 kubernetes_dataplane_identity=anyscale_operator_iam_identity,
                 cloud_storage_bucket_name=cloud_storage_bucket_name,
+                persistent_volume_claim=persistent_volume_claim,
+                csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
             )
 
             # Verification is only performed for VM compute stack.

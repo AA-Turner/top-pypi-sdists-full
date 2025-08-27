@@ -9,6 +9,7 @@ our C extension is not called first to dispatch to them.
 """
 
 import _io
+from collections import UserString
 import contrast
 from contrast.agent import scope
 from contrast.agent.assess.utils import is_tracked
@@ -50,7 +51,7 @@ def build_bytearray_join_patch(orig_method, patch_policy):
         with scope.contrast_scope():
             try:
                 if (
-                    context := contrast.CS__CONTEXT_TRACKER.current()
+                    context := contrast.REQUEST_CONTEXT.get()
                 ) is None or context.stop_propagation:
                     return result
 
@@ -82,7 +83,7 @@ def build_strtype_join_patch(orig_method, patch_policy):
         with scope.contrast_scope():
             try:
                 if (
-                    context := contrast.CS__CONTEXT_TRACKER.current()
+                    context := contrast.REQUEST_CONTEXT.get()
                 ) is None or context.stop_propagation:
                     return result
 
@@ -120,7 +121,7 @@ def build_str_format_patch(orig_method, patch_policy):
         try:
             with scope.contrast_scope():
                 if (
-                    context := contrast.CS__CONTEXT_TRACKER.current()
+                    context := contrast.REQUEST_CONTEXT.get()
                 ) is None or context.stop_propagation:
                     return result
 
@@ -165,7 +166,7 @@ def build_str_formatmap_patch(orig_method, patch_policy):
         try:
             with scope.contrast_scope():
                 if (
-                    context := contrast.CS__CONTEXT_TRACKER.current()
+                    context := contrast.REQUEST_CONTEXT.get()
                 ) is None or context.stop_propagation:
                     return result
 
@@ -206,7 +207,7 @@ def build_generic_strtype_patch(orig_method, patch_policy):
         with scope.contrast_scope():
             try:
                 if (
-                    context := contrast.CS__CONTEXT_TRACKER.current()
+                    context := contrast.REQUEST_CONTEXT.get()
                 ) is None or context.stop_propagation:
                     return result
 
@@ -245,7 +246,7 @@ def build_track_without_new_event_patch(orig_method, patch_policy):
         with scope.contrast_scope():
             try:
                 if (
-                    context := contrast.CS__CONTEXT_TRACKER.current()
+                    context := contrast.REQUEST_CONTEXT.get()
                 ) is None or context.stop_propagation:
                     return result
 
@@ -287,7 +288,7 @@ def build_generic_stream_patch(orig_method, patch_policy):
 
         with scope.propagation_scope(), scope.contrast_scope():
             if (
-                context := contrast.CS__CONTEXT_TRACKER.current()
+                context := contrast.REQUEST_CONTEXT.get()
             ) is None or context.stop_propagation:
                 return result
 
@@ -334,6 +335,13 @@ def enable_str_properties():
         smart_setattr(stream_type, "cs__source_event", None)
         smart_setattr(stream_type, "cs__source_type", None)
         smart_setattr(stream_type, "cs__source_tags", None)
+
+    # IPython assumes that UserString has the same attributes as str,
+    # and raises AttributeErrors if that is not the case. So any
+    # properties we add to str should also be added to UserString.
+    # UserString will dispatch to str methods on self.data though, so
+    # we don't need to actually add a strprop onto the type.
+    smart_setattr(UserString, "cs__properties", None)
 
 
 def patch_strtype_method(strtype, method_name):
@@ -382,3 +390,5 @@ def unpatch_strtype_and_stream_methods():
     patch_manager.reverse_patches_by_owner(_io.StringIO)
     patch_manager.reverse_patches_by_owner(_io.BytesIO)
     patch_manager.reverse_patches_by_owner(_io._IOBase)
+
+    patch_manager.reverse_patches_by_owner(UserString)

@@ -2,7 +2,6 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import sys
 
-from contrast_vendor import wrapt
 from contrast.patches.databases import dbapi2
 from contrast.utils import Namespace
 from contrast.utils.patch_utils import (
@@ -11,6 +10,8 @@ from contrast.utils.patch_utils import (
 )
 
 from contrast_vendor import structlog as logging
+from contrast_vendor.wrapt import FunctionWrapper
+
 
 logger = logging.getLogger("contrast")
 
@@ -22,30 +23,6 @@ class module(Namespace):
     # saved version of the original (unpatched) method
     # this value is None iff the method is currently unpatched
     unpatched_method = None
-
-
-class CustomFunctionWrapper(wrapt.FunctionWrapper):
-    """
-    We've seen this before. In python2, instance method objects save their real
-    underlying function under their `__func__` attribute. To line up properly with
-    SQLAlchemy's instance check, we need type(wrapped_method) to return `function`.
-
-    This is unfortunate because it's probably incorrect, but it's SQLAlchemy's fault.
-    Wrapt assumes that accessors aren't purposely bypassing the descriptor protocol
-    when accessing a wrapped instance method - but if they do, the behavior is wrong.
-
-    We have to cater to SQLAlchemy here, since it's really unlikely anyone else will
-    be type-checking this method.
-    """
-
-    @property
-    def __class__(self):
-        func = getattr(self.__wrapped__, "__func__", self.__wrapped__)
-        return func.__class__
-
-    @__class__.setter
-    def __class__(self, value):
-        self.__wrapped__.__class__ = value
 
 
 def dialect_init_wrapper(wrapped, instance, args, kwargs):
@@ -100,7 +77,7 @@ def patch_sqlalchemy(sqlalchemy_engine_default):
 
     orig_method = sqlalchemy_engine_default.DefaultDialect.__init__
     module.unpatched_method = orig_method
-    wrapped_method = CustomFunctionWrapper(orig_method, dialect_init_wrapper)
+    wrapped_method = FunctionWrapper(orig_method, dialect_init_wrapper)
 
     sqlalchemy_engine_default.DefaultDialect.__init__ = wrapped_method
 

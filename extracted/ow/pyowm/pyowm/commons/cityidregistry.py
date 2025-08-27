@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import bz2
 import sqlite3
 import tempfile
-from pkg_resources import resource_filename
+from importlib.resources import as_file, files
 from pyowm.weatherapi30.location import Location
 
 CITY_ID_DB_PATH = 'cityids/cities.db.bz2'
@@ -39,21 +40,24 @@ class CityIDRegistry:
         # https://pymotw.com/2/bz2/
 
         # read and uncompress data from compressed DB
-        res_name = resource_filename(__name__, sqlite_db_path)
-        bz2_db = bz2.BZ2File(res_name)
+        with as_file(files(__name__) / sqlite_db_path) as res_name:
+            bz2_db = bz2.BZ2File(res_name)
         decompressed_data = bz2_db.read()
 
         # dump decompressed data to a temp DB
-        with tempfile.NamedTemporaryFile(mode='wb') as tmpf:
-            tmpf.write(decompressed_data)
-            tmpf_name = tmpf.name
+        try:
+            with tempfile.NamedTemporaryFile(mode='wb', delete=False) as tmpf:
+                tmpf.write(decompressed_data)
+                tmpf_name = tmpf.name
 
-            # read temp DB to memory and return handle
-            src_conn = sqlite3.connect(tmpf_name)
-            dest_conn = sqlite3.connect(':memory:')
-            src_conn.backup(dest_conn)
-            src_conn.close()
-            return dest_conn
+                # read temp DB to memory and return handle
+                src_conn = sqlite3.connect(tmpf_name)
+                dest_conn = sqlite3.connect(':memory:')
+                src_conn.backup(dest_conn)
+                src_conn.close()
+                return dest_conn
+        finally:
+            os.remove(tmpf_name)
 
     def __query(self, sql_query: str, *args):
         """

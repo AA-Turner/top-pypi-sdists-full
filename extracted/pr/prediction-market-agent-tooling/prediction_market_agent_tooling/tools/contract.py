@@ -116,6 +116,7 @@ class ContractBaseClass(BaseModel):
         tx_params: t.Optional[TxParams] = None,
         timeout: int = 180,
         web3: Web3 | None = None,
+        default_gas: int | None = None,
     ) -> TxReceipt:
         """
         Used for changing a state (writing) to the contract.
@@ -132,6 +133,7 @@ class ContractBaseClass(BaseModel):
                 function_params=function_params,
                 tx_params=tx_params,
                 timeout=timeout,
+                default_gas=default_gas,
             )
         return send_function_on_contract_tx(
             web3=web3 or self.get_web3(),
@@ -142,6 +144,7 @@ class ContractBaseClass(BaseModel):
             function_params=function_params,
             tx_params=tx_params,
             timeout=timeout,
+            default_gas=default_gas,
         )
 
     def send_with_value(
@@ -431,6 +434,25 @@ class ContractWrapped1155BaseClass(ContractERC20BaseClass):
         )
     )
 
+    def factory(self, web3: Web3 | None = None) -> ChecksumAddress:
+        return Web3.to_checksum_address(self.call("factory", web3=web3))
+
+    def mint(
+        self,
+        api_keys: APIKeys,
+        to_address: ChecksumAddress,
+        amount: Wei,
+        tx_params: t.Optional[TxParams] = None,
+        web3: Web3 | None = None,
+    ) -> TxReceipt:
+        return self.send(
+            api_keys=api_keys,
+            function_name="mint",
+            function_params=[to_address, amount],
+            tx_params=tx_params,
+            web3=web3,
+        )
+
 
 class OwnableContract(ContractBaseClass):
     abi: ABI = abi_field_validator(
@@ -717,6 +739,9 @@ class ConditionalTokenContract(ContractBaseClass):
             self.get_web3_contract(web3=web3)
             .events.PayoutRedemption()
             .process_receipt(receipt_tx)
+        )
+        logger.info(
+            f"Receipt tx: `{receipt_tx}` Redeem event logs: `{redeem_event_logs}`"
         )
         redeem_event = PayoutRedemptionEvent(**redeem_event_logs[0]["args"])
         return redeem_event

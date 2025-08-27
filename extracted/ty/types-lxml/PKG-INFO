@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-lxml
-Version: 2025.3.30
+Version: 2025.8.25
 Summary: Complete lxml external type annotation
 Keywords: lxml,typing,stubs,annotation
 Author-Email: Abel Cheung <abelcheung@gmail.com>
@@ -23,7 +23,7 @@ Requires-Python: >=3.8
 Requires-Dist: typing_extensions~=4.10; python_version < "3.13"
 Requires-Dist: cssselect~=1.2
 Requires-Dist: beautifulsoup4~=4.13
-Requires-Dist: types-html5lib~=1.1.11.20241018
+Requires-Dist: types-html5lib!=1.1.11.20250516,~=1.1.11.20241018
 Provides-Extra: mypy
 Requires-Dist: mypy~=1.11; extra == "mypy"
 Provides-Extra: pyright
@@ -38,6 +38,9 @@ Description-Content-Type: text/markdown
 ![Wheel](https://img.shields.io/pypi/wheel/types-lxml.svg)
 
 ## Important note
+
+- Since `2025.08.25`:
+  - Supports `lxml` 6.0 and 5.4, while `lxml` 4.9 will not be tested anymore
 
 - Since `2025.03.04`:
   - `BeautifulSoup4` package is added as dependency to utilise its inline annotation, thus dropping `types-beautifulsoup4` dependency.

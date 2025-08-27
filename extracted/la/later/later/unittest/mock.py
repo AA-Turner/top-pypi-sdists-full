@@ -1,27 +1,29 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# Licensed under the Apache License, Version 2.0 (the "License"); you may
-# not use this file except in compliance with the License. You may obtain
-# a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and limitations
-# under the License.
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# pyre-strict
 from __future__ import annotations
 
-import sys
-
-from typing import Any
-from unittest.mock import call, DEFAULT
-
-if sys.version_info >= (3, 9):  # pragma: nocover
-    from unittest.mock import AsyncMock, create_autospec, MagicMock, Mock, patch
-else:  # pragma: nocover
-    from .backport.mock import AsyncMock, create_autospec, MagicMock, Mock, patch
+from unittest.mock import (
+    AsyncMock,
+    call,
+    create_autospec,
+    DEFAULT,
+    MagicMock,
+    Mock,
+    patch,
+)
 
 
 __all__ = [
@@ -35,7 +37,7 @@ __all__ = [
 ]
 
 
-def AsyncContextManager(return_value: Any = DEFAULT, instance: bool = False) -> Mock:
+def AsyncContextManager(return_value: object = DEFAULT, instance: bool = False) -> Mock:
     """
     This helper sets up a Mock Tree to mock out an AsyncContextManager class.
     return_value: The object returned by the context manager

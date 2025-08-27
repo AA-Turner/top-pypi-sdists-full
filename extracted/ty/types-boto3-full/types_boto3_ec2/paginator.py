@@ -44,6 +44,9 @@ Usage::
         DescribeHostReservationsPaginator,
         DescribeHostsPaginator,
         DescribeIamInstanceProfileAssociationsPaginator,
+        DescribeImageReferencesPaginator,
+        DescribeImageUsageReportEntriesPaginator,
+        DescribeImageUsageReportsPaginator,
         DescribeImagesPaginator,
         DescribeImportImageTasksPaginator,
         DescribeImportSnapshotTasksPaginator,
@@ -202,6 +205,9 @@ Usage::
     describe_host_reservations_paginator: DescribeHostReservationsPaginator = client.get_paginator("describe_host_reservations")
     describe_hosts_paginator: DescribeHostsPaginator = client.get_paginator("describe_hosts")
     describe_iam_instance_profile_associations_paginator: DescribeIamInstanceProfileAssociationsPaginator = client.get_paginator("describe_iam_instance_profile_associations")
+    describe_image_references_paginator: DescribeImageReferencesPaginator = client.get_paginator("describe_image_references")
+    describe_image_usage_report_entries_paginator: DescribeImageUsageReportEntriesPaginator = client.get_paginator("describe_image_usage_report_entries")
+    describe_image_usage_reports_paginator: DescribeImageUsageReportsPaginator = client.get_paginator("describe_image_usage_reports")
     describe_images_paginator: DescribeImagesPaginator = client.get_paginator("describe_images")
     describe_import_image_tasks_paginator: DescribeImportImageTasksPaginator = client.get_paginator("describe_import_image_tasks")
     describe_import_snapshot_tasks_paginator: DescribeImportSnapshotTasksPaginator = client.get_paginator("describe_import_snapshot_tasks")
@@ -398,8 +404,14 @@ from .type_defs import (
     DescribeHostsResultTypeDef,
     DescribeIamInstanceProfileAssociationsRequestPaginateTypeDef,
     DescribeIamInstanceProfileAssociationsResultTypeDef,
+    DescribeImageReferencesRequestPaginateTypeDef,
+    DescribeImageReferencesResultTypeDef,
     DescribeImagesRequestPaginateTypeDef,
     DescribeImagesResultTypeDef,
+    DescribeImageUsageReportEntriesRequestPaginateTypeDef,
+    DescribeImageUsageReportEntriesResultTypeDef,
+    DescribeImageUsageReportsRequestPaginateTypeDef,
+    DescribeImageUsageReportsResultTypeDef,
     DescribeImportImageTasksRequestPaginateTypeDef,
     DescribeImportImageTasksResultTypeDef,
     DescribeImportSnapshotTasksRequestPaginateTypeDef,
@@ -681,6 +693,9 @@ __all__ = (
     "DescribeHostReservationsPaginator",
     "DescribeHostsPaginator",
     "DescribeIamInstanceProfileAssociationsPaginator",
+    "DescribeImageReferencesPaginator",
+    "DescribeImageUsageReportEntriesPaginator",
+    "DescribeImageUsageReportsPaginator",
     "DescribeImagesPaginator",
     "DescribeImportImageTasksPaginator",
     "DescribeImportSnapshotTasksPaginator",
@@ -1517,6 +1532,71 @@ class DescribeIamInstanceProfileAssociationsPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeIamInstanceProfileAssociations.html#EC2.Paginator.DescribeIamInstanceProfileAssociations.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describeiaminstanceprofileassociationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeImageReferencesPaginatorBase = Paginator[DescribeImageReferencesResultTypeDef]
+else:
+    _DescribeImageReferencesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeImageReferencesPaginator(_DescribeImageReferencesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeImageReferences.html#EC2.Paginator.DescribeImageReferences)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describeimagereferencespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeImageReferencesRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeImageReferencesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeImageReferences.html#EC2.Paginator.DescribeImageReferences.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describeimagereferencespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeImageUsageReportEntriesPaginatorBase = Paginator[
+        DescribeImageUsageReportEntriesResultTypeDef
+    ]
+else:
+    _DescribeImageUsageReportEntriesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeImageUsageReportEntriesPaginator(_DescribeImageUsageReportEntriesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeImageUsageReportEntries.html#EC2.Paginator.DescribeImageUsageReportEntries)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describeimageusagereportentriespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeImageUsageReportEntriesRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeImageUsageReportEntriesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeImageUsageReportEntries.html#EC2.Paginator.DescribeImageUsageReportEntries.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describeimageusagereportentriespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeImageUsageReportsPaginatorBase = Paginator[DescribeImageUsageReportsResultTypeDef]
+else:
+    _DescribeImageUsageReportsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeImageUsageReportsPaginator(_DescribeImageUsageReportsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeImageUsageReports.html#EC2.Paginator.DescribeImageUsageReports)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describeimageusagereportspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeImageUsageReportsRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeImageUsageReportsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeImageUsageReports.html#EC2.Paginator.DescribeImageUsageReports.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describeimageusagereportspaginator)
         """
 
 

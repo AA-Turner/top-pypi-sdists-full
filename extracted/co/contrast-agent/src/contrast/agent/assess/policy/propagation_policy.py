@@ -70,7 +70,7 @@ STREAM_WRITE_METHODS = ["write", "writelines"]
 
 
 def create_stream_event(node_type, parents, stream, args, kwargs):
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None or not context.assess_enabled:
         return None
 
@@ -111,7 +111,7 @@ def create_stream_source_event(stream, args, kwargs):
     """
     Called directly from C extensions to create source events for __init__
     """
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None:
         return
 
@@ -184,7 +184,7 @@ def apply_propagator(propagator_node, preshift, target, ret):
 
 
 def propagate_string(propagator_node, preshift, target, ret):
-    context = contrast.CS__CONTEXT_TRACKER.current()
+    context = contrast.REQUEST_CONTEXT.get()
     if context is None:
         return
 

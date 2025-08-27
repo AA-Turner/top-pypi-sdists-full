@@ -1,28 +1,36 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from orionis.console.contracts.schedule_event_listener import IScheduleEventListener
-from orionis.console.enums.event import Event as EventEntity
+from orionis.console.entities.event import Event as EventEntity
 
 class IEvent(ABC):
 
-    @abstractmethod
-    def toEntity(
-        self
-    ) -> EventEntity:
+    def misfireGraceTime(
+        self,
+        seconds: int = 60
+    ) -> 'IEvent':
         """
-        Retrieve the event details as an EventEntity instance.
+        Set the misfire grace time for the event.
 
-        This method gathers all relevant attributes of the current Event object,
-        such as its signature, arguments, purpose, random delay, start and end dates,
-        and trigger, and returns them encapsulated in an EventEntity object.
+        This method allows you to specify a grace period (in seconds) during which
+        a missed execution of the event can still be executed. If the event is not
+        executed within this time frame after its scheduled time, it will be skipped.
+
+        Parameters
+        ----------
+        seconds : int
+            The number of seconds to allow for a misfire grace period. Must be a positive integer.
 
         Returns
         -------
-        EventEntity
-            An EventEntity instance containing the event's signature, arguments,
-            purpose, random delay, start date, end date, and trigger.
+        Event
+            Returns the current instance of the Event to allow method chaining.
+
+        Raises
+        ------
+        CLIOrionisValueError
+            If the provided seconds is not a positive integer.
         """
-        pass
 
     @abstractmethod
     def purpose(

@@ -3,7 +3,7 @@ import getpass
 import os
 import sys
 from orionis.console.output.enums import ANSIColors
-from orionis.console.output.contracts.console import IConsole
+from orionis.console.contracts.console import IConsole
 
 class Console(IConsole):
     """

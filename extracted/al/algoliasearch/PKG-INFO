@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: algoliasearch
-Version: 4.24.0
+Version: 4.25.0
 Summary: A fully-featured and blazing-fast Python API client to interact with Algolia.
 License: MIT
 Keywords: algolia,search,full-text-search,neural-search
@@ -34,7 +34,7 @@ Description-Content-Type: text/markdown
 
   <p align="center">
     <a href="https://pypi.org/project/algoliasearch"><img src="https://img.shields.io/pypi/v/algoliasearch.svg" alt="PyPI"></img></a>
-    <a href="https://pypi.org/project/algoliasearch"><img src="https://img.shields.io/pypi/pyversions/ansicolortags.svg" alt="Python versions"></img></a>
+    <a href="https://pypi.org/project/algoliasearch"><img src="https://img.shields.io/badge/python-3.8|3.9|3.10|3.11|3.12-blue" alt="Python versions"></img></a>
     <a href="https://pypi.org/project/algoliasearch"><img src="https://img.shields.io/pypi/l/ansicolortags.svg" alt="License"></a>
   </p>
 </p>

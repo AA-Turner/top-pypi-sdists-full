@@ -52,7 +52,7 @@ bigframes = ["bigframes>=1.32.0"]
 clickhouse = ["clickhouse-connect"]
 databricks = ["databricks-sql-connector[pyarrow]"]
 dev = [
-    "agate==1.7.1",
+    "agate",
     "beautifulsoup4",
     "clickhouse-connect",
     "cryptography",
@@ -268,7 +268,7 @@ markers = [
 ]
 addopts = "-n 0 --dist=loadgroup"
 asyncio_default_fixture_loop_scope = "session"
-log_cli = true # Set this to true to enable logging during tests
+log_cli = false # Set this to true to enable logging during tests
 log_cli_format = "%(asctime)s.%(msecs)03d %(filename)s:%(lineno)d %(levelname)s %(message)s"
 log_cli_level = "INFO"
 filterwarnings = [

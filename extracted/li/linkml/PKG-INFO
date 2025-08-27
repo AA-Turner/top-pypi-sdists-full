@@ -1,62 +1,49 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: linkml
-Version: 1.9.3
+Version: 1.9.4
 Summary: Linked Open Data Modeling Language
-License: Apache-2.0
-Keywords: schema,linked data,data modeling,rdf,owl,biolink
-Author: Chris Mungall
-Author-email: cjmungall@lbl.gov
-Requires-Python: >=3.9
+Author: Deepak Unni
+Author-email: Chris Mungall <cjmungall@lbl.gov>, Sierra Moxon <smoxon@lbl.gov>, Harold Solbrig <solbrig@jhu.edu>, Sujay Patil <spatil@lbl.gov>, Harshad Hegde <hhegde@lbl.gov>, Mark Andrew Miller <MAM@lbl.gov>, Gaurav Vaidya <gaurav@renci.org>, Kevin Schaper <kevin@tislab.org>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: biolink,data modeling,linked data,owl,rdf,schema
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Healthcare Industry
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: black
-Provides-Extra: numpydantic
-Provides-Extra: pandera
-Provides-Extra: polars-lts-cpu
-Provides-Extra: shacl
-Provides-Extra: tests
-Requires-Dist: antlr4-python3-runtime (>=4.9.0,<4.10)
-Requires-Dist: black (>=24.0.0) ; extra == "black"
-Requires-Dist: black (>=24.0.0) ; extra == "tests"
-Requires-Dist: click (>=7.0)
-Requires-Dist: graphviz (>=0.10.1)
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Requires-Dist: antlr4-python3-runtime<4.10,>=4.9.0
+Requires-Dist: click<8.2,>=8.0
+Requires-Dist: graphviz>=0.10.1
 Requires-Dist: hbreader
-Requires-Dist: isodate (>=0.6.0)
-Requires-Dist: jinja2 (>=3.1.0)
-Requires-Dist: jsonasobj2 (>=1.0.3,<2.0.0)
-Requires-Dist: jsonschema[format] (>=4.0.0)
-Requires-Dist: linkml-runtime (>=1.9.4,<2.0.0)
-Requires-Dist: numpydantic (>=1.6.1) ; extra == "numpydantic"
-Requires-Dist: numpydantic (>=1.6.1) ; extra == "tests"
+Requires-Dist: isodate>=0.6.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: jsonasobj2<2.0.0,>=1.0.3
+Requires-Dist: jsonschema[format]>=4.0.0
+Requires-Dist: linkml-runtime<2.0.0,>=1.9.5
 Requires-Dist: openpyxl
-Requires-Dist: pandera (>=0.19.0) ; extra == "pandera"
 Requires-Dist: parse
-Requires-Dist: polars-lts-cpu (>=1.0.0) ; extra == "polars-lts-cpu"
-Requires-Dist: prefixcommons (>=0.1.7)
-Requires-Dist: prefixmaps (>=0.2.2)
-Requires-Dist: pydantic (>=1.0.0,<3.0.0)
-Requires-Dist: pyjsg (>=0.11.6)
-Requires-Dist: pyshacl (>=0.25.0) ; extra == "shacl"
-Requires-Dist: pyshacl (>=0.25.0) ; extra == "tests"
-Requires-Dist: pyshex (>=0.7.20)
-Requires-Dist: pyshexc (>=0.8.3)
+Requires-Dist: prefixcommons>=0.1.7
+Requires-Dist: prefixmaps>=0.2.2
+Requires-Dist: pydantic<3.0.0,>=1.0.0
+Requires-Dist: pyjsg>=0.11.6
+Requires-Dist: pyshex>=0.7.20
+Requires-Dist: pyshexc>=0.8.3
 Requires-Dist: python-dateutil
 Requires-Dist: pyyaml
-Requires-Dist: rdflib (>=6.0.0)
-Requires-Dist: requests (>=2.22)
-Requires-Dist: sphinx-click (>=6.0.0)
-Requires-Dist: sqlalchemy (>=1.4.31)
-Requires-Dist: typing-extensions (>=4.6.0) ; python_version < "3.12"
-Requires-Dist: watchdog (>=0.9.0)
+Requires-Dist: rdflib>=6.0.0
+Requires-Dist: requests>=2.22
+Requires-Dist: sphinx-click>=6.0.0
+Requires-Dist: sqlalchemy>=1.4.31
+Requires-Dist: typing-extensions>=4.6.0; python_version < '3.12'
+Requires-Dist: watchdog>=0.9.0
 Description-Content-Type: text/markdown
 
 [![Pyversions](https://img.shields.io/pypi/pyversions/linkml.svg)](https://pypi.python.org/pypi/linkml)
@@ -78,4 +65,3 @@ This repo holds the tools for generating and working with LinkML. For the LinkML
 The complete documentation for LinkML can be found here:
 
  - [linkml.io/linkml](https://linkml.io/linkml)
-

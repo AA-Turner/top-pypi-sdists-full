@@ -84,10 +84,10 @@ impl RSGIHeaders {
 
     #[pyo3(signature = (key, default=None))]
     fn get(&self, py: Python, key: &str, default: Option<PyObject>) -> Option<PyObject> {
-        if let Some(val) = self.inner.get(key) {
-            if let Ok(v) = val.to_str() {
-                return Some(PyString::new(py, v).into());
-            }
+        if let Some(val) = self.inner.get(key)
+            && let Ok(v) = val.to_str()
+        {
+            return Some(PyString::new(py, v).into());
         }
         default
     }
@@ -191,7 +191,7 @@ macro_rules! rsgi_scope_cls {
             }
 
             #[getter(path)]
-            fn get_path(&self) -> Cow<str> {
+            fn get_path(&self) -> Cow<'_, str> {
                 percent_decode_str(self.uri.path()).decode_utf8_lossy()
             }
 

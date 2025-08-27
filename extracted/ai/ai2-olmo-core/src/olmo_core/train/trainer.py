@@ -1,7 +1,10 @@
 import logging
 import math
 import signal
-from collections import OrderedDict
+import time
+import uuid
+import warnings
+from collections import OrderedDict, defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -40,7 +43,7 @@ from ..distributed.utils import (
 )
 from ..exceptions import OLMoConfigurationError
 from ..io import copy_file, file_exists, is_url, join_path, normalize_path
-from ..utils import cuda_sync_debug_mode, gc_cuda
+from ..utils import cuda_sync_debug_mode, gc_cuda, get_default_thread_count
 from .callbacks import (
     Callback,
     CheckpointerCallback,
@@ -231,6 +234,12 @@ class Trainer:
     This requires a separate CPU-only backend, and will default to ``True`` if one is available.
     """
 
+    bookkeeping_soft_timeout: int = 30
+    """
+    A soft timeout (in seconds) for bookkeeping operations. If a bookkeeping operation takes longer
+    than this then a warning is emitted.
+    """
+
     # Benchmarking
 
     no_checkpoints: bool = False
@@ -254,7 +263,12 @@ class Trainer:
     _canceling_rank: Optional[int] = None
     _error: Optional[BaseException] = None
     _rank_batch_size: Optional[int] = None
-    _thread_pool: Optional[ThreadPoolExecutor] = None
+    _multi_thread_pool: Optional[ThreadPoolExecutor] = None
+    _single_thread_pool: Optional[ThreadPoolExecutor] = None
+    # maps bookkeeping operation name to an ordereddict of operation ID to operation Future
+    _bookkeeping_queue: Dict[str, Dict[str, Future]] = field(
+        default_factory=lambda: defaultdict(OrderedDict)
+    )
     _bookkeeping_pg: Optional[dist.ProcessGroup] = None
     _checkpoint_loaded: bool = False
     _metrics_consistent: Optional[bool] = None
@@ -416,6 +430,13 @@ class Trainer:
         """
         return self._get_max_steps(self.max_duration)
 
+    @property
+    def max_tokens(self) -> int:
+        """
+        The maximum number of tokens to train for, as determined by :data:`max_duration`.
+        """
+        return self._get_max_tokens(self.max_duration)
+
     def convert_duration_to_steps(self, duration: Duration) -> int:
         """Convert a duration to steps."""
         if duration.unit == DurationUnit.epochs:
@@ -464,6 +485,15 @@ class Trainer:
         else:
             raise NotImplementedError
 
+    def _get_max_tokens(self, duration: Duration) -> int:
+        if duration.unit == DurationUnit.tokens:
+            return duration.value
+        else:
+            max_steps = self._get_max_steps(duration)
+            steps_remaining = max(max_steps - self.global_step, 0)
+            tokens_remaining = steps_remaining * self.tokens_per_batch
+            return self.global_train_tokens_seen + tokens_remaining
+
     @property
     def bookkeeping_device(self) -> torch.device:
         """
@@ -486,13 +516,27 @@ class Trainer:
         return self._bookkeeping_pg
 
     @property
-    def thread_pool(self) -> ThreadPoolExecutor:
+    def multi_thread_pool(self) -> ThreadPoolExecutor:
         """
-        A thread that can be used by callbacks to run bookkeeping tasks without blocking training.
+        A multi-threaded executor for bookkeeping tasks that don't involve distributed communication.
         """
-        if self._thread_pool is None:
-            self._thread_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="trainer")
-        return self._thread_pool
+        if self._multi_thread_pool is None:
+            self._multi_thread_pool = ThreadPoolExecutor(
+                max_workers=get_default_thread_count(),
+                thread_name_prefix="trainer-multi-thread-pool",
+            )
+        return self._multi_thread_pool
+
+    @property
+    def single_thread_pool(self) -> ThreadPoolExecutor:
+        """
+        A single-threaded executor for bookkeeping tasks that involve distributed communication.
+        """
+        if self._single_thread_pool is None:
+            self._single_thread_pool = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="trainer-single-thread-pool"
+            )
+        return self._single_thread_pool
 
     @property
     def checkpoint_loaded(self) -> bool:
@@ -553,7 +597,10 @@ class Trainer:
         Asynchronously check if the run is canceled. Use :data:`is_canceled` to see the result.
         This needs to be called by all ranks at the same point in the training loop.
         """
-        self._run_bookkeeping_op(self._check_if_canceled)
+        # NOTE: Do not set `allow_multiple` to `False` here!
+        # That could result in a situation where this op is canceled on one rank while it's running
+        # on another rank, leading to a deadlock.
+        self.run_bookkeeping_op(self._check_if_canceled)
 
     def fit(self):
         """
@@ -610,6 +657,7 @@ class Trainer:
 
         for callback in self._iter_callbacks():
             callback.pre_train()
+        self.train_module.pre_train()
 
         barrier()
 
@@ -647,8 +695,12 @@ class Trainer:
 
     def _shutdown(self):
         self._log_metrics()
-        self.thread_pool.shutdown(wait=True, cancel_futures=False)
-        self._thread_pool = None
+        if self._multi_thread_pool is not None:
+            self._multi_thread_pool.shutdown(wait=True, cancel_futures=False)
+            self._multi_thread_pool = None
+        if self._single_thread_pool is not None:
+            self._single_thread_pool.shutdown(wait=True, cancel_futures=False)
+            self._single_thread_pool = None
         gc_cuda()
         barrier()
 
@@ -713,7 +765,13 @@ class Trainer:
                 "were saved with a different world size."
             )
 
-    def load_checkpoint(self, dir: PathOrStr, *, load_trainer_state: Optional[bool] = None):
+    def load_checkpoint(
+        self,
+        dir: PathOrStr,
+        *,
+        load_trainer_state: Optional[bool] = None,
+        load_optim_state: Optional[bool] = None,
+    ):
         """
         Load a checkpoint.
 
@@ -721,7 +779,8 @@ class Trainer:
             :meth:`fit()` may call this method automatically depending on the :data:`load_strategy`.
 
         :param dir: The path/URL to a checkpoint or a folder of checkpoints.
-        :param load_trainer_state: Load trainer state.
+        :param load_trainer_state: Load trainer state (data loader state, RNG states, and other bookkeeping).
+        :param load_optim_state: Load optimizer state in the train module.
         """
         dir = normalize_path(dir)
 
@@ -737,6 +796,7 @@ class Trainer:
             dir,
             self.train_module,
             load_trainer_state=load_trainer_state,
+            load_optim_state=load_optim_state,
         )
         if trainer_state is not None:
             self.load_state_dict(cast(TrainerStateDict, trainer_state))
@@ -748,7 +808,11 @@ class Trainer:
         log.info("Checkpoint successfully loaded")
 
     def maybe_load_checkpoint(
-        self, dir: PathOrStr, *, load_trainer_state: Optional[bool] = None
+        self,
+        dir: PathOrStr,
+        *,
+        load_trainer_state: Optional[bool] = None,
+        load_optim_state: Optional[bool] = None,
     ) -> bool:
         """
         Like :meth:`load_checkpoint()` but is a no-op if there is no checkpoint in the ``dir`` provided.
@@ -766,6 +830,7 @@ class Trainer:
             self.load_checkpoint(
                 dir,
                 load_trainer_state=load_trainer_state,
+                load_optim_state=load_optim_state,
             )
             assert self.checkpoint_loaded
             return True
@@ -840,7 +905,7 @@ class Trainer:
         if not isinstance(value, torch.Tensor):
             value = torch.tensor(value)
         else:
-            value = get_local_tensor(value).float()
+            value = get_local_tensor(value.detach()).float()
 
         if self.global_step not in self._metrics:
             self._metrics[self.global_step] = OrderedDict()
@@ -999,28 +1064,102 @@ class Trainer:
         log.warning(msg)
         self.cancel_run(msg)
 
-    def _run_bookkeeping_op(
-        self, op: Callable[..., T], *args, cb: Optional[Callable[[T], None]] = None, **kwargs
+    def run_bookkeeping_op(
+        self,
+        op: Callable[..., T],
+        *args,
+        cb: Optional[Callable[[T], None]] = None,
+        op_name: Optional[str] = None,
+        cancel_in_progress: Optional[bool] = None,  # deprecated
+        allow_multiple: bool = True,
+        soft_timeout: Optional[int] = None,
+        distributed: bool = True,
+        **kwargs,
     ):
-        if (
+        """
+        Run a bookkeeping operation, potentially in a background thread.
+
+        :param op: The operation to run.
+        :param args: Positional arguments to pass to the operation.
+        :param kwargs: Keyword arguments to pass to the operation.
+        :param cb: A callback to call with the result of the operation when it finishes.
+        :param op_name: A name for the operation, used for logging, debugging, and potentially canceling
+            old invocations of the same operation when ``allow_multiple`` is ``False``.
+        :param allow_multiple: If ``False``, only one bookkeeping operation with the given name is allowed
+            to run, so if there are other ops with the same name that are queued, those will be canceled,
+            and if there's another one that's already running, the current invocation will be ignored.
+        :param soft_timeout: A soft timeout, in seconds, to wait for the operation to finish. If the op
+            takes longer than this a warning will be issued.
+        :param distributed: This should only be set to ``False`` if the op doesn't use distributed
+            communication, in which case it will be allowed to run concurrently with other ops.
+        """
+        if cancel_in_progress is not None:
+            warnings.warn(
+                "'cancel_in_progress' argument to 'Trainer.run_bookkeeping_op' is deprecated, use 'allow_multiple' instead",
+                DeprecationWarning,
+            )
+            allow_multiple = not cancel_in_progress
+
+        if op_name is None:
+            op_name = op.__qualname__
+
+        if soft_timeout is None:
+            soft_timeout = self.bookkeeping_soft_timeout
+
+        def wrapped_op(*args, **kwargs):
+            start_time = time.perf_counter()
+            assert soft_timeout is not None  # for mypy
+            try:
+                return op(*args, **kwargs)
+            finally:
+                if (runtime := int(time.perf_counter() - start_time)) > soft_timeout:
+                    log.warning(
+                        f"Bookeeping op '{op_name}' took longer than {soft_timeout} "
+                        f"seconds ({runtime:,d} seconds)!"
+                    )
+
+        if not distributed or (
             self.async_bookkeeping
             and self.bookkeeping_device.type == "cpu"
             and self.bookkeeping_pg is not None
         ):
-            # Can safely run in the thread pool.
-            future = self.thread_pool.submit(op, *args, **kwargs)
-            if cb is not None:
+            if not allow_multiple:
+                for op_id in list(self._bookkeeping_queue[op_name].keys()):
+                    future = self._bookkeeping_queue[op_name][op_id]
+                    if future.cancel() or future.done():
+                        self._bookkeeping_queue[op_name].pop(op_id)
+                    else:
+                        log.warning(
+                            f"Attempted to submit bookkeeping op '{op_name}' while a previous invocation was already in progress. "
+                            "Since 'allow_multiple' is set to 'False' for this op, the current invocation will be canceled.\n"
+                            "If you see this message frequently, the op in question may be taking longer than expected or is "
+                            "being submitted too often."
+                        )
+                        return
 
-                def callback(fut: Future[T]):
-                    try:
+            if distributed:
+                future = self.single_thread_pool.submit(wrapped_op, *args, **kwargs)
+            else:
+                future = self.multi_thread_pool.submit(wrapped_op, *args, **kwargs)
+
+            op_id = uuid.uuid4().hex
+            self._bookkeeping_queue[op_name][op_id] = future
+
+            def callback(fut: Future[T]):
+                try:
+                    if cb is not None:
                         cb(fut.result())  # type: ignore[misc]
-                    except BaseException as e:
-                        log.exception(e)
-                        self._error = e
+                except BaseException as e:
+                    log.exception(e)
+                    self._error = e
+                finally:
+                    # Remove the completed op from the queue.
+                    assert op_name is not None  # for mypy
+                    self._bookkeeping_queue[op_name].pop(op_id, None)
 
-                future.add_done_callback(callback)
+            future.add_done_callback(callback)
         else:
-            result = op(*args, **kwargs)
+            result = wrapped_op(*args, **kwargs)
             if cb is not None:
                 cb(result)
 
@@ -1075,7 +1214,7 @@ class Trainer:
                     msg += " This may result in slower training speeds since you don't have async bookkeeping enabled."
                 log.warning(msg)
 
-        self._run_bookkeeping_op(
+        self.run_bookkeeping_op(
             reduce_metrics,
             metrics_to_reduce,
             self._metrics_reduce_type,

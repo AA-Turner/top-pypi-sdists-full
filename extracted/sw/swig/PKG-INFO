@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: swig
-Version: 4.3.1
+Version: 4.3.1.post0
 Summary: SWIG is a software development tool that connects programs written in C and C++ with a variety of high-level programming languages.
 Keywords: swig,build,c,c++
 License: https://github.com/swig/swig/blob/master/LICENSE

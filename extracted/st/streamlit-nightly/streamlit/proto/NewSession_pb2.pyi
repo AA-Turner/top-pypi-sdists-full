@@ -282,6 +282,7 @@ class CustomThemeConfig(google.protobuf.message.Message):
     BODY_FONT_FIELD_NUMBER: builtins.int
     CODE_FONT_FIELD_NUMBER: builtins.int
     FONT_FACES_FIELD_NUMBER: builtins.int
+    FONT_SOURCES_FIELD_NUMBER: builtins.int
     FONT_SIZES_FIELD_NUMBER: builtins.int
     SKELETON_BACKGROUND_COLOR_FIELD_NUMBER: builtins.int
     BASE_RADIUS_FIELD_NUMBER: builtins.int
@@ -340,6 +341,8 @@ class CustomThemeConfig(google.protobuf.message.Message):
     @property
     def font_faces(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FontFace]: ...
     @property
+    def font_sources(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FontSource]: ...
+    @property
     def font_sizes(self) -> global___FontSizes:
         """DEPRECATED: Please use the base_font_size theme config instead:"""
 
@@ -369,6 +372,7 @@ class CustomThemeConfig(google.protobuf.message.Message):
         body_font: builtins.str = ...,
         code_font: builtins.str = ...,
         font_faces: collections.abc.Iterable[global___FontFace] | None = ...,
+        font_sources: collections.abc.Iterable[global___FontSource] | None = ...,
         font_sizes: global___FontSizes | None = ...,
         skeleton_background_color: builtins.str = ...,
         base_radius: builtins.str | None = ...,
@@ -392,7 +396,7 @@ class CustomThemeConfig(google.protobuf.message.Message):
         chart_sequential_colors: collections.abc.Iterable[builtins.str] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_base_font_size", b"_base_font_size", "_base_font_weight", b"_base_font_weight", "_base_radius", b"_base_radius", "_border_color", b"_border_color", "_button_radius", b"_button_radius", "_code_background_color", b"_code_background_color", "_code_font_size", b"_code_font_size", "_code_font_weight", b"_code_font_weight", "_dataframe_border_color", b"_dataframe_border_color", "_dataframe_header_background_color", b"_dataframe_header_background_color", "_link_color", b"_link_color", "_link_underline", b"_link_underline", "_show_sidebar_border", b"_show_sidebar_border", "_show_widget_border", b"_show_widget_border", "_sidebar", b"_sidebar", "base_font_size", b"base_font_size", "base_font_weight", b"base_font_weight", "base_radius", b"base_radius", "border_color", b"border_color", "button_radius", b"button_radius", "code_background_color", b"code_background_color", "code_font_size", b"code_font_size", "code_font_weight", b"code_font_weight", "dataframe_border_color", b"dataframe_border_color", "dataframe_header_background_color", b"dataframe_header_background_color", "font_sizes", b"font_sizes", "link_color", b"link_color", "link_underline", b"link_underline", "radii", b"radii", "show_sidebar_border", b"show_sidebar_border", "show_widget_border", b"show_widget_border", "sidebar", b"sidebar"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_base_font_size", b"_base_font_size", "_base_font_weight", b"_base_font_weight", "_base_radius", b"_base_radius", "_border_color", b"_border_color", "_button_radius", b"_button_radius", "_code_background_color", b"_code_background_color", "_code_font_size", b"_code_font_size", "_code_font_weight", b"_code_font_weight", "_dataframe_border_color", b"_dataframe_border_color", "_dataframe_header_background_color", b"_dataframe_header_background_color", "_link_color", b"_link_color", "_link_underline", b"_link_underline", "_show_sidebar_border", b"_show_sidebar_border", "_show_widget_border", b"_show_widget_border", "_sidebar", b"_sidebar", "background_color", b"background_color", "base", b"base", "base_font_size", b"base_font_size", "base_font_weight", b"base_font_weight", "base_radius", b"base_radius", "body_font", b"body_font", "border_color", b"border_color", "button_radius", b"button_radius", "chart_categorical_colors", b"chart_categorical_colors", "chart_sequential_colors", b"chart_sequential_colors", "code_background_color", b"code_background_color", "code_font", b"code_font", "code_font_size", b"code_font_size", "code_font_weight", b"code_font_weight", "dataframe_border_color", b"dataframe_border_color", "dataframe_header_background_color", b"dataframe_header_background_color", "font", b"font", "font_faces", b"font_faces", "font_sizes", b"font_sizes", "heading_font", b"heading_font", "heading_font_sizes", b"heading_font_sizes", "heading_font_weights", b"heading_font_weights", "link_color", b"link_color", "link_underline", b"link_underline", "primary_color", b"primary_color", "radii", b"radii", "secondary_background_color", b"secondary_background_color", "show_sidebar_border", b"show_sidebar_border", "show_widget_border", b"show_widget_border", "sidebar", b"sidebar", "skeleton_background_color", b"skeleton_background_color", "text_color", b"text_color", "widget_background_color", b"widget_background_color", "widget_border_color", b"widget_border_color"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_base_font_size", b"_base_font_size", "_base_font_weight", b"_base_font_weight", "_base_radius", b"_base_radius", "_border_color", b"_border_color", "_button_radius", b"_button_radius", "_code_background_color", b"_code_background_color", "_code_font_size", b"_code_font_size", "_code_font_weight", b"_code_font_weight", "_dataframe_border_color", b"_dataframe_border_color", "_dataframe_header_background_color", b"_dataframe_header_background_color", "_link_color", b"_link_color", "_link_underline", b"_link_underline", "_show_sidebar_border", b"_show_sidebar_border", "_show_widget_border", b"_show_widget_border", "_sidebar", b"_sidebar", "background_color", b"background_color", "base", b"base", "base_font_size", b"base_font_size", "base_font_weight", b"base_font_weight", "base_radius", b"base_radius", "body_font", b"body_font", "border_color", b"border_color", "button_radius", b"button_radius", "chart_categorical_colors", b"chart_categorical_colors", "chart_sequential_colors", b"chart_sequential_colors", "code_background_color", b"code_background_color", "code_font", b"code_font", "code_font_size", b"code_font_size", "code_font_weight", b"code_font_weight", "dataframe_border_color", b"dataframe_border_color", "dataframe_header_background_color", b"dataframe_header_background_color", "font", b"font", "font_faces", b"font_faces", "font_sizes", b"font_sizes", "font_sources", b"font_sources", "heading_font", b"heading_font", "heading_font_sizes", b"heading_font_sizes", "heading_font_weights", b"heading_font_weights", "link_color", b"link_color", "link_underline", b"link_underline", "primary_color", b"primary_color", "radii", b"radii", "secondary_background_color", b"secondary_background_color", "show_sidebar_border", b"show_sidebar_border", "show_widget_border", b"show_widget_border", "sidebar", b"sidebar", "skeleton_background_color", b"skeleton_background_color", "text_color", b"text_color", "widget_background_color", b"widget_background_color", "widget_border_color", b"widget_border_color"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_base_font_size", b"_base_font_size"]) -> typing.Literal["base_font_size"] | None: ...
     @typing.overload
@@ -460,6 +464,27 @@ class FontFace(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["family", b"family", "style", b"style", "unicode_range", b"unicode_range", "url", b"url", "weight", b"weight", "weight_range", b"weight_range"]) -> None: ...
 
 global___FontFace = FontFace
+
+@typing.final
+class FontSource(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CONFIG_NAME_FIELD_NUMBER: builtins.int
+    SOURCE_URL_FIELD_NUMBER: builtins.int
+    config_name: builtins.str
+    """Supports passing links to font config options - these are the sources
+    used in the <link> tag (href) to embed the font in html
+    """
+    source_url: builtins.str
+    def __init__(
+        self,
+        *,
+        config_name: builtins.str = ...,
+        source_url: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["config_name", b"config_name", "source_url", b"source_url"]) -> None: ...
+
+global___FontSource = FontSource
 
 @typing.final
 class Radii(google.protobuf.message.Message):

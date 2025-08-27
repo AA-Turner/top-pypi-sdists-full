@@ -1,14 +1,15 @@
 [build-system]
-requires = ["setuptools>=66.0.0", "wheel"]
+requires = ["setuptools>=75.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pynmeagps"
 dynamic = ["version"]
-authors = [{ name = "semuadmin", email = "semuadmin@semuconsulting.com" }]
-maintainers = [{ name = "semuadmin", email = "semuadmin@semuconsulting.com" }]
+authors = [{ name = "Steve Smith", email = "semuadmin@semuconsulting.com" }]
+maintainers = [{ name = "Steve Smith", email = "semuadmin@semuconsulting.com" }]
 description = "NMEA protocol parser and generator"
-license = { file = "LICENSE" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -27,6 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Utilities",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: GIS",
@@ -40,18 +42,27 @@ documentation = "https://www.semuconsulting.com/pynmeagps/"
 repository = "https://github.com/semuconsulting/pynmeagps"
 changelog = "https://github.com/semuconsulting/pynmeagps/blob/master/RELEASE_NOTES.md"
 
-[project.optional-dependencies]
-deploy = ["build", "pip", "setuptools >= 66.0", "wheel"]
+[dependency-groups]
+build = [
+    "build",
+    "packaging>=24.2",
+    "pip",
+    "setuptools>=75.0.0",
+    "twine>=6.1.0",
+    "wheel",
+]
 test = [
     "bandit",
     "black",
+    "certifi",
+    "isort",
     "pylint",
     "pytest",
     "pytest-cov",
-    "isort",
     "Sphinx",
     "sphinx-rtd-theme",
 ]
+deploy = [{ include-group = "build" }, { include-group = "test" }]
 
 [tool.setuptools.dynamic]
 version = { attr = "pynmeagps._version.__version__" }
@@ -93,3 +104,12 @@ pythonpath = ["src"]
 
 [tool.coverage.run]
 source = ["src"]
+
+[tool.coverage.paths]
+source = ["src"]
+
+[tool.coverage.report]
+fail_under = 98
+
+[tool.coverage.html]
+directory = "htmlcov"

@@ -140,7 +140,7 @@ class BaseTsMessage:
             DisableReaction.run(self.settings.config)
             return False
 
-        if response.status_code in (403, 409, 410, 412, 422, 502):
+        if response.status_code in (403, 409, 410, 412, 422):
             # 403: Access forbidden because credentials failed to authenticate.
             # 409: app is archived, 502 app is locked in TS
             # 410: app is not registered. We could send App startup for not we won't
@@ -176,10 +176,14 @@ class BaseTsMessage:
             reporting_client.retry_message(self)
 
         if response.status_code not in self.expected_response_codes:
-            logger.debug(
-                "WARNING: Unexpected %s response from TS: %s",
-                self.class_name,
-                response.status_code,
+            log, msg = logger.error, "Unexpected response code from TS"
+            if response.status_code < 400:
+                # lower to dev warning
+                log, msg = logger.debug, "WARNING: " + msg
+            log(
+                "Unexpected response code from TS",
+                endpoint=self.class_name,
+                status=response.status_code,
             )
             return False
 

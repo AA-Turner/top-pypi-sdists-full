@@ -66,7 +66,7 @@ class ObjectStorage(object):
     def bucket_name(self):
         """Gets the bucket_name of this ObjectStorage.  # noqa: E501
 
-        The cloud storage bucket name, prefixed with the storage scheme (s3://bucket-name, gs://bucket-name, or azure://bucket-name).  # noqa: E501
+        The cloud storage bucket name, prefixed with the storage scheme (s3://bucket-name, gs://bucket-name, or abfss://bucket-name@account.dfs.core.windows.net).  # noqa: E501
 
         :return: The bucket_name of this ObjectStorage.  # noqa: E501
         :rtype: str
@@ -77,7 +77,7 @@ class ObjectStorage(object):
     def bucket_name(self, bucket_name):
         """Sets the bucket_name of this ObjectStorage.
 
-        The cloud storage bucket name, prefixed with the storage scheme (s3://bucket-name, gs://bucket-name, or azure://bucket-name).  # noqa: E501
+        The cloud storage bucket name, prefixed with the storage scheme (s3://bucket-name, gs://bucket-name, or abfss://bucket-name@account.dfs.core.windows.net).  # noqa: E501
 
         :param bucket_name: The bucket_name of this ObjectStorage.  # noqa: E501
         :type: str

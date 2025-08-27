@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.24
+Version: 2.6.26
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: ai,api,api key,app,assistant,bielik,chat,chatbot,chatgpt,claude,dall-e,deepseek,desktop,gemini,gpt,gpt-3.5,gpt-4,gpt-4-vision,gpt-4o,gpt-5,gpt-oss,gpt3.5,gpt4,grok,langchain,llama-index,llama3,mistral,o1,o3,ollama,openai,presets,py-gpt,py_gpt,pygpt,pyside,qt,text completion,tts,ui,vision,whisper
@@ -21,39 +21,43 @@ Requires-Dist: PyAudio (>=0.2.14,<0.3.0)
 Requires-Dist: PyAutoGUI (>=0.9.54,<0.10.0)
 Requires-Dist: PySide6 (==6.9.1)
 Requires-Dist: Pygments (>=2.19.2,<3.0.0)
-Requires-Dist: SQLAlchemy (>=2.0.41,<3.0.0)
+Requires-Dist: SQLAlchemy (>=2.0.43,<3.0.0)
 Requires-Dist: SpeechRecognition (>=3.14.3,<4.0.0)
 Requires-Dist: Telethon (>=1.40.0,<2.0.0)
 Requires-Dist: anthropic (>=0.54.0,<0.55.0)
-Requires-Dist: azure-core (>=1.34.0,<2.0.0)
-Requires-Dist: beautifulsoup4 (>=4.13.4,<5.0.0)
-Requires-Dist: boto3 (>=1.38.41,<2.0.0)
+Requires-Dist: azure-core (>=1.35.0,<2.0.0)
+Requires-Dist: beautifulsoup4 (>=4.13.5,<5.0.0)
+Requires-Dist: boto3 (>=1.40.17,<2.0.0)
 Requires-Dist: chromadb (>=0.5.20,<0.6.0)
 Requires-Dist: croniter (>=2.0.7,<3.0.0)
 Requires-Dist: docker (>=7.1.0,<8.0.0)
 Requires-Dist: docx2txt (>=0.8,<0.9)
 Requires-Dist: gkeepapi (>=0.15.1,<0.16.0)
-Requires-Dist: google-api-python-client (>=2.173.0,<3.0.0)
+Requires-Dist: google-api-python-client (>=2.179.0,<3.0.0)
 Requires-Dist: google-generativeai (>=0.8.5,<0.9.0)
+Requires-Dist: grpcio (>=1.74.0,<2.0.0)
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: httpx-socks (>=0.10.1,<0.11.0)
-Requires-Dist: ipykernel (>=6.29.5,<7.0.0)
+Requires-Dist: huggingface-hub (>=0.33.5,<0.34.0)
+Requires-Dist: ipykernel (>=6.30.1,<7.0.0)
 Requires-Dist: jupyter_client (>=8.6.3,<9.0.0)
 Requires-Dist: llama-index (>=0.12.44,<0.13.0)
-Requires-Dist: llama-index-agent-openai (>=0.4.8,<0.5.0)
+Requires-Dist: llama-index-agent-openai (>=0.4.12,<0.5.0)
 Requires-Dist: llama-index-core (==0.12.44)
-Requires-Dist: llama-index-embeddings-azure-openai (>=0.3.8,<0.4.0)
+Requires-Dist: llama-index-embeddings-azure-openai (>=0.3.9,<0.4.0)
 Requires-Dist: llama-index-embeddings-gemini (>=0.3.2,<0.4.0)
 Requires-Dist: llama-index-embeddings-google-genai (>=0.2.1,<0.3.0)
 Requires-Dist: llama-index-embeddings-huggingface-api (>=0.3.1,<0.4.0)
 Requires-Dist: llama-index-embeddings-mistralai (>=0.3.0,<0.4.0)
 Requires-Dist: llama-index-embeddings-ollama (>=0.5.0,<0.6.0)
 Requires-Dist: llama-index-embeddings-openai (>=0.3.1,<0.4.0)
-Requires-Dist: llama-index-llms-anthropic (>=0.6.12,<0.7.0)
-Requires-Dist: llama-index-llms-azure-openai (>=0.3.2,<0.4.0)
-Requires-Dist: llama-index-llms-deepseek (>=0.1.1,<0.2.0)
+Requires-Dist: llama-index-embeddings-openai-like (>=0.1.1,<0.2.0)
+Requires-Dist: llama-index-embeddings-voyageai (>=0.3.6,<0.4.0)
+Requires-Dist: llama-index-llms-anthropic (>=0.6.19,<0.7.0)
+Requires-Dist: llama-index-llms-azure-openai (>=0.3.4,<0.4.0)
+Requires-Dist: llama-index-llms-deepseek (>=0.1.2,<0.2.0)
 Requires-Dist: llama-index-llms-gemini (>=0.5.0,<0.6.0)
-Requires-Dist: llama-index-llms-google-genai (>=0.2.2,<0.3.0)
+Requires-Dist: llama-index-llms-google-genai (>=0.2.6,<0.3.0)
 Requires-Dist: llama-index-llms-huggingface-api (>=0.3.1,<0.4.0)
 Requires-Dist: llama-index-llms-mistralai (>=0.6.1,<0.7.0)
 Requires-Dist: llama-index-llms-ollama (>=0.6.2,<0.7.0)
@@ -63,7 +67,7 @@ Requires-Dist: llama-index-llms-perplexity (>=0.3.7,<0.4.0)
 Requires-Dist: llama-index-multi-modal-llms-openai (>=0.5.1,<0.6.0)
 Requires-Dist: llama-index-readers-chatgpt-plugin (>=0.3.0,<0.4.0)
 Requires-Dist: llama-index-readers-database (>=0.3.0,<0.4.0)
-Requires-Dist: llama-index-readers-file (>=0.4.9,<0.5.0)
+Requires-Dist: llama-index-readers-file (>=0.4.11,<0.5.0)
 Requires-Dist: llama-index-readers-github (>=0.5.0,<0.6.0)
 Requires-Dist: llama-index-readers-google (>=0.5.0,<0.6.0)
 Requires-Dist: llama-index-readers-microsoft-onedrive (>=0.3.0,<0.4.0)
@@ -80,26 +84,27 @@ Requires-Dist: onnxruntime (==1.20.1)
 Requires-Dist: openai (==1.96.1)
 Requires-Dist: openai-agents (>=0.2.3,<0.3.0)
 Requires-Dist: opencv-python (>=4.11.0.86,<5.0.0.0)
-Requires-Dist: packaging (>=24.2,<25.0)
+Requires-Dist: packaging (>=25.0,<26.0)
 Requires-Dist: pandas (>=2.2.3,<3.0.0)
 Requires-Dist: paramiko (>=4.0.0,<5.0.0)
 Requires-Dist: pillow (>=10.4.0,<11.0.0)
-Requires-Dist: pinecone-client (>=3.2.2,<4.0.0)
+Requires-Dist: pinecone (>=7.0.1,<8.0.0)
 Requires-Dist: psutil (>=7.0.0,<8.0.0)
 Requires-Dist: pydub (>=0.25.1,<0.26.0)
 Requires-Dist: pygame (>=2.6.1,<3.0.0)
 Requires-Dist: pynput (>=1.8.1,<2.0.0)
-Requires-Dist: pypdf (>=5.6.0,<6.0.0)
+Requires-Dist: pypdf (>=5.9.0,<6.0.0)
 Requires-Dist: pyserial (>=3.5,<4.0)
 Requires-Dist: python-markdown-math (>=0.8,<0.9)
 Requires-Dist: qasync (>=0.27.1,<0.28.0)
 Requires-Dist: qt-material (>=2.17,<3.0)
-Requires-Dist: redis (>=5.3.0,<6.0.0)
+Requires-Dist: redis (>=5.3.1,<6.0.0)
 Requires-Dist: show-in-file-manager (>=1.1.5,<2.0.0)
 Requires-Dist: tiktoken (>=0.9.0,<0.10.0)
 Requires-Dist: transformers (==4.48.3)
 Requires-Dist: urllib3 (>=1.26.20,<2.0.0)
 Requires-Dist: wikipedia (>=1.4.0,<2.0.0)
+Requires-Dist: xai-sdk (>=1.1.0,<2.0.0)
 Requires-Dist: youtube-transcript-api (>=0.6.3,<0.7.0)
 Project-URL: Changelog, https://github.com/szczyglis-dev/py-gpt/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://pygpt.readthedocs.io/
@@ -112,7 +117,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.24** | build: **2025-08-26** | Python: **>=3.10, <3.14**
+Release: **2.6.26** | build: **2025-08-26** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -1245,6 +1250,8 @@ PyGPT has built-in support for models (as of 2025-07-26):
 All models are specified in the configuration file `models.json`, which you can customize. 
 This file is located in your working directory. You can add new models provided directly by `OpenAI API` (or compatible) and those supported by `LlamaIndex` or `Ollama` to this file. Configuration for LlamaIndex is placed in `llama_index` key.
 
+**Tip**: Anthropic and Deepseek API providers use VoyageAI for embeddings, so you must also configure the Voyage API key if you want to use embeddings from these providers.
+
 ## Adding a custom model
 
 You can add your own models. See the section `Extending PyGPT / Adding a new model` for more info.
@@ -1261,6 +1268,7 @@ There is built-in support for those LLM providers:
 - `Mistral AI`
 - `Ollama`
 - `OpenAI`
+- `OpenRouter`
 - `Perplexity`
 - `xAI`
 
@@ -1340,8 +1348,7 @@ Define parameters like model name and Ollama base URL in the Embeddings provider
 
 ### Google Gemini, Anthropic Claude, xAI Grok, etc.
 
-To use `Gemini`, `Grok`, or `Claude` models, select the `Chat` or `Chat with Files` mode in PyGPT and select a predefined model. `Chat` mode works via OpenAI SDK, `Chat with Files` mode works via LlamaIndex.
-If you want to use `Chat with Files` mode (LlamaIndex), then remember to configure the required parameters like API keys in the model ENV config fields:
+If you want to use non-OpenAI models in `Chat with Files` and `Agents (LlamaIndex)` modes, then remember to configure the required parameters like API keys in the model config fields. `Chat` mode works via OpenAI SDK (compatible API), `Chat with Files` and `Agents (LlamaIndex)` modes works via LlamaIndex.
 
 **Google Gemini**
 
@@ -2484,11 +2491,13 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 
 **Embeddings**
 
-- `Embeddings provider`: Embeddings provider.
+- `Embeddings provider`: Global embeddings provider (for indexing and Chat with Files).
 
-- `Embeddings provider (ENV)`: ENV vars to embeddings provider (API keys, etc.).
+- `Embeddings provider (ENV)`: ENV vars for global embeddings provider (API keys, etc.).
 
-- `Embeddings provider (**kwargs)`: Keyword arguments for embeddings provider (model name, etc.).
+- `Embeddings provider (**kwargs)`: Keyword arguments for global embeddings provider (model_name, etc.).
+
+- `Default embedding providers for attachments`: Define embedding model by provider to use in attachments.
 
 - `RPM limit for embeddings API calls`: Specify the limit of maximum requests per minute (RPM), 0 = no limit.
 
@@ -2538,13 +2547,15 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 
 **Agents (LlamaIndex / OpenAI)**
 
-- `Max steps (per iteration)` - Max steps is one iteration before goal achieved
+- `Max steps (per iteration)`: Max steps is one iteration before goal achieved
 
-- `Max evaluation steps in loop` - Maximum evaluation steps to achieve the final result, set 0 to infinity
+- `Max evaluation steps in loop`: Maximum evaluation steps to achieve the final result, set 0 to infinity
 
-- `Append and compare previous evaluation prompt in next evaluation` - If enabled, previous improvement prompt will be checked in next eval in loop, default: False
+- `Model for evaluation`: Model used for evaluation with score/percentage (loop). If not selected, then current active model will be used.
 
-- `Split response messages` - Split response messages to separated context items in OpenAI Agents mode.
+- `Append and compare previous evaluation prompt in next evaluation`: If enabled, previous improvement prompt will be checked in next eval in loop, default: False
+
+- `Split response messages`: Split response messages to separated context items in OpenAI Agents mode.
 
 **Autonomous (Legacy agents)**
 
@@ -3025,6 +3036,8 @@ PyGPT can be extended with:
 - custom audio output providers
 
 - custom web search engine providers
+
+- custom agents
 
 **Examples (tutorial files)** 
 
@@ -3528,6 +3541,16 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.26 (2025-08-26)**
+
+- Added new provider: OpenRouter (#133).
+
+**2.6.25 (2025-08-26)**
+
+- Fixed the empty agent ID issue in OpenAI Agents evaluation.
+- Added the ability to select a custom model for evaluation.
+- Added embedding providers: Anthropic, Deepseek, MistralAI, xAI, VoyageAI.
 
 **2.6.24 (2025-08-26)**
 

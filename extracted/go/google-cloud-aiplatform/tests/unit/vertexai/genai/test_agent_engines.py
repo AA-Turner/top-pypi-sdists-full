@@ -501,6 +501,7 @@ _TEST_AGENT_ENGINE_RESOURCE_LIMITS = {
     "memory": "4Gi",
 }
 _TEST_AGENT_ENGINE_CONTAINER_CONCURRENCY = 4
+_TEST_AGENT_ENGINE_ENCRYPTION_SPEC = {"kms_key_name": "test-kms-key"}
 _TEST_AGENT_ENGINE_SPEC = _genai_types.ReasoningEngineSpecDict(
     agent_framework=_TEST_AGENT_ENGINE_FRAMEWORK,
     class_methods=[_TEST_AGENT_ENGINE_CLASS_METHOD_1],
@@ -616,6 +617,10 @@ _TEST_PACKAGE_DISTRIBUTIONS = {
     "pydantic": ["pydantic"],
 }
 _TEST_OPERATION_NAME = "test_operation_name"
+_TEST_AGENT_ENGINE_ERROR = {
+    "message": "The following quotas are exceeded",
+    "code": 8,
+}
 
 
 def _create_empty_fake_package(package_name: str) -> str:
@@ -790,7 +795,7 @@ class TestAgentEngineHelpers:
     def test_create_agent_engine_config_full(self, mock_prepare):
         config = self.client.agent_engines._create_config(
             mode="create",
-            agent_engine=self.test_agent,
+            agent=self.test_agent,
             staging_bucket=_TEST_STAGING_BUCKET,
             requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
             display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
@@ -803,6 +808,7 @@ class TestAgentEngineHelpers:
             max_instances=_TEST_AGENT_ENGINE_MAX_INSTANCES,
             resource_limits=_TEST_AGENT_ENGINE_RESOURCE_LIMITS,
             container_concurrency=_TEST_AGENT_ENGINE_CONTAINER_CONCURRENCY,
+            encryption_spec=_TEST_AGENT_ENGINE_ENCRYPTION_SPEC,
         )
         assert config["display_name"] == _TEST_AGENT_ENGINE_DISPLAY_NAME
         assert config["description"] == _TEST_AGENT_ENGINE_DESCRIPTION
@@ -833,13 +839,14 @@ class TestAgentEngineHelpers:
             "resource_limits": _TEST_AGENT_ENGINE_RESOURCE_LIMITS,
             "container_concurrency": _TEST_AGENT_ENGINE_CONTAINER_CONCURRENCY,
         }
+        assert config["encryption_spec"] == _TEST_AGENT_ENGINE_ENCRYPTION_SPEC
         assert config["spec"]["class_methods"] == [_TEST_AGENT_ENGINE_CLASS_METHOD_1]
 
     @mock.patch.object(_agent_engines_utils, "_prepare")
     def test_update_agent_engine_config_full(self, mock_prepare):
         config = self.client.agent_engines._create_config(
             mode="update",
-            agent_engine=self.test_agent,
+            agent=self.test_agent,
             staging_bucket=_TEST_STAGING_BUCKET,
             requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
             display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
@@ -926,8 +933,9 @@ class TestAgentEngineHelpers:
                     }
                 ),
             )
-            agent_engine = self.client.agent_engines._await_operation(
+            operation = _agent_engines_utils._await_operation(
                 operation_name=_TEST_AGENT_ENGINE_OPERATION_NAME,
+                get_operation_fn=self.client.agent_engines._get_agent_operation,
             )
             request_mock.assert_called_with(
                 "get",
@@ -935,11 +943,11 @@ class TestAgentEngineHelpers:
                 {"_url": {"operationName": _TEST_AGENT_ENGINE_OPERATION_NAME}},
                 None,
             )
-            assert isinstance(agent_engine, _genai_types.AgentEngineOperation)
+            assert isinstance(operation, _genai_types.AgentEngineOperation)
 
     def test_register_api_methods(self):
         agent = self.client.agent_engines._register_api_methods(
-            agent=_genai_types.AgentEngine(
+            agent_engine=_genai_types.AgentEngine(
                 api_client=self.client.agent_engines._api_client,
                 api_resource=_genai_types.ReasoningEngine(
                     spec=_genai_types.ReasoningEngineSpec(
@@ -956,7 +964,9 @@ class TestAgentEngineHelpers:
 
     @pytest.mark.usefixtures("caplog")
     def test_invalid_requirement_warning(self, caplog):
-        _agent_engines_utils._parse_constraints(["invalid requirement line"])
+        _agent_engines_utils._parse_constraints(
+            constraints=["invalid requirement line"],
+        )
         assert "Failed to parse constraint" in caplog.text
 
     def test_requirements_with_whl_files(self):
@@ -965,7 +975,9 @@ class TestAgentEngineHelpers:
             "/content/wxPython-4.2.3-cp39-cp39-macosx_12_0_x86_64.whl",
             "https://wxpython.org/Phoenix/snapshot-builds/wxPython-4.2.2-cp38-cp38-macosx_12_0_x86_64.whl",
         ]
-        result = _agent_engines_utils._parse_constraints(whl_files)
+        result = _agent_engines_utils._parse_constraints(
+            constraints=whl_files,
+        )
         assert result == {
             "wxPython-4.2.2-cp38-cp38-macosx_12_0_x86_64.whl": None,
             "wxPython-4.2.3-cp39-cp39-macosx_12_0_x86_64.whl": None,
@@ -975,7 +987,10 @@ class TestAgentEngineHelpers:
     def test_compare_requirements_with_required_packages(self):
         requirements = {"requests": "2.0.0"}
         constraints = ["requests==1.0.0"]
-        result = _agent_engines_utils._compare_requirements(requirements, constraints)
+        result = _agent_engines_utils._compare_requirements(
+            requirements=requirements,
+            constraints=constraints,
+        )
         assert result == {
             "actions": {"append": set()},
             "warnings": {
@@ -989,7 +1004,7 @@ class TestAgentEngineHelpers:
         """Test scanning an object importing a known third-party package."""
         fake_obj = _create_fake_object_with_module("requests")
         requirements = _agent_engines_utils._scan_requirements(
-            fake_obj,
+            obj=fake_obj,
             package_distributions=_TEST_PACKAGE_DISTRIBUTIONS,
         )
         assert requirements == {
@@ -1003,7 +1018,7 @@ class TestAgentEngineHelpers:
         """Test that stdlib modules are ignored by default."""
         fake_obj_stdlib = _create_fake_object_with_module("json")
         requirements = _agent_engines_utils._scan_requirements(
-            fake_obj_stdlib,
+            obj=fake_obj_stdlib,
             package_distributions=_TEST_PACKAGE_DISTRIBUTIONS,
         )
         # Requirements should not contain 'json',
@@ -1024,7 +1039,7 @@ class TestAgentEngineHelpers:
             set(original_base) | {"requests"},
         )
         requirements = _agent_engines_utils._scan_requirements(
-            fake_obj,
+            obj=fake_obj,
             package_distributions=_TEST_PACKAGE_DISTRIBUTIONS,
         )
         # Requirements should not contain 'requests',
@@ -1039,7 +1054,7 @@ class TestAgentEngineHelpers:
         """Test explicitly ignoring a module."""
         fake_obj = _create_fake_object_with_module("requests")
         requirements = _agent_engines_utils._scan_requirements(
-            fake_obj,
+            obj=fake_obj,
             ignore_modules=["requests"],
             package_distributions=_TEST_PACKAGE_DISTRIBUTIONS,
         )
@@ -1138,7 +1153,7 @@ class TestAgentEngine:
 
     @pytest.mark.usefixtures("caplog")
     @mock.patch.object(_agent_engines_utils, "_prepare")
-    @mock.patch.object(agent_engines.AgentEngines, "_await_operation")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
     def test_create_agent_engine(self, mock_await_operation, mock_prepare, caplog):
         mock_await_operation.return_value = _genai_types.AgentEngineOperation(
             response=_genai_types.ReasoningEngine(
@@ -1152,7 +1167,7 @@ class TestAgentEngine:
         ) as request_mock:
             request_mock.return_value = genai_types.HttpResponse(body="")
             self.client.agent_engines.create(
-                agent_engine=self.test_agent,
+                agent=self.test_agent,
                 config=_genai_types.AgentEngineConfig(
                     display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
                     description=_TEST_AGENT_ENGINE_DESCRIPTION,
@@ -1162,10 +1177,6 @@ class TestAgentEngine:
                     gcs_dir_name=_TEST_GCS_DIR_NAME,
                     env_vars=_TEST_AGENT_ENGINE_ENV_VARS_INPUT,
                 ),
-            )
-            mock_await_operation.assert_called_once_with(
-                operation_name=None,
-                poll_interval_seconds=10,
             )
             request_mock.assert_called_with(
                 "post",
@@ -1192,7 +1203,7 @@ class TestAgentEngine:
             )
 
     @mock.patch.object(agent_engines.AgentEngines, "_create_config")
-    @mock.patch.object(agent_engines.AgentEngines, "_await_operation")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
     def test_create_agent_engine_lightweight(
         self,
         mock_await_operation,
@@ -1218,10 +1229,6 @@ class TestAgentEngine:
                     description=_TEST_AGENT_ENGINE_DESCRIPTION,
                 )
             )
-            mock_await_operation.assert_called_once_with(
-                operation_name=None,
-                poll_interval_seconds=1,
-            )
             request_mock.assert_called_with(
                 "post",
                 "reasoningEngines",
@@ -1233,7 +1240,7 @@ class TestAgentEngine:
             )
 
     @mock.patch.object(agent_engines.AgentEngines, "_create_config")
-    @mock.patch.object(agent_engines.AgentEngines, "_await_operation")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
     def test_create_agent_engine_with_env_vars_dict(
         self,
         mock_await_operation,
@@ -1263,7 +1270,7 @@ class TestAgentEngine:
         ) as request_mock:
             request_mock.return_value = genai_types.HttpResponse(body="")
             self.client.agent_engines.create(
-                agent_engine=self.test_agent,
+                agent=self.test_agent,
                 config=_genai_types.AgentEngineConfig(
                     display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
                     requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
@@ -1274,7 +1281,7 @@ class TestAgentEngine:
             )
             mock_create_config.assert_called_with(
                 mode="create",
-                agent_engine=self.test_agent,
+                agent=self.test_agent,
                 staging_bucket=_TEST_STAGING_BUCKET,
                 requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
                 display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
@@ -1288,6 +1295,7 @@ class TestAgentEngine:
                 max_instances=None,
                 resource_limits=None,
                 container_concurrency=None,
+                encryption_spec=None,
             )
             request_mock.assert_called_with(
                 "post",
@@ -1310,7 +1318,7 @@ class TestAgentEngine:
 
     @pytest.mark.usefixtures("caplog")
     @mock.patch.object(_agent_engines_utils, "_prepare")
-    @mock.patch.object(agent_engines.AgentEngines, "_await_operation")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
     def test_update_agent_engine_requirements(
         self, mock_await_operation, mock_prepare, caplog
     ):
@@ -1327,7 +1335,7 @@ class TestAgentEngine:
             request_mock.return_value = genai_types.HttpResponse(body="")
             self.client.agent_engines.update(
                 name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
-                agent_engine=self.test_agent,
+                agent=self.test_agent,
                 config=_genai_types.AgentEngineConfig(
                     staging_bucket=_TEST_STAGING_BUCKET,
                     requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
@@ -1367,7 +1375,7 @@ class TestAgentEngine:
             )
 
     @mock.patch.object(_agent_engines_utils, "_prepare")
-    @mock.patch.object(agent_engines.AgentEngines, "_await_operation")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
     def test_update_agent_engine_extra_packages(
         self, mock_await_operation, mock_prepare
     ):
@@ -1383,7 +1391,7 @@ class TestAgentEngine:
             request_mock.return_value = genai_types.HttpResponse(body="")
             self.client.agent_engines.update(
                 name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
-                agent_engine=self.test_agent,
+                agent=self.test_agent,
                 config=_genai_types.AgentEngineConfig(
                     staging_bucket=_TEST_STAGING_BUCKET,
                     requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
@@ -1421,7 +1429,7 @@ class TestAgentEngine:
             )
 
     @mock.patch.object(_agent_engines_utils, "_prepare")
-    @mock.patch.object(agent_engines.AgentEngines, "_await_operation")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
     def test_update_agent_engine_env_vars(
         self, mock_await_operation, mock_prepare, caplog
     ):
@@ -1437,7 +1445,7 @@ class TestAgentEngine:
             request_mock.return_value = genai_types.HttpResponse(body="")
             self.client.agent_engines.update(
                 name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
-                agent_engine=self.test_agent,
+                agent=self.test_agent,
                 config=_genai_types.AgentEngineConfig(
                     staging_bucket=_TEST_STAGING_BUCKET,
                     requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
@@ -1477,7 +1485,7 @@ class TestAgentEngine:
                 None,
             )
 
-    @mock.patch.object(agent_engines.AgentEngines, "_await_operation")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
     def test_update_agent_engine_display_name(self, mock_await_operation):
         mock_await_operation.return_value = _genai_types.AgentEngineOperation(
             response=_genai_types.ReasoningEngine(
@@ -1506,7 +1514,7 @@ class TestAgentEngine:
                 None,
             )
 
-    @mock.patch.object(agent_engines.AgentEngines, "_await_operation")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
     def test_update_agent_engine_description(self, mock_await_operation):
         mock_await_operation.return_value = _genai_types.AgentEngineOperation(
             response=_genai_types.ReasoningEngine(
@@ -1570,7 +1578,7 @@ class TestAgentEngine:
         ) as request_mock:
             request_mock.return_value = genai_types.HttpResponse(body="")
             agent = self.client.agent_engines._register_api_methods(
-                agent=_genai_types.AgentEngine(
+                agent_engine=_genai_types.AgentEngine(
                     api_client=self.client.agent_engines,
                     api_resource=_genai_types.ReasoningEngine(
                         name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
@@ -1596,7 +1604,7 @@ class TestAgentEngine:
 
     def test_query_agent_engine_async(self):
         agent = self.client.agent_engines._register_api_methods(
-            agent=_genai_types.AgentEngine(
+            agent_engine=_genai_types.AgentEngine(
                 api_async_client=agent_engines.AsyncAgentEngines(
                     api_client_=self.client.agent_engines._api_client
                 ),
@@ -1631,7 +1639,7 @@ class TestAgentEngine:
             self.client.agent_engines._api_client, "request_streamed"
         ) as request_mock:
             agent = self.client.agent_engines._register_api_methods(
-                agent=_genai_types.AgentEngine(
+                agent_engine=_genai_types.AgentEngine(
                     api_client=self.client.agent_engines,
                     api_resource=_genai_types.ReasoningEngine(
                         name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
@@ -1664,7 +1672,7 @@ class TestAgentEngine:
         ) as request_mock:
             request_mock.return_value = mock_async_generator()
             agent = self.client.agent_engines._register_api_methods(
-                agent=_genai_types.AgentEngine(
+                agent_engine=_genai_types.AgentEngine(
                     api_client=self.client.agent_engines,
                     api_resource=_genai_types.ReasoningEngine(
                         name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
@@ -1826,6 +1834,49 @@ class TestAgentEngineErrors:
         )
         self.test_agent = CapitalizeEngine()
 
+    @mock.patch.object(_agent_engines_utils, "_prepare")
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
+    def test_create_agent_engine_error(self, mock_await_operation, mock_prepare):
+        mock_await_operation.return_value = _genai_types.AgentEngineOperation(
+            error=_TEST_AGENT_ENGINE_ERROR,
+        )
+        with mock.patch.object(
+            self.client.agent_engines._api_client, "request"
+        ) as request_mock:
+            request_mock.return_value = genai_types.HttpResponse(body="")
+            with pytest.raises(RuntimeError) as excinfo:
+                self.client.agent_engines.create(
+                    agent=self.test_agent,
+                    config=_genai_types.AgentEngineConfig(
+                        display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
+                        description=_TEST_AGENT_ENGINE_DESCRIPTION,
+                        requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
+                        extra_packages=[_TEST_AGENT_ENGINE_EXTRA_PACKAGE_PATH],
+                        staging_bucket=_TEST_STAGING_BUCKET,
+                        gcs_dir_name=_TEST_GCS_DIR_NAME,
+                        env_vars=_TEST_AGENT_ENGINE_ENV_VARS_INPUT,
+                    ),
+                )
+                assert "Failed to create agent engine" in str(excinfo.value)
+
+    @mock.patch.object(_agent_engines_utils, "_await_operation")
+    def test_update_agent_engine_description(self, mock_await_operation):
+        mock_await_operation.return_value = _genai_types.AgentEngineOperation(
+            error=_TEST_AGENT_ENGINE_ERROR,
+        )
+        with mock.patch.object(
+            self.client.agent_engines._api_client, "request"
+        ) as request_mock:
+            request_mock.return_value = genai_types.HttpResponse(body="")
+            with pytest.raises(RuntimeError) as excinfo:
+                self.client.agent_engines.update(
+                    name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
+                    config=_genai_types.AgentEngineConfig(
+                        description=_TEST_AGENT_ENGINE_DESCRIPTION,
+                    ),
+                )
+                assert "Failed to update agent engine" in str(excinfo.value)
+
     @pytest.mark.parametrize(
         "test_case_name, test_operation_schemas, want_log_output",
         [
@@ -1878,19 +1929,19 @@ class TestAgentEngineErrors:
         ],
     )
     @pytest.mark.usefixtures("caplog")
-    @mock.patch.object(_genai_types.AgentEngine, "operation_schemas")
     @mock.patch.object(agent_engines.AgentEngines, "_get")
     def test_invalid_operation_schema(
         self,
         mock_get,
-        mock_operation_schemas,
         test_case_name,
         test_operation_schemas,
         want_log_output,
         caplog,
     ):
-        mock_get.return_value = _genai_types.AgentEngine()  # just to avoid an API call
-        mock_operation_schemas.return_value = test_operation_schemas
+        mock_get.return_value = _genai_types.ReasoningEngine(
+            name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
+            spec=_genai_types.ReasoningEngineSpec(class_methods=test_operation_schemas),
+        )
         self.client.agent_engines.get(name=_TEST_AGENT_ENGINE_RESOURCE_NAME)
         assert want_log_output in caplog.text
 

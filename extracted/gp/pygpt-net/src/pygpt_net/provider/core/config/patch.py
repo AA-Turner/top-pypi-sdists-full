@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.25 20:00:00                  #
+# Updated Date: 2025.08.26 23:00:00                  #
 # ================================================== #
 
 import copy
@@ -2297,6 +2297,51 @@ class Patch:
                 if "llama.idx.embeddings.default" not in data:
                     data["llama.idx.embeddings.default"] = self.window.core.config.get_base(
                         'llama.idx.embeddings.default')
+                updated = True
+
+            # < 2.6.25
+            if old < parse_version("2.6.25"):
+                print("Migrating config from < 2.6.25...")
+                if "api_key_voyage" not in data:
+                    data["api_key_voyage"] = ""
+                if "agent.llama.eval_model" not in data:
+                    data["agent.llama.eval_model"] = "_"
+                if "llama.idx.embeddings.default" in data:
+                    providers = []
+                    for item in data["llama.idx.embeddings.default"]:
+                        p = item.get('provider', '')
+                        if p and p not in providers:
+                            providers.append(p)
+
+                    if "anthropic" not in providers:
+                        data["llama.idx.embeddings.default"].append({
+                            "provider": "anthropic",
+                            "model": "voyage-3.5",
+                        })
+                    if "deepseek_api" not in providers:
+                        data["llama.idx.embeddings.default"].append({
+                            "provider": "deepseek_api",
+                            "model": "voyage-3.5",
+                        })
+                    if "mistral_ai" not in providers:
+                        data["llama.idx.embeddings.default"].append({
+                            "provider": "mistral_ai",
+                            "model": "mistral-embed",
+                        })
+                    if "x_ai" not in providers:
+                        data["llama.idx.embeddings.default"].append({
+                            "provider": "x_ai",
+                            "model": "",
+                        })
+                updated = True
+
+            # < 2.6.26
+            if old < parse_version("2.6.26"):
+                print("Migrating config from < 2.6.26...")
+                if "api_key_open_router" not in data:
+                    data["api_key_open_router"] = ""
+                if "api_endpoint_open_router" not in data:
+                    data["api_endpoint_open_router"] = "https://openrouter.ai/api/v1"
                 updated = True
 
         # update file

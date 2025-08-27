@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Any
-from orionis.console.entities.request import CLIRequest
-from orionis.console.output.contracts.console import IConsole
+from orionis.console.contracts.cli_request import ICLIRequest
+from orionis.console.contracts.console import IConsole
 from orionis.services.log.contracts.log_service import ILogger
 
 class IBaseExceptionHandler:
@@ -62,7 +62,7 @@ class IBaseExceptionHandler:
         pass
 
     @abstractmethod
-    async def renderCLI(self, request: CLIRequest, exception: BaseException, log: ILogger, console: IConsole) -> Any:
+    async def renderCLI(self, exception: BaseException, request: ICLIRequest, log: ILogger, console: IConsole) -> Any:
         """
         Render the exception message for CLI output.
 

@@ -22,7 +22,7 @@ BOOTSTRAP_METHOD = "_bootstrap_inner"
 
 def build_start_patch(orig_func, _):
     def start(wrapped, instance, args, kwargs):
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
 
         try:
             # Save the scope of the current active contextvars.Context to copy to the new thread
@@ -44,7 +44,7 @@ def build_bootstrap_inner_patch(orig_func, _):
         except Exception:
             logger.exception("Failed to initialize thread scope")
 
-        with contrast.CS__CONTEXT_TRACKER.lifespan(instance.cs__parent_context):
+        with contrast.lifespan(instance.cs__parent_context):
             # Ensure child thread still runs with the same parent request context
             # even if the parent thread has already exited as long as
             # the parent thread is in request context.

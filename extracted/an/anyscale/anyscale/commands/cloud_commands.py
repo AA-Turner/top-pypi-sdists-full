@@ -268,7 +268,10 @@ def cloud_config_group() -> None:
     required=True,
 )
 @click.option(
-    "--file", "-f", help="YAML file containing the deployment spec.", required=True,
+    "--file",
+    "-f",
+    help="Path to a YAML file defining the cloud deployment. Schema: https://docs.anyscale.com/reference/cloud/#clouddeployment.",
+    required=True,
 )
 @click.option(
     "--skip-verification",
@@ -284,70 +287,6 @@ def cloud_deployment_create(
 ) -> None:
     try:
         CloudController().create_cloud_deployment(cloud, file, skip_verification, yes)
-    except click.ClickException as e:
-        print(e)
-
-
-@cloud_deployment_group.command(
-    name="get",
-    help="Get a cloud deployment for a cloud.",
-    cls=AnyscaleCommand,
-    example=command_examples.CLOUD_DEPLOYMENT_GET_EXAMPLE,
-    is_alpha=True,
-)
-@click.option(
-    "--cloud",
-    help="The name of the cloud that the cloud deployment belongs to.",
-    type=str,
-    required=True,
-)
-@click.option(
-    "--deployment",
-    help="The name of the cloud deployment. If not provided, the primary cloud deployment will be returned.",
-    type=str,
-    required=False,
-)
-def cloud_deployment_get(cloud: str, deployment: Optional[str]) -> None:
-    try:
-        result = CloudController().get_cloud_deployment_dict_by_name(cloud, deployment)
-        print(yaml.dump(result, sort_keys=False))
-    except click.ClickException as e:
-        print(e)
-
-
-@cloud_deployment_group.command(
-    name="update",
-    help="Update a cloud deployment in an existing cloud.",
-    cls=AnyscaleCommand,
-    example=command_examples.CLOUD_DEPLOYMENT_UPDATE_EXAMPLE,
-    is_alpha=True,
-)
-@click.option(
-    "--cloud",
-    help="The name of the cloud that the cloud deployment belongs to.",
-    type=str,
-    required=True,
-)
-@click.option(
-    "--file",
-    "-f",
-    help="Path to a YAML file defining the cloud deployment. Schema: https://docs.anyscale.com/reference/cloud-api#clouddeployment.",  # TODO(janet): check link
-    required=True,
-)
-@click.option(
-    "--skip-verification",
-    is_flag=True,
-    default=False,
-    help="Skip cloud deployment verification.",
-)
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
-)
-def cloud_deployment_update(
-    cloud: str, file: str, skip_verification: bool, yes: bool
-) -> None:
-    try:
-        CloudController().update_cloud_deployment(cloud, file, skip_verification, yes)
     except click.ClickException as e:
         print(e)
 
@@ -382,10 +321,7 @@ def cloud_deployment_delete(cloud: str, deployment: str, yes: bool,) -> None:
 
 
 @cloud_cli.command(
-    name="update",
-    help=(
-        "Update a managed cloud to the latest configuration. Only applicable for anyscale managed clouds."
-    ),
+    name="update", help=("Update a cloud."),
 )
 @click.argument("cloud-name", required=False)
 @click.option(
@@ -422,6 +358,18 @@ def cloud_deployment_delete(cloud: str, deployment: str, yes: bool,) -> None:
         "are manually granted permissions to access the cloud. No existing cloud permissions are altered by specifying this flag."
     ),
 )
+@click.option(
+    "--resources-file",
+    "-f",
+    help="EXPERIMENTAL: Path to a YAML file defining a list of cloud resources. Schema: https://docs.anyscale.com/reference/cloud/#clouddeployment.",
+    required=False,
+)
+@click.option(
+    "--skip-verification",
+    is_flag=True,
+    default=False,
+    help="Skip cloud resource verification.",
+)
 def cloud_update(  # noqa: PLR0913
     cloud_name: Optional[str],
     name: Optional[str],
@@ -430,12 +378,23 @@ def cloud_update(  # noqa: PLR0913
     enable_head_node_fault_tolerance: bool,
     yes: bool,
     enable_auto_add_user: Optional[bool],
+    resources_file: Optional[str],
+    skip_verification: bool,
 ) -> None:
     if cloud_name and name and cloud_name != name:
         raise click.ClickException(
             "The positional argument CLOUD_NAME and the keyword argument --name "
             "were both provided. Please only provide one of these two arguments."
         )
+    if resources_file:
+        CloudController().update_cloud_deployments(
+            cloud_name=cloud_name or name,
+            cloud_id=cloud_id,
+            resources_file=resources_file,
+            skip_verification=skip_verification,
+            yes=yes,
+        )
+        return
     if enable_head_node_fault_tolerance and (enable_auto_add_user is not None):
         raise click.ClickException(
             "Please only specify either --enable-head-node-fault-tolerance or "
@@ -740,7 +699,7 @@ def cloud_config_update(
 )
 @click.option(
     "--cloud-storage-bucket-name",
-    help="A fully qualified storage bucket name for cloud storage, e.g. s3://bucket-name, gs://bucket-name, or azure://bucket-name.",
+    help="A fully qualified storage bucket name for cloud storage, e.g. s3://bucket-name, gs://bucket-name, or abfss://bucket-name@account.dfs.core.windows.net.",
     required=False,
     type=str,
 )
@@ -766,6 +725,18 @@ def cloud_config_update(
 @click.option(
     "--nfs-mount-path",
     help="The path of the NFS server to mount from (e.g. nfs-target-address/nfs-path will be mounted).",
+    required=False,
+    type=str,
+)
+@click.option(
+    "--persistent-volume-claim",
+    help="For Kubernetes deployments only, the name of the persistent volume claim used to mount shared storage into pods. Mutually exclusive with NFS configurations.",
+    required=False,
+    type=str,
+)
+@click.option(
+    "--csi-ephemeral-volume-driver",
+    help="For Kubernetes deployments only, the CSI ephemeral volume driver used to mount shared storage into pods. Mutually exclusive with NFS configurations.",
     required=False,
     type=str,
 )
@@ -854,6 +825,8 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
     cloud_storage_bucket_region: Optional[str],
     nfs_mount_target: List[str],
     nfs_mount_path: str,
+    persistent_volume_claim: Optional[str],
+    csi_ephemeral_volume_driver: Optional[str],
     memorystore_instance_name: str,
     host_project_id: Optional[str],
     kubernetes_zones: Optional[str],
@@ -865,6 +838,30 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
     enable_auto_add_user: bool,
 ) -> None:
     missing_args: List[str] = []
+
+    # Validate K8S-only storage flags
+    if (
+        persistent_volume_claim or csi_ephemeral_volume_driver
+    ) and compute_stack != ComputeStack.K8S:
+        raise click.ClickException(
+            "--persistent-volume-claim and --csi-ephemeral-volume-driver are only supported with --compute-stack=k8s"
+        )
+
+    # Validate mutual exclusivity of storage configurations
+    storage_configs = []
+    if nfs_mount_target or nfs_mount_path:
+        storage_configs.append("NFS")
+    if persistent_volume_claim:
+        storage_configs.append("persistent volume claim")
+    if csi_ephemeral_volume_driver:
+        storage_configs.append("CSI ephemeral volume driver")
+
+    if len(storage_configs) > 1:
+        raise click.ClickException(
+            f"Storage configurations are mutually exclusive. Found: {', '.join(storage_configs)}. "
+            "Please specify only one of: --nfs-mount-target/--nfs-mount-path, --persistent-volume-claim, or --csi-ephemeral-volume-driver"
+        )
+
     if provider == "aws":
         if s3_bucket_id and not cloud_storage_bucket_name:
             cloud_storage_bucket_name = s3_bucket_id
@@ -927,6 +924,8 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
             skip_verifications=skip_verifications,
             auto_add_user=enable_auto_add_user,
             external_id=external_id,
+            persistent_volume_claim=persistent_volume_claim,
+            csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
         )
     elif provider == "gcp":
         if filestore_instance_id and not file_storage_id:
@@ -1039,6 +1038,8 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
             yes=yes,
             skip_verifications=skip_verifications,
             auto_add_user=enable_auto_add_user,
+            persistent_volume_claim=persistent_volume_claim,
+            csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
         )
     elif provider in ("azure", "generic"):
         # For the 'generic' provider type, for the time being, most fields are optional; only 'name', 'provider', and 'compute-stack' are required.
@@ -1060,6 +1061,8 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
             cloud_storage_bucket_region=cloud_storage_bucket_region,
             nfs_mount_targets=list(nfs_mount_target) if nfs_mount_target else [],
             nfs_mount_path=nfs_mount_path,
+            persistent_volume_claim=persistent_volume_claim,
+            csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
             kubernetes_zones=kubernetes_zones.split(",") if kubernetes_zones else [],
             anyscale_operator_iam_identity=anyscale_operator_iam_identity,
         )

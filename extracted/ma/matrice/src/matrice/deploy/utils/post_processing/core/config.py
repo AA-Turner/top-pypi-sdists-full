@@ -150,6 +150,35 @@ class ZoneConfig:
             "zone_categories": self.zone_categories
         }
 
+    # --- Legacy/dict-like compatibility helpers ---
+    def _as_legacy_dict(self) -> Dict[str, Any]:
+        return {
+            "zones": self.zones,
+            "zone_confidence_thresholds": self.zone_confidence_thresholds,
+            "zone_categories": self.zone_categories,
+        }
+
+    def __getitem__(self, key: str) -> Any:  # Support config.zone_config['zones']
+        return self._as_legacy_dict()[key]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._as_legacy_dict().get(key, default)
+
+    def keys(self):
+        return self._as_legacy_dict().keys()
+
+    def items(self):
+        return self._as_legacy_dict().items()
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._as_legacy_dict()
+
+    def __iter__(self):
+        return iter(self._as_legacy_dict())
+
+    def __len__(self) -> int:
+        return len(self._as_legacy_dict())
+
 @dataclass
 class TrackingConfig:
     """Configuration for tracking operations."""
@@ -281,6 +310,40 @@ class AlertConfig:
             "alert_type": self.alert_type,
             "alert_value": self.alert_value
         }
+
+    # --- Legacy/dict-like compatibility helpers ---
+    def _as_legacy_dict(self) -> Dict[str, Any]:
+        return {
+            "count_thresholds": self.count_thresholds,
+            "occupancy_thresholds": self.occupancy_thresholds,
+            "dwell_time_threshold": self.dwell_time_threshold,
+            "service_time_threshold": self.service_time_threshold,
+            "alert_cooldown": self.alert_cooldown,
+            "alert_type": self.alert_type,
+            "alert_value": self.alert_value,
+            "alert_incident_category": self.alert_incident_category,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self._as_legacy_dict()[key]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._as_legacy_dict().get(key, default)
+
+    def keys(self):
+        return self._as_legacy_dict().keys()
+
+    def items(self):
+        return self._as_legacy_dict().items()
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._as_legacy_dict()
+
+    def __iter__(self):
+        return iter(self._as_legacy_dict())
+
+    def __len__(self) -> int:
+        return len(self._as_legacy_dict())
 
 
 @dataclass

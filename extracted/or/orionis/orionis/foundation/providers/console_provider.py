@@ -1,5 +1,5 @@
 from orionis.console.output.console import Console
-from orionis.console.output.contracts.console import IConsole
+from orionis.console.contracts.console import IConsole
 from orionis.container.providers.service_provider import ServiceProvider
 
 class ConsoleProvider(ServiceProvider):

@@ -114,7 +114,7 @@ def _build_patch(original_func, patch_policy, tracker_func):
         with scope.contrast_scope():
             result = wrapped(*args, **kwargs)
 
-        context = contrast.CS__CONTEXT_TRACKER.current()
+        context = contrast.REQUEST_CONTEXT.get()
         if context is None:
             return result
 

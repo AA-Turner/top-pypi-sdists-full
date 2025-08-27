@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name='pandavro',
-    version='1.8.0',
+    version='1.9.0',
     description='The interface between Avro and pandas DataFrame',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -19,13 +19,12 @@ setup(
     install_requires=[
         # fixed versions.
         'fastavro>=1.5.1,<2.0.0',
-        'pandas>=1.1',
-        # https://pandas.pydata.org/pandas-docs/version/1.1/getting_started/install.html#dependencies
-        'numpy>=1.15.4',
+        'pandas>=2.0,<3.0.0',
+        'numpy>=2.0,<3.0.0',
     ],
     extras_require={
         'tests': ['pytest==7.3.2', 'tox==4.6.0'],
     },
     # https://pandas.pydata.org/pandas-docs/version/1.1/getting_started/install.html#python-version-support
-    python_requires='>=3.7.0',
+    python_requires='>=3.9.0',
 )

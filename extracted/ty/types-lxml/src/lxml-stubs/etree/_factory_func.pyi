@@ -1,20 +1,18 @@
-from typing import overload
+from typing import TypeVar, overload
 
 from .._types import (
     _ET,
     _AttrMapping,
     _AttrVal,
-    _DefEtreeParsers,
-    _ElementFactory,
-    _ET_co,
-    _FileReadSource,
     _NSMapArg,
     _TagName,
     _TextArg,
 )
 from ..html import HtmlElement
 from ..objectify import ObjectifiedElement, StringElement
-from ._element import _Comment, _ElementTree, _Entity, _ProcessingInstruction
+from ._element import _Comment, _Entity, _ProcessingInstruction
+
+_T = TypeVar("_T")
 
 def Comment(text: _TextArg | None = None) -> _Comment: ...
 def ProcessingInstruction(
@@ -24,8 +22,6 @@ def ProcessingInstruction(
 PI = ProcessingInstruction
 
 def Entity(name: _TextArg) -> _Entity: ...
-
-Element: _ElementFactory
 
 # SubElement is a bit more complex than expected, as it
 # handles other kinds of element, like HtmlElement
@@ -68,19 +64,3 @@ def SubElement(
     nsmap: _NSMapArg | None = None,
     **_extra: _AttrVal,
 ) -> _ET: ...
-@overload  # from element, parser ignored
-def ElementTree(element: _ET) -> _ElementTree[_ET]: ...
-@overload  # from file source, custom parser
-def ElementTree(
-    element: None = None,
-    *,
-    file: _FileReadSource,
-    parser: _DefEtreeParsers[_ET_co],
-) -> _ElementTree[_ET_co]: ...
-@overload  # from file source, default parser
-def ElementTree(
-    element: None = None,
-    *,
-    file: _FileReadSource,
-    parser: None = None,
-) -> _ElementTree: ...

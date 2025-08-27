@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: streamlit-aggrid
-Version: 1.1.8
+Version: 1.1.8.post1
 Summary: Streamlit component implementation of ag-grid
 License: MIT
 Keywords: streamlit,ag-grid,component

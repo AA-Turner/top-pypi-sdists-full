@@ -1,4 +1,4 @@
-from orionis.console.dynamic.contracts.progress_bar import IProgressBar
+from orionis.console.contracts.progress_bar import IProgressBar
 from orionis.console.dynamic.progress_bar import ProgressBar
 from orionis.container.providers.service_provider import ServiceProvider
 

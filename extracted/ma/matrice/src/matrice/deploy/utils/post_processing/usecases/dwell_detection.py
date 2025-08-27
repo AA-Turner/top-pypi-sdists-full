@@ -65,6 +65,7 @@ class DwellUseCase(BaseProcessor):
         self._zone_total_track_ids: Dict[str, set] = {}
         self._zone_current_counts: Dict[str, int] = {}
         self._zone_total_counts: Dict[str, int] = {}
+        self.start_timer = None
 
     def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
                 stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
@@ -437,27 +438,81 @@ class DwellUseCase(BaseProcessor):
                                                  getattr(config.alert_config, 'alert_value', ['JSON']))}
             })
 
+        # human_text_lines = [f"Tracking Statistics:"]
+        # human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}")
+        # if zone_analysis:
+        #     human_text_lines.append("\tZones (current):")
+        #     for zone_name, zone_data in zone_analysis.items():
+        #         current_count = zone_data.get("current_count", 0)
+        #         human_text_lines.append(f"\t{zone_name}: {int(current_count)}")
+        # else:
+        #     for cat, count in per_category_count.items():
+        #         human_text_lines.append(f"\t{cat}: {count}")
+        # human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
+        # if zone_analysis:
+        #     human_text_lines.append("\tZones (total):")
+        #     for zone_name, zone_data in zone_analysis.items():
+        #         total_count = zone_data.get("total_count", 0)
+        #         human_text_lines.append(f"\t{zone_name}: {int(total_count)}")
+        # else:
+        #     for cat, count in total_counts_dict.items():
+        #         if count > 0:
+        #             human_text_lines.append(f"\t{cat}: {count}")
+        # human_text_lines.append(f"Alerts: {alerts[0].get('settings', {}) if alerts else 'None'} sent @ {current_timestamp}")
+        # human_text = "\n".join(human_text_lines)
+
         human_text_lines = [f"Tracking Statistics:"]
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}")
+        # Append zone-wise current counts if available
         if zone_analysis:
             human_text_lines.append("\tZones (current):")
             for zone_name, zone_data in zone_analysis.items():
-                current_count = zone_data.get("current_count", 0)
+                current_count = 0
+                if isinstance(zone_data, dict):
+                    if "current_count" in zone_data:
+                        current_count = zone_data.get("current_count", 0)
+                    else:
+                        counts_dict = zone_data.get("original_counts") if isinstance(zone_data.get("original_counts"), dict) else zone_data
+                        current_count = counts_dict.get(
+                            "total",
+                            sum(v for v in counts_dict.values() if isinstance(v, (int, float)))
+                        )
                 human_text_lines.append(f"\t{zone_name}: {int(current_count)}")
         else:
-            for cat, count in per_category_count.items():
-                human_text_lines.append(f"\t{cat}: {count}")
+            if any(count > 0 for count in per_category_count.values()):
+
+                for cat, count in per_category_count.items():
+                    if count > 0:
+                        human_text_lines.append(f"\t- {count} {cat.capitalize()} detected")
+                    else:
+                        human_text_lines.append(f"\t- No detections")
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
+        # Append zone-wise total counts if available
         if zone_analysis:
             human_text_lines.append("\tZones (total):")
             for zone_name, zone_data in zone_analysis.items():
-                total_count = zone_data.get("total_count", 0)
+                total_count = 0
+                if isinstance(zone_data, dict):
+                    # Prefer the numeric cumulative total if available
+                    if "total_count" in zone_data and isinstance(zone_data.get("total_count"), (int, float)):
+                        total_count = zone_data.get("total_count", 0)
+                    # Fallback: compute from list of total_track_ids if present
+                    elif "total_track_ids" in zone_data and isinstance(zone_data.get("total_track_ids"), list):
+                        total_count = len(zone_data.get("total_track_ids", []))
+                    else:
+                        # Last resort: try to sum numeric values present
+                        counts_dict = zone_data if isinstance(zone_data, dict) else {}
+                        total_count = sum(v for v in counts_dict.values() if isinstance(v, (int, float)))
                 human_text_lines.append(f"\t{zone_name}: {int(total_count)}")
         else:
             for cat, count in total_counts_dict.items():
                 if count > 0:
                     human_text_lines.append(f"\t{cat}: {count}")
-        human_text_lines.append(f"Alerts: {alerts[0].get('settings', {}) if alerts else 'None'} sent @ {current_timestamp}")
+        if alerts:
+            for alert in alerts:
+                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+        else:
+            human_text_lines.append("Alerts: None")
         human_text = "\n".join(human_text_lines)
 
         reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
@@ -539,51 +594,87 @@ class DwellUseCase(BaseProcessor):
         seconds = round(float(timestamp % 60), 2)
         return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str] = None) -> str:
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
+        """Get formatted current timestamp based on stream type."""
+        
         if not stream_info:
-            return "00:00:00.00" if precision else "00:00:00"
+            return "00:00:00.00"
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                start_time = (int(frame_id) if frame_id else stream_info.get("input_settings", {}).get("start_frame", 30)) / stream_info.get("input_settings", {}).get("original_fps", 30)
-                return self._format_timestamp_for_video(start_time)
-            return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
-        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-            start_time = (int(frame_id) if frame_id else stream_info.get("input_settings", {}).get("start_frame", 30)) / stream_info.get("input_settings", {}).get("original_fps", 30)
-            return self._format_timestamp_for_video(start_time)
-        stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
-        if stream_time_str:
-            try:
-                timestamp_str = stream_time_str.replace(" UTC", "")
-                dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
-                return self._format_timestamp_for_stream(timestamp)
-            except:
-                return self._format_timestamp_for_stream(time.time())
-        return self._format_timestamp_for_stream(time.time())
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                
+                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
-        if not stream_info:
-            return "00:00:00"
-        if precision:
-            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                return "00:00:00"
-            return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-            return "00:00:00"
-        if self._tracking_start_time is None:
+            if frame_id:
+                start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+            else:
+                start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+
+            stream_time_str = self._format_timestamp_for_video(start_time)
+           
+
+            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+        else:
             stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
                 try:
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                    self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
                 except:
-                    self._tracking_start_time = time.time()
+                    return self._format_timestamp_for_stream(time.time())
             else:
-                self._tracking_start_time = time.time()
-        dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
-        dt = dt.replace(minute=0, second=0, microsecond=0)
-        return dt.strftime('%Y:%m:%d %H:%M:%S')
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+        
+        if precision:
+            if self.start_timer is None:
+                self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+                return self._format_timestamp(self.start_timer)
+            elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+                self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+                return self._format_timestamp(self.start_timer)
+            else:
+                return self._format_timestamp(self.start_timer)
+
+        if self.start_timer is None:
+            self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+            return self._format_timestamp(self.start_timer)
+        elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+            self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+            return self._format_timestamp(self.start_timer)
+        
+        else:
+            if self.start_timer is not None:
+                return self._format_timestamp(self.start_timer)
+
+            if self._tracking_start_time is None:
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
 
     def _count_categories(self, detections: list, config: DwellConfig) -> dict:
         counts = {}
@@ -683,8 +774,51 @@ class DwellUseCase(BaseProcessor):
         }
         return canonical_id
 
-    def _format_timestamp(self, timestamp: float) -> str:
-        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+    def _format_timestamp(self, timestamp: Any) -> str:
+        """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
+
+        The input can be either:
+        1. A numeric Unix timestamp (``float`` / ``int``) – it will first be converted to a
+           string in the format ``YYYY-MM-DD-HH:MM:SS.ffffff UTC``.
+        2. A string already following the same layout.
+
+        The returned value preserves the overall format of the input but truncates or pads
+        the fractional seconds portion to **exactly two digits**.
+
+        Example
+        -------
+        >>> self._format_timestamp("2025-08-19-04:22:47.187574 UTC")
+        '2025-08-19-04:22:47.18 UTC'
+        """
+
+        # Convert numeric timestamps to the expected string representation first
+        if isinstance(timestamp, (int, float)):
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                '%Y-%m-%d-%H:%M:%S.%f UTC'
+            )
+
+        # Ensure we are working with a string from here on
+        if not isinstance(timestamp, str):
+            return str(timestamp)
+
+        # If there is no fractional component, simply return the original string
+        if '.' not in timestamp:
+            return timestamp
+
+        # Split out the main portion (up to the decimal point)
+        main_part, fractional_and_suffix = timestamp.split('.', 1)
+
+        # Separate fractional digits from the suffix (typically ' UTC')
+        if ' ' in fractional_and_suffix:
+            fractional_part, suffix = fractional_and_suffix.split(' ', 1)
+            suffix = ' ' + suffix  # Re-attach the space removed by split
+        else:
+            fractional_part, suffix = fractional_and_suffix, ''
+
+        # Guarantee exactly two digits for the fractional part
+        fractional_part = (fractional_part + '00')[:2]
+
+        return f"{main_part}.{fractional_part}{suffix}"
 
     def _get_tracking_start_time(self) -> str:
         if self._tracking_start_time is None:

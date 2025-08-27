@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pykalman
-Version: 0.10.1
+Version: 0.10.2
 Summary: An implementation of the Kalman Filter, Kalman Smoother, and EM algorithm in Python
 Author: Daniel Duckworth
 Author-email: Maksym Balatsko <mbalatsko@gmail.com>, pykalman developers <info@sktime.net>
@@ -43,7 +43,7 @@ License: All code contained except that in pykalman/utils.py is released under t
         
 Project-URL: Homepage, https://github.com/pykalman/pykalman
 Project-URL: Repository, https://github.com/pykalman/pykalman
-Project-URL: Documentation, https://pykalman.github.io/
+Project-URL: Documentation, https://pykalman.readthedocs.io/en/latest/
 Project-URL: Download, https://pypi.org/project/pykalman/
 Keywords: kalman filter,smoothing,filter,smoothing,em,expectation-maximization,hmm,tracking,unscented
 Classifier: Development Status :: 4 - Beta
@@ -74,6 +74,7 @@ Provides-Extra: docs
 Requires-Dist: jupyter; extra == "docs"
 Requires-Dist: Sphinx<9.0.0; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: matplotlib; extra == "docs"
 Provides-Extra: all
 Requires-Dist: jupyter; extra == "all"
 Requires-Dist: pytest; extra == "all"
@@ -81,6 +82,7 @@ Requires-Dist: Sphinx<9.0.0; extra == "all"
 Requires-Dist: numpydoc; extra == "all"
 Requires-Dist: twine; extra == "all"
 Requires-Dist: pre-commit; extra == "all"
+Dynamic: license-file
 
 # Welcome to pykalman
 
@@ -90,9 +92,9 @@ Requires-Dist: pre-commit; extra == "all"
 
 `pykalman` is a Python library for Kalman filtering and smoothing, providing efficient algorithms for state estimation in time series. It includes tools for linear dynamical systems, parameter estimation, and sequential data modeling. The library supports the Kalman Filter, Unscented Kalman Filter, and EM algorithm for parameter learning.
 
-:rocket: **Version 0.10.1 out now!** [Check out the release notes here](https://github.com/pykalman/pykalman/blob/main/CHANGELOG.md).
+:rocket: **Version 0.10.2 out now!** [Check out the release notes here](https://github.com/pykalman/pykalman/blob/main/CHANGELOG.md).
 
-|  | **[Documentation](https://pykalman.github.io/)** · **[Tutorials](https://github.com/pykalman/pykalman/tree/main/examples)** |
+|  | **[Documentation](https://pykalman.readthedocs.io/en/latest/)** · **[Tutorials](https://github.com/pykalman/pykalman/tree/main/examples)** |
 |---|---|
 | **Open&#160;Source** | [![BSD 3-clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/pykalman/pykalman/blob/main/LICENSE) |
 | **Community** | [![!discord](https://img.shields.io/static/v1?logo=discord&label=discord&message=chat&color=lightgreen)](https://discord.com/invite/54ACzaFsn7) [![!LinkedI](https://img.shields.io/static/v1?logo=linkedin&label=LinkedIn&message=news&color=lightblue)](https://www.linkedin.com/company/scikit-time/) |

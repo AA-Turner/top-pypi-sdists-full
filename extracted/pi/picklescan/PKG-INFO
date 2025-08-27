@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: picklescan
-Version: 0.0.29
+Version: 0.0.30
 Summary: Security scanner detecting Python Pickle files performing suspicious actions
 Home-page: https://github.com/mmaitre314/picklescan
 Author: Matthieu Maitre
@@ -33,9 +33,6 @@ Dynamic: license-file
 </p>
 
 Security scanner detecting Python Pickle files performing suspicious actions.
-
-> For more generic model scanning, Protect AI's [modelscan](https://github.com/protectai/modelscan) is now available to scan not only Pickle files but
-> also PyTorch, TensorFlow, and Keras.
 
 ## Getting started
 

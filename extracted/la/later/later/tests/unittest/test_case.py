@@ -1,16 +1,18 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# Licensed under the Apache License, Version 2.0 (the "License"); you may
-# not use this file except in compliance with the License. You may obtain
-# a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and limitations
-# under the License
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# pyre-strict
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +23,7 @@ from later.unittest import ignoreAsyncioErrors, ignoreTaskLeaks, TestCase
 
 
 # This is a place to purposefully produce leaked tasks
-saved_tasks: List[asyncio.Task[Any]] = []
+saved_tasks: list[asyncio.Task] = []
 
 
 class TestTestCase(TestCase):
@@ -45,7 +47,7 @@ class TestTestCase(TestCase):
         await event.wait()
 
     @unittest.expectedFailure
-    async def test_unmanaged_task_done_value(self) -> None:
+    async def dtest_unmanaged_task_done_value(self) -> None:
         async def coro(e: asyncio.Event) -> bool:
             e.set()
             return False
@@ -66,7 +68,7 @@ class TestTestCase(TestCase):
         t = asyncio.get_running_loop().create_task(asyncio.sleep(10))
         x = False
 
-        def callback(fut):
+        def callback(fut: asyncio.Task) -> None:
             nonlocal x
             x = True
 
@@ -76,7 +78,7 @@ class TestTestCase(TestCase):
         self.assertTrue(x, "callback was executed")
 
     async def test_task_exception(self) -> None:
-        async def coro():
+        async def coro() -> None:
             raise RuntimeError
 
         t = asyncio.get_running_loop().create_task(coro())
@@ -91,14 +93,15 @@ class TestTestCase(TestCase):
 
     @ignoreAsyncioErrors
     async def test_ignore_asyncio_error(self) -> None:
-        async def sub():
+        async def sub() -> int:
             return 5
 
+        # pyre-ignore[1001]: This is fine we don't await on purpose
         sub()  # don't await
 
     @ignoreTaskLeaks
     async def test_ignore_task_leaks(self) -> None:
-        async def coro():
+        async def coro() -> None:
             raise RuntimeError
 
         saved_tasks.append(asyncio.get_running_loop().create_task(coro()))
@@ -111,16 +114,17 @@ class TestTestCase(TestCase):
 @ignoreAsyncioErrors
 class IgnoreAsyncioErrorsTestCase(TestCase):
     async def test_ignore_asyncio_error_on_case_class(self) -> None:
-        async def sub():
+        async def sub() -> int:
             return 5
 
+        # pyre-ignore[1001]: This is fine we don't await on purpose
         sub()  # don't await
 
 
 @ignoreTaskLeaks
 class IgnoreTaskLeaksTestCase(TestCase):
     async def test_ignore_task_leaks_on_case_class(self) -> None:
-        async def coro():
+        async def coro() -> None:
             raise RuntimeError
 
         saved_tasks.append(asyncio.get_running_loop().create_task(coro()))

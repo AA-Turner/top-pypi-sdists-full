@@ -603,7 +603,7 @@ def _get_debug_json(time_str: str, msg: str) -> str:
 
 def print_stack_paths() -> None:
     stack = inspect.stack()[1:]  # skip current frame
-    stack.reverse()  # vom Hauptprogramm zur tiefsten Funktion
+    stack.reverse()
 
     last_filename = None
     for depth, frame_info in enumerate(stack):
@@ -2057,15 +2057,6 @@ def run_live_share_command(force: bool = False) -> Tuple[str, str]:
 
     return "", ""
 
-#def extract_and_print_qr(text: str) -> None:
-#    match = re.search(r"(https?://\S+|\b[\w.-]+@[\w.-]+\.\w+\b|\b\d{10,}\b)", text)
-#    if match:
-#        data = match.group(0)
-#        qr = qrcode.QRCode(box_size=1, error_correction=qrcode.constants.ERROR_CORRECT_L, border=0)
-#        qr.add_data(data)
-#        qr.make()
-#        qr.print_ascii(out=sys.stdout)
-
 def force_live_share() -> bool:
     if args.live_share:
         return live_share(True)
@@ -2085,7 +2076,6 @@ def live_share(force: bool = False, text_and_qr: bool = False) -> bool:
     if text_and_qr:
         if stderr:
             print_green(stderr)
-            #extract_and_print_qr(stderr)
         else:
             print_red("This call should have shown the CURL, but didnt. Stderr: {stderr}, stdout: {stdout}")
     if stdout:
@@ -3698,7 +3688,7 @@ def write_failed_logs(data_dict: Optional[dict], error_description: str = "") ->
         data = [list(data_dict.values())]
     else:
         print_debug("No data_dict provided, writing only error description.")
-        data = [[]]  # leeres Datenfeld, nur error_description kommt dazu
+        data = [[]]
 
     if error_description:
         headers.append('error_description')
@@ -3937,7 +3927,7 @@ def _write_job_infos_csv_build_headline(parameters_keys: List[str], extra_vars_n
         "run_time",
         "program_string",
         *parameters_keys,
-        *arg_result_names,  # arg_result_names muss global definiert sein
+        *arg_result_names,
         "exit_code",
         "signal",
         "hostname",
@@ -7813,8 +7803,10 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
         print_debug(f"get_batched_arms: Attempt {attempts + 1}: requesting {remaining} more arm(s).")
 
         print_debug("get pending observations")
+        t0 = time.time()
         pending_observations = get_pending_observation_features(experiment=ax_client.experiment)
-        print_debug("got pending observations")
+        dt = time.time() - t0
+        print_debug(f"got pending observations: {pending_observations} (took {dt:.2f} seconds)")
 
         print_debug("getting global_gs.gen()")
         batched_generator_run = global_gs.gen(
@@ -7824,7 +7816,6 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
         )
         print_debug(f"got global_gs.gen(): {batched_generator_run}")
 
-        # Inline rekursiv entpacken bis flach
         depth = 0
         path = "batched_generator_run"
         while isinstance(batched_generator_run, (list, tuple)) and len(batched_generator_run) > 0:
@@ -7875,7 +7866,6 @@ def generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
                 if cnt >= n:
                     break
 
-                # 🔹 Erzeuge einen komplett neuen Arm, damit Ax den Namen vergibt
                 try:
                     arm = Arm(parameters=arm.parameters)
                 except Exception as arm_err:
@@ -7943,7 +7933,7 @@ def create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
     params = arm.parameters
 
     if not has_no_post_generation_constraints_or_matches_constraints(post_generation_constraints, params):
-        print_debug(f"Trial {trial_index} does not meet post-generation constraints. Marking abandoned.")
+        print_debug(f"Trial {trial_index} does not meet post-generation constraints. Marking abandoned. Params: {params}, constraints: {post_generation_constraints}")
         trial.mark_abandoned(reason="Post-Generation-Constraint failed")
         abandoned_trial_indices.append(trial_index)
         raise TrialRejected("Post-generation constraints not met.")
@@ -8625,7 +8615,7 @@ def create_step(model_name: str, _num_trials: int = -1, index: Optional[int] = N
     model_enum = get_model_from_name(model_name)
 
     return GenerationStep(
-        generator=model_enum,   # ✅ neue API
+        generator=model_enum,
         num_trials=_num_trials,
         max_parallelism=1000 * max_eval + 1000,
         model_kwargs=get_model_kwargs(),
@@ -9093,8 +9083,10 @@ def check_search_space_exhaustion(nr_of_items: int) -> bool:
         print_debug(_wrn)
         progressbar_description(_wrn)
 
+        live_share()
         return True
 
+    live_share()
     return False
 
 def finalize_jobs() -> None:
@@ -9629,7 +9621,7 @@ def load_experiment_state() -> None:
         arms_seen = {}
         for arm in data.get("arms", []):
             name = arm.get("name")
-            sig = arm.get("parameters")  # grobe Signatur
+            sig = arm.get("parameters")
             if not name:
                 continue
             if name in arms_seen and arms_seen[name] != sig:
@@ -9638,7 +9630,6 @@ def load_experiment_state() -> None:
                 arm["name"] = new_name
             arms_seen[name] = sig
 
-        # Gefilterten Zustand speichern und laden
         temp_path = state_path + ".no_conflicts.json"
         with open(temp_path, encoding="utf-8", mode="w") as f:
             json.dump(data, f)
@@ -11133,7 +11124,6 @@ def stack_trace_wrapper(func: Any, regex: Any = None) -> Any:
     pattern = re.compile(regex) if regex else None
 
     def wrapped(*args, **kwargs):
-        # nur prüfen ob diese Funktion den Trigger erfüllt
         if pattern and not pattern.search(func.__name__):
             return func(*args, **kwargs)
 

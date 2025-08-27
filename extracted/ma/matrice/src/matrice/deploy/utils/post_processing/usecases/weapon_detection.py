@@ -24,9 +24,9 @@ class WeaponDetectionConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    confidence_threshold: float = 0.6
-    weapon_categories: List[str] = field(default_factory=lambda: ['billete', 'bluntweapon', 'glass', 'gun', 'knife', 'monedero', 'pistol', 'smartphone', 'tarjeta'])
-    target_weapon_categories: List[str] = field(default_factory=lambda: ['bluntweapon', 'glass', 'gun', 'knife', 'monedero', 'pistol', 'tarjeta'])
+    confidence_threshold: float = 0.3
+    weapon_categories: List[str] = field(default_factory=lambda: ['billete', 'bluntweapon', 'glass', 'gun', 'knife', 'monedero', 'weapon', 'smartphone', 'tarjeta'])
+    target_weapon_categories: List[str] = field(default_factory=lambda: ['bluntweapon', 'glass', 'gun', 'knife', 'monedero', 'weapon', 'tarjeta'])
     alert_config: Optional[AlertConfig] = None
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
@@ -36,7 +36,7 @@ class WeaponDetectionConfig(BaseConfig):
             3: "gun",
             4: "knife",
             5: "monedero",
-            6: "pistol",
+            6: "weapon",
             7: "smartphone",
             8: "tarjeta"
         }
@@ -50,7 +50,7 @@ class WeaponDetectionUseCase(BaseProcessor):
         "gun": "Gun",
         "knife": "Knife",
         "monedero": "Monedero",
-        "pistol": "Pistol",
+        "weapon": "Weapon",
         "smartphone": "Smartphone",
         "tarjeta": "Tarjeta"
     }
@@ -60,7 +60,7 @@ class WeaponDetectionUseCase(BaseProcessor):
         self.category = "security"
         self.CASE_TYPE: Optional[str] = 'weapon_detection'
         self.CASE_VERSION: Optional[str] = '1.0'
-        self.target_categories = ['bluntweapon', 'glass', 'gun', 'knife', 'monedero', 'pistol', 'tarjeta']
+        self.target_categories = ['bluntweapon', 'glass', 'gun', 'knife', 'monedero', 'weapon', 'tarjeta']
         self.smoothing_tracker = None
         self.tracker = None
         self._total_frame_counter = 0
@@ -346,7 +346,7 @@ class WeaponDetectionUseCase(BaseProcessor):
         if any(count > 0 for count in weapon_counts.values()):
             for cat, count in weapon_counts.items():
                 if count > 0:
-                    human_text_lines.append(f"\t- {count} {cat.capitalize()} incident(s) detected")
+                    human_text_lines.append(f"\t- {count} weapons(s) detected")
         else:
             human_text_lines.append(f"\t- No weapon[s] detected")
 
@@ -354,7 +354,7 @@ class WeaponDetectionUseCase(BaseProcessor):
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
         for cat, count in total_counts_dict.items():
             if count > 0:
-                human_text_lines.append(f"\t{count} {cat} [s] Detected")
+                human_text_lines.append(f"\t{count} weapon[s] Detected")
         human_text_lines.append("")
         human_text_lines.append("Alerts: None" if not alerts else f"Alerts: {alerts[0].get('settings', {})} sent @ {current_timestamp}")
         human_text = "\n".join(human_text_lines)
@@ -441,11 +441,9 @@ class WeaponDetectionUseCase(BaseProcessor):
 
     def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
+        
         if not stream_info:
             return "00:00:00.00"
-        print("---------------------------------STREAM_INFO------------------------------")
-        print(stream_info)
-        print("---------------------------------STREAM_INFO------------------------------")
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:
@@ -454,7 +452,6 @@ class WeaponDetectionUseCase(BaseProcessor):
                     start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
                 
-
                 return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -466,7 +463,8 @@ class WeaponDetectionUseCase(BaseProcessor):
                 start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
 
             stream_time_str = self._format_timestamp_for_video(start_time)
-            
+           
+
             return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
         else:
             stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
@@ -522,7 +520,7 @@ class WeaponDetectionUseCase(BaseProcessor):
             dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
-
+        
     def _format_timestamp(self, timestamp: Any) -> str:
         """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
 
@@ -592,7 +590,7 @@ class WeaponDetectionUseCase(BaseProcessor):
     def _extract_predictions(self, detections: list) -> List[Dict[str, Any]]:
         return [
             {
-                "category": det.get("category", "unknown"),
+                "category": "Weapon" if det.get("category", "unknown") == "pistol" else det.get("category", "unknown"),
                 "confidence": det.get("confidence", 0.0),
                 "bounding_box": det.get("bounding_box", {})
             }
@@ -667,13 +665,56 @@ class WeaponDetectionUseCase(BaseProcessor):
         }
         return canonical_id
 
-    # def _format_timestamp(self, timestamp: float) -> str:
-    #     return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+    def _format_timestamp(self, timestamp: Any) -> str:
+        """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
 
-    # def _get_tracking_start_time(self) -> str:
-    #     if self._tracking_start_time is None:
-    #         return "N/A"
-    #     return self._format_timestamp(self._tracking_start_time)
+        The input can be either:
+        1. A numeric Unix timestamp (``float`` / ``int``) – it will first be converted to a
+           string in the format ``YYYY-MM-DD-HH:MM:SS.ffffff UTC``.
+        2. A string already following the same layout.
 
-    # def _set_tracking_start_time(self) -> None:
-    #     self._tracking_start_time = time.time()
+        The returned value preserves the overall format of the input but truncates or pads
+        the fractional seconds portion to **exactly two digits**.
+
+        Example
+        -------
+        >>> self._format_timestamp("2025-08-19-04:22:47.187574 UTC")
+        '2025-08-19-04:22:47.18 UTC'
+        """
+
+        # Convert numeric timestamps to the expected string representation first
+        if isinstance(timestamp, (int, float)):
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                '%Y-%m-%d-%H:%M:%S.%f UTC'
+            )
+
+        # Ensure we are working with a string from here on
+        if not isinstance(timestamp, str):
+            return str(timestamp)
+
+        # If there is no fractional component, simply return the original string
+        if '.' not in timestamp:
+            return timestamp
+
+        # Split out the main portion (up to the decimal point)
+        main_part, fractional_and_suffix = timestamp.split('.', 1)
+
+        # Separate fractional digits from the suffix (typically ' UTC')
+        if ' ' in fractional_and_suffix:
+            fractional_part, suffix = fractional_and_suffix.split(' ', 1)
+            suffix = ' ' + suffix  # Re-attach the space removed by split
+        else:
+            fractional_part, suffix = fractional_and_suffix, ''
+
+        # Guarantee exactly two digits for the fractional part
+        fractional_part = (fractional_part + '00')[:2]
+
+        return f"{main_part}.{fractional_part}{suffix}"
+
+    def _get_tracking_start_time(self) -> str:
+        if self._tracking_start_time is None:
+            return "N/A"
+        return self._format_timestamp(self._tracking_start_time)
+
+    def _set_tracking_start_time(self) -> None:
+        self._tracking_start_time = time.time()

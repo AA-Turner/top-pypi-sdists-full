@@ -7,6 +7,7 @@ import logging
 import dns
 import dns.resolver
 import re
+import unicodedata
 from collections import OrderedDict
 
 import publicsuffixlist
@@ -34,6 +35,7 @@ MAILTO_REGEX_STRING = (
     r"^(mailto):([\w\-!#$%&'*+-/=?^_`{|}~]"
     r"[\w\-.!#$%&'*+-/=?^_`{|}~]*@[\w\-.]+)(!\w+)?"
 )
+ZERO_WIDTH_RE = re.compile(r"[\u200B-\u200D\uFEFF]")  # includes ZWSP, ZWNJ, ZWJ, BOM
 
 MAILTO_REGEX = re.compile(MAILTO_REGEX_STRING, re.IGNORECASE)
 
@@ -67,13 +69,32 @@ def get_base_domain(domain: str) -> str:
     """
 
     psl = publicsuffixlist.PublicSuffixList()
-    domain = domain.lower()
+    domain = normalize_domain(domain)
     return psl.privatesuffix(domain) or domain
+
+
+def normalize_domain(domain: str) -> str:
+    """
+    Normalize an input domain by removing zero-width characters and lowering it
+
+    Args:
+        domain (str): A domain or subdomain
+
+    Returns:
+        str: A normalized domain
+    """
+    # 1. Normalize Unicode (NFC form for consistency)
+    domain = unicodedata.normalize("NFC", domain)
+    # 2. Remove zero-width and similar hidden chars
+    domain = ZERO_WIDTH_RE.sub("", domain)
+    # 3. Lowercase for case-insensitivity (domains are case-insensitive)
+    return domain.lower()
 
 
 def query_dns(
     domain: str,
     record_type: str,
+    *,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
     timeout: float = 2.0,
@@ -94,7 +115,7 @@ def query_dns(
     Returns:
         list: A list of answers
     """
-    domain = domain.lower()
+    domain = normalize_domain(domain)
     record_type = record_type.upper()
     cache_key = f"{domain}_{record_type}"
     if cache is None:
@@ -144,6 +165,7 @@ def query_dns(
 
 def get_a_records(
     domain: str,
+    *,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
     timeout: float = 2.0,
@@ -187,6 +209,7 @@ def get_a_records(
 
 def get_reverse_dns(
     ip_address: str,
+    *,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
     timeout: float = 2.0,
@@ -224,6 +247,7 @@ def get_reverse_dns(
 
 def get_txt_records(
     domain: str,
+    *,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
     timeout: float = 2.0,
@@ -261,6 +285,7 @@ def get_txt_records(
 
 def get_nameservers(
     domain: str,
+    *,
     approved_nameservers: list[str] = None,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
@@ -287,7 +312,6 @@ def get_nameservers(
 
     ns_records = []
     try:
-
         ns_records = query_dns(
             domain, "NS", nameservers=nameservers, resolver=resolver, timeout=timeout
         )
@@ -315,6 +339,7 @@ def get_nameservers(
 
 def get_mx_records(
     domain: str,
+    *,
     nameservers: list[str] = None,
     resolver: dns.resolver.Resolver = None,
     timeout: float = 2.0,

@@ -8,7 +8,7 @@ from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 from setuptools.command.install_lib import install_lib
 
-UNSUPPORTED_PYTHON = (3, 14)
+UNSUPPORTED_PYTHON = (3, 15) if environ.get("CONTRAST_ALLOW_PY314") else (3, 14)
 
 root_dir = path.abspath(path.dirname(__file__))
 
@@ -25,7 +25,7 @@ def is_arm():
 
 version_specifier = sys.version_info[:2]
 if not version_specifier < UNSUPPORTED_PYTHON:
-    raise RuntimeWarning(
+    raise RuntimeError(
         "Fatal: Cannot install contrast-agent: Unsupported python version "
         f"({platform.python_version()})"
     )

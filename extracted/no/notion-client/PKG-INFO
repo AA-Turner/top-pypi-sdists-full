@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: notion-client
-Version: 2.4.0
+Version: 2.5.0
 Summary: Python client for the official Notion API
 Home-page: https://github.com/ramnes/notion-sdk-py
 Author: Guillaume Gelin
@@ -18,6 +18,16 @@ Requires-Python: >=3.7, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpx>=0.23.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <!-- markdownlint-disable -->
 ![notion-sdk-py](https://socialify.git.ci/ramnes/notion-sdk-py/image?font=Bitter&language=1&logo=https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2F4%2F45%2FNotion_app_logo.png&owner=1&pattern=Circuit%20Board&theme=Light)

@@ -15,7 +15,7 @@ logger = logging.getLogger("contrast")
 DEBUG_LEVEL = stdlib_logging.DEBUG
 
 
-def _log_extra_safely(
+def log_and_report_exception(
     log_message: str | None,
     error: Exception,
     original_func,
@@ -23,6 +23,9 @@ def _log_extra_safely(
     kwargs,
     log_level="debug",
 ):
+    """
+    Log an exception at the given level and report it to telemetry if available.
+    """
     TELEMETRY = contrast.TELEMETRY if not contrast.telemetry_disabled() else None
 
     try:
@@ -40,7 +43,7 @@ def _log_extra_safely(
                 error=error,
                 original_func=original_func,
                 message=full_msg,
-                # 1 to remove the current _log_extra_safely frame
+                # 1 to remove the current _report_exception frame
                 skip_frames=1,
             )
     except ValidationException as val_ex:
@@ -80,7 +83,7 @@ def _fail_safely(log_message, log_level, return_value):
                     logger.debug("Silenced exception in fail_safely", exc_info=ex)
                     return return_value
 
-                _log_extra_safely(
+                log_and_report_exception(
                     log_message, ex, original_func, args, kwargs, log_level
                 )
                 if TESTING:

@@ -572,6 +572,7 @@ class AlertsFilterFieldName(sgqlc.types.Enum):
     * `AUDIENCE`None
     * `DATABASE`None
     * `DOMAIN`None
+    * `HAS_DATADOG_INCIDENTS`None
     * `HAS_JIRA_TICKETS`None
     * `HAS_KEY_ASSETS`None
     * `HAS_OPSGENIE_INCIDENTS`None
@@ -593,6 +594,7 @@ class AlertsFilterFieldName(sgqlc.types.Enum):
         "AUDIENCE",
         "DATABASE",
         "DOMAIN",
+        "HAS_DATADOG_INCIDENTS",
         "HAS_JIRA_TICKETS",
         "HAS_KEY_ASSETS",
         "HAS_OPSGENIE_INCIDENTS",
@@ -5553,6 +5555,7 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
         "has_jira_tickets",
         "has_service_now_incidents",
         "has_opsgenie_incidents",
+        "has_datadog_incidents",
         "has_key_assets",
         "tags",
         "audience_ids",
@@ -5633,6 +5636,11 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
     has_opsgenie_incidents = sgqlc.types.Field(Boolean, graphql_name="hasOpsgenieIncidents")
     """If true, return only alerts with Opsgenie incidents. If false,
     return only alerts without any Opsgenie incidents.
+    """
+
+    has_datadog_incidents = sgqlc.types.Field(Boolean, graphql_name="hasDatadogIncidents")
+    """If true, return only alerts with Datadog incidents. If false,
+    return only alerts without any Datadog incidents.
     """
 
     has_key_assets = sgqlc.types.Field(Boolean, graphql_name="hasKeyAssets")
@@ -12226,7 +12234,7 @@ class AgentLogNode(sgqlc.types.Type):
     __field_names__ = ("node_name", "node_value", "child_nodes", "level", "count", "is_leaf")
     node_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeName")
 
-    node_value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeValue")
+    node_value = sgqlc.types.Field(String, graphql_name="nodeValue")
 
     child_nodes = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentLogNode"))),
@@ -12879,7 +12887,16 @@ class AssetSelection(sgqlc.types.Type):
 
 class AssetSelectionResult(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("name", "id", "type", "count", "count_unselected", "selected", "mcon")
+    __field_names__ = (
+        "name",
+        "id",
+        "type",
+        "count",
+        "count_unselected",
+        "count_database_schema",
+        "selected",
+        "mcon",
+    )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
     id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
@@ -12889,6 +12906,10 @@ class AssetSelectionResult(sgqlc.types.Type):
     count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
 
     count_unselected = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="countUnselected")
+
+    count_database_schema = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="countDatabaseSchema"
+    )
 
     selected = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="selected")
 
@@ -66261,6 +66282,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "jira_tickets",
         "service_now_incidents",
         "opsgenie_incidents",
+        "datadog_incidents",
         "created_time",
         "updated_time",
         "feedback",
@@ -66306,6 +66328,11 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         sgqlc.types.list_of("OpsgenieIncident"), graphql_name="opsgenieIncidents"
     )
     """Opsgenie incidents associated with the alert"""
+
+    datadog_incidents = sgqlc.types.Field(
+        sgqlc.types.list_of("DatadogIncident"), graphql_name="datadogIncidents"
+    )
+    """Datadog incidents associated with the alert"""
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -67888,7 +67915,6 @@ class CustomRule(sgqlc.types.Type, Node):
         "conditional_snooze",
         "event_rollup_until_changed",
         "event_rollup_count",
-        "notify_rule_run_failure",
         "schedule",
         "dc_schedule_uuid",
         "data_collection_dc_schedule_uuid",
@@ -68027,9 +68053,6 @@ class CustomRule(sgqlc.types.Type, Node):
 
     event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
     """The number of events to roll up into a single incident"""
-
-    notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
-    """DEPRECATED: Not used for anything"""
 
     schedule = sgqlc.types.Field(DataCollectorSchedule, graphql_name="schedule")
 
@@ -69355,6 +69378,23 @@ class DatabricksTaskRun(sgqlc.types.Type, Node):
 
     job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
     """MCON of Job for provided job_id"""
+
+
+class DatadogIncident(sgqlc.types.Type, NodeWithUUID):
+    __schema__ = schema
+    __field_names__ = ("created_by", "display_name", "incident_url", "integration_id", "created_at")
+    created_by = sgqlc.types.Field("User", graphql_name="createdBy")
+    """Creator"""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+
+    incident_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="incidentUrl")
+    """Datadog incident URL"""
+
+    integration_id = sgqlc.types.Field(UUID, graphql_name="integrationId")
+    """Datadog integration ID"""
+
+    created_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdAt")
 
 
 class Dataset(sgqlc.types.Type, Node):
@@ -71209,7 +71249,6 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "schedule",
         "monitor_name",
         "is_paused",
-        "notify_rule_run_failure",
         "disable_look_back_bootstrap",
         "high_segment_count",
         "segment_count_hint",
@@ -71340,9 +71379,6 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
     """Is this monitor paused?"""
-
-    notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
-    """DEPRECATED: Not used for anything."""
 
     disable_look_back_bootstrap = sgqlc.types.Field(
         Boolean, graphql_name="disableLookBackBootstrap"
@@ -73670,7 +73706,6 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "last_update_time",
         "schedule_type",
         "last_run",
-        "notify_rule_run_failure",
         "interval_in_seconds",
         "prev_execution_time",
         "next_execution_time",
@@ -73779,8 +73814,6 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     )
 
     last_run = sgqlc.types.Field(DateTime, graphql_name="lastRun")
-
-    notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
 
     interval_in_seconds = sgqlc.types.Field(Int, graphql_name="intervalInSeconds")
 

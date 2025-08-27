@@ -18,6 +18,72 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+class GetModelGroupSystemPullImageSecretRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    MODEL_GROUP_SYSTEM_PULL_SECRET_IDENTIFIERS_FIELD_NUMBER: builtins.int
+    @property
+    def model_group_system_pull_secret_identifiers(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ModelGroupSystemPullSecretIdentifier]: ...
+    def __init__(
+        self,
+        *,
+        model_group_system_pull_secret_identifiers: collections.abc.Iterable[global___ModelGroupSystemPullSecretIdentifier] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["model_group_system_pull_secret_identifiers", b"model_group_system_pull_secret_identifiers"]) -> None: ...
+
+global___GetModelGroupSystemPullImageSecretRequest = GetModelGroupSystemPullImageSecretRequest
+
+class ModelGroupSystemPullSecretIdentifier(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
+    ACCOUNT_ID_FIELD_NUMBER: builtins.int
+    model_group_name: builtins.str
+    account_id: builtins.str
+    def __init__(
+        self,
+        *,
+        model_group_name: builtins.str = ...,
+        account_id: builtins.str = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["model_group_identifier", b"model_group_identifier", "model_group_name", b"model_group_name"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["account_id", b"account_id", "model_group_identifier", b"model_group_identifier", "model_group_name", b"model_group_name"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["model_group_identifier", b"model_group_identifier"]) -> typing_extensions.Literal["model_group_name"] | None: ...
+
+global___ModelGroupSystemPullSecretIdentifier = ModelGroupSystemPullSecretIdentifier
+
+class SystemPullSecretInfoNamesResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SECRET_INFOS_FIELD_NUMBER: builtins.int
+    @property
+    def secret_infos(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SystemPullSecretInfo]: ...
+    def __init__(
+        self,
+        *,
+        secret_infos: collections.abc.Iterable[global___SystemPullSecretInfo] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["secret_infos", b"secret_infos"]) -> None: ...
+
+global___SystemPullSecretInfoNamesResponse = SystemPullSecretInfoNamesResponse
+
+class SystemPullSecretInfo(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
+    SECRET_PULL_IMAGE_FIELD_NUMBER: builtins.int
+    model_group_name: builtins.str
+    secret_pull_image: builtins.str
+    def __init__(
+        self,
+        *,
+        model_group_name: builtins.str = ...,
+        secret_pull_image: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["model_group_name", b"model_group_name", "secret_pull_image", b"secret_pull_image"]) -> None: ...
+
+global___SystemPullSecretInfo = SystemPullSecretInfo
+
 class CreateIfNotExistsModelGroupRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

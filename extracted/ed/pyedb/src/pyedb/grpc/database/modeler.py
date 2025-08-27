@@ -92,7 +92,8 @@ class Modeler(object):
     def __init__(self, p_edb) -> None:
         """Initialize Modeler instance."""
         self._pedb = p_edb
-        self._primitives = []
+        self.__primitives = []
+        self.__primitives_by_layer = {}
 
     @property
     def _edb(self) -> Any:
@@ -267,7 +268,7 @@ class Modeler(object):
             try:
                 lay = i.layer.name
                 if lay in _primitives_by_layer:
-                    _primitives_by_layer[lay].append(Primitive(self._pedb, i))
+                    _primitives_by_layer[lay].append(i)
             except (InvalidArgumentException, AttributeError):
                 pass
         return _primitives_by_layer
@@ -1114,7 +1115,7 @@ class Modeler(object):
         #     return None
         # pointA = GrpcPointData(pointA[0]), self._get_edb_value(shape.pointA[1])
         # )
-        # pointB = self._edb.geometry.point_data(
+        # pointB = self._edb.Geometry.PointData(
         #     self._get_edb_value(shape.pointB[0]), self._get_edb_value(shape.pointB[1])
         # )
         # return self._edb.geometry.polygon_data.create_from_bbox((pointA, pointB))
@@ -1475,7 +1476,11 @@ class Modeler(object):
             if isinstance(pins_by_name, str):
                 pins_by_name = [pins_by_name]
             p_inst = self._pedb.layout.padstack_instances
-            _pins = {pin.id: pin for pin in p_inst if pin.aedt_name in pins_by_aedt_name or pin.name in pins_by_name}
+            _pins = {
+                pin_id: pin
+                for pin_id, pin in p_inst.items()
+                if pin.aedt_name in pins_by_aedt_name or pin.name in pins_by_name
+            }
             if not pins:
                 pins = _pins
             else:

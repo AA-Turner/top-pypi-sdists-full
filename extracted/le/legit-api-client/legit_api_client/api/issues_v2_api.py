@@ -641,7 +641,7 @@ class IssuesV2Api:
     @validate_call
     def get_extended_issues(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -659,7 +659,7 @@ class IssuesV2Api:
 
         Get extended data on the provided issue ids. To get the ids that match certain filters use the \"Get issues\" API
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -708,7 +708,7 @@ class IssuesV2Api:
     @validate_call
     def get_extended_issues_with_http_info(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -726,7 +726,7 @@ class IssuesV2Api:
 
         Get extended data on the provided issue ids. To get the ids that match certain filters use the \"Get issues\" API
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -775,7 +775,7 @@ class IssuesV2Api:
     @validate_call
     def get_extended_issues_without_preload_content(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -793,7 +793,7 @@ class IssuesV2Api:
 
         Get extended data on the provided issue ids. To get the ids that match certain filters use the \"Get issues\" API
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -907,7 +907,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_action_history(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -925,7 +925,7 @@ class IssuesV2Api:
 
         Get issue id to the last 100 actions performed on it, for the provided issue ids. Some issues may not have any history (if no action was performed on them) To get all of the actions on a specific issue (paginated) use the \"Get the action history of a single issue by its id\" API
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -974,7 +974,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_action_history_with_http_info(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -992,7 +992,7 @@ class IssuesV2Api:
 
         Get issue id to the last 100 actions performed on it, for the provided issue ids. Some issues may not have any history (if no action was performed on them) To get all of the actions on a specific issue (paginated) use the \"Get the action history of a single issue by its id\" API
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1041,7 +1041,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_action_history_without_preload_content(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1059,7 +1059,7 @@ class IssuesV2Api:
 
         Get issue id to the last 100 actions performed on it, for the provided issue ids. Some issues may not have any history (if no action was performed on them) To get all of the actions on a specific issue (paginated) use the \"Get the action history of a single issue by its id\" API
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1439,7 +1439,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_comments(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1457,7 +1457,7 @@ class IssuesV2Api:
 
         Get issue id to the comments on it, for the provided issue ids. Some issues may not have comment
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1506,7 +1506,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_comments_with_http_info(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1524,7 +1524,7 @@ class IssuesV2Api:
 
         Get issue id to the comments on it, for the provided issue ids. Some issues may not have comment
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1573,7 +1573,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_comments_without_preload_content(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1591,7 +1591,7 @@ class IssuesV2Api:
 
         Get issue id to the comments on it, for the provided issue ids. Some issues may not have comment
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1705,7 +1705,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_remediation(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1723,7 +1723,7 @@ class IssuesV2Api:
 
         Get issue id to its remediation steps, for the provided issue ids
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1772,7 +1772,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_remediation_with_http_info(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1790,7 +1790,7 @@ class IssuesV2Api:
 
         Get issue id to its remediation steps, for the provided issue ids
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1839,7 +1839,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_remediation_without_preload_content(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1857,7 +1857,7 @@ class IssuesV2Api:
 
         Get issue id to its remediation steps, for the provided issue ids
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1971,7 +1971,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_tags(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1989,7 +1989,7 @@ class IssuesV2Api:
 
         Get issue id to the tags on it, for the provided issue ids. Some issues may not have tags
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2038,7 +2038,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_tags_with_http_info(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2056,7 +2056,7 @@ class IssuesV2Api:
 
         Get issue id to the tags on it, for the provided issue ids. Some issues may not have tags
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2105,7 +2105,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_tags_without_preload_content(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2123,7 +2123,7 @@ class IssuesV2Api:
 
         Get issue id to the tags on it, for the provided issue ids. Some issues may not have tags
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2237,7 +2237,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_tickets(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2255,7 +2255,7 @@ class IssuesV2Api:
 
         Get issue id to the tickets on it, for the provided issue ids. Some issues may not have tickets
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2304,7 +2304,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_tickets_with_http_info(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2322,7 +2322,7 @@ class IssuesV2Api:
 
         Get issue id to the tickets on it, for the provided issue ids. Some issues may not have tickets
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2371,7 +2371,7 @@ class IssuesV2Api:
     @validate_call
     def get_issue_tickets_without_preload_content(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2389,7 +2389,7 @@ class IssuesV2Api:
 
         Get issue id to the tickets on it, for the provided issue ids. Some issues may not have tickets
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2503,7 +2503,7 @@ class IssuesV2Api:
     @validate_call
     def get_issues_additional_data(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2521,7 +2521,7 @@ class IssuesV2Api:
 
         Get the issue ids to their specific data, response structure can change per issue. To get the ids that match certain filters use the \"Get issues\" API
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2570,7 +2570,7 @@ class IssuesV2Api:
     @validate_call
     def get_issues_additional_data_with_http_info(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2588,7 +2588,7 @@ class IssuesV2Api:
 
         Get the issue ids to their specific data, response structure can change per issue. To get the ids that match certain filters use the \"Get issues\" API
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2637,7 +2637,7 @@ class IssuesV2Api:
     @validate_call
     def get_issues_additional_data_without_preload_content(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2655,7 +2655,7 @@ class IssuesV2Api:
 
         Get the issue ids to their specific data, response structure can change per issue. To get the ids that match certain filters use the \"Get issues\" API
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4817,7 +4817,7 @@ class IssuesV2Api:
     @validate_call
     def get_issues_vulnerabilities(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4835,7 +4835,7 @@ class IssuesV2Api:
 
         Get the issue ids to their vulnerabilities. Some issue types may not have vulnerabilities
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4884,7 +4884,7 @@ class IssuesV2Api:
     @validate_call
     def get_issues_vulnerabilities_with_http_info(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4902,7 +4902,7 @@ class IssuesV2Api:
 
         Get the issue ids to their vulnerabilities. Some issue types may not have vulnerabilities
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4951,7 +4951,7 @@ class IssuesV2Api:
     @validate_call
     def get_issues_vulnerabilities_without_preload_content(
         self,
-        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        ids: Annotated[List[StrictStr], Field(description="List of issue Ids to filter by (max 100 items)")],
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4969,7 +4969,7 @@ class IssuesV2Api:
 
         Get the issue ids to their vulnerabilities. Some issue types may not have vulnerabilities
 
-        :param ids: List of issue Ids to filter by (max 100 items)
+        :param ids: List of issue Ids to filter by (max 100 items) (required)
         :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
