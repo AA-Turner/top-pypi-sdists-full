@@ -69,6 +69,8 @@ from .literals import (
     ClarifyFeatureTypeType,
     ClarifyTextGranularityType,
     ClarifyTextLanguageType,
+    ClusterAutoScalingModeType,
+    ClusterAutoScalingStatusType,
     ClusterEventResourceTypeType,
     ClusterInstanceStatusType,
     ClusterInstanceTypeType,
@@ -480,6 +482,8 @@ __all__ = (
     "ClarifyShapBaselineConfigTypeDef",
     "ClarifyShapConfigTypeDef",
     "ClarifyTextConfigTypeDef",
+    "ClusterAutoScalingConfigOutputTypeDef",
+    "ClusterAutoScalingConfigTypeDef",
     "ClusterEbsVolumeConfigTypeDef",
     "ClusterEventDetailTypeDef",
     "ClusterEventSummaryTypeDef",
@@ -2443,6 +2447,16 @@ class ClarifyShapBaselineConfigTypeDef(TypedDict):
 class ClarifyTextConfigTypeDef(TypedDict):
     Language: ClarifyTextLanguageType
     Granularity: ClarifyTextGranularityType
+
+class ClusterAutoScalingConfigOutputTypeDef(TypedDict):
+    Mode: ClusterAutoScalingModeType
+    Status: ClusterAutoScalingStatusType
+    AutoScalerType: NotRequired[Literal["Karpenter"]]
+    FailureMessage: NotRequired[str]
+
+class ClusterAutoScalingConfigTypeDef(TypedDict):
+    Mode: ClusterAutoScalingModeType
+    AutoScalerType: NotRequired[Literal["Karpenter"]]
 
 class ClusterEbsVolumeConfigTypeDef(TypedDict):
     VolumeSizeInGB: NotRequired[int]
@@ -12069,6 +12083,8 @@ class DescribeClusterResponseTypeDef(TypedDict):
     Orchestrator: ClusterOrchestratorTypeDef
     NodeRecovery: ClusterNodeRecoveryType
     NodeProvisioningMode: Literal["Continuous"]
+    ClusterRole: str
+    AutoScaling: ClusterAutoScalingConfigOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 ScheduledUpdateConfigUnionTypeDef = Union[
@@ -12510,6 +12526,8 @@ class CreateClusterRequestTypeDef(TypedDict):
     Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
     NodeProvisioningMode: NotRequired[Literal["Continuous"]]
+    ClusterRole: NotRequired[str]
+    AutoScaling: NotRequired[ClusterAutoScalingConfigTypeDef]
 
 class UpdateClusterRequestTypeDef(TypedDict):
     ClusterName: str
@@ -12519,6 +12537,8 @@ class UpdateClusterRequestTypeDef(TypedDict):
     ]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
     InstanceGroupsToDelete: NotRequired[Sequence[str]]
+    ClusterRole: NotRequired[str]
+    AutoScaling: NotRequired[ClusterAutoScalingConfigTypeDef]
 
 class DescribeAlgorithmOutputTypeDef(TypedDict):
     AlgorithmName: str

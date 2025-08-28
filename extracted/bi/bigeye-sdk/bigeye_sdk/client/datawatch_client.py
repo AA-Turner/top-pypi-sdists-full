@@ -62,7 +62,8 @@ from bigeye_sdk.generated.com.bigeye.models.generated import (
     MetricTemplateParameterType,
     GetCustomRuleListResponse, Workspace, User, SearchType, SearchResponse, SearchRequest, DataNodeType,
     LineageSearchResponse, LineageSearchRequest,
-    GetCustomRuleListResponse, Workspace, User, BigconfigWorkflowV2StatusResponse
+    GetCustomRuleListResponse, Workspace, User, BigconfigWorkflowV2StatusResponse, IssueAssignmentUpdate,
+    UpdateIssueRequest, UpdateIssueResponse, Issue
 )
 from bigeye_sdk.log import get_logger
 from bigeye_sdk.model.delta_facade import SimpleDeltaConfiguration
@@ -1121,3 +1122,11 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
 
         response = self._call_datawatch(Method.POST, url=url, body=json.dumps(request_dict))
         return SearchResponse().from_dict(response)
+
+    def unassign_issue(self, issue_id: int) -> Issue:
+        url = f"/api/v1/issues/{issue_id}"
+        unassigned = User(id=0, name="", email="", groups=[], idp_groups=[], last_login_at=0, picture_url="")
+        assignment_update = IssueAssignmentUpdate(id=0, assignee=unassigned)
+        request = UpdateIssueRequest(assignment_update=assignment_update)
+        response = self._call_datawatch(Method.PUT, url, request.to_json())
+        return UpdateIssueResponse().from_dict(response).issue

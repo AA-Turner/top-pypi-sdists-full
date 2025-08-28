@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class CONSOLE_HT_header(bpy.types.Header):
+class CONSOLE_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
@@ -29,7 +30,7 @@ class CONSOLE_HT_header(bpy.types.Header):
         :param context:
         """
 
-class CONSOLE_MT_console(bpy.types.Menu):
+class CONSOLE_MT_console(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -54,7 +55,7 @@ class CONSOLE_MT_console(bpy.types.Menu):
         :param _context:
         """
 
-class CONSOLE_MT_context_menu(bpy.types.Menu):
+class CONSOLE_MT_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -79,7 +80,7 @@ class CONSOLE_MT_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class CONSOLE_MT_editor_menus(bpy.types.Menu):
+class CONSOLE_MT_editor_menus(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -105,7 +106,7 @@ class CONSOLE_MT_editor_menus(bpy.types.Menu):
         :param _context:
         """
 
-class CONSOLE_MT_language(bpy.types.Menu):
+class CONSOLE_MT_language(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -130,7 +131,7 @@ class CONSOLE_MT_language(bpy.types.Menu):
         :param _context:
         """
 
-class CONSOLE_MT_view(bpy.types.Menu):
+class CONSOLE_MT_view(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any

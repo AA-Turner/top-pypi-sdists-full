@@ -127,7 +127,8 @@ def test_user_patch_trailing_slash(testapp):
     ({"uuid": "123", "primary-uuid": "456", "role": "replica"}, ("123", "456")),
 ])
 def test_make_uuid_headers(nodeinfo, expected):
-    output = make_uuid_headers(nodeinfo)
+    with pytest.warns(DeprecationWarning, match="The make_uuid_headers function"):
+        output = make_uuid_headers(nodeinfo)
     assert output == expected
 
 
@@ -348,7 +349,7 @@ def test_projects_pep_691(pypistage, testapp, url):
                 {"name": "Django"},
                 {"name": "ploy_ansible"}
             ]}""")
-    pypistage.xom.httpget.mockresponse(pypistage.mirror_url, **mockkw)
+    pypistage.xom.http.mockresponse(pypistage.mirror_url, **mockkw)
     content_types = [
         "application/vnd.pypi.simple.v1+json",
         "application/vnd.pypi.simple.v1+html;q=0.2",
@@ -362,8 +363,11 @@ def test_projects_pep_691(pypistage, testapp, url):
     assert 'User-Agent' in r.headers['Vary']
     assert r.headers['content-type'] == "application/vnd.pypi.simple.v1+json"
     assert r.json['meta']['api-version'] == '1.0'
-    assert set([x['name'] for x in r.json['projects']]) == {
-        "devpi-server", "django", "ploy-ansible"}
+    assert {x["name"] for x in r.json["projects"]} == {
+        "devpi-server",
+        "django",
+        "ploy-ansible",
+    }
 
 
 def test_project_pep_691(mapp, testapp):
@@ -750,8 +754,8 @@ def test_indexroot_root_pypi(testapp, xom):
     '/root/pypi/+simple/{name}/',
 ])
 @pytest.mark.parametrize("code", [-1, 500, 501, 502, 503])
-def test_upstream_not_reachable(reqmock, pypistage, testapp, code, url):
-    name = "whatever{code}".format(code=code+100)
+def test_upstream_not_reachable(pypistage, testapp, code, url):
+    name = f"whatever{code + 100}"
     pypistage.mock_simple(name, '', status_code=code)
     r = testapp.get_json(url.format(name=name))
     assert r.status_code == 502
@@ -786,7 +790,7 @@ def test_upstream_not_reachable_but_cache_still_returned(pypistage, mapp, testap
     assert set(r.json['result']) == set(['1.0', '1.1'])
 
 
-def test_pkgserv(httpget, pypistage, testapp):
+def test_pkgserv(pypistage, testapp):
     pypistage.mock_simple("package", '<a href="/package-1.0.zip" />')
     pypistage.mock_extfile("/package-1.0.zip", b"123")
     r = testapp.get("/root/pypi/+simple/package/")
@@ -811,7 +815,7 @@ def test_pkgserv_caching(mapp, testapp):
     assert r.cache_control.private is None
 
 
-def test_pkgserv_remote_failure(httpget, pypistage, testapp):
+def test_pkgserv_remote_failure(pypistage, testapp):
     pypistage.mock_simple("package", '<a href="/package-1.0.zip" />')
     r = testapp.get("/root/pypi/+simple/package/")
     assert r.status_code == 200
@@ -1270,6 +1274,29 @@ def test_submit_authorization(mapp, testapp):
     assert r.status_code == 200
 
 
+def test_submit_simple(mapp, testapp):
+    from webtest.forms import Upload
+
+    api = mapp.create_and_use()
+    content = b"a"
+    name = "pkg"
+    simple = URL(api.pypisubmit).joinpath("+simple").asdir()
+    version = "1.0"
+    basename = f"{name}-{version}.tar.gz"
+    mapp.set_versiondata(dict(name=name, version=version))
+    r = testapp.post(
+        simple.url,
+        {
+            ":action": "file_upload",
+            "name": name,
+            "version": version,
+            "content": Upload(basename, content),
+        },
+        expect_errors=True,
+    )
+    assert r.status_int == 404
+
+
 def test_submit_without_trailing_slash(mapp, testapp):
     # the regular target URL for uploads ends in a slash, the target
     # without a slash was only meant for pushing a release. This test
@@ -1337,7 +1364,7 @@ def test_push_from_base_error(mapp, testapp, monkeypatch, pypistage):
     assert "no files for" in r.json["message"]
 
 
-def test_push_from_pypi(httpget, mapp, pypistage, testapp):
+def test_push_from_pypi(mapp, pypistage, testapp):
     pypistage.mock_simple("hello", text='<a href="hello-1.0.tar.gz"/>')
     content = b"123"
     hash_spec = get_hashes(content).get_default_spec()
@@ -1357,7 +1384,7 @@ def test_push_from_pypi(httpget, mapp, pypistage, testapp):
         'type': 'actionlog'}
 
 
-def test_push_from_pypi_fail(httpget, mapp, pypistage, testapp):
+def test_push_from_pypi_fail(mapp, pypistage, testapp):
     pypistage.mock_simple("hello", text='<a href="hello-1.0.tar.gz"/>')
     pypistage.mock_extfile("/simple/hello/hello-1.0.tar.gz", b"123", status_code=502)
     mapp.create_and_login_user("foo")
@@ -1370,7 +1397,7 @@ def test_push_from_pypi_fail(httpget, mapp, pypistage, testapp):
     assert "https://pypi.org/simple/hello/hello-1.0.tar.gz" in r.json["message"]
 
 
-def test_push_from_pypi_mirror_switch_to_use_external_urls(httpget, mapp, pypistage, testapp):
+def test_push_from_pypi_mirror_switch_to_use_external_urls(mapp, pypistage, testapp):
     pypistage.mock_simple("hello", text='<a href="hello-1.0.tar.gz"/>')
     content = b"123"
     pypistage.mock_extfile("/simple/hello/hello-1.0.tar.gz", content)
@@ -1725,6 +1752,10 @@ class TestPluginPermissions:
         mapp.create_index("pluginuser/dev")
         assert "pluginuser" in mapp.getuserlist()
         assert sorted(mapp.getindexlist("pluginuser")) == ['pluginuser/dev']
+        # the plugin passes through if the password doesn't match
+        # that case failed, because there is no password hash stored
+        mapp.login("pluginuser", "bad", code=401)
+        mapp.login("pluginuser", "pluginpassword")
 
 
 def test_upload_trigger(mapp):
@@ -1848,14 +1879,14 @@ def test_delete_mirror(mapp, monkeypatch, simpypi, testapp, xom):
         key = testapp.xom.filestore.get_key_from_relpath(path.strip("/"))
         assert not key.exists()
 
-    # patch async_httpget to simulate broken PyPI
-    async def async_httpget(url, **kwargs):  # noqa: ARG001 - testing
+    # patch async_get to simulate broken PyPI
+    async def async_get(url, **kwargs):  # noqa: ARG001 - testing
         class Response:
             status_code = 503
             reason = "Service Unavailable"
         return (Response(), None)
 
-    monkeypatch.setattr(xom, "async_httpget", async_httpget)
+    monkeypatch.setattr(xom.http, "async_get", async_get)
 
     # to prove that all metadata is gone when deleting the stage,
     # we recreate the stage, block access to PyPI
@@ -2545,7 +2576,7 @@ class TestOfflineMode:
         r = testapp.xget(200, "/%s/+simple/package/" % stagename)
         assert getlinks(r.text) == []
         with xom.keyfs.read_transaction():
-            is_expired, links, serial = pypistage._load_cache_links("package")
+            (is_expired, links, serial, etag) = pypistage._load_cache_links("package")
 
         assert len(links) == 0
 
@@ -2554,7 +2585,7 @@ class TestOfflineMode:
         (link,) = getlinks(r.text)
         assert '/package-1.0.zip' in link.get("href")
         with xom.keyfs.read_transaction():
-            is_expired, links, serial = pypistage._load_cache_links("package")
+            (is_expired, links, serial, etag) = pypistage._load_cache_links("package")
 
         assert links[0][0] == "package-1.0.zip"
 
@@ -2682,6 +2713,16 @@ class TestRestrictModify:
         assert "hello" in mapp.getuserlist()
         mapp.delete_user("hello")
         assert "hello" not in mapp.getuserlist()
+
+    def test_update_password(self, mapp):
+        mapp.login("admin", "admin")
+        mapp.create_user("hello", "password")
+        mapp.create_user("regular", "regular")
+        for login in self.logins:
+            mapp.login(*login)
+            mapp.change_password(login[0], "otherpassword")
+        for login in self.logins:
+            mapp.login(login[0], "otherpassword")
 
     def test_create_new_index(self, mapp):
         mapp.login("admin", "admin")

@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class INFO_HT_header(bpy.types.Header):
+class INFO_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
@@ -29,7 +30,7 @@ class INFO_HT_header(bpy.types.Header):
         :param context:
         """
 
-class INFO_MT_area(bpy.types.Menu):
+class INFO_MT_area(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     bl_translation_context: typing.Any
@@ -55,7 +56,7 @@ class INFO_MT_area(bpy.types.Menu):
         :param context:
         """
 
-class INFO_MT_context_menu(bpy.types.Menu):
+class INFO_MT_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -80,7 +81,7 @@ class INFO_MT_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class INFO_MT_editor_menus(bpy.types.Menu):
+class INFO_MT_editor_menus(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -106,7 +107,7 @@ class INFO_MT_editor_menus(bpy.types.Menu):
         :param _context:
         """
 
-class INFO_MT_info(bpy.types.Menu):
+class INFO_MT_info(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -131,7 +132,7 @@ class INFO_MT_info(bpy.types.Menu):
         :param _context:
         """
 
-class INFO_MT_view(bpy.types.Menu):
+class INFO_MT_view(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any

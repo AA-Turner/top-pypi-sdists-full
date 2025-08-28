@@ -1,4 +1,6 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.kubernetes.v1 import resourcequota_pb2 as _resourcequota_pb2
+from chalk._gen.chalk.kubernetes.v1 import scaledobject_pb2 as _scaledobject_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -181,4 +183,36 @@ class ListDataPlaneJobQueueResponse(_message.Message):
     total: int
     def __init__(
         self, jobs: _Optional[_Iterable[_Union[JobQueueItem, _Mapping]]] = ..., total: _Optional[int] = ...
+    ) -> None: ...
+
+class GetJobQueueAuxiliaryResourcesRequest(_message.Message):
+    __slots__ = ("environment_id", "resource_group")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    resource_group: str
+    def __init__(self, environment_id: _Optional[str] = ..., resource_group: _Optional[str] = ...) -> None: ...
+
+class GetJobQueueAuxiliaryResourcesResponse(_message.Message):
+    __slots__ = ("deployment_scaled_objects", "resource_quota")
+    class DeploymentScaledObjectsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _scaledobject_pb2.KubernetesScaledObjectData
+        def __init__(
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_scaledobject_pb2.KubernetesScaledObjectData, _Mapping]] = ...,
+        ) -> None: ...
+
+    DEPLOYMENT_SCALED_OBJECTS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_QUOTA_FIELD_NUMBER: _ClassVar[int]
+    deployment_scaled_objects: _containers.MessageMap[str, _scaledobject_pb2.KubernetesScaledObjectData]
+    resource_quota: _resourcequota_pb2.KubernetesResourceQuotaData
+    def __init__(
+        self,
+        deployment_scaled_objects: _Optional[_Mapping[str, _scaledobject_pb2.KubernetesScaledObjectData]] = ...,
+        resource_quota: _Optional[_Union[_resourcequota_pb2.KubernetesResourceQuotaData, _Mapping]] = ...,
     ) -> None: ...

@@ -57,6 +57,7 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_FEATURE_COMPUTED_NULL_RATIO: _ClassVar[MetricKind]
     METRIC_KIND_FEATURE_LOOKED_UP_NULL_RATIO: _ClassVar[MetricKind]
     METRIC_KIND_FEATURE_INTERMEDIATE_NULL_RATIO: _ClassVar[MetricKind]
+    METRIC_KIND_STREAM_INGEST_DELAY: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -204,6 +205,7 @@ METRIC_KIND_FEATURE_INTERMEDIATE_COUNT: MetricKind
 METRIC_KIND_FEATURE_COMPUTED_NULL_RATIO: MetricKind
 METRIC_KIND_FEATURE_LOOKED_UP_NULL_RATIO: MetricKind
 METRIC_KIND_FEATURE_INTERMEDIATE_NULL_RATIO: MetricKind
+METRIC_KIND_STREAM_INGEST_DELAY: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind

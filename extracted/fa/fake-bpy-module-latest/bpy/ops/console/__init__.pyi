@@ -4,7 +4,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def autocomplete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Evaluate the namespace up until the cursor and give a list of options or complete the name if there is only one
 
@@ -13,7 +15,9 @@ def autocomplete(
     """
 
 def banner(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Print a message when the terminal initializes
 
@@ -40,7 +44,9 @@ def clear(
     """
 
 def clear_line(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the line and store in history
 
@@ -64,7 +70,9 @@ def copy(
     """
 
 def copy_as_script(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the console contents for use in a script
 
@@ -142,7 +150,9 @@ def history_cycle(
     """
 
 def indent(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add 4 spaces at line beginning
 
@@ -151,7 +161,9 @@ def indent(
     """
 
 def indent_or_autocomplete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Indent selected text or autocomplete
 
@@ -249,7 +261,9 @@ def scrollback_append(
     """
 
 def select_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all the text
 
@@ -258,7 +272,9 @@ def select_all(
     """
 
 def select_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set the console selection
 
@@ -267,7 +283,9 @@ def select_set(
     """
 
 def select_word(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select word at cursor position
 
@@ -276,7 +294,9 @@ def select_word(
     """
 
 def unindent(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete 4 spaces from line beginning
 

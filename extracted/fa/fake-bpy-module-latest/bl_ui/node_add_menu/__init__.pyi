@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class NODE_MT_category_layout(bpy.types.Menu):
+class NODE_MT_category_layout(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -35,7 +36,7 @@ def add_color_mix_node(context, layout) -> None: ...
 def add_empty_group(layout) -> None: ...
 def add_foreach_geometry_element_zone(layout, label) -> None: ...
 def add_node_type(
-    layout, node_type, *, label=None, poll=None, search_weight=0.0
+    layout, node_type, *, label=None, poll=None, search_weight=0.0, translate=True
 ) -> None:
     """Add a node type to a menu."""
 

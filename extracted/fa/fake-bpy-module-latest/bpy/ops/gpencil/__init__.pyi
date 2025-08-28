@@ -47,7 +47,7 @@ def annotate(
         :param arrowstyle_start: Start Arrow Style, Stroke start style
 
     NONE
-    None -- Don't use any arrow/style in corner.
+    None -- Dont use any arrow/style in corner.
 
     ARROW
     Arrow -- Use closed arrow style.
@@ -64,7 +64,7 @@ def annotate(
         :param arrowstyle_end: End Arrow Style, Stroke end style
 
     NONE
-    None -- Don't use any arrow/style in corner.
+    None -- Dont use any arrow/style in corner.
 
     ARROW
     Arrow -- Use closed arrow style.
@@ -91,7 +91,9 @@ def annotate(
     """
 
 def annotation_active_frame_delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete the active frame for the active Annotation Layer
 
@@ -100,7 +102,9 @@ def annotation_active_frame_delete(
     """
 
 def annotation_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add new Annotation data-block
 
@@ -109,7 +113,9 @@ def annotation_add(
     """
 
 def data_unlink(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Unlink active Annotation data-block
 
@@ -118,7 +124,9 @@ def data_unlink(
     """
 
 def layer_annotation_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add new Annotation layer or note for the active data-block
 
@@ -142,7 +150,9 @@ def layer_annotation_move(
     """
 
 def layer_annotation_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active Annotation layer
 
@@ -151,7 +161,9 @@ def layer_annotation_remove(
     """
 
 def tint_flip(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Switch tint colors
 

@@ -1,15 +1,15 @@
 Metadata-Version: 2.1
 Name: kaldi-native-fbank
-Version: 1.21.3
+Version: 1.21.4
 Home-page: https://github.com/csukuangfj/kaldi-native-fbank
 Author: Fangjun Kuang
 Author-email: csukuangfj@gmail.com
-License: Apache licensed, as found in the LICENSE file
+License: Apache-2.0
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.6.0
+Requires-Python: >=3.8.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 

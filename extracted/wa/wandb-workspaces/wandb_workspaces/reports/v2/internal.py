@@ -182,7 +182,7 @@ class Project(ReportAPIBaseModel):
     name: Optional[str] = None
     # name: str = ""
     entity_name: str = ""
-    id: Optional[str] = None
+    id: Optional[Union[str, int]] = None  # Allow both string and int for compatibility
 
 
 class PanelBankConfigSettings(ReportAPIBaseModel):
@@ -262,10 +262,12 @@ class PanelBankConfig(ReportAPIBaseModel):
 
 
 class PanelBankSectionConfig(ReportAPIBaseModel):
-    name: Literal["Report Panels"] = "Report Panels"
+    name: str = (
+        "Report Panels"  # Changed from Literal to allow "Charts" and other names
+    )
     is_open: bool = False
     panels: LList["PanelTypes"] = Field(default_factory=list)
-    type: Literal["grid"] = "grid"
+    type: str = "grid"  # Changed from Literal to allow flexibility
     flow_config: FlowConfig = Field(default_factory=FlowConfig)
     sorted: int = 0
     local_panel_settings: LocalPanelSettings = Field(default_factory=LocalPanelSettings)
@@ -282,7 +284,7 @@ class PanelGridMetadataPanels(ReportAPIBaseModel):
 class PanelGridMetadata(ReportAPIBaseModel):
     open_viz: bool = True
     open_run_set: Optional[int] = 0  # none is closed
-    name: Literal["unused-name"] = "unused-name"
+    name: str = "unused-name"  # Changed from Literal to allow flexibility
     run_sets: LList["Runset"] = Field(default_factory=lambda: [Runset()])
     hide_run_sets: bool = False
     panels: PanelGridMetadataPanels = Field(default_factory=PanelGridMetadataPanels)
@@ -583,6 +585,7 @@ class Panel(ReportAPIBaseModel):
 
 
 class MediaBrowserConfig(ReportAPIBaseModel):
+    chart_title: Optional[str] = None
     column_count: Optional[int] = None
     media_keys: LList[str] = Field(default_factory=list)
 
@@ -628,6 +631,7 @@ class LinePlotConfig(ReportAPIBaseModel):
     legend_template: Optional[str] = None
     aggregate: Optional[bool] = None
     x_expression: Optional[str] = None
+    x_axis_format: Optional[str] = None
 
     override_line_widths: Optional[dict] = None
     override_colors: Optional[dict] = None
@@ -693,6 +697,7 @@ class BarPlotConfig(ReportAPIBaseModel):
     font_size: Optional[FontSize] = None
     override_series_titles: Optional[dict] = None
     override_colors: Optional[dict] = None
+    aggregate: Optional[bool] = None
 
 
 class BarPlot(Panel):

@@ -232,30 +232,34 @@ async def get_config_by_name(name: str) -> RpaConfiguracao:
     if "API_BASE_URL" not in env_config:
         raise ValueError("URL da API não encontrada na configuração do ambiente")
 
-    try:
-        headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
-        timeout = aiohttp.ClientTimeout(total=600) 
+    x = 0
+    while x < 10:
+        try:
+            headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
+            timeout = aiohttp.ClientTimeout(total=600) 
 
-        async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(verify_ssl=True), timeout=timeout
-        ) as session:
-            async with session.get(
-                f"{env_config["API_BASE_URL"]}/configuracao/api/{name}",
-                headers=headers_basic,
-            ) as response:
-                if response.status != 200:
-                    raise Exception(f"Erro ao obter a configuração: {response.content}")
-                data = await response.json()
-                return RpaConfiguracao(**data)
-
-    except Exception as e:
-        err_msg = f"Erro ao obter a configuração: {e}"
-        logger.error(err_msg)
-        console.print(
-            f"{err_msg}\n",
-            style="bold red",
-        )
-        return None
+            async with aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(verify_ssl=True), timeout=timeout
+            ) as session:
+                async with session.get(
+                    f"{env_config["API_BASE_URL"]}/configuracao/api/{name}",
+                    headers=headers_basic,
+                ) as response:
+                    if response.status != 200:
+                        console.print(f"Erro ao obter a configuração: {response.content}")
+                        x += 1
+                    else:
+                        data = await response.json()
+                        return RpaConfiguracao(**data)
+        except Exception as e:
+            x += 1
+            err_msg = f"Erro ao obter a configuração: {e}"
+            logger.error(err_msg)
+            console.print(
+                f"{err_msg}\n",
+                style="bold red",
+            )
+    return None
 
 
 def sync_get_config_by_name(name: str) -> RpaConfiguracao:

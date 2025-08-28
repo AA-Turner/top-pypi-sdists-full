@@ -9,12 +9,14 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+from __future__ import annotations
+
 import barcode
 
 # -- Project information -----------------------------------------------------
 
 project = "python-barcode"
-copyright = "2020, Hugo Osvaldo Barrera, et al"
+copyright = "2017-2023, Hugo Osvaldo Barrera, et al"
 author = "Hugo Osvaldo Barrera, et al"
 
 # The short X.Y version.

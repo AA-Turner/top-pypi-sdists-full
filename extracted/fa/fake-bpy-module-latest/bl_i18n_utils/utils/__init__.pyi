@@ -51,7 +51,7 @@ class I18n:
 
     def print_stats(self, prefix="", print_msgs=True) -> None:
         """Print out some stats about an I18n object.
-        If print_msgs is True, it will also print all its translations' stats.
+        If print_msgs is True, it will also print all its translations stats.
 
                 :param prefix:
                 :param print_msgs:
@@ -271,7 +271,7 @@ class I18nMessages:
     def update_info(self) -> None: ...
     @classmethod
     def update_to_blender_repo_callback(cls, lng, settings) -> None:
-        """Cleanup and write a single PO file (specified by a filepath) into the relevant Blender source 'compact' PO file.Callback usable in a context where Blender specific modules (like bpy) are not available.
+        """Cleanup and write a single PO file (specified by a filepath) into the relevant Blender source compact PO file.Callback usable in a context where Blender specific modules (like bpy) are not available.
 
         :param lng:
         :param settings:
@@ -298,7 +298,7 @@ class I18nMessages:
         """
 
 def enable_addons(addons=None, support=None, disable=False, check_only=False) -> None:
-    """Enable (or disable) addons based either on a set of names, or a set of 'support' types.
+    """Enable (or disable) addons based either on a set of names, or a set of support types.
     Returns the list of all affected addons (as fake modules)!
     If "check_only" is set, no addon will be enabled nor disabled.
 
@@ -310,7 +310,7 @@ def find_best_isocode_matches(uid, iso_codes) -> None:
 def get_best_similar(data) -> None: ...
 def get_po_files_from_dir(root_dir, langs=set()) -> None:
     """Yield tuples (uid, po_path) of translations for each po file found in the given directory, which should be either
-    a directory containing po files using language uid's as names (e.g. fr.po, es_ES.po, etc.), or
+    a directory containing po files using language uids as names (e.g. fr.po, es_ES.po, etc.), or
     a directory containing directories which names are language uids, and containing po files of the same names.
 
     """

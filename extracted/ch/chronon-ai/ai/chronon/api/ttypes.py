@@ -361,15 +361,19 @@ class StagingQuery(object):
 
      - setups: Spark SQL setup statements. Used typically to register UDFs.
 
+     - createView: If true, creates a view in the warehouse (for intermediate tables).
+    If false, creates a table in the warehouse (for final tables).
+
 
     """
 
 
-    def __init__(self, metaData=None, query=None, startPartition=None, setups=None,):
+    def __init__(self, metaData=None, query=None, startPartition=None, setups=None, createView=None,):
         self.metaData = metaData
         self.query = query
         self.startPartition = startPartition
         self.setups = setups
+        self.createView = createView
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -406,6 +410,11 @@ class StagingQuery(object):
                     iprot.readListEnd()
                 else:
                     iprot.skip(ftype)
+            elif fid == 5:
+                if ftype == TType.BOOL:
+                    self.createView = iprot.readBool()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -434,6 +443,10 @@ class StagingQuery(object):
             for iter29 in self.setups:
                 oprot.writeString(iter29.encode('utf-8') if sys.version_info[0] == 2 else iter29)
             oprot.writeListEnd()
+            oprot.writeFieldEnd()
+        if self.createView is not None:
+            oprot.writeFieldBegin('createView', TType.BOOL, 5)
+            oprot.writeBool(self.createView)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -2985,6 +2998,7 @@ StagingQuery.thrift_spec = (
     (2, TType.STRING, 'query', 'UTF8', None, ),  # 2
     (3, TType.STRING, 'startPartition', 'UTF8', None, ),  # 3
     (4, TType.LIST, 'setups', (TType.STRING, 'UTF8', False), None, ),  # 4
+    (5, TType.BOOL, 'createView', None, None, ),  # 5
 )
 all_structs.append(EventSource)
 EventSource.thrift_spec = (

@@ -13,7 +13,7 @@ from flexget.utils.database import with_session
 from flexget.utils.sqlalchemy_utils import create_index, drop_index, index_exists
 
 logger = logger.bind(name='status.db')
-Base = db_schema.versioned_base('status', 3)
+Base = db_schema.versioned_base('status', 4)
 
 
 @db_schema.upgrade('status')
@@ -26,6 +26,21 @@ def upgrade(ver, session):
         # Creates the executions table index
         create_index(table_name, session, 'task_id')
         ver = 3
+
+    # Add composite indexes for better query performance
+    if ver < 4:
+        table_name = 'status_execution'
+
+        # Index for finding last successful executions with produced > 0
+        # This supports queries filtering by task_id, succeeded, and produced with ordering by start
+        create_index(table_name, session, 'task_id', 'succeeded', 'produced', 'start')
+
+        # Index for finding latest executions by task_id and start time
+        # This supports queries that need the max(start) for each task_id
+        create_index(table_name, session, 'task_id', 'start')
+
+        ver = 4
+
     return ver
 
 

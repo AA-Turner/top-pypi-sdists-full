@@ -397,8 +397,10 @@ class User:
         userconfig = self.key.get()
         if not userconfig:
             return False
+        pwhash = userconfig.get("pwhash")
+        if pwhash is None:
+            return False
         salt = userconfig.get("pwsalt")
-        pwhash = userconfig["pwhash"]
         valid, newhash = verify_and_update_password_hash(password, pwhash, salt)
         if valid:
             if newhash and self.keyfs.tx.write:
@@ -1186,9 +1188,8 @@ class BaseStage(object):
                         "If you want to support older devpi-server versions, add an alias.",
                         stacklevel=1)
             if not callable(method):
-                raise AttributeError(
-                    "The attribute %s with value %r of %r is not callable." % (
-                        method_name, method, self.customizer))
+                msg = f"The attribute {method_name} with value {method!r} of {self.customizer!r} is not callable."
+                raise AttributeError(msg)  # noqa: TRY004
             for principal in get_principals(method(restrict_modify=restrict_modify)):
                 acl.append((Allow, principal, permission))
                 if permission == 'upload':
@@ -1238,20 +1239,35 @@ class PrivateStage(BaseStage):
         "license_file",
     )
     metadata_list_fields = (
-        'platform', 'classifiers', 'obsoletes',
-        'requires', 'provides', 'obsoletes_dist',
-        'provides_dist', 'requires_dist', 'requires_external',
-        'project_urls', 'supported_platform', 'setup_requires_dist',
-        'provides_extra', 'extension')
+        "platform",
+        "classifiers",
+        "supported_platform",
+        # PEP 314
+        "provides",
+        "requires",
+        "obsoletes",
+        # Metadata 1.2
+        "project_urls",
+        "provides_dist",
+        "obsoletes_dist",
+        "requires_dist",
+        "requires_external",
+        # Metadata 2.1
+        "provides_extras",
+        # Metadata 2.2
+        "dynamic",
+        # Metadata 2.4
+        "license_file",
+    )
 
     use_external_url = False
 
     def __init__(self, xom, username, index, ixconfig, customizer_cls):
-        super(PrivateStage, self).__init__(
-            xom, username, index, ixconfig, customizer_cls)
+        super().__init__(xom, username, index, ixconfig, customizer_cls)
         self.key_projects = self.keyfs.PROJNAMES(user=username, index=index)
         self.httpget = xom.httpget
         self.async_httpget = xom.async_httpget
+        self.http = xom.http
 
     def get_possible_indexconfig_keys(self):
         return tuple(dict(self.get_default_config_items())) + (

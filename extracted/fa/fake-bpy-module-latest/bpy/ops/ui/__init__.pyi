@@ -4,9 +4,11 @@ import typing_extensions
 import numpy.typing as npt
 
 def assign_default_button(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Set this property's current value as the new default
+    """Set this propertys current value as the new default
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -28,7 +30,9 @@ def button_execute(
     """
 
 def button_string_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Unsets the text of the active button
 
@@ -37,7 +41,9 @@ def button_string_clear(
     """
 
 def copy_as_driver_button(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new driver with this property as input, and copy it to the internal clipboard. Use Paste Driver to add it to the target property, or Paste Driver Variables to extend an existing driver
 
@@ -67,7 +73,7 @@ def copy_driver_to_selected_button(
     *,
     all: bool | None = False,
 ) -> None:
-    """Copy the property's driver from the active item to the same property of all selected items, if the same property exists
+    """Copy the propertys driver from the active item to the same property of all selected items, if the same property exists
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -76,7 +82,9 @@ def copy_driver_to_selected_button(
     """
 
 def copy_python_command_button(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the Python command matching this button
 
@@ -91,7 +99,7 @@ def copy_to_selected_button(
     *,
     all: bool | None = True,
 ) -> None:
-    """Copy the property's value from the active item to the same property of all selected items if the same property exists
+    """Copy the propertys value from the active item to the same property of all selected items if the same property exists
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -151,7 +159,9 @@ def drop_name(
     """
 
 def editsource(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Edit UI source code of the active button
 
@@ -160,7 +170,9 @@ def editsource(
     """
 
 def eyedropper_bone(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Sample a bone from the 3D View or the Outliner to store in a property
 
@@ -184,7 +196,9 @@ def eyedropper_color(
     """
 
 def eyedropper_colorramp(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Sample a color band
 
@@ -193,7 +207,9 @@ def eyedropper_colorramp(
     """
 
 def eyedropper_colorramp_point(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Point-sample a color band
 
@@ -268,7 +284,9 @@ def eyedropper_grease_pencil_color(
     """
 
 def eyedropper_id(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Sample a data-block from the 3D View to store in a property
 
@@ -277,7 +295,9 @@ def eyedropper_id(
     """
 
 def jump_to_target_button(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Switch to the target object or bone
 
@@ -286,7 +306,9 @@ def jump_to_target_button(
     """
 
 def list_start_filter(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Start entering filter text for the list in focus
 
@@ -294,8 +316,25 @@ def list_start_filter(
     :type undo: bool | None
     """
 
+def override_add_button(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    all: bool | None = True,
+) -> None:
+    """Create an override operation
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param all: All, Add overrides for all elements of the array
+    :type all: bool | None
+    """
+
 def override_idtemplate_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete the selected local override and relink its usages to the linked data-block if possible, else reset it and mark it as non editable
 
@@ -304,7 +343,9 @@ def override_idtemplate_clear(
     """
 
 def override_idtemplate_make(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a local override of the selected linked data-block, and its hierarchy of dependencies
 
@@ -313,7 +354,9 @@ def override_idtemplate_make(
     """
 
 def override_idtemplate_reset(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset the selected local override to its linked reference values
 
@@ -336,38 +379,10 @@ def override_remove_button(
     :type all: bool | None
     """
 
-def override_type_set_button(
+def reloadtranslation(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-    *,
-    all: bool | None = True,
-    type: typing.Literal["NOOP", "REPLACE", "DIFFERENCE", "FACTOR"] | None = "REPLACE",
-) -> None:
-    """Create an override operation, or set the type of an existing one
-
-        :type execution_context: int | str | None
-        :type undo: bool | None
-        :param all: All, Reset to default values all elements of the array
-        :type all: bool | None
-        :param type: Type, Type of override operation
-
-    NOOP
-    NoOp -- 'No-Operation', place holder preventing automatic override to ever affect the property.
-
-    REPLACE
-    Replace -- Completely replace value from linked data by local one.
-
-    DIFFERENCE
-    Difference -- Store difference to linked data value.
-
-    FACTOR
-    Factor -- Store factor to linked data value (useful e.g. for scale).
-        :type type: typing.Literal['NOOP','REPLACE','DIFFERENCE','FACTOR'] | None
-    """
-
-def reloadtranslation(
-    execution_context: int | str | None = None, undo: bool | None = None
 ) -> None:
     """Force a full reload of UI translation
 
@@ -382,7 +397,7 @@ def reset_default_button(
     *,
     all: bool | None = True,
 ) -> None:
-    """Reset this property's value to its default value
+    """Reset this propertys value to its default value
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -391,7 +406,9 @@ def reset_default_button(
     """
 
 def unset_property_button(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the property and use default or generated value in operators
 
@@ -400,7 +417,9 @@ def unset_property_button(
     """
 
 def view_drop(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Drag and drop onto a data-set or item within the data-set
 
@@ -408,8 +427,21 @@ def view_drop(
     :type undo: bool | None
     """
 
+def view_item_delete(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Delete selected list item
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    """
+
 def view_item_rename(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Rename the active item in the data-set view
 
@@ -418,16 +450,27 @@ def view_item_rename(
     """
 
 def view_item_select(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    extend: bool | None = False,
+    range_select: bool | None = False,
 ) -> None:
     """Activate selected view item
 
     :type execution_context: int | str | None
     :type undo: bool | None
+    :param extend: extend, Extend Selection
+    :type extend: bool | None
+    :param range_select: Range Select, Select all between clicked and active items
+    :type range_select: bool | None
     """
 
 def view_scroll(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -436,7 +479,9 @@ def view_scroll(
     """
 
 def view_start_filter(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Start entering filter text for the data-set in focus
 

@@ -444,6 +444,27 @@ class TestDuckDB(Validator):
         self.validate_all("x ~ y", write={"duckdb": "REGEXP_MATCHES(x, y)"})
         self.validate_all("SELECT * FROM 'x.y'", write={"duckdb": 'SELECT * FROM "x.y"'})
         self.validate_all(
+            "SELECT LIST(DISTINCT sample_col) FROM sample_table",
+            read={
+                "duckdb": "SELECT LIST(DISTINCT sample_col) FROM sample_table",
+                "spark": "SELECT COLLECT_SET(sample_col) FROM sample_table",
+            },
+        )
+        self.validate_all(
+            "SELECT LIST_TRANSFORM(STR_SPLIT_REGEX('abc , dfg ', ','), x -> TRIM(x))",
+            write={
+                "duckdb": "SELECT LIST_TRANSFORM(STR_SPLIT_REGEX('abc , dfg ', ','), x -> TRIM(x))",
+                "spark": "SELECT TRANSFORM(SPLIT('abc , dfg ', ','), x -> TRIM(x))",
+            },
+        )
+        self.validate_all(
+            "SELECT LIST_FILTER([4, 5, 6], x -> x > 4)",
+            write={
+                "duckdb": "SELECT LIST_FILTER([4, 5, 6], x -> x > 4)",
+                "spark": "SELECT FILTER(ARRAY(4, 5, 6), x -> x > 4)",
+            },
+        )
+        self.validate_all(
             "SELECT ANY_VALUE(sample_column) FROM sample_table",
             write={
                 "duckdb": "SELECT ANY_VALUE(sample_column) FROM sample_table",
@@ -462,7 +483,7 @@ class TestDuckDB(Validator):
             "SELECT STRFTIME(CAST('2020-01-01' AS TIMESTAMP), CONCAT('%Y', '%m'))",
             write={
                 "duckdb": "SELECT STRFTIME(CAST('2020-01-01' AS TIMESTAMP), CONCAT('%Y', '%m'))",
-                "spark": "SELECT DATE_FORMAT(CAST('2020-01-01' AS TIMESTAMP_NTZ), CONCAT(COALESCE('yyyy', ''), COALESCE('MM', '')))",
+                "spark": "SELECT DATE_FORMAT(CAST('2020-01-01' AS TIMESTAMP_NTZ), CONCAT('yyyy', 'MM'))",
                 "tsql": "SELECT FORMAT(CAST('2020-01-01' AS DATETIME2), CONCAT('yyyy', 'MM'))",
             },
         )
@@ -1008,6 +1029,21 @@ class TestDuckDB(Validator):
         )
         self.validate_identity("LISTAGG(x, ', ')")
         self.validate_identity("STRING_AGG(x, ', ')", "LISTAGG(x, ', ')")
+
+        self.validate_all(
+            "SELECT CONCAT(foo)",
+            write={
+                "duckdb": "SELECT CONCAT(foo)",
+                "spark": "SELECT CONCAT(COALESCE(foo, ''))",
+            },
+        )
+        self.validate_all(
+            "SELECT CONCAT(COALESCE(['abc'], []), ['bcg'])",
+            write={
+                "duckdb": "SELECT CONCAT(COALESCE(['abc'], []), ['bcg'])",
+                "spark": "SELECT CONCAT(COALESCE(ARRAY('abc'), ARRAY()), ARRAY('bcg'))",
+            },
+        )
 
     def test_array_index(self):
         with self.assertLogs(helper_logger) as cm:

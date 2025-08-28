@@ -1190,9 +1190,9 @@ async def entrada_de_notas_9000(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
                 retorno = await emsys.incluir_registro(chave_nfe=nota.get("nfe"))
                 if retorno.sucesso == True:
                     return RpaRetornoProcessoDTO(
-                        sucesso=error_work.sucesso,
-                        retorno=error_work.retorno,
-                        status=error_work.status,
+                        sucesso=retorno.sucesso,
+                        retorno=retorno.retorno,
+                        status=retorno.status,
                     )
             except:
                 console.print("A Nota fiscal ainda não foi incluída, continuando o processo...")

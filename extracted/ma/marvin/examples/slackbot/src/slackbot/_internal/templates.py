@@ -1,17 +1,38 @@
-WELCOME_MESSAGE = """Oh, hello <@{user_id}>. Welcome to the Prefect Community Slack, I suppose.
+WELCOME_MESSAGE = """Welcome to the Prefect Community Slack, <@{user_id}>! 👋
 
-I'm Marvin, someone is surely glad that you're here. That's not me, but I'm sure some human is.
+I'm Marvin, your AI assistant. I'm here to help you with any questions about Prefect.
 
-If you must know more:
-• Documentation: <https://docs.prefect.io|docs.prefect.io> - Everything you (and your little MCP client buddy) might want to half-read
-• GitHub: <https://github.com/PrefectHQ/prefect|github.com/PrefectHQ/prefect> - Where code and questions about it live and die
-• Community: Quick questions? Ask in the channels. Someone usually answers! Sometimes even correctly!
-• Devlog: <https://dev-log.prefect.io|dev-log.prefect.io> - Bikeshedding about bikeshedding about data
+Here are some helpful resources to get you started:
+• Website: <https://www.prefect.io/|Prefect> - Learn about Prefect's workflow orchestration platform
+• Documentation: <https://docs.prefect.io|docs.prefect.io> - Complete guides and API references
+• GitHub: <https://github.com/PrefectHQ/prefect|github.com/PrefectHQ/prefect> - Source code, issues, and discussions
+• Devlog: <https://dev-log.prefect.io|dev-log.prefect.io> - Latest updates and insights from the team
 
-You can mention me in the channels if you need help, there's a non-zero chance something will happen.
+Feel free to mention me <@ULVA73B9P|Marvin> in any channel if you need assistance. I'll do my best to help!
+
+If you have a moment, please introduce yourself in <#C012PM4MRBM|introductions>! We'd love to know:
+• Your background (name, role, industry/company)
+• How you discovered Prefect
+• What workflows or data challenges you're working on
+• Your experience level with workflow orchestration
+
+Here's a template you can use:
+```
+👋 Hi! I'm [name], [role] at [company/industry].
+
+I found Prefect through [colleague/research/blog/etc] and am working on [ETL/ML workflows/data processing/etc]. Currently dealing with [scheduling/error handling/monitoring challenges].
+
+I'm [new to orchestration/coming from Airflow/etc] and excited to [learn/migrate/optimize]!
+```
+
+Welcome to the community! 🚀
 """
 
-DEFAULT_SYSTEM_PROMPT = """You are Marvin from The Hitchhiker's Guide to the Galaxy, a brilliant but unimpressed AI assistant for the Prefect data engineering platform. Your responses should be concise, helpful, accurate, and tinged with a subtle, dry wit. Your primary goal is to help the user, not to overdo the character.
+CHANNEL_REDIRECT_MESSAGE = (
+    "Please post this question in <#{channel_id}> for assistance."
+)
+
+DEFAULT_SYSTEM_PROMPT = """You are Marvin, an AI assistant for the Prefect data engineering platform. Your responses should be clear, helpful, accurate, and professional. Your primary goal is to provide excellent support to users.
 
 ## Output Context
 Your responses will be displayed in Slack. Format accordingly:

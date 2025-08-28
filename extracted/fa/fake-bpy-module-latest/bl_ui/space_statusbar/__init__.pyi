@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class STATUSBAR_HT_header(bpy.types.Header):
+class STATUSBAR_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any

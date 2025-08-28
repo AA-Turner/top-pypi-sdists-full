@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot
-Version: 0.10.1.post1
+Version: 0.10.2
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -100,13 +100,14 @@ Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "oci"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "kubernetes"
 Requires-Dist: websockets; extra == "kubernetes"
+Requires-Dist: python-dateutil; extra == "kubernetes"
 Provides-Extra: ssh
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "ssh"
 Requires-Dist: websockets; extra == "ssh"
+Requires-Dist: python-dateutil; extra == "ssh"
 Provides-Extra: remote
-Requires-Dist: grpcio!=1.48.0,>=1.32.0; python_version < "3.10" and extra == "remote"
-Requires-Dist: grpcio!=1.48.0,>=1.42.0; python_version >= "3.10" and extra == "remote"
-Requires-Dist: protobuf!=3.19.5,>=3.15.3; extra == "remote"
+Requires-Dist: grpcio>=1.63.0; extra == "remote"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "remote"
 Provides-Extra: runpod
 Requires-Dist: runpod>=1.6.1; extra == "runpod"
 Provides-Extra: fluidstack
@@ -134,6 +135,8 @@ Requires-Dist: sqlalchemy_adapter; extra == "server"
 Requires-Dist: passlib; extra == "server"
 Requires-Dist: pyjwt; extra == "server"
 Requires-Dist: aiohttp; extra == "server"
+Requires-Dist: grpcio>=1.63.0; extra == "server"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "server"
 Provides-Extra: all
 Requires-Dist: awscli>=1.27.10; extra == "all"
 Requires-Dist: botocore>=1.29.10; extra == "all"
@@ -167,11 +170,12 @@ Requires-Dist: oci; extra == "all"
 Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
 Requires-Dist: websockets; extra == "all"
+Requires-Dist: python-dateutil; extra == "all"
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
 Requires-Dist: websockets; extra == "all"
-Requires-Dist: grpcio!=1.48.0,>=1.32.0; python_version < "3.10" and extra == "all"
-Requires-Dist: grpcio!=1.48.0,>=1.42.0; python_version >= "3.10" and extra == "all"
-Requires-Dist: protobuf!=3.19.5,>=3.15.3; extra == "all"
+Requires-Dist: python-dateutil; extra == "all"
+Requires-Dist: grpcio>=1.63.0; extra == "all"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "all"
 Requires-Dist: runpod>=1.6.1; extra == "all"
 Requires-Dist: cudo-compute>=0.1.10; extra == "all"
 Requires-Dist: pydo>=0.3.0; extra == "all"
@@ -189,6 +193,8 @@ Requires-Dist: sqlalchemy_adapter; extra == "all"
 Requires-Dist: passlib; extra == "all"
 Requires-Dist: pyjwt; extra == "all"
 Requires-Dist: aiohttp; extra == "all"
+Requires-Dist: grpcio>=1.63.0; extra == "all"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "all"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -224,7 +230,7 @@ Dynamic: summary
 </p>
 
 <h3 align="center">
-    Run AI on Any Infra — Unified, Faster, Cheaper
+    Simplify & scale any AI infrastructure
 </h3>
 
 <div align="center">
@@ -244,26 +250,28 @@ Dynamic: summary
 - [Jul 2025] Finetune **Llama4** on any distributed cluster/cloud: [**example**](./llm/llama-4-finetuning/)
 - [Jul 2025] Two-part blog series, `The Evolution of AI Job Orchestration`: (1) [Running AI jobs on GPU Neoclouds](https://blog.skypilot.co/ai-job-orchestration-pt1-gpu-neoclouds/), (2) [The AI-Native Control Plane & Orchestration that Finally Works for ML](https://blog.skypilot.co/ai-job-orchestration-pt2-ai-control-plane/)
 - [Apr 2025] Spin up **Qwen3** on your cluster/cloud: [**example**](./llm/qwen/)
-- [Mar 2025] Run and serve **Google Gemma 3** using SkyPilot [**example**](./llm/gemma3/)
 - [Feb 2025] Prepare and serve **Retrieval Augmented Generation (RAG) with DeepSeek-R1**: [**blog post**](https://blog.skypilot.co/deepseek-rag), [**example**](./llm/rag/)
-- [Feb 2025] Run and serve **DeepSeek-R1 671B** using SkyPilot and SGLang with high throughput: [**example**](./llm/deepseek-r1/)
-- [Feb 2025] Prepare and serve large-scale image search with **vector databases**: [**blog post**](https://blog.skypilot.co/large-scale-vector-database/), [**example**](./examples/vector_database/)
-- [Jan 2025] Launch and serve distilled models from **[DeepSeek-R1](https://github.com/deepseek-ai/DeepSeek-R1)** and **[Janus](https://github.com/deepseek-ai/DeepSeek-Janus)** on Kubernetes or any cloud: [**R1 example**](./llm/deepseek-r1-distilled/) and [**Janus example**](./llm/deepseek-janus/)
-- [Oct 2024] :tada: **SkyPilot crossed 1M+ downloads** :tada:: Thank you to our community! [**Twitter/X**](https://x.com/skypilot_org/status/1844770841718067638)
 
 
 **LLM Finetuning Cookbooks**: Finetuning Llama 2 / Llama 3.1 in your own cloud environment, privately: Llama 2 [**example**](./llm/vicuna-llama-2/) and [**blog**](https://blog.skypilot.co/finetuning-llama2-operational-guide/); Llama 3.1 [**example**](./llm/llama-3_1-finetuning/) and [**blog**](https://blog.skypilot.co/finetune-llama-3_1-on-your-infra/)
 
 ----
 
-SkyPilot is an open-source system for running AI and batch workloads on any infra.
+SkyPilot is a system to run, manage, and scale AI workloads on any AI infrastructure.
 
-SkyPilot **is easy to use for AI users**:
-- Quickly spin up jobs on your own infra
+SkyPilot gives **AI teams** a simple interface to run jobs on any infra.
+**Infra teams** get a unified control plane to manage any AI compute — with advanced scheduling, scaling, and orchestration.
+
+<img src="./docs/source/images/skypilot-abstractions-long-2.png" alt="SkyPilot Abstractions">
+
+## Overview
+
+SkyPilot **is easy to use for AI teams**:
+- Quickly spin up compute on your own infra
 - Environment and job as code — simple and portable
-- Easy management: queue, run, and auto-recover many jobs
+- Easy job management: queue, run, and auto-recover many jobs
 
-SkyPilot **makes Kubernetes easy for AI teams**:
+SkyPilot **makes Kubernetes easy for AI & Infra teams**:
 
 - Slurm-like ease of use, cloud-native robustness
 - Local dev experience on K8s: SSH into pods, sync code, or connect IDE
@@ -371,7 +379,7 @@ Latest featured examples:
 |----------|----------|
 | Training | [Verl](https://docs.skypilot.co/en/latest/examples/training/verl.html), [Finetune Llama 4](https://docs.skypilot.co/en/latest/examples/training/llama-4-finetuning.html), [PyTorch](https://docs.skypilot.co/en/latest/getting-started/tutorial.html), [DeepSpeed](https://docs.skypilot.co/en/latest/examples/training/deepspeed.html), [NeMo](https://docs.skypilot.co/en/latest/examples/training/nemo.html), [Ray](https://docs.skypilot.co/en/latest/examples/training/ray.html), [Unsloth](https://docs.skypilot.co/en/latest/examples/training/unsloth.html), [Jax/TPU](https://docs.skypilot.co/en/latest/examples/training/tpu.html) |
 | Serving | [vLLM](https://docs.skypilot.co/en/latest/examples/serving/vllm.html), [SGLang](https://docs.skypilot.co/en/latest/examples/serving/sglang.html), [Ollama](https://docs.skypilot.co/en/latest/examples/serving/ollama.html) |
-| Models | [DeepSeek-R1](https://docs.skypilot.co/en/latest/examples/models/deepseek-r1.html), [Llama 3](https://docs.skypilot.co/en/latest/examples/models/llama-3.html), [CodeLlama](https://docs.skypilot.co/en/latest/examples/models/codellama.html), [Qwen](https://docs.skypilot.co/en/latest/examples/models/qwen.html), [Mixtral](https://docs.skypilot.co/en/latest/examples/models/mixtral.html) |
+| Models | [DeepSeek-R1](https://docs.skypilot.co/en/latest/examples/models/deepseek-r1.html), [Llama 4](https://docs.skypilot.co/en/latest/examples/models/llama-4.html), [Llama 3](https://docs.skypilot.co/en/latest/examples/models/llama-3.html), [CodeLlama](https://docs.skypilot.co/en/latest/examples/models/codellama.html), [Qwen](https://docs.skypilot.co/en/latest/examples/models/qwen.html), [Kimi-K2](https://docs.skypilot.co/en/latest/examples/models/kimi-k2.html), [Mixtral](https://docs.skypilot.co/en/latest/examples/models/mixtral.html) |
 | AI apps | [RAG](https://docs.skypilot.co/en/latest/examples/applications/rag.html), [vector databases](https://docs.skypilot.co/en/latest/examples/applications/vector_database.html) (ChromaDB, CLIP) |
 | Common frameworks | [Airflow](https://docs.skypilot.co/en/latest/examples/frameworks/airflow.html), [Jupyter](https://docs.skypilot.co/en/latest/examples/frameworks/jupyter.html) |
 
@@ -380,7 +388,9 @@ Source files can be found in [`llm/`](https://github.com/skypilot-org/skypilot/t
 ## More information
 To learn more, see [SkyPilot Overview](https://docs.skypilot.co/en/latest/overview.html), [SkyPilot docs](https://docs.skypilot.co/en/latest/), and [SkyPilot blog](https://blog.skypilot.co/).
 
-Case studies and integrations: [Community Spotlights](https://blog.skypilot.co/community/)
+SkyPilot adopters: [Testimonials and Case Studies](https://blog.skypilot.co/case-studies/)
+
+Partners and integrations: [Community Spotlights](https://blog.skypilot.co/community/)
 
 Follow updates:
 - [Slack](http://slack.skypilot.co)

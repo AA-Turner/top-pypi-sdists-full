@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class DATA_PT_empty(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_empty(DataButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -33,7 +34,7 @@ class DATA_PT_empty(DataButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class DATA_PT_empty_image(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_empty_image(DataButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any

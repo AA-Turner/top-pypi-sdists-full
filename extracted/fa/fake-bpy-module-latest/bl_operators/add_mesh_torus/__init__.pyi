@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import bpy_extras.object_utils
 
-class AddTorus(bpy.types.Operator, bpy_extras.object_utils.AddObjectHelper):
+class AddTorus(_bpy_types.Operator, bpy_extras.object_utils.AddObjectHelper):
     """Construct a torus mesh"""
 
     bl_idname: typing.Any

@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import rna_prop_ui
 
-class COLLECTION_MT_context_menu_instance_offset(bpy.types.Menu):
+class COLLECTION_MT_context_menu_instance_offset(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -31,10 +32,10 @@ class COLLECTION_MT_context_menu_instance_offset(bpy.types.Menu):
         """
 
 class COLLECTION_PT_collection_custom_props(
-    rna_prop_ui.PropertyPanel, CollectionButtonsPanel, bpy.types.Panel
+    rna_prop_ui.PropertyPanel, CollectionButtonsPanel, _bpy_types.Panel
 ):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     bl_context: typing.Any
@@ -60,7 +61,7 @@ class COLLECTION_PT_collection_custom_props(
         :rtype: typing.Any
         """
 
-class COLLECTION_PT_collection_flags(CollectionButtonsPanel, bpy.types.Panel):
+class COLLECTION_PT_collection_flags(CollectionButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -88,7 +89,7 @@ class COLLECTION_PT_collection_flags(CollectionButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class COLLECTION_PT_exporters(CollectionButtonsPanel, bpy.types.Panel):
+class COLLECTION_PT_exporters(CollectionButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -116,7 +117,7 @@ class COLLECTION_PT_exporters(CollectionButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class COLLECTION_PT_instancing(CollectionButtonsPanel, bpy.types.Panel):
+class COLLECTION_PT_instancing(CollectionButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -144,7 +145,7 @@ class COLLECTION_PT_instancing(CollectionButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class COLLECTION_PT_lineart_collection(CollectionButtonsPanel, bpy.types.Panel):
+class COLLECTION_PT_lineart_collection(CollectionButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_order: typing.Any
@@ -173,7 +174,7 @@ class COLLECTION_PT_lineart_collection(CollectionButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class COLLECTION_PT_viewlayer_flags(CollectionButtonsPanel, bpy.types.Panel):
+class COLLECTION_PT_viewlayer_flags(CollectionButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_parent_id: typing.Any

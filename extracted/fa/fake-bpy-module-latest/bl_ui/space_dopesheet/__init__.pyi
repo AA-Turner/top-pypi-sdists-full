@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.properties_data_grease_pencil
 import bl_ui.utils
 import bpy.types
@@ -16,7 +17,7 @@ class DOPESHEET_HT_editor_buttons:
         :param layout:
         """
 
-class DOPESHEET_HT_header(bpy.types.Header):
+class DOPESHEET_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
@@ -41,7 +42,7 @@ class DOPESHEET_HT_header(bpy.types.Header):
         :param context:
         """
 
-class DOPESHEET_HT_playback_controls(bpy.types.Header):
+class DOPESHEET_HT_playback_controls(_bpy_types.Header):
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any
@@ -67,7 +68,7 @@ class DOPESHEET_HT_playback_controls(bpy.types.Header):
         :param context:
         """
 
-class DOPESHEET_MT_action(bpy.types.Menu):
+class DOPESHEET_MT_action(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -92,7 +93,7 @@ class DOPESHEET_MT_action(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_MT_cache(bpy.types.Menu):
+class DOPESHEET_MT_cache(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -117,7 +118,7 @@ class DOPESHEET_MT_cache(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_MT_channel(bpy.types.Menu):
+class DOPESHEET_MT_channel(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -142,7 +143,7 @@ class DOPESHEET_MT_channel(bpy.types.Menu):
         :param _context:
         """
 
-class DOPESHEET_MT_channel_context_menu(bpy.types.Menu):
+class DOPESHEET_MT_channel_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -167,7 +168,7 @@ class DOPESHEET_MT_channel_context_menu(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_MT_context_menu(bpy.types.Menu):
+class DOPESHEET_MT_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -192,7 +193,7 @@ class DOPESHEET_MT_context_menu(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_MT_delete(bpy.types.Menu):
+class DOPESHEET_MT_delete(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -217,7 +218,7 @@ class DOPESHEET_MT_delete(bpy.types.Menu):
         :param _context:
         """
 
-class DOPESHEET_MT_editor_menus(bpy.types.Menu):
+class DOPESHEET_MT_editor_menus(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -243,7 +244,7 @@ class DOPESHEET_MT_editor_menus(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_MT_gpencil_channel(bpy.types.Menu):
+class DOPESHEET_MT_gpencil_channel(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -268,7 +269,7 @@ class DOPESHEET_MT_gpencil_channel(bpy.types.Menu):
         :param _context:
         """
 
-class DOPESHEET_MT_key(bpy.types.Menu):
+class DOPESHEET_MT_key(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -293,7 +294,7 @@ class DOPESHEET_MT_key(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_MT_key_transform(bpy.types.Menu):
+class DOPESHEET_MT_key_transform(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -318,7 +319,7 @@ class DOPESHEET_MT_key_transform(bpy.types.Menu):
         :param _context:
         """
 
-class DOPESHEET_MT_marker(bpy.types.Menu):
+class DOPESHEET_MT_marker(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -343,7 +344,7 @@ class DOPESHEET_MT_marker(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_MT_select(bpy.types.Menu):
+class DOPESHEET_MT_select(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -368,7 +369,7 @@ class DOPESHEET_MT_select(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_MT_snap_pie(bpy.types.Menu):
+class DOPESHEET_MT_snap_pie(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -393,7 +394,7 @@ class DOPESHEET_MT_snap_pie(bpy.types.Menu):
         :param _context:
         """
 
-class DOPESHEET_MT_view(bpy.types.Menu):
+class DOPESHEET_MT_view(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -418,7 +419,7 @@ class DOPESHEET_MT_view(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_MT_view_pie(bpy.types.Menu):
+class DOPESHEET_MT_view_pie(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -443,7 +444,7 @@ class DOPESHEET_MT_view_pie(bpy.types.Menu):
         :param context:
         """
 
-class DOPESHEET_PT_action(DopesheetActionPanelBase, bpy.types.Panel):
+class DOPESHEET_PT_action(DopesheetActionPanelBase, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -478,7 +479,7 @@ class DOPESHEET_PT_action(DopesheetActionPanelBase, bpy.types.Panel):
         :param context:
         """
 
-class DOPESHEET_PT_action_slot(bpy.types.Panel):
+class DOPESHEET_PT_action_slot(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -513,9 +514,9 @@ class DOPESHEET_PT_action_slot(bpy.types.Panel):
         :param context:
         """
 
-class DOPESHEET_PT_custom_props_action(rna_prop_ui.PropertyPanel, bpy.types.Panel):
+class DOPESHEET_PT_custom_props_action(rna_prop_ui.PropertyPanel, _bpy_types.Panel):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     bl_category: typing.Any
@@ -549,7 +550,7 @@ class DOPESHEET_PT_custom_props_action(rna_prop_ui.PropertyPanel, bpy.types.Pane
         :param context:
         """
 
-class DOPESHEET_PT_filters(DopesheetFilterPopoverBase, bpy.types.Panel):
+class DOPESHEET_PT_filters(DopesheetFilterPopoverBase, _bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -579,7 +580,7 @@ class DOPESHEET_PT_filters(DopesheetFilterPopoverBase, bpy.types.Panel):
 class DOPESHEET_PT_grease_pencil_layer_adjustments(
     bl_ui.properties_data_grease_pencil.GreasePencil_LayerAdjustmentsPanel,
     GreasePencilLayersDopeSheetPanel,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -607,7 +608,7 @@ class DOPESHEET_PT_grease_pencil_layer_adjustments(
 class DOPESHEET_PT_grease_pencil_layer_display(
     bl_ui.properties_data_grease_pencil.GreasePencil_LayerDisplayPanel,
     GreasePencilLayersDopeSheetPanel,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -635,7 +636,7 @@ class DOPESHEET_PT_grease_pencil_layer_display(
 class DOPESHEET_PT_grease_pencil_layer_masks(
     bl_ui.properties_data_grease_pencil.GreasePencil_LayerMaskPanel,
     GreasePencilLayersDopeSheetPanel,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -663,7 +664,7 @@ class DOPESHEET_PT_grease_pencil_layer_masks(
 class DOPESHEET_PT_grease_pencil_layer_relations(
     bl_ui.properties_data_grease_pencil.GreasePencil_LayerRelationsPanel,
     GreasePencilLayersDopeSheetPanel,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -691,7 +692,7 @@ class DOPESHEET_PT_grease_pencil_layer_relations(
 class DOPESHEET_PT_grease_pencil_layer_transform(
     bl_ui.properties_data_grease_pencil.GreasePencil_LayerTransformPanel,
     GreasePencilLayersDopeSheetPanel,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -717,7 +718,7 @@ class DOPESHEET_PT_grease_pencil_layer_transform(
         """
 
 class DOPESHEET_PT_grease_pencil_mode(
-    GreasePencilLayersDopeSheetPanel, bpy.types.Panel
+    GreasePencilLayersDopeSheetPanel, _bpy_types.Panel
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -747,7 +748,7 @@ class DOPESHEET_PT_grease_pencil_mode(
         """
 
 class DOPESHEET_PT_playhead_snapping(
-    bl_ui.utils.PlayheadSnappingPanel, bpy.types.Panel
+    bl_ui.utils.PlayheadSnappingPanel, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -769,7 +770,7 @@ class DOPESHEET_PT_playhead_snapping(
         :rtype: typing.Any
         """
 
-class DOPESHEET_PT_proportional_edit(bpy.types.Panel):
+class DOPESHEET_PT_proportional_edit(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -797,7 +798,7 @@ class DOPESHEET_PT_proportional_edit(bpy.types.Panel):
         :param context:
         """
 
-class DOPESHEET_PT_snapping(bpy.types.Panel):
+class DOPESHEET_PT_snapping(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any

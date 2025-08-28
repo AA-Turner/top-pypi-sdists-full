@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_enablement`
 
-Refer to the Terraform Registry for docs: [`pagerduty_enablement`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement).
+Refer to the Terraform Registry for docs: [`pagerduty_enablement`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Enablement(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.enablement.Enablement",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement pagerduty_enablement}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement pagerduty_enablement}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class Enablement(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement pagerduty_enablement} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement pagerduty_enablement} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param entity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#entity_id Enablement#entity_id}.
-        :param entity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#entity_type Enablement#entity_type}.
-        :param feature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#feature Enablement#feature}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#enabled Enablement#enabled}.
+        :param entity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#entity_id Enablement#entity_id}.
+        :param entity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#entity_type Enablement#entity_type}.
+        :param feature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#feature Enablement#feature}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#enabled Enablement#enabled}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class Enablement(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Enablement to import.
-        :param import_from_id: The id of the existing Enablement that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Enablement that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Enablement to import is found.
         '''
         if __debug__:
@@ -260,10 +260,10 @@ class EnablementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param entity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#entity_id Enablement#entity_id}.
-        :param entity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#entity_type Enablement#entity_type}.
-        :param feature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#feature Enablement#feature}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#enabled Enablement#enabled}.
+        :param entity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#entity_id Enablement#entity_id}.
+        :param entity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#entity_type Enablement#entity_type}.
+        :param feature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#feature Enablement#feature}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#enabled Enablement#enabled}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -368,21 +368,21 @@ class EnablementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def entity_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#entity_id Enablement#entity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#entity_id Enablement#entity_id}.'''
         result = self._values.get("entity_id")
         assert result is not None, "Required property 'entity_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def entity_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#entity_type Enablement#entity_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#entity_type Enablement#entity_type}.'''
         result = self._values.get("entity_type")
         assert result is not None, "Required property 'entity_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def feature(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#feature Enablement#feature}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#feature Enablement#feature}.'''
         result = self._values.get("feature")
         assert result is not None, "Required property 'feature' is missing"
         return typing.cast(builtins.str, result)
@@ -391,7 +391,7 @@ class EnablementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.1/docs/resources/enablement#enabled Enablement#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.28.2/docs/resources/enablement#enabled Enablement#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

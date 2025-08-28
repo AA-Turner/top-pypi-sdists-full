@@ -6,12 +6,27 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .InstanceType import InstanceType
+from .ReportFolderType import ReportFolderType
 
 
 @dataclass(frozen=True)
 class UploadContents:
-    amendmentPaths: dict[InstanceType, frozenset[Path]]
-    directories: frozenset[Path]
-    instances: dict[InstanceType, frozenset[Path]]
-    unknownPaths: frozenset[Path]
+    reports: dict[ReportFolderType, frozenset[Path]]
+    uploadPaths: dict[Path, UploadPathInfo]
+
+    @property
+    def sortedPaths(self) -> list[Path]:
+        return sorted(self.uploadPaths.keys())
+
+
+@dataclass(frozen=True)
+class UploadPathInfo:
+    isAttachment: bool
+    isCorrection: bool
+    isCoverPage: bool
+    isDirectory: bool
+    isRoot: bool
+    isSubdirectory: bool
+    path: Path
+    reportFolderType: ReportFolderType | None
+    reportPath: Path | None

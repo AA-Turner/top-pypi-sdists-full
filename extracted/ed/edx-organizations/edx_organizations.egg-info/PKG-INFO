@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-organizations
-Version: 7.2.1
+Version: 7.3.0
 Summary: Organization management module for Open edX
 Home-page: https://github.com/openedx/edx-organizations
 Author: edX
@@ -20,7 +20,7 @@ License-File: LICENSE
 Requires-Dist: Pillow
 Requires-Dist: django
 Requires-Dist: django-model-utils
-Requires-Dist: django-simple-history<=3.8.0
+Requires-Dist: django-simple-history>=3.10.1
 Requires-Dist: djangorestframework
 Requires-Dist: edx-drf-extensions
 Requires-Dist: edx-opaque-keys>=0.1.2

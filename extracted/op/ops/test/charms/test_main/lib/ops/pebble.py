@@ -151,7 +151,7 @@ LogTargetDict = typing.TypedDict(
     'LogTargetDict',
     {
         'override': Union[Literal['merge'], Literal['replace']],
-        'type': Literal['loki'],
+        'type': Literal['loki', 'opentelemetry'],
         'location': str,
         'services': List[str],
         'labels': Dict[str, str],
@@ -1663,7 +1663,7 @@ class Notice:
     occurrences: int
     """The number of times one of these notices has occurred."""
 
-    last_data: dict[str, str] = dataclasses.field(default_factory=dict)
+    last_data: dict[str, str] = dataclasses.field(default_factory=dict[str, str])
     """Additional data captured from the last occurrence of one of these notices."""
 
     repeat_after: datetime.timedelta | None = None
@@ -2072,6 +2072,9 @@ class BasicIdentity:
     def to_dict(self) -> BasicIdentityDict:
         """Convert this basic identity to its dict representation."""
         return {'password': self.password}
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}(password='*****')"
 
 
 @dataclasses.dataclass
@@ -2943,7 +2946,7 @@ class Client:
         stdin: bytes | BinaryIO | None = None,
         stdout: BinaryIO | None = None,
         stderr: BinaryIO | None = None,
-        encoding: None = None,
+        encoding: None,
         combine_stderr: bool = False,
     ) -> ExecProcess[bytes]: ...
 
@@ -2975,6 +2978,10 @@ class Client:
         Most of the parameters are explained in the "Parameters" section
         below, however, input/output handling is a bit more complex. Some
         examples are shown below::
+
+            # These two lines are related to documentation testing, not exec()
+            >>> import pytest
+            >>> pytest.skip('these examples require a running Pebble')
 
             # Simple command with no output; just check exit code
             >>> process = client.exec(['send-emails'])
@@ -3194,7 +3201,7 @@ class Client:
                             newline='',
                         )
 
-            process: ExecProcess[Any] = ExecProcess(
+            process: ExecProcess[Any] = ExecProcess[Any](
                 stdin=process_stdin,  # type: ignore
                 stdout=process_stdout,  # type: ignore
                 stderr=process_stderr,  # type: ignore

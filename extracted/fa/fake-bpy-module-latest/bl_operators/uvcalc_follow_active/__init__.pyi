@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class FollowActiveQuads(bpy.types.Operator):
+class FollowActiveQuads(_bpy_types.Operator):
     """Follow UVs from active quads along continuous face loops"""
 
     bl_idname: typing.Any

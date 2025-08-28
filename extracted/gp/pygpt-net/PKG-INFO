@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.26
+Version: 2.6.29
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: ai,api,api key,app,assistant,bielik,chat,chatbot,chatgpt,claude,dall-e,deepseek,desktop,gemini,gpt,gpt-3.5,gpt-4,gpt-4-vision,gpt-4o,gpt-5,gpt-oss,gpt3.5,gpt4,grok,langchain,llama-index,llama3,mistral,o1,o3,ollama,openai,presets,py-gpt,py_gpt,pygpt,pyside,qt,text completion,tts,ui,vision,whisper
@@ -117,7 +117,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.26** | build: **2025-08-26** | Python: **>=3.10, <3.14**
+Release: **2.6.29** | build: **2025-08-27** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -487,41 +487,41 @@ Please go to `Debugging and Logging` section for instructions on how to log and 
 
 # Quick Start
 
-## Setting-up OpenAI API KEY
+## Setting-up API Key(s)
 
-**Tip:** The API key is required to work with the OpenAI API. If you wish to use custom API endpoints or local API that do not require API keys, simply enter anything into the API key field to avoid a prompt about the API key being empty.
+You can configure API keys for various providers, such as OpenAI, Anthropic, Google, xAI, Perplexity, OpenRouter, and more. This flexibility allows you to use different providers based on your needs.
 
-During the initial launch, you must configure your API key within the application.
+During the initial setup, configure your API keys within the application.
 
 To do so, navigate to the menu:
 
-``` ini
-Config -> Settings -> API Keys
-```
+`Config -> Settings -> API Keys`
 
-and then paste the API key into the `OpenAI API KEY` field.
+Here, you can add or manage API keys for any supported provider.
 
 ![v2_api_keys](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v2_api_keys.png)
 
-The API key can be obtained by registering on the OpenAI website:
+**Configuring Provider**
 
-<https://platform.openai.com>
+1. **Select the Provider:** Choose a tab with provider.
+2. **Enter the API Key:** Paste the corresponding API key for the selected provider.
 
-Your API keys will be available here:
+**Example**
 
-<https://platform.openai.com/account/api-keys>
+- **OpenAI:** Obtain your API key by registering on the OpenAI website: https://platform.openai.com and navigating to https://platform.openai.com/account/api-keys.
+- **Anthropic, Google, etc.:** Follow similar steps on their respective platforms.
 
-**Note:** The ability to use models within the application depends on the API user's access to a given model!
+**Note:** The ability to use models or services depends on your access level with the respective provider. If you wish to use custom API endpoints or local APIs that do not require API keys, simply enter any value into the API key field to bypass prompts about an empty key.
 
-# Working modes
+# Work modes
 
 ## Chat
 
 **+ Inline Vision and Image generation**
 
-This mode in **PyGPT** mirrors `ChatGPT`, allowing you to chat with models such as `o1`, `o3`, `GPT-4`, `GPT-4o` and  `Claude`, `Gemini`, `Grok`, `Perplexity`, `Deepseek`. It works by using the `Responses` and `ChatCompletions` OpenAI API (or compatible). You can select the API endpoint to use in: `Config -> Settings -> API Keys`.
+This mode in **PyGPT** mirrors `ChatGPT`, allowing you to chat with models such as `GPT-5`, `GPT-4`, `o1`, `o3`, and`Claude`, `Gemini`, `Grok`, `Perplexity (sonar)`, `Deepseek`, and others. It works by using the `Responses` and `ChatCompletions` OpenAI API (or compatible). You can select the API endpoint to use in: `Config -> Settings -> API Keys`.
 
-**Tip: This mode directly uses the OpenAI API. Other models, such as Gemini, Claude, Grok, Sonar, or Llama3, are supported in Chat mode via LlamaIndex or OpenAI API compatible endpoints (if available), which the application switches to in the background when working with models other than OpenAI.**
+**Tip: This mode directly uses the OpenAI SDK. Other models, such as Gemini, Claude, Grok, Sonar, or Llama3, are supported in Chat mode via LlamaIndex or OpenAI API compatible endpoints (if available), which the application switches to in the background when working with models other than OpenAI.**
 
 The main part of the interface is a chat window where you see your conversations. Below it is a message box for typing. On the right side, you can set up or change the model and system prompt. You can also save these settings as presets to easily switch between models or tasks.
 
@@ -629,7 +629,7 @@ You can also develop and provide your own custom loader and register it within t
 LlamaIndex is also integrated with context database - you can use data from database (your context history) as additional context in discussion. 
 Options for indexing existing context history or enabling real-time indexing new ones (from database) are available in `Settings / Indexes / LlamaIndex` section.
 
-**WARNING:** remember that when indexing content, API calls to the embedding model are used. Each indexing consumes additional tokens. Always control the number of tokens used on the OpenAI page.
+**WARNING:** remember that when indexing content, API calls to the embedding model are used. Each indexing consumes additional tokens. Always control the number of tokens used on the provider's page.
 
 **Tip:** Using the Chat with Files mode, you have default access to files manually indexed from the /data directory. However, you can use additional context by attaching a file - such additional context from the attachment does not land in the main index, but only in a temporary one, available only for the given conversation.
 
@@ -655,8 +655,6 @@ In the `Settings -> LlamaIndex -> Data loaders` section you can define the addit
 
 ## Chat with Audio
 
-2024-11-26: currently in beta.
-
 This mode works like the Chat mode but with native support for audio input and output using a multimodal model - `gpt-4o-audio`. In this mode, audio input and output are directed to and from the model directly, without the use of external plugins. This enables faster and better audio communication.
 
 More info: https://platform.openai.com/docs/guides/audio/quickstart
@@ -664,8 +662,6 @@ More info: https://platform.openai.com/docs/guides/audio/quickstart
 Currently, in beta. Tool and function calls are not enabled in this mode.
 
 ## Research
-
-2025-03-02: currently in beta.
 
 This mode (when using Sonar and R1 models) operates using the Perplexity API: https://perplexity.ai.
 
@@ -731,7 +727,7 @@ Images are stored in ``img`` directory in **PyGPT** user data folder.
 
 ## Vision
 
-This mode enables image analysis using the `gpt-4o`, `gpt-4-vision` and other vision (multimodal) models. Functioning much like the chat mode, 
+This mode enables image analysis using the `GPT-5`, `GPT-4o` and other vision (multimodal) models. Functioning much like the chat mode, 
 it also allows you to upload images or provide URLs to images. The vision feature can analyze both local 
 images and those found online. 
 
@@ -834,8 +830,6 @@ You can set the limit of steps in such a loop by going to `Settings -> Agents an
 You can change the prompts used for evaluating the response in `Settings -> Prompts -> Agent: evaluation prompt in loop`. Here, you can adjust it to suit your needs, for example, by defining more or less critical feedback for the responses received.
 
 ## Agent (OpenAI)
-
-**Added in: 2.5.76** - currently in beta.
 
 The mode operates on the `openai-agents` library integrated into the application:
 
@@ -965,9 +959,7 @@ You can choose which internal mode the agent should use in the settings:
 
 ```Settings / Agent (autonomous) / Sub-mode to use```
 
-Available choices include: `chat`, `completion`, `langchain`, `vision`, `llama_index` (Chat with Files).
-
-Default is: `chat`.
+Default mode is: `Chat`.
 
 If you want to use the LlamaIndex mode when running the agent, you can also specify which index `LlamaIndex` should use with the option:
 
@@ -1005,8 +997,6 @@ Give me a list of active experts.
 ```
 
 ##  Computer use
-
-**2.5.71**: Currently in beta.
 
 This mode allows for autonomous computer control.
 
@@ -1123,6 +1113,12 @@ Files such as jpg, png, and similar images are a special case. By default, image
 
 To use the `RAG` mode, the file must be indexed in the vector database. This occurs automatically at the time of upload if the `Auto-index on upload` option in the `Attachments` tab is enabled. When uploading large files, such indexing might take a while - therefore, if you are using the `Full context` option, which does not use the index, you can disable the `Auto-index` option to speed up the upload of the attachment. In this case, it will only be indexed when the `RAG` option is called for the first time, and until then, attachment will be available in the form of `Full context` and `Summary`.
 
+**Embeddings**
+
+When using RAG to query attachments, the documents are indexed into a temporary vector store. With multiple providers and models available, you can select the model used for querying attachments in: `Config -> Settings -> Files and Attachments`. You can also choose the embedding models for specified providers in `Config -> Settings -> Indexes / LlamaIndex -> Embeddings -> Default embedding models` list. By default, when querying an attachment using RAG, the default embedding model and provider corresponding to the RAG query model will be used. If no default configuration is provided for a specific provider, the global embedding configuration will be used.
+
+For example, if the RAG query model is `gpt-4o-mini`, then the default model for the provider `OpenAI` will be used. If the default model for `OpenAI` is not specified on the list, the global provider and model will be used.
+
 ## Downloading files
 
 **PyGPT** enables the automatic download and saving of files created by the model. This is carried out in the background, with the files being saved to an `data` folder located within the user's working directory. To view or manage these files, users can navigate to the `Files` tab which features a file browser for this specific directory. Here, users have the interface to handle all files sent by the AI.
@@ -1171,7 +1167,7 @@ The name of the currently active profile is shown as (Profile Name) in the windo
 
 ## Built-in models
 
-PyGPT has built-in support for models (as of 2025-07-26):
+PyGPT has a preconfigured list of models (as of 2025-07-26):
 
 - `bielik-11b-v2.3-instruct:Q4_K_M` (Ollama)
 - `chatgpt-4o-latest` (OpenAI)
@@ -1250,7 +1246,9 @@ PyGPT has built-in support for models (as of 2025-07-26):
 All models are specified in the configuration file `models.json`, which you can customize. 
 This file is located in your working directory. You can add new models provided directly by `OpenAI API` (or compatible) and those supported by `LlamaIndex` or `Ollama` to this file. Configuration for LlamaIndex is placed in `llama_index` key.
 
-**Tip**: Anthropic and Deepseek API providers use VoyageAI for embeddings, so you must also configure the Voyage API key if you want to use embeddings from these providers.
+You can import new models by manually editing `models.json` or by using the model importer in the `Config -> Models -> Import` menu.
+
+**Tip**: Anthropic and Deepseek API providers use VoyageAI for embeddings (Chat with Files and attachments RAG), so you must also configure the Voyage API key if you want to use embeddings from these providers.
 
 ## Adding a custom model
 
@@ -1472,11 +1470,15 @@ The following plugins are currently available, and model can use them instantly:
 
 - `Telegram` - Send messages, photos, and documents; manage chats and contacts.
 
+- `Tuya (IoT)` - Handle Tuya Smart Home devices via Tuya Cloud API.
+
 - `Vision (inline)` - integrates Vision capabilities with any chat mode, not just Vision mode. When the plugin is enabled, the model temporarily switches to vision in the background when an image attachment or vision capture is provided.
 
 - `Voice Control (inline)` - provides voice control command execution within a conversation.
 
 - `Web Search` - provides the ability to connect to the Web, search web pages for current data, and index external content using LlamaIndex data loaders.
+
+- `Wikipedia` - Search Wikipedia for information.
 
 - `X/Twitter` - Interact with tweets and users, manage bookmarks and media, perform likes, retweets, and more.
 
@@ -1864,6 +1866,20 @@ The plugin enables integration with Telegram for both bots and user accounts thr
 
 Documentation: https://pygpt.readthedocs.io/en/latest/plugins.html#telegram
 
+## Tuya (IoT)
+
+The Tuya plugin integrates with Tuya's Smart Home platform, enabling seamless interactions with your smart devices via the Tuya Cloud API. This plugin provides a user-friendly interface to manage and control devices directly from your assistant.
+
+* Provide your Tuya Cloud credentials to enable communication.
+* Access and list all smart devices connected to your Tuya app account.
+* Retrieve detailed information about each device, including its status and supported functions.
+* Effortlessly search for devices by their names using cached data for quick access.
+* Control devices by turning them on or off, toggle states, and set specific device parameters.
+* Send custom commands to devices for more advanced control.
+* Read sensor values and normalize them for easy interpretation.
+
+Documentation: https://pygpt.readthedocs.io/en/latest/plugins.html#tuya-iot
+
 ## Vision (inline)
 
 The plugin integrates vision capabilities across all chat modes, not just Vision mode. Once enabled, it allows the model to seamlessly switch to vision processing in the background whenever an image attachment or vision capture is detected.
@@ -1887,6 +1903,20 @@ To activate this feature, turn on the `Web Search` plugin found in the `Plugins`
 Web searches are provided by `Google Custom Search Engine` and `Microsoft Bing` APIs and can be extended with other search engine providers. 
 
 Documentation: https://pygpt.readthedocs.io/en/latest/plugins.html#web-search
+
+## Wikipedia
+
+The Wikipedia plugin allows for comprehensive interactions with Wikipedia, including language settings, article searching, summaries, and random article discovery. This plugin offers a variety of options to optimize your search experience.
+
+* Set your preferred language for Wikipedia queries.
+* Retrieve and check the current language setting.
+* Explore a list of supported languages.
+* Search for articles using keywords or get suggestions for queries.
+* Obtain summaries and detailed page content.
+* Discover articles by geographic location or randomly.
+* Open articles directly in your web browser.
+
+Documentation: https://pygpt.readthedocs.io/en/latest/plugins.html#wikipedia
 
 ## X/Twitter
 
@@ -1935,7 +1965,7 @@ PyGPT can be extended with:
 
 - custom web search engine providers
 
-- custom agents
+- custom agents (LlamaIndex or OpenAI Agents)
 
 
 See the section `Extending PyGPT / Adding a custom plugin` for more details.
@@ -2113,7 +2143,7 @@ a particular query will consume and displays this estimate in real time. This gi
 control over your token usage. The app provides detailed information about the tokens used for the user's prompt, 
 the system prompt, any additional data, and those used within the context (the memory of previous entries).
 
-**Remember that these are only approximate calculations and do not include, for example, the number of tokens consumed by some plugins. You can find the exact number of tokens used on the OpenAI website.**
+**Remember that these are only approximate calculations and do not include, for example, the number of tokens consumed by some plugins. You can find the exact number of tokens used on provider's website.**
 
 ![v2_tokens1](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v2_tokens1.png)
 
@@ -2333,8 +2363,6 @@ Config -> Settings...
 
 - `Directory for file downloads`: Subdirectory for downloaded files, e.g. in Assistants mode, inside "data". Default: "download"
 
-- `Verbose mode`: Enabled verbose mode when using attachment as additional context.
-
 - `Model for querying index`: Model to use for preparing query and querying the index when the RAG option is selected.
 
 - `Model for attachment content summary`: Model to use when generating a summary for the content of a file when the Summary option is selected.
@@ -2469,6 +2497,8 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 
 - `Audio notify microphone listening start/stop`: enables audio "tick" notify when microphone listening started/ended.
 
+- `Continuous Audio Recording (Chunks)`: Enable recording in chunks for long audio recordings in notepad (voice notes).
+
 **Indexes / LlamaIndex**
 
 **General**
@@ -2536,8 +2566,6 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 **Agent and experts**
 
 **General**
-
-- `Verbose` - enables verbose mode.
 
 - `Auto retrieve additional context from RAG`: Auto retrieve additional context from RAG at the beginning if the index is provided.
 
@@ -2620,6 +2648,10 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 - `Log plugin usage to console`: Enables logging of plugin usage to console.
 
 - `Log DALL-E usage to console`: Enables logging of DALL-E usage to console.
+
+- `Log attachments usage to console`: Enables logging of attachments usage to console.
+
+- `Log Agents usage to console`: Enables logging of Agents usage to console.
 
 - `Log LlamaIndex usage to console`: Enables logging of LlamaIndex usage to console.
 
@@ -3037,7 +3069,7 @@ PyGPT can be extended with:
 
 - custom web search engine providers
 
-- custom agents
+- custom agents (LlamaIndex or OpenAI Agents)
 
 **Examples (tutorial files)** 
 
@@ -3143,6 +3175,7 @@ There is built-in support for those LLM providers:
 - Local models (OpenAI API compatible)
 - Ollama
 - OpenAI
+- OpenRouter
 - Perplexity
 - xAI
 
@@ -3541,6 +3574,22 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.29 (2025-08-28)**
+
+- Verbose options have been moved to the Developer section in settings.
+- Enhanced logging of embeddings usage.
+- Fixed styles list.
+
+**2.6.28 (2025-08-27)**
+
+- Added new plugins: Tuya (IoT) and Wikipedia.
+- Improved formatting of JSON command output.
+- Fixed CSS issues.
+
+**2.6.27 (2025-08-26)**
+
+- Simplified audio input: A microphone icon has been added to the input field.
 
 **2.6.26 (2025-08-26)**
 

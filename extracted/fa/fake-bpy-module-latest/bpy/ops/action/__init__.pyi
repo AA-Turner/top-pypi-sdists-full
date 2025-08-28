@@ -7,7 +7,9 @@ import bpy.stub_internal.rna_enums
 import bpy.types
 
 def bake_keys(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add keyframes on every frame between the selected keyframes
 
@@ -66,7 +68,11 @@ def clickselect(
     :type channel: bool | None
     """
 
-def copy(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def copy(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Copy selected keyframes to the internal clipboard
 
     :type execution_context: int | str | None
@@ -89,7 +95,9 @@ def delete(
     """
 
 def duplicate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make a copy of all selected keyframes
 
@@ -151,7 +159,7 @@ def extrapolation_type(
     Linear Extrapolation -- Straight-line slope of end segments are extended past the endpoint keyframes.
 
     MAKE_CYCLIC
-    Make Cyclic (F-Modifier) -- Add Cycles F-Modifier if one doesn't exist already.
+    Make Cyclic (F-Modifier) -- Add Cycles F-Modifier if one does not exist already.
 
     CLEAR_CYCLIC
     Clear Cyclic (F-Modifier) -- Remove Cycles F-Modifier if not needed anymore.
@@ -159,7 +167,9 @@ def extrapolation_type(
     """
 
 def frame_jump(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set the current frame to the average frame value of selected keyframes
 
@@ -229,7 +239,9 @@ def keyframe_type(
     """
 
 def layer_next(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Switch to editing action in animation layer above the current action in the NLA Stack
 
@@ -238,7 +250,9 @@ def layer_next(
     """
 
 def layer_prev(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Switch to editing action in animation layer below the current action in the NLA Stack
 
@@ -247,9 +261,11 @@ def layer_prev(
     """
 
 def markers_make_local(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Move selected scene markers to the active Action as local 'pose' markers
+    """Move selected scene markers to the active Action as local pose markers
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -279,7 +295,11 @@ def mirror(
         :type type: typing.Literal['CFRA','XAXIS','MARKER'] | None
     """
 
-def new(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def new(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Create new action
 
     :type execution_context: int | str | None
@@ -308,7 +328,9 @@ def paste(
     """
 
 def previewrange_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set Preview Range based on extents of selected Keyframes
 
@@ -317,7 +339,9 @@ def previewrange_set(
     """
 
 def push_down(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Push action down on to the NLA stack as a new strip
 
@@ -504,7 +528,9 @@ def select_leftright(
     """
 
 def select_less(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Deselect keyframes on ends of selection islands
 
@@ -513,7 +539,9 @@ def select_less(
     """
 
 def select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select keyframes occurring in the same F-Curves as selected ones
 
@@ -522,7 +550,9 @@ def select_linked(
     """
 
 def select_more(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select keyframes beside already selected ones
 
@@ -574,7 +604,9 @@ def stash(
     """
 
 def stash_and_create(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Store this action in the NLA stack as a non-contributing strip for later use, and create a new action
 
@@ -593,12 +625,14 @@ def unlink(
 
     :type execution_context: int | str | None
     :type undo: bool | None
-    :param force_delete: Force Delete, Clear Fake User and remove copy stashed in this data-block's NLA stack
+    :param force_delete: Force Delete, Clear Fake User and remove copy stashed in this data-blocks NLA stack
     :type force_delete: bool | None
     """
 
 def view_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset viewable area to show full keyframe range
 
@@ -607,7 +641,9 @@ def view_all(
     """
 
 def view_frame(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move the view to the current frame
 
@@ -616,7 +652,9 @@ def view_frame(
     """
 
 def view_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset viewable area to show selected keyframes range
 

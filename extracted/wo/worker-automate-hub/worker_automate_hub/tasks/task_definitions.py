@@ -31,6 +31,7 @@ from worker_automate_hub.tasks.jobs.entrada_de_notas_9000 import entrada_de_nota
 from worker_automate_hub.tasks.jobs.entrada_de_notas_7139 import entrada_de_notas_7139
 from worker_automate_hub.tasks.jobs.entrada_de_notas_36 import entrada_de_notas_36
 from worker_automate_hub.tasks.jobs.entrada_de_notas_503 import entrada_de_notas_503
+from worker_automate_hub.tasks.jobs.extracao_saldo_estoque import extracao_saldo_estoque
 from worker_automate_hub.tasks.jobs.fidc_remessa_cobranca_cnab240 import (
     remessa_cobranca_cnab240,
 )
@@ -198,6 +199,7 @@ task_definitions = {
     "58de6a65-68cd-4e68-ab28-31b543b6de02": transferencias,  # Logistica reverse
     "ca7ac373-e8e7-4ac2-aa7e-298070e0d9a0": extracao_fechamento_contabil,
     "8c28726d-458d-4119-afa0-202695b79a8f": extracao_fechamento_emsys,
+    "16debe45-3520-4f63-acfe-ef0e8784fcab": extracao_saldo_estoque
 }
 
 

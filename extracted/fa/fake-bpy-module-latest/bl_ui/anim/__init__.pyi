@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class ANIM_MT_keyframe_insert_pie(bpy.types.Menu):
+class ANIM_MT_keyframe_insert_pie(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any

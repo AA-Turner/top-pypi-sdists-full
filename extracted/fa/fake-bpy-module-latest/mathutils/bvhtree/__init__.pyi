@@ -7,13 +7,14 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bmesh.types
 import bpy.types
 import mathutils
 
 class BVHTree:
     @classmethod
-    def FromBMesh(cls, bmesh: bmesh.types.BMesh, epsilon: float = 0.0) -> None:
+    def FromBMesh(cls, bmesh: bmesh.types.BMesh, *, epsilon: float = 0.0) -> None:
         """BVH tree based on `BMesh` data.
 
         :param bmesh: BMesh data.
@@ -25,8 +26,9 @@ class BVHTree:
     @classmethod
     def FromObject(
         cls,
-        object: bpy.types.Object,
+        object: _bpy_types.Object,
         depsgraph: bpy.types.Depsgraph,
+        *,
         deform: bool = True,
         render=False,
         cage: bool = False,
@@ -35,7 +37,7 @@ class BVHTree:
         """BVH tree based on `Object` data.
 
         :param object: Object data.
-        :type object: bpy.types.Object
+        :type object: _bpy_types.Object
         :param depsgraph: Depsgraph to use for evaluating the mesh.
         :type depsgraph: bpy.types.Depsgraph
         :param deform: Use mesh with deformations.
@@ -52,6 +54,7 @@ class BVHTree:
         cls,
         vertices: collections.abc.Sequence[collections.abc.Sequence[float]],
         polygons: collections.abc.Sequence[collections.abc.Sequence[int]],
+        *,
         all_triangles: bool = False,
         epsilon: float = 0.0,
     ) -> None:
@@ -68,7 +71,10 @@ class BVHTree:
         """
 
     def find_nearest(
-        self, origin, distance: float = 1.84467e19
+        self,
+        origin,
+        distance: float = 1.84467e19,
+        /,
     ) -> tuple[
         mathutils.Vector | None, mathutils.Vector | None, int | None, float | None
     ]:
@@ -83,7 +89,10 @@ class BVHTree:
         """
 
     def find_nearest_range(
-        self, origin, distance: float = 1.84467e19
+        self,
+        origin,
+        distance: float = 1.84467e19,
+        /,
     ) -> list[tuple[mathutils.Vector, mathutils.Vector, int, float]]:
         """Find the nearest elements (typically face index) to a point in the distance range.
 
@@ -94,7 +103,11 @@ class BVHTree:
         :rtype: list[tuple[mathutils.Vector, mathutils.Vector, int, float]]
         """
 
-    def overlap(self, other_tree: typing_extensions.Self) -> list[tuple[int, int]]:
+    def overlap(
+        self,
+        other_tree: typing_extensions.Self,
+        /,
+    ) -> list[tuple[int, int]]:
         """Find overlapping indices between 2 trees.
 
         :param other_tree: Other tree to perform overlap test on.
@@ -108,6 +121,7 @@ class BVHTree:
         origin: collections.abc.Sequence[float] | mathutils.Vector,
         direction: collections.abc.Sequence[float] | mathutils.Vector,
         distance: float = sys.float_info.max,
+        /,
     ) -> tuple[
         mathutils.Vector | None, mathutils.Vector | None, int | None, float | None
     ]:

@@ -131,14 +131,14 @@ class KafkaUtils:
     def configure_metrics_reporting(self, 
                                    rpc_client,
                                    service_id: str = None,
-                                   interval: int = 60,
+                                   interval: int = 120,
                                    batch_size: int = 1000) -> None:
         """Configure background metrics reporting to backend API.
         
         Args:
             rpc_client: RPC client instance for API communication
             deployment_id: Deployment identifier for metrics context
-            interval: Reporting interval in seconds (default: 60)
+            interval: Reporting interval in seconds (default: 120)
             batch_size: Maximum metrics per batch (default: 1000)
         """
         self._metrics_reporting_config = {
@@ -283,6 +283,7 @@ class KafkaUtils:
             'status': 'success',
             'ip': ip,
             'port': port,
+            'granularity': 'minute',
             'createdAt': current_time,
             'updatedAt': current_time
         }
@@ -1395,14 +1396,14 @@ class AsyncKafkaUtils:
     def configure_metrics_reporting(self, 
                                    rpc_client,
                                    service_id: str = None,
-                                   interval: int = 60,
+                                   interval: int = 120,
                                    batch_size: int = 1000) -> None:
         """Configure background metrics reporting to backend API.
         
         Args:
             rpc_client: RPC client instance for API communication
             deployment_id: Deployment identifier for metrics context
-            interval: Reporting interval in seconds (default: 60)
+            interval: Reporting interval in seconds (default: 120)
             batch_size: Maximum metrics per batch (default: 1000)
         """
         self._metrics_reporting_config = {
@@ -1525,6 +1526,7 @@ class AsyncKafkaUtils:
             'status': 'success',
             'ip': ip,
             'port': port,
+            'granularity': 'minute',
             'createdAt': current_time,
             'updatedAt': current_time
         }
@@ -2274,7 +2276,7 @@ class MatriceKafkaDeployment:
         custom_request_service_id: str = None,
         custom_result_service_id: str = None,
         enable_metrics: bool = True,
-        metrics_interval: int = 60,
+        metrics_interval: int = 120,
     ) -> None:
         """Initialize Kafka deployment with deployment ID.
 
@@ -2769,7 +2771,7 @@ class MatriceKafkaDeployment:
             return None
 
     def configure_metrics_reporting(self, 
-                                   interval: int = 60,
+                                   interval: int = 120,
                                    batch_size: int = 1000) -> None:
         """Configure background metrics reporting for both sync and async Kafka utilities.
         
@@ -2777,7 +2779,7 @@ class MatriceKafkaDeployment:
         for all Kafka operations performed through this deployment.
         
         Args:
-            interval: Reporting interval in seconds (default: 60)
+            interval: Reporting interval in seconds (default: 120)
             batch_size: Maximum metrics per batch (default: 1000)
         """
         try:

@@ -2,6 +2,8 @@
 
 :Provided barcodes: Codabar (NW-7)
 """
+from __future__ import annotations
+
 __docformat__ = "restructuredtext en"
 
 from barcode.base import Barcode
@@ -39,7 +41,7 @@ class CODABAR(Barcode):
     def get_fullcode(self):
         return self.code
 
-    def build(self):
+    def build(self) -> list[str]:
         try:
             data = (
                 codabar.STARTSTOP[self.code[0]] + "n"

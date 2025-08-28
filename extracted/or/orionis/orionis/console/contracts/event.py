@@ -5,6 +5,7 @@ from orionis.console.entities.event import Event as EventEntity
 
 class IEvent(ABC):
 
+    @abstractmethod
     def misfireGraceTime(
         self,
         seconds: int = 60
@@ -31,6 +32,7 @@ class IEvent(ABC):
         CLIOrionisValueError
             If the provided seconds is not a positive integer.
         """
+        pass
 
     @abstractmethod
     def purpose(

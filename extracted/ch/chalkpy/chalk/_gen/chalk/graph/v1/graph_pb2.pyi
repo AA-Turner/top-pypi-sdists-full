@@ -4,6 +4,7 @@ from chalk._gen.chalk.graph.v1 import sources_pb2 as _sources_pb2
 from chalk._gen.chalk.graph.v2 import sources_pb2 as _sources_pb2_1
 from chalk._gen.chalk.lsp.v1 import lsp_pb2 as _lsp_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
+from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -115,6 +116,7 @@ class Graph(_message.Message):
         "database_sources_v2",
         "database_source_groups",
         "stream_sources_v2",
+        "model_references",
     )
     FEATURE_SETS_FIELD_NUMBER: _ClassVar[int]
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
@@ -126,6 +128,7 @@ class Graph(_message.Message):
     DATABASE_SOURCES_V2_FIELD_NUMBER: _ClassVar[int]
     DATABASE_SOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
     STREAM_SOURCES_V2_FIELD_NUMBER: _ClassVar[int]
+    MODEL_REFERENCES_FIELD_NUMBER: _ClassVar[int]
     feature_sets: _containers.RepeatedCompositeFieldContainer[FeatureSet]
     resolvers: _containers.RepeatedCompositeFieldContainer[Resolver]
     stream_resolvers: _containers.RepeatedCompositeFieldContainer[StreamResolver]
@@ -136,6 +139,7 @@ class Graph(_message.Message):
     database_sources_v2: _containers.RepeatedCompositeFieldContainer[_sources_pb2_1.DatabaseSource]
     database_source_groups: _containers.RepeatedCompositeFieldContainer[_sources_pb2_1.DatabaseSourceGroup]
     stream_sources_v2: _containers.RepeatedCompositeFieldContainer[_sources_pb2_1.StreamSource]
+    model_references: _containers.RepeatedCompositeFieldContainer[ModelReference]
     def __init__(
         self,
         feature_sets: _Optional[_Iterable[_Union[FeatureSet, _Mapping]]] = ...,
@@ -148,6 +152,7 @@ class Graph(_message.Message):
         database_sources_v2: _Optional[_Iterable[_Union[_sources_pb2_1.DatabaseSource, _Mapping]]] = ...,
         database_source_groups: _Optional[_Iterable[_Union[_sources_pb2_1.DatabaseSourceGroup, _Mapping]]] = ...,
         stream_sources_v2: _Optional[_Iterable[_Union[_sources_pb2_1.StreamSource, _Mapping]]] = ...,
+        model_references: _Optional[_Iterable[_Union[ModelReference, _Mapping]]] = ...,
     ) -> None: ...
 
 class OverlayGraph(_message.Message):
@@ -166,6 +171,27 @@ class OverlayGraph(_message.Message):
         feature_fields: _Optional[_Iterable[_Union[FeatureType, _Mapping]]] = ...,
         resolvers: _Optional[_Iterable[_Union[Resolver, _Mapping]]] = ...,
         generated_sql_resolvers: _Optional[_Iterable[_Union[SQLResolverInfo, _Mapping]]] = ...,
+    ) -> None: ...
+
+class ModelReference(_message.Message):
+    __slots__ = ("name", "version", "alias", "as_of", "source_file_reference")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    ALIAS_FIELD_NUMBER: _ClassVar[int]
+    AS_OF_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FILE_REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    version: int
+    alias: str
+    as_of: _timestamp_pb2.Timestamp
+    source_file_reference: SourceFileReference
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        version: _Optional[int] = ...,
+        alias: _Optional[str] = ...,
+        as_of: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        source_file_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
     ) -> None: ...
 
 class NamedQuery(_message.Message):
@@ -1044,6 +1070,12 @@ class ParseInfo(_message.Message):
         parse_function_output_type_name: _Optional[str] = ...,
     ) -> None: ...
 
+class FeatureExpression(_message.Message):
+    __slots__ = ("underscore_expr",)
+    UNDERSCORE_EXPR_FIELD_NUMBER: _ClassVar[int]
+    underscore_expr: _expression_pb2.LogicalExprNode
+    def __init__(self, underscore_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...) -> None: ...
+
 class StreamResolver(_message.Message):
     __slots__ = (
         "fqn",
@@ -1063,7 +1095,18 @@ class StreamResolver(_message.Message):
         "function",
         "source_v2",
         "updates_materialized_aggregations",
+        "feature_expressions",
     )
+    class FeatureExpressionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: FeatureExpression
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[FeatureExpression, _Mapping]] = ...
+        ) -> None: ...
+
     FQN_FIELD_NUMBER: _ClassVar[int]
     PARAMS_FIELD_NUMBER: _ClassVar[int]
     OUTPUTS_FIELD_NUMBER: _ClassVar[int]
@@ -1081,6 +1124,7 @@ class StreamResolver(_message.Message):
     FUNCTION_FIELD_NUMBER: _ClassVar[int]
     SOURCE_V2_FIELD_NUMBER: _ClassVar[int]
     UPDATES_MATERIALIZED_AGGREGATIONS_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_EXPRESSIONS_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1098,6 +1142,7 @@ class StreamResolver(_message.Message):
     function: FunctionReference
     source_v2: _sources_pb2_1.StreamSourceReference
     updates_materialized_aggregations: bool
+    feature_expressions: _containers.MessageMap[str, FeatureExpression]
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1117,6 +1162,7 @@ class StreamResolver(_message.Message):
         function: _Optional[_Union[FunctionReference, _Mapping]] = ...,
         source_v2: _Optional[_Union[_sources_pb2_1.StreamSourceReference, _Mapping]] = ...,
         updates_materialized_aggregations: bool = ...,
+        feature_expressions: _Optional[_Mapping[str, FeatureExpression]] = ...,
     ) -> None: ...
 
 class ResolverState(_message.Message):
@@ -1157,13 +1203,24 @@ class StreamResolverParamMessageWindow(_message.Message):
     ) -> None: ...
 
 class StreamResolverParamMessage(_message.Message):
-    __slots__ = ("name", "arrow_type")
+    __slots__ = ("name", "arrow_type", "empty", "struct", "proto")
     NAME_FIELD_NUMBER: _ClassVar[int]
     ARROW_TYPE_FIELD_NUMBER: _ClassVar[int]
+    EMPTY_FIELD_NUMBER: _ClassVar[int]
+    STRUCT_FIELD_NUMBER: _ClassVar[int]
+    PROTO_FIELD_NUMBER: _ClassVar[int]
     name: str
     arrow_type: _arrow_pb2.ArrowType
+    empty: _empty_pb2.Empty
+    struct: FunctionGlobalCapturedStruct
+    proto: FunctionGlobalCapturedProto
     def __init__(
-        self, name: _Optional[str] = ..., arrow_type: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...
+        self,
+        name: _Optional[str] = ...,
+        arrow_type: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...,
+        empty: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...,
+        struct: _Optional[_Union[FunctionGlobalCapturedStruct, _Mapping]] = ...,
+        proto: _Optional[_Union[FunctionGlobalCapturedProto, _Mapping]] = ...,
     ) -> None: ...
 
 class FunctionReference(_message.Message):

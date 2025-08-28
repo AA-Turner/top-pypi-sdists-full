@@ -46,7 +46,7 @@ class KeyframesCo:
         only difference between versions is performance and implementation simplicity.
 
                 :param lookup_fcurves: : This is only used for efficiency.
-        It's a substitute for action.fcurves.find() which is a potentially expensive linear search.
+        Its a substitute for action.fcurves.find() which is a potentially expensive linear search.
                 :param total_new_keys:
                 :param action:
                 :param action_slot:

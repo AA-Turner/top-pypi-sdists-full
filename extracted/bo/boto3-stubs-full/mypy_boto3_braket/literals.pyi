@@ -406,8 +406,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -540,16 +538,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal["search_devices", "search_jobs", "search_quantum_tasks"]
 RegionName = Literal["eu-north-1", "eu-west-2", "us-east-1", "us-west-1", "us-west-2"]

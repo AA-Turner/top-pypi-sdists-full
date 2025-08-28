@@ -115,7 +115,9 @@ def layer_move(
     """
 
 def layer_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove an override layer from the archive
 
@@ -220,7 +222,9 @@ def open(
     """
 
 def reload(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Update objects paths list with new data from the archive
 

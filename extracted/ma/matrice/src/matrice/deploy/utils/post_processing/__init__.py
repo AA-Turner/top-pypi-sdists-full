@@ -121,6 +121,7 @@ from .usecases.human_activity_recognition import HumanActivityUseCase, HumanActi
 from .usecases.gas_leak_detection import GasLeakDetectionConfig, GasLeakDetectionUseCase
 from .usecases.license_plate_monitoring import LicensePlateMonitorConfig,LicensePlateMonitorUseCase
 from .usecases.dwell_detection import DwellConfig,DwellUseCase
+from .usecases.age_gender_detection import AgeGenderConfig, AgeGenderUseCase
 
 #Put all IMAGE based usecases here
 from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -128,6 +129,9 @@ from .usecases.skin_cancer_classification_img import SkinCancerClassificationCon
 from .usecases.plaque_segmentation_img import PlaqueSegmentationConfig, PlaqueSegmentationUseCase
 from .usecases.smoker_detection import SmokerDetectionUseCase, SmokerDetectionConfig
 from .usecases.Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig, HistopathologicalCancerDetectionUseCase
+
+# Face recognition with embeddings
+from .face_reg.face_recognition import FaceRecognitionEmbeddingUseCase, FaceRecognitionEmbeddingConfig
 
 # Use case implementations
 from .usecases import (
@@ -185,7 +189,7 @@ from .usecases import (
     AbandonedObjectDetectionUseCase,
     LicensePlateMonitorUseCase,
     DwellUseCase,
-
+    AgeGenderUseCase,
 
     HumanActivityUseCase,
 
@@ -261,7 +265,10 @@ _human_activity_recognition = HumanActivityUseCase()
 _gas_leak_detection = GasLeakDetectionUseCase()
 _license_plate_monitor = LicensePlateMonitorUseCase()
 _dwell = DwellUseCase()
+_age_gender_detection = AgeGenderUseCase()
 
+# Face recognition with embeddings
+_face_recognition = FaceRecognitionEmbeddingUseCase()
 
 #Put all IMAGE based usecases here
 _blood_cancer_detection = BloodCancerDetectionUseCase()
@@ -334,6 +341,8 @@ registry.register_use_case(_human_activity_recognition.category, _human_activity
 registry.register_use_case(_gas_leak_detection.category, _gas_leak_detection.name, GasLeakDetectionUseCase)
 registry.register_use_case(_license_plate_monitor.category, _license_plate_monitor.name, LicensePlateMonitorUseCase)
 registry.register_use_case(_dwell.category, _dwell.name, DwellUseCase)
+registry.register_use_case(_face_recognition.category, _face_recognition.name, FaceRecognitionEmbeddingUseCase)
+registry.register_use_case(_age_gender_detection.category, _age_gender_detection.name, AgeDetectionUseCase)
 
 #Put all IMAGE based usecases here
 registry.register_use_case(_blood_cancer_detection.category, _blood_cancer_detection.name, BloodCancerDetectionUseCase)
@@ -529,8 +538,10 @@ __all__ = [
     'AbandonedObjectConfig',
     'GasLeakDetectionConfig',
     'HumanActivityConfig',
+    'FaceRecognitionEmbeddingConfig',
     'LicensePlateMonitorConfig',
     'DwellConfig',
+    'AgeGenderConfig',
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
@@ -595,8 +606,10 @@ __all__ = [
     'AbandonedObjectDetectionUseCase',
     'HumanActivityUseCase',
     'GasLeakDetectionUseCase',
+    'FaceRecognitionEmbeddingUseCase',
     'LicensePlateMonitorUseCase',
     'DwellUseCase',
+    'AgeGenderUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',

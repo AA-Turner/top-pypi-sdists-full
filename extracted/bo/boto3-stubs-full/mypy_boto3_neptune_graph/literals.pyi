@@ -34,6 +34,7 @@ __all__ = (
     "GraphSnapshotAvailableWaiterName",
     "GraphSnapshotDeletedWaiterName",
     "GraphStatusType",
+    "GraphStoppedWaiterName",
     "GraphSummaryModeType",
     "ImportTaskCancelledWaiterName",
     "ImportTaskStatusType",
@@ -81,8 +82,12 @@ GraphStatusType = Literal[
     "IMPORTING",
     "RESETTING",
     "SNAPSHOTTING",
+    "STARTING",
+    "STOPPED",
+    "STOPPING",
     "UPDATING",
 ]
+GraphStoppedWaiterName = Literal["graph_stopped"]
 GraphSummaryModeType = Literal["BASIC", "DETAILED"]
 ImportTaskCancelledWaiterName = Literal["import_task_cancelled"]
 ImportTaskStatusType = Literal[
@@ -399,8 +404,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -533,16 +536,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_export_tasks",
@@ -558,6 +552,7 @@ WaiterName = Literal[
     "graph_deleted",
     "graph_snapshot_available",
     "graph_snapshot_deleted",
+    "graph_stopped",
     "import_task_cancelled",
     "import_task_successful",
     "private_graph_endpoint_available",

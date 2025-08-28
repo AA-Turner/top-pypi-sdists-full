@@ -10,7 +10,6 @@ from .chunker import (
     LateChunker,
     NeuralChunker,
     RecursiveChunker,
-    SDPMChunker,
     SemanticChunker,
     SentenceChunker,
     SlumberChunker,
@@ -41,9 +40,12 @@ from .friends import (
     BasePorter,
     ChromaHandshake,
     JSONPorter,
+    MongoDBHandshake,
     PgvectorHandshake,
+    PineconeHandshake,
     QdrantHandshake,
     TurbopufferHandshake,
+    WeaviateHandshake,
 )
 from .genie import (
     BaseGenie,
@@ -82,7 +84,7 @@ from .utils import (
 )
 
 # This hippo grows with every release 🦛✨~
-__version__ = "1.1.2"
+__version__ = "1.2.0"
 __name__ = "chonkie"
 __author__ = "🦛 Chonkie Inc"
 
@@ -125,7 +127,6 @@ __all__ += [
     "TokenChunker",
     "SentenceChunker",
     "SemanticChunker",
-    "SDPMChunker",
     "RecursiveChunker",
     "LateChunker",
     "CodeChunker",
@@ -179,8 +180,11 @@ __all__ += [
     "BaseHandshake",
     "JSONPorter",
     "ChromaHandshake",
+    "MongoDBHandshake",
     "PgvectorHandshake",
+    "PineconeHandshake",
     "QdrantHandshake",
+    "WeaviateHandshake",
     "TurbopufferHandshake",
 ]
 

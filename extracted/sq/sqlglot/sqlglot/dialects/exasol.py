@@ -5,8 +5,10 @@ import typing as t
 from sqlglot import exp, generator, parser, tokens
 from sqlglot.dialects.dialect import (
     Dialect,
+    NormalizationStrategy,
     binary_from_function,
     build_formatted_time,
+    groupconcat_sql,
     rename_func,
     strposition_sql,
     timestrtotime_sql,
@@ -73,6 +75,17 @@ DATE_UNITS = {"DAY", "WEEK", "MONTH", "YEAR", "HOUR", "MINUTE", "SECOND"}
 
 
 class Exasol(Dialect):
+    # https://docs.exasol.com/db/latest/sql_references/basiclanguageelements.htm#SQLidentifier
+    NORMALIZATION_STRATEGY = NormalizationStrategy.UPPERCASE
+    # https://docs.exasol.com/db/latest/sql_references/data_types/datatypesoverview.htm
+    SUPPORTS_USER_DEFINED_TYPES = False
+    # https://docs.exasol.com/db/latest/sql/select.htm
+    SUPPORTS_SEMI_ANTI_JOIN = False
+    SUPPORTS_COLUMN_JOIN_MARKS = True
+    NULL_ORDERING = "nulls_are_last"
+    # https://docs.exasol.com/db/latest/sql_references/literals.htm#StringLiterals
+    CONCAT_COALESCE = True
+
     TIME_MAPPING = {
         "yyyy": "%Y",
         "YYYY": "%Y",
@@ -108,6 +121,7 @@ class Exasol(Dialect):
             # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/if.htm
             "ENDIF": TokenType.END,
             "LONG VARCHAR": TokenType.TEXT,
+            "SEPARATOR": TokenType.SEPARATOR,
         }
         KEYWORDS.pop("DIV")
 
@@ -176,6 +190,12 @@ class Exasol(Dialect):
                 this=self._match(TokenType.IS) and self._parse_string(),
             ),
         }
+        FUNCTION_PARSERS = {
+            **parser.Parser.FUNCTION_PARSERS,
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/listagg.htm
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/group_concat.htm
+            **dict.fromkeys(("GROUP_CONCAT", "LISTAGG"), lambda self: self._parse_group_concat()),
+        }
 
     class Generator(generator.Generator):
         # https://docs.exasol.com/db/latest/sql_references/data_types/datatypedetails.htm#StringDataType
@@ -235,6 +255,9 @@ class Exasol(Dialect):
             exp.TsOrDsDiff: _date_diff_sql,
             exp.DateTrunc: lambda self, e: self.func("TRUNC", e.this, unit_to_str(e)),
             exp.DatetimeTrunc: timestamptrunc_sql(),
+            exp.GroupConcat: lambda self, e: groupconcat_sql(
+                self, e, func_name="LISTAGG", within_group=True
+            ),
             # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/edit_distance.htm#EDIT_DISTANCE
             exp.Levenshtein: unsupported_args("ins_cost", "del_cost", "sub_cost", "max_dist")(
                 rename_func("EDIT_DISTANCE")

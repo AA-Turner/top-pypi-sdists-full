@@ -73,7 +73,7 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
 
     consumer_role_arn: Optional[str] = None
     """
-    Optional role ARN for the consumer to assume
+    Optional role ARN for the consumer to assume. If this is provided, enable the "ListShards", "DescribeStream", "ListShards", "GetShardIterator", and "GetRecords" permissions for the role.
     """
 
     def __init__(

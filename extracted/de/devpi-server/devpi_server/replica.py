@@ -1,39 +1,42 @@
-import os
-import contextlib
-import io
-import itsdangerous
-import secrets
-import threading
-import time
-import traceback
-from contextlib import suppress
-import warnings
-from functools import partial
-from pluggy import HookimplMarker
-from pyramid.httpexceptions import HTTPNotFound, HTTPAccepted, HTTPBadRequest
-from pyramid.httpexceptions import HTTPForbidden
-from pyramid.view import view_config
-from pyramid.response import Response
-from repoze.lru import LRUCache
-from devpi_common.types import cached_property
-from devpi_common.url import URL
-from devpi_common.validation import normalize_name
-from webob.headers import EnvironHeaders, ResponseHeaders
-
 from . import mythread
 from .config import hookimpl
 from .exceptions import lazy_format_exception
 from .filestore import ChecksumError
 from .filestore import FileEntry
 from .fileutil import buffered_iterator
-from .fileutil import dumps, load, loads
-from .log import thread_push_log, threadlog
+from .fileutil import dumps
+from .fileutil import load
+from .fileutil import loads
+from .log import thread_push_log
+from .log import threadlog
 from .main import fatal
+from .model import UpstreamError
 from .views import FileStreamer
 from .views import H_MASTER_UUID
 from .views import H_PRIMARY_UUID
-from .views import make_uuid_headers
-from .model import UpstreamError
+from devpi_common.types import cached_property
+from devpi_common.url import URL
+from devpi_common.validation import normalize_name
+from pluggy import HookimplMarker
+from pyramid.httpexceptions import HTTPAccepted
+from pyramid.httpexceptions import HTTPBadRequest
+from pyramid.httpexceptions import HTTPForbidden
+from pyramid.httpexceptions import HTTPNotFound
+from pyramid.response import Response
+from pyramid.view import view_config
+from repoze.lru import LRUCache
+from webob.headers import EnvironHeaders
+from webob.headers import ResponseHeaders
+import contextlib
+import io
+import itsdangerous
+import os
+import secrets
+import sys
+import threading
+import time
+import traceback
+import warnings
 
 
 devpiweb_hookimpl = HookimplMarker("devpiweb")
@@ -70,6 +73,9 @@ class IndexType:
 
     def __repr__(self):
         return f"<IndexType {self._index_type!r}>"
+
+    def __str__(self):
+        return self._index_type
 
     def __lt__(self, other):
         if self._index_type == other._index_type:
@@ -341,6 +347,59 @@ class PrimaryChangelogRequest:
         return serial
 
 
+class HTTPClient:
+    def __init__(self, xom):
+        self.config = xom.config
+        self.http = xom.new_http_client("replica")
+        self.outside_url = xom.config.outside_url
+
+    @cached_property
+    def auth_serializer(self):
+        return get_auth_serializer(self.config)
+
+    def close(self):
+        self.http.close()
+
+    def get(self, url, *, allow_redirects, timeout=None, extra_headers=None):
+        extra_headers = self.get_extra_headers(extra_headers)
+        return self.http.get(
+            URL(url).url,
+            allow_redirects=allow_redirects,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+
+    def get_extra_headers(self, extra_headers):
+        # make a copy of extra_headers
+        extra_headers = {} if extra_headers is None else dict(extra_headers)
+        # we call it each time, as the primary_uuid will be updated as
+        # requests come in with the info in their headers
+        (uuid, primary_uuid) = self.config.nodeinfo.make_uuid_headers()
+        assert uuid != primary_uuid
+        extra_headers[H_REPLICA_UUID] = uuid
+        if primary_uuid is not None:
+            extra_headers[H_EXPECTED_MASTER_ID] = primary_uuid
+            extra_headers[H_EXPECTED_PRIMARY_ID] = primary_uuid
+        if self.outside_url is not None:
+            extra_headers[H_REPLICA_OUTSIDE_URL] = self.outside_url
+        token = self.auth_serializer.dumps(uuid)
+        extra_headers["Authorization"] = f"Bearer {token}"
+        return extra_headers
+
+    def stream(
+        self, cstack, method, url, *, allow_redirects, timeout=None, extra_headers=None
+    ):
+        extra_headers = self.get_extra_headers(extra_headers)
+        return self.http.stream(
+            cstack,
+            method,
+            URL(url).url,
+            allow_redirects=allow_redirects,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+
+
 class ReplicaThread:
     H_REPLICA_FILEREPL = H_REPLICA_FILEREPL
     H_REPLICA_UUID = H_REPLICA_UUID
@@ -355,6 +414,7 @@ class ReplicaThread:
         self.file_replication_threads = []
         num_threads = xom.config.file_replication_threads
         self.shared_data.num_threads = num_threads
+        self.shared_data.skip_indexes = set(xom.config.file_replication_skip_indexes)
         threadlog.info("Using %s file download threads.", num_threads)
         for i in range(num_threads):
             frt = FileReplicationThread(xom, self.shared_data)
@@ -362,7 +422,6 @@ class ReplicaThread:
             xom.thread_pool.register(frt)
         self.initial_queue_thread = InitialQueueThread(xom, self.shared_data)
         xom.thread_pool.register(self.initial_queue_thread)
-        self.primary_auth = xom.config.primary_auth
         self.primary_url = xom.config.primary_url
         self.use_streaming = xom.config.replica_streaming
         self._primary_serial = None
@@ -374,12 +433,8 @@ class ReplicaThread:
         self.update_from_primary_at = None
         # set whenever the primary serial and current replication serial match
         self.replica_in_sync_at = None
-        self.session = self.xom.new_http_session("replica")
+        self.http = HTTPClient(xom)
         self.initial_fetch = True
-
-    @cached_property
-    def auth_serializer(self):
-        return get_auth_serializer(self.xom.config)
 
     def get_master_serial(self):
         warnings.warn(
@@ -410,14 +465,6 @@ class ReplicaThread:
             DeprecationWarning,
             stacklevel=2)
         return self._primary_serial_timestamp
-
-    @property
-    def master_auth(self):
-        warnings.warn(
-            "master_auth is deprecated, use primary_auth instead",
-            DeprecationWarning,
-            stacklevel=2)
-        return self.primary_auth
 
     @property
     def master_contacted_at(self):
@@ -478,32 +525,25 @@ class ReplicaThread:
         log = self.log
         config = self.xom.config
         log.info("fetching %s", url)
-        uuid, primary_uuid = make_uuid_headers(config.nodeinfo)
-        assert uuid != primary_uuid
-        try:
-            self.primary_contacted_at = time.time()
-            token = self.auth_serializer.dumps(uuid)
-            headers = {
-                H_REPLICA_UUID: uuid,
-                H_EXPECTED_MASTER_ID: primary_uuid,
-                H_EXPECTED_PRIMARY_ID: primary_uuid,
-                H_REPLICA_OUTSIDE_URL: config.args.outside_url,
-                'Authorization': 'Bearer %s' % token}
-            if self.use_streaming:
-                headers["Accept"] = REPLICA_ACCEPT_STREAMING
-            r = self.session.get(
-                url,
-                allow_redirects=False,
-                auth=self.primary_auth,
-                headers=headers,
-                stream=self.use_streaming,
-                timeout=self.REPLICA_REQUEST_TIMEOUT)
-        except Exception as e:
-            msg = ''.join(traceback.format_exception_only(e.__class__, e)).strip()
-            log.error("error fetching %s: %s", url, msg)  # noqa: TRY400
-            return False
+        with contextlib.ExitStack() as cstack:
+            try:
+                self.primary_contacted_at = time.time()
+                headers = (
+                    {"Accept": REPLICA_ACCEPT_STREAMING} if self.use_streaming else {}
+                )
+                r = self.http.stream(
+                    cstack,
+                    "GET",
+                    url,
+                    allow_redirects=False,
+                    extra_headers=headers,
+                    timeout=self.REPLICA_REQUEST_TIMEOUT,
+                )
+            except Exception as e:  # noqa: BLE001
+                msg = "".join(traceback.format_exception_only(e.__class__, e)).strip()
+                log.error("error fetching %s: %s", url, msg)  # noqa: TRY400
+                return False
 
-        with contextlib.closing(r):
             if r.status_code in (301, 302):
                 log.error(
                     "%s %s: redirect detected at %s to %s",
@@ -582,21 +622,10 @@ class ReplicaThread:
                 return True
             return False
 
-    def handler_single(self, response, serial):
-        changes, rel_renames = loads(response.content)
-        self.xom.keyfs.import_changes(serial, changes)
-
-    def fetch_single(self, serial):
-        url = self.primary_url.joinpath("+changelog", str(serial)).url
-        return self.fetch(
-            partial(self.handler_single, serial=serial),
-            url)
-
     def handler_multi(self, response):
-        if response.headers["content-type"] == REPLICA_CONTENT_TYPE:
+        if response.headers.get("content-type", "") == REPLICA_CONTENT_TYPE:
             with contextlib.closing(response):
-                readableiterable = ReadableIterabel(
-                    response.iter_content(chunk_size=None))
+                readableiterable = ReadableIterabel(response.iter_bytes(65536))
                 stream = io.BufferedReader(readableiterable, buffer_size=65536)
                 try:
                     while True:
@@ -622,10 +651,6 @@ class ReplicaThread:
         self.thread.exit_if_shutdown()
         serial = self.xom.keyfs.get_next_serial()
         result = self.fetch_multi(serial)
-        if not result:
-            serial = self.xom.keyfs.get_next_serial()
-            # BBB remove with 6.0.0
-            result = self.fetch_single(serial)
         if not result:
             # we got an error, let's wait a bit
             self.thread.sleep(5.0)
@@ -654,7 +679,7 @@ class ReplicaThread:
                 self.thread.sleep(1.0)
 
     def thread_shutdown(self):
-        self.session.close()
+        self.http.close()
 
     def wait(self, error_queue=False):
         self.shared_data.wait(error_queue=error_queue)
@@ -664,14 +689,15 @@ def register_key_subscribers(xom):
     xom.keyfs.PROJSIMPLELINKS.on_key_change(SimpleLinksChanged(xom))
 
 
-class FileReplicationSharedData(object):
+class FileReplicationSharedData:
     QUEUE_TIMEOUT = 1
     ERROR_QUEUE_DELAY_MULTIPLIER = 1.5
     ERROR_QUEUE_REPORT_DELAY = 2 * 60
     ERROR_QUEUE_MAX_DELAY = 60 * 60
 
     def __init__(self, xom):
-        from queue import Empty, PriorityQueue
+        from queue import Empty
+        from queue import PriorityQueue
         self.Empty = Empty
         self.xom = xom
         self.queue = PriorityQueue()
@@ -683,6 +709,7 @@ class FileReplicationSharedData(object):
         self.last_added = None
         self.last_errored = None
         self.last_processed = None
+        self.skip_indexes = set()
 
     def on_import(self, serial, changes):
         keyfs = self.xom.keyfs
@@ -697,18 +724,31 @@ class FileReplicationSharedData(object):
                 self.on_import_file(keyfs, serial, key, *changes[key])
 
     def on_import_file(self, keyfs, serial, key, val, back_serial):
+        skip_indexes = self.skip_indexes
+        if "all" in skip_indexes:
+            threadlog.debug("Skipping %s because 'all' in %s.", key, skip_indexes)
+            return
+        index_name = self.get_index_name_for(key)
+        if index_name in skip_indexes:
+            threadlog.debug(
+                "Skipping %s because %r in %s.", key, index_name, skip_indexes
+            )
+            return
         try:
             index_type = self.get_index_type_for(key)
         except KeyError:
-            stage = self.xom.model.getstage(
-                key.params['user'], key.params['index'])
+            stage = self.xom.model.getstage(index_name)
             if stage is None:
                 # deleted stage
-                stagename = f"{key.params['user']}/{key.params['index']}"
-                self.set_index_type_for(stagename, None)
+                self.set_index_type_for(index_name, None)
             else:
                 self.set_index_type_for(stage.name, stage.ixconfig['type'])
             index_type = self.get_index_type_for(key)
+        if index_type != IndexType(None) and str(index_type) in skip_indexes:
+            threadlog.debug(
+                "Skipping %s because %r in %s.", key, index_type, skip_indexes
+            )
+            return
         if self.xom.replica_thread.replica_in_sync_at is None:
             # Don't queue files from mirrors until we have been in sync first.
             # The InitialQueueThread will queue in one go on initial sync
@@ -761,9 +801,11 @@ class FileReplicationSharedData(object):
             (ts, delay, index_type, serial, key, keyname, value, back_serial))
         self.last_errored = time.time()
 
+    def get_index_name_for(self, key):
+        return f"{key.params['user']}/{key.params['index']}"
+
     def get_index_type_for(self, key, default=notset):
-        index_name = "%s/%s" % (key.params['user'], key.params['index'])
-        result = self.index_types.get(index_name, notset)
+        result = self.index_types.get(self.get_index_name_for(key), notset)
         if result is notset:
             if default is notset:
                 raise KeyError
@@ -908,7 +950,7 @@ class FileReplicationThread:
     def __init__(self, xom, shared_data):
         self.xom = xom
         self.shared_data = shared_data
-        self.session = self.xom.new_http_session("replica")
+        self.http = HTTPClient(xom)
         self.file_search_path = None
         if self.xom.config.replica_file_search_path is not None:
             search_path = os.path.join(
@@ -922,12 +964,6 @@ class FileReplicationThread:
                     "path for existing files doesn't exist: %s",
                     self.xom.config.replica_file_search_path)
         self.use_hard_links = self.xom.config.hard_links
-        self.uuid, primary_uuid = make_uuid_headers(xom.config.nodeinfo)
-        assert self.uuid != primary_uuid
-
-    @cached_property
-    def auth_serializer(self):
-        return get_auth_serializer(self.xom.config)
 
     def find_pre_existing_file(self, entry):
         if self.file_search_path is None:
@@ -961,7 +997,7 @@ class FileReplicationThread:
             f.devpi_srcpath = path
         return (f, entry.hashes)
 
-    def importer(self, serial, key, val, back_serial, session):
+    def importer(self, serial, key, val, back_serial):  # noqa: PLR0911, PLR0912
         threadlog.debug("FileReplicationThread.importer for %s, %s", key, val)
         keyfs = self.xom.keyfs
         relpath = key.relpath
@@ -1002,60 +1038,58 @@ class FileReplicationThread:
         url = self.xom.config.primary_url.joinpath(relpath).url
         # we perform the request with a special header so that
         # the primary can avoid getting "volatile" links
-        token = self.auth_serializer.dumps(self.uuid)
-        r = session.get(
-            url, allow_redirects=False,
-            headers={
-                H_REPLICA_FILEREPL: "YES",
-                H_REPLICA_UUID: self.uuid,
-                'Authorization': 'Bearer %s' % token},
-            stream=True,
-            timeout=self.xom.config.args.request_timeout)
-        if r.status_code == 302:
-            r.close()
-            # mirrors might redirect to external file when
-            # mirror_use_external_urls is set
-            threadlog.info(
-                "ignoring because of redirection to external URL: %s",
-                relpath)
-            self.shared_data.errors.remove(entry)
-            return
-        if r.status_code == 410:
-            # primary indicates Gone for files which were later deleted
-            r.close()
-            threadlog.info(
-                "ignoring because of later deletion: %s",
-                relpath)
-            self.shared_data.errors.remove(entry)
-            return
-
-        if r.status_code in (404, 502):
-            r.close()
-            stagename = '/'.join(relpath.split('/')[:2])
-            with self.xom.keyfs.read_transaction(at_serial=serial):
-                stage = self.xom.model.getstage(stagename)
-            if stage.ixconfig['type'] == 'mirror':
-                threadlog.warn(
-                    "ignoring file which couldn't be retrieved from mirror index '%s': %s",
-                    stagename, relpath)
+        with contextlib.ExitStack() as cstack:
+            r = self.http.stream(
+                cstack,
+                "GET",
+                url,
+                allow_redirects=False,
+                extra_headers={H_REPLICA_FILEREPL: "YES"},
+                timeout=self.xom.config.args.request_timeout,
+            )
+            if r.status_code == 302:
+                r.close()
+                # mirrors might redirect to external file when
+                # mirror_use_external_urls is set
+                threadlog.info(
+                    "ignoring because of redirection to external URL: %s", relpath
+                )
+                self.shared_data.errors.remove(entry)
+                return
+            if r.status_code == 410:
+                # primary indicates Gone for files which were later deleted
+                r.close()
+                threadlog.info("ignoring because of later deletion: %s", relpath)
                 self.shared_data.errors.remove(entry)
                 return
 
-        if r.status_code != 200:
-            r.close()
-            threadlog.error(
-                "error downloading '%s' from primary, will be retried later: %s",
-                relpath, r.reason)
-            # add the error for the UI
-            self.shared_data.errors.add(dict(
-                url=r.url,
-                message=r.reason,
-                relpath=entry.relpath))
-            # and raise for retrying later
-            raise FileReplicationError(r, relpath)
+            if r.status_code in (404, 502):
+                r.close()
+                stagename = "/".join(relpath.split("/")[:2])
+                with self.xom.keyfs.read_transaction(at_serial=serial):
+                    stage = self.xom.model.getstage(stagename)
+                if stage.ixconfig["type"] == "mirror":
+                    threadlog.warn(
+                        "ignoring file which couldn't be retrieved from mirror index '%s': %s",
+                        stagename,
+                        relpath,
+                    )
+                    self.shared_data.errors.remove(entry)
+                    return
 
-        with contextlib.ExitStack() as cstack:
-            cstack.callback(r.close)
+            if r.status_code != 200:
+                r.close()
+                threadlog.error(
+                    "error downloading '%s' from primary, will be retried later: %s",
+                    relpath,
+                    r.reason,
+                )
+                # add the error for the UI
+                self.shared_data.errors.add(
+                    dict(url=r.url, message=r.reason, relpath=entry.relpath)
+                )
+                # and raise for retrying later
+                raise FileReplicationError(r, relpath)
 
             with keyfs.filestore_transaction():
                 # get a new file, but close the transaction again
@@ -1067,15 +1101,16 @@ class FileReplicationThread:
                 for _chunk in file_streamer:
                     # we only need the data to be written to the file
                     pass
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 if isinstance(err, ChecksumError):
                     threadlog.error(
                         "checksum mismatch for '%s', will be retried later: %s",
-                        relpath, r.reason)
-                self.shared_data.errors.add(dict(
-                    url=r.url,
-                    message=str(err),
-                    relpath=entry.relpath))
+                        relpath,
+                        r.reason,
+                    )
+                self.shared_data.errors.add(
+                    dict(url=r.url, message=str(err), relpath=entry.relpath)
+                )
                 return
 
             # in case there were errors before, we can now remove them
@@ -1098,8 +1133,7 @@ class FileReplicationThread:
                 else:
                     self.shared_data.deleted.invalidate(key)
         typedkey = keyfs.get_key_instance(keyname, key)
-        self.importer(
-            serial, typedkey, value, back_serial, self.session)
+        self.importer(serial, typedkey, value, back_serial)
         entry = self.xom.filestore.get_file_entry_from_key(typedkey, meta=value)
         if not entry.project or not entry.version:
             return
@@ -1134,13 +1168,12 @@ class FileReplicationThread:
                 self.tick()
             except mythread.Shutdown:
                 raise
-            except Exception:
-                threadlog.exception(
-                    "Unhandled exception in file replication thread.")
+            except Exception:  # noqa: BLE001
+                threadlog.exception("Unhandled exception in file replication thread.")
                 self.thread.sleep(1.0)
 
 
-class InitialQueueThread(object):
+class InitialQueueThread:
     def __init__(self, xom, shared_data):
         self.xom = xom
         self.shared_data = shared_data
@@ -1156,6 +1189,9 @@ class InitialQueueThread(object):
         # wait until we are in sync for the first time
         with self.shared_data._replica_in_sync_cv:
             self.shared_data._replica_in_sync_cv.wait()
+        skip_indexes = self.shared_data.skip_indexes
+        if "all" in skip_indexes:
+            return
         with keyfs.read_transaction() as tx:
             for user in self.xom.model.get_userlist():
                 for stage in user.getstages():
@@ -1176,10 +1212,21 @@ class InitialQueueThread(object):
                         processed, tx.at_serial - item.serial, tx.at_serial, queued)
                 processed = processed + 1
                 key = keyfs.get_key_instance(item.keyname, item.relpath)
+                index_name = self.shared_data.get_index_name_for(key)
+                if index_name in skip_indexes:
+                    threadlog.debug(
+                        "Skipping %s because %r in %s.", key, index_name, skip_indexes
+                    )
+                    continue
+                index_type = self.shared_data.get_index_type_for(key, None)
+                if index_type != IndexType(None) and str(index_type) in skip_indexes:
+                    threadlog.debug(
+                        "Skipping %s because %r in %s.", key, index_type, skip_indexes
+                    )
+                    continue
                 entry = FileEntry(key, item.value)
                 if entry.file_exists() or not entry.last_modified:
                     continue
-                index_type = self.shared_data.get_index_type_for(key, None)
                 # note the negated serial for the PriorityQueue
                 # the index_type boolean will prioritize non mirrors
                 self.shared_data.queue.put((
@@ -1261,7 +1308,7 @@ class BodyFileWrapper:
         self.len = length
 
 
-def proxy_request_to_primary(xom, request, *, stream=False):
+def proxy_request_to_primary(xom, request, cstack):
     primary_url = xom.config.primary_url
     request_url = URL(request.url)
     url = (
@@ -1270,43 +1317,45 @@ def proxy_request_to_primary(xom, request, *, stream=False):
         .replace(query=request_url.query)
         .url)
     assert url.startswith(primary_url.url)
-    http = xom._httpsession
-    with threadlog.around("info", "relaying: %s %s", request.method, url):
-        try:
-            headers = clean_request_headers(request)
-            length = None
-            with suppress(ValueError, TypeError):
-                length = int(headers.get('Content-Length'))
-            if length:
-                body = BodyFileWrapper(request.body_file, length)
-            else:
-                body = request.body
-            return http.request(request.method, url,
-                                data=body,
-                                headers=headers,
-                                stream=stream,
-                                allow_redirects=False,
-                                timeout=xom.config.args.proxy_timeout)
-        except http.Errors as e:
-            msg = f"proxy-write-to-primary {url}: {e}"
-            raise UpstreamError(msg) from e
+    http = xom._http
+    cstack.enter_context(
+        threadlog.around("info", "relaying: %s %s", request.method, url)
+    )
+    try:
+        headers = clean_request_headers(request)
+
+        def body():
+            yield request.body_file.read(65536)
+
+        return http.stream(
+            cstack,
+            request.method,
+            url,
+            content=body(),
+            extra_headers=headers,
+            allow_redirects=False,
+            timeout=xom.config.args.proxy_timeout,
+        )
+    except http.Errors as e:
+        msg = f"proxy-write-to-primary {url}: {e}"
+        raise UpstreamError(msg) from e
 
 
 def proxy_write_to_primary(xom, request):
     """ relay modifying http requests to primary and wait until
     the change is replicated back.
     """
-    r = proxy_request_to_primary(xom, request, stream=True)
-    # for redirects, the body is already read and stored in the ``next``
-    # attribute (see requests.sessions.send)
-    if r.raw.closed and r.next:
-        def app_iter():
-            with contextlib.closing(r):
-                yield r.next.body
-    else:
-        def app_iter():
-            with contextlib.closing(r):
-                yield from r.raw.stream()
+    cstack = contextlib.ExitStack().__enter__()
+    r = proxy_request_to_primary(xom, request, cstack)
+
+    def app_iter():
+        try:
+            yield from r.iter_raw()
+        except Exception:  # noqa: BLE001
+            cstack.__exit__(*sys.exc_info())
+        else:
+            cstack.__exit__(None, None, None)
+
     if r.status_code < 400:
         commit_serial = int(r.headers["X-DEVPI-SERIAL"])
         xom.keyfs.wait_tx_serial(commit_serial)
@@ -1318,9 +1367,11 @@ def proxy_write_to_primary(xom, request):
         outside_url = request.application_url
         headers["location"] = str(
             primary_location.replace(xom.config.primary_url.url, outside_url))
-    return Response(status="%s %s" % (r.status_code, r.reason),
-                    app_iter=app_iter(),
-                    headers=headers)
+    return Response(
+        status=f"{r.status_code} {r.reason_phrase}",
+        app_iter=app_iter(),
+        headers=headers,
+    )
 
 
 def proxy_view_to_primary(_context, request):

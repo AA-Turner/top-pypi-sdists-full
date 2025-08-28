@@ -33,7 +33,11 @@ def edge_pan(
     :type zoom_influence: float | None
     """
 
-def ndof(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def ndof(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Use a 3D mouse device to pan/zoom the view
 
     :type execution_context: int | str | None
@@ -58,7 +62,11 @@ def pan(
     :type deltay: int | None
     """
 
-def reset(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def reset(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Reset the view
 
     :type execution_context: int | str | None
@@ -144,7 +152,9 @@ def scroll_up(
     """
 
 def scroller_activate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Scroll view by mouse click and drag
 

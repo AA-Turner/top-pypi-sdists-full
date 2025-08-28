@@ -4,7 +4,11 @@ import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
 
-def bake(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def bake(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Bake dynamic paint image sequence surface
 
     :type execution_context: int | str | None
@@ -27,7 +31,9 @@ def output_toggle(
     """
 
 def surface_slot_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a new Dynamic Paint surface slot
 
@@ -36,7 +42,9 @@ def surface_slot_add(
     """
 
 def surface_slot_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the selected surface slot
 

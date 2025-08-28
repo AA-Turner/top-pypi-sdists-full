@@ -1877,16 +1877,6 @@ def parse(
                 doc.shared_with += workspaces
                 total_workspaces += len(workspaces)
 
-        # Add warning once if any workspaces were found
-        if total_workspaces > 0:
-            warnings.append(
-                DatafileParseWarning(
-                    message=(
-                        f"{kwargs['cmd'].upper()} is not fully implemented in Forward and will be ignored while this warning is present."
-                    )
-                )
-            )
-
         # Validate that at least one workspace was provided
         if total_workspaces == 0:
             raise DatafileSyntaxError(

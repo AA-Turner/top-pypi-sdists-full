@@ -19,7 +19,9 @@ def case_set(
     """
 
 def case_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle font case
 
@@ -82,7 +84,9 @@ def delete(
     """
 
 def line_break(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Insert line break at cursor position
 
@@ -245,7 +249,9 @@ def open(
     """
 
 def select_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all text
 
@@ -254,7 +260,9 @@ def select_all(
     """
 
 def select_word(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select word under cursor
 
@@ -263,7 +271,9 @@ def select_word(
     """
 
 def selection_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set cursor selection
 
@@ -305,7 +315,9 @@ def style_toggle(
     """
 
 def text_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy selected text to clipboard
 
@@ -314,7 +326,9 @@ def text_copy(
     """
 
 def text_cut(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Cut selected text to clipboard
 
@@ -341,7 +355,9 @@ def text_insert(
     """
 
 def text_insert_unicode(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Insert Unicode Character
 
@@ -458,7 +474,9 @@ def text_paste_from_file(
     """
 
 def textbox_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a new text box
 
@@ -482,7 +500,9 @@ def textbox_remove(
     """
 
 def unlink(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Unlink active font data-block
 

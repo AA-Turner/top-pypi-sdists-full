@@ -229,12 +229,6 @@ def add_replica_options(parser, pluginmanager):
     add_primary_url_option(parser, pluginmanager)
 
     parser.addoption(
-        "--replica-max-retries", type=int, metavar="NUM",
-        default=0,
-        help="Number of retry attempts for replica connection failures "
-             "(such as aborted connections to pypi).")
-
-    parser.addoption(
         "--replica-file-search-path", metavar="PATH",
         help="path to existing files to try before downloading "
              "from primary. These could be from a previous "
@@ -244,17 +238,24 @@ def add_replica_options(parser, pluginmanager):
     add_hard_links_option(parser, pluginmanager)
 
     parser.addoption(
-        "--replica-cert", action="store", dest="replica_cert",
-        metavar="pem_file",
-        help="when running as a replica, use the given .pem file as the "
-             "SSL client certificate to authenticate to the server "
-             "(EXPERIMENTAL)",
-        default=None)
-
-    parser.addoption(
         "--file-replication-threads", type=int, metavar="NUM",
         default=DEFAULT_FILE_REPLICATION_THREADS,
         help="number of threads for file download from primary")
+
+    parser.addoption(
+        "--file-replication-skip-indexes",
+        action="store",
+        default=None,
+        help=(
+            "Comma separated list of index names in username/indexname form "
+            "or index type (i.e. 'mirror') for which files aren't replicated. "
+            "This can also be set to 'all' to replicate no files. "
+            "If the file is requested directly during runtime, "
+            "it will still be fetched and stored."
+        ),
+        metavar="INDEXES",
+        type=str,
+    )
 
     parser.addoption(
         "--proxy-timeout", type=int, metavar="NUM",
@@ -657,7 +658,7 @@ class ConfigurationError(Exception):
     """ incorrect configuration or environment settings. """
 
 
-class Config(object):
+class Config:
     def __init__(self, args, pluginmanager):
         self.args = args
         self.pluginmanager = pluginmanager
@@ -794,8 +795,8 @@ class Config(object):
     def nodeinfo(self):
         if self.nodeinfo_path.is_file():
             with self.nodeinfo_path.open() as f:
-                return json.load(f)
-        return {}
+                return NodeInfo(json.load(f))
+        return NodeInfo({})
 
     def write_nodeinfo(self):
         nodeinfo_dir = self.nodeinfo_path.parent
@@ -807,25 +808,12 @@ class Config(object):
         threadlog.info("wrote nodeinfo to: %s", self.nodeinfo_path)
 
     @property
-    def master_auth(self):
-        warnings.warn(
-            "master_auth is deprecated, use primary_auth instead",
-            DeprecationWarning,
-            stacklevel=2)
-        return self.primary_auth
-
-    @property
     def master_url(self):
         warnings.warn(
             "master_url is deprecated, use primary_url instead",
             DeprecationWarning,
             stacklevel=2)
         return self.primary_url
-
-    @property
-    def primary_auth(self):
-        # trigger setting of _primary_auth
-        return self._primary_auth if self.primary_url else None
 
     @property
     def primary_url(self):
@@ -853,18 +841,17 @@ class Config(object):
         return self.primary_url
 
     @primary_url.setter
-    def primary_url(self, value):
-        auth = (None, None)
-        if value is not None:
-            auth = (value.username, value.password)
-            netloc = value.hostname
-            if value.port:
-                netloc = "%s:%s" % (netloc, value.port)
-            value = value.replace(netloc=netloc)
-        if auth == (None, None):
-            auth = None
-        self._primary_auth = auth
-        self._primary_url = value
+    def primary_url(self, url):
+        if url is not None:
+            assert isinstance(url, URL)
+            if url.username is not None or url.password is not None:
+                from .main import Fatal
+
+                raise Fatal(
+                    "configuration error, "
+                    "basic authorization in primary URL is not supported"
+                )
+        self._primary_url = url
 
     @property
     def include_mirrored_files(self):
@@ -883,26 +870,38 @@ class Config(object):
         return getattr(self.args, 'offline_mode', False)
 
     @property
+    def outside_url(self):
+        return getattr(self.args, "outside_url", None)
+
+    @property
     def file_replication_threads(self):
         return getattr(
             self.args,
             'file_replication_threads', DEFAULT_FILE_REPLICATION_THREADS)
 
     @property
+    def file_replication_skip_indexes(self):
+        from .main import Fatal
+
+        arg = getattr(self.args, "file_replication_skip_indexes", None)
+        if arg is None:
+            arg = ""
+        result = {x.strip() for x in arg.split(",")}
+        if "all" in result and result != {"all"}:
+            raise Fatal(
+                "--file-replication-skip-indexes must be 'all', "
+                "or a comma separated list of index names or types, "
+                "not a mix of both."
+            )
+        return result
+
+    @property
     def hard_links(self):
         return getattr(self.args, 'hard_links', False)
 
     @property
-    def replica_cert(self):
-        return getattr(self.args, 'replica_cert', None)
-
-    @property
     def replica_file_search_path(self):
         return getattr(self.args, 'replica_file_search_path', None)
-
-    @property
-    def replica_max_retries(self):
-        return getattr(self.args, 'replica_max_retries', None)
 
     @property
     def replica_streaming(self):
@@ -1123,6 +1122,22 @@ class Config(object):
 
     def get_replica_secret(self):
         return self.get_derived_key(b'devpi-server-replica')
+
+
+class NodeInfo(dict):
+    def make_uuid_headers(self) -> tuple:
+        uuid = primary_uuid = self.get("uuid")
+        if uuid is not None and self["role"] == "replica":
+            if "master-uuid" in self:
+                warnings.warn(
+                    "master-uuid in self is deprecated, use primary-uuid instead",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                primary_uuid = self.get("master-uuid", "")
+            else:
+                primary_uuid = self.get("primary-uuid", "")
+        return uuid, primary_uuid
 
 
 def gensecret():

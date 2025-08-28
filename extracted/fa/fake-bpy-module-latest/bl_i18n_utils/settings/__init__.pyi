@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 class I18nSettings:
     """Class allowing persistence of our settings!
-    Saved in JSon format, so settings should be JSon'able objects!
+    Saved in JSON format, so settings should be JSONable objects!
     """
 
     BLENDER_I18N_PO_DIR: typing.Any

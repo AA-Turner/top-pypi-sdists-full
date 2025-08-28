@@ -25,7 +25,7 @@ def average_vert_facedata(
     bm: bmesh.types.BMesh, verts: list[bmesh.types.BMVert] = []
 ) -> None:
     """Average Vertices Face-vert Data.Merge uv/vcols associated with the input vertices at
-    the bounding box center. (I know, it's not averaging but
+    the bounding box center. (I know, its not averaging but
     the vert_snap_to_bb_center is just too long).
 
         :param bm: The bmesh to operate on.
@@ -151,7 +151,7 @@ def bisect_edges(
     cuts: int = 0,
     edge_percents={},
 ) -> dict[str, typing.Any]:
-    """Edge Bisect.Splits input edges (but doesn't do anything else).
+    """Edge Bisect.Splits input edges (but doesnt do anything else).
     This creates a 2-valence vert.
 
         :param bm: The bmesh to operate on.
@@ -244,7 +244,7 @@ def bridge_loops(
         :type use_cyclic: bool
         :param use_merge: Merge rather than creating faces.
         :type use_merge: bool
-        :param merge_factor: merge factor
+        :param merge_factor: Merge factor.
         :type merge_factor: float
         :param twist_offset: Twist offset for closed loops.
         :type twist_offset: int
@@ -406,12 +406,12 @@ def convex_hull(
     | list[bmesh.types.BMVert] = [],
     use_existing_faces: bool = False,
 ) -> dict[str, typing.Any]:
-    """Convex HullBuilds a convex hull from the vertices in 'input'.If 'use_existing_faces' is true, the hull will not output triangles
-    that are covered by a pre-existing face.All hull vertices, faces, and edges are added to 'geom.out'. Any
+    """Convex HullBuilds a convex hull from the vertices in input.If use_existing_faces is true, the hull will not output triangles
+    that are covered by a pre-existing face.All hull vertices, faces, and edges are added to geom.out. Any
     input elements that end up inside the hull (i.e. are not used by an
-    output face) are added to the 'interior_geom' slot. The
-    'unused_geom' slot will contain all interior geometry that is
-    completely unused. Lastly, 'holes_geom' contains edges and faces
+    output face) are added to the interior_geom slot. The
+    unused_geom slot will contain all interior geometry that is
+    completely unused. Lastly, holes_geom contains edges and faces
     that were in the input and are part of the hull.
 
         :param bm: The bmesh to operate on.
@@ -829,6 +829,8 @@ def duplicate(
     type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
 
     boundary_map:
+    Boundary edges from the split geometry that maps edges from the original geometry
+    to the destination edges.
 
     type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
 
@@ -891,7 +893,7 @@ def edgenet_prepare(
     bm: bmesh.types.BMesh, edges: list[bmesh.types.BMEdge] = []
 ) -> dict[str, typing.Any]:
     """Edge-net Prepare.Identifies several useful edge loop cases and modifies them so
-    they'll become a face when edgenet_fill is called. The cases covered are:
+    theyll become a face when edgenet_fill is called. The cases covered are:
 
         :param bm: The bmesh to operate on.
         :type bm: bmesh.types.BMesh
@@ -933,7 +935,7 @@ def extrude_edge_only(
     use_normal_flip: bool = False,
     use_select_history: bool = False,
 ) -> dict[str, typing.Any]:
-    """Extrude Only Edges.Extrudes Edges into faces, note that this is very simple, there's no fancy
+    """Extrude Only Edges.Extrudes Edges into faces, note that this is very simple, theres no fancy
     winged extrusion.
 
         :param bm: The bmesh to operate on.
@@ -1038,6 +1040,7 @@ def find_doubles(
     bm: bmesh.types.BMesh,
     verts: list[bmesh.types.BMVert] = [],
     keep_verts: list[bmesh.types.BMVert] = [],
+    use_connected: bool = False,
     dist: float = 0,
 ) -> dict[str, typing.Any]:
     """Find Doubles.Takes input verts and find vertices they should weld to.
@@ -1050,6 +1053,8 @@ def find_doubles(
         :type verts: list[bmesh.types.BMVert]
         :param keep_verts: List of verts to keep.
         :type keep_verts: list[bmesh.types.BMVert]
+        :param use_connected: Limit the search for doubles by connected geometry.
+        :type use_connected: bool
         :param dist: Maximum distance.
         :type dist: float
         :return: targetmap:
@@ -1246,7 +1251,7 @@ def mesh_to_bmesh(
     object: bpy.types.Object,
     use_shapekey: bool = False,
 ) -> None:
-    """Mesh to BMesh.Load the contents of a mesh into the bmesh. this BMOP is private, it's
+    """Mesh to BMesh.Load the contents of a mesh into the bmesh. this BMOP is private, its
     reserved exclusively for entering edit-mode.
 
         :param bm: The bmesh to operate on.
@@ -1463,7 +1468,10 @@ def region_extend(
     """
 
 def remove_doubles(
-    bm: bmesh.types.BMesh, verts: list[bmesh.types.BMVert] = [], dist: float = 0
+    bm: bmesh.types.BMesh,
+    verts: list[bmesh.types.BMVert] = [],
+    use_connected: bool = False,
+    dist: float = 0,
 ) -> None:
     """Remove Doubles.Finds groups of vertices closer than dist and merges them together,
     using the weld verts BMOP.
@@ -1472,6 +1480,8 @@ def remove_doubles(
         :type bm: bmesh.types.BMesh
         :param verts: Input verts.
         :type verts: list[bmesh.types.BMVert]
+        :param use_connected: Limit the search for doubles by connected geometry.
+        :type use_connected: bool
         :param dist: Minimum distance.
         :type dist: float
     """
@@ -1765,13 +1775,18 @@ def split(
         :type geom: list[bmesh.types.BMEdge] | list[bmesh.types.BMFace] | list[bmesh.types.BMVert]
         :param dest: Destination bmesh, if None will use current one.
         :type dest: bmesh.types.BMesh | None
-        :param use_only_faces: When enabled. don't duplicate loose verts/edges.
+        :param use_only_faces: When enabled. dont duplicate loose verts/edges.
         :type use_only_faces: bool
         :return: geom:
 
     type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
 
     boundary_map:
+    Boundary edges from the split geometry that maps edges from the original geometry
+    to the destination edges.
+
+    When the source edges have been deleted, the destination edge will be used
+    for both the key and the value.
 
     type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
 
@@ -1795,7 +1810,7 @@ def split_edges(
         :type edges: list[bmesh.types.BMEdge]
         :param verts: Optional tag verts, use to have greater control of splits.
         :type verts: list[bmesh.types.BMVert]
-        :param use_verts: Use 'verts' for splitting, else just find verts to split from edges.
+        :param use_verts: Use verts for splitting, else just find verts to split from edges.
         :type use_verts: bool
         :return: edges:
     Old output disconnected edges.

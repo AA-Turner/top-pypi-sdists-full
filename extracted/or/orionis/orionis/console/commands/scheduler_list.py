@@ -35,7 +35,7 @@ class ScheduleListCommand(BaseCommand):
     signature: str = "schedule:list"
 
     # Command description
-    description: str = "Executes the scheduled tasks defined in the application."
+    description: str = "Lists all scheduled jobs defined in the application."
 
     async def handle(self, app: IApplication, console: Console) -> bool:
         """

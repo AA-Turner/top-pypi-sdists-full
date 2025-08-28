@@ -313,9 +313,6 @@ from types_boto3_odb.client import OdbClient
 from types_boto3_omics.client import OmicsClient
 from types_boto3_opensearch.client import OpenSearchServiceClient
 from types_boto3_opensearchserverless.client import OpenSearchServiceServerlessClient
-from types_boto3_opsworks.client import OpsWorksClient
-from types_boto3_opsworks.service_resource import OpsWorksServiceResource
-from types_boto3_opsworkscm.client import OpsWorksCMClient
 from types_boto3_organizations.client import OrganizationsClient
 from types_boto3_osis.client import OpenSearchIngestionClient
 from types_boto3_outposts.client import OutpostsClient
@@ -5573,42 +5570,6 @@ def client(
 
 @overload
 def client(
-    service_name: Literal["opsworks"],
-    region_name: str | None = ...,
-    api_version: str | None = ...,
-    use_ssl: bool | None = ...,
-    verify: bool | str | None = ...,
-    endpoint_url: str | None = ...,
-    aws_access_key_id: str | None = ...,
-    aws_secret_access_key: str | None = ...,
-    aws_session_token: str | None = ...,
-    config: Config | None = ...,
-    aws_account_id: str | None = ...,
-) -> OpsWorksClient:
-    """
-    Create client for OpsWorks service.
-    """
-
-@overload
-def client(
-    service_name: Literal["opsworkscm"],
-    region_name: str | None = ...,
-    api_version: str | None = ...,
-    use_ssl: bool | None = ...,
-    verify: bool | str | None = ...,
-    endpoint_url: str | None = ...,
-    aws_access_key_id: str | None = ...,
-    aws_secret_access_key: str | None = ...,
-    aws_session_token: str | None = ...,
-    config: Config | None = ...,
-    aws_account_id: str | None = ...,
-) -> OpsWorksCMClient:
-    """
-    Create client for OpsWorksCM service.
-    """
-
-@overload
-def client(
     service_name: Literal["organizations"],
     region_name: str | None = ...,
     api_version: str | None = ...,
@@ -8053,24 +8014,6 @@ def resource(
 ) -> IAMServiceResource:
     """
     Create ServiceResource for IAM service.
-    """
-
-@overload
-def resource(
-    service_name: Literal["opsworks"],
-    region_name: str | None = ...,
-    api_version: str | None = ...,
-    use_ssl: bool | None = ...,
-    verify: bool | str | None = ...,
-    endpoint_url: str | None = ...,
-    aws_access_key_id: str | None = ...,
-    aws_secret_access_key: str | None = ...,
-    aws_session_token: str | None = ...,
-    config: Config | None = ...,
-    aws_account_id: str | None = ...,
-) -> OpsWorksServiceResource:
-    """
-    Create ServiceResource for OpsWorks service.
     """
 
 @overload

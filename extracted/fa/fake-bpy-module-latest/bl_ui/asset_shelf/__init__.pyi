@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class ASSETSHELF_PT_display(bpy.types.Panel):
+class ASSETSHELF_PT_display(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any

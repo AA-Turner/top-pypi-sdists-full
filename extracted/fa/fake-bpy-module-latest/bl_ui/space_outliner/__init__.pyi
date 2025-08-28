@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class OUTLINER_HT_header(bpy.types.Header):
+class OUTLINER_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
@@ -29,7 +30,7 @@ class OUTLINER_HT_header(bpy.types.Header):
         :param context:
         """
 
-class OUTLINER_MT_asset(bpy.types.Menu):
+class OUTLINER_MT_asset(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -61,7 +62,7 @@ class OUTLINER_MT_asset(bpy.types.Menu):
         :param context:
         """
 
-class OUTLINER_MT_collection(bpy.types.Menu):
+class OUTLINER_MT_collection(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -86,7 +87,7 @@ class OUTLINER_MT_collection(bpy.types.Menu):
         :param context:
         """
 
-class OUTLINER_MT_collection_new(bpy.types.Menu):
+class OUTLINER_MT_collection_new(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -119,7 +120,7 @@ class OUTLINER_MT_collection_new(bpy.types.Menu):
         :param layout:
         """
 
-class OUTLINER_MT_collection_view_layer(bpy.types.Menu):
+class OUTLINER_MT_collection_view_layer(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -144,7 +145,7 @@ class OUTLINER_MT_collection_view_layer(bpy.types.Menu):
         :param context:
         """
 
-class OUTLINER_MT_collection_visibility(bpy.types.Menu):
+class OUTLINER_MT_collection_visibility(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -169,7 +170,7 @@ class OUTLINER_MT_collection_visibility(bpy.types.Menu):
         :param _context:
         """
 
-class OUTLINER_MT_context_menu(bpy.types.Menu):
+class OUTLINER_MT_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -201,7 +202,7 @@ class OUTLINER_MT_context_menu(bpy.types.Menu):
         :param layout:
         """
 
-class OUTLINER_MT_context_menu_view(bpy.types.Menu):
+class OUTLINER_MT_context_menu_view(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -226,7 +227,7 @@ class OUTLINER_MT_context_menu_view(bpy.types.Menu):
         :param _context:
         """
 
-class OUTLINER_MT_edit_datablocks(bpy.types.Menu):
+class OUTLINER_MT_edit_datablocks(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -251,7 +252,7 @@ class OUTLINER_MT_edit_datablocks(bpy.types.Menu):
         :param _context:
         """
 
-class OUTLINER_MT_editor_menus(bpy.types.Menu):
+class OUTLINER_MT_editor_menus(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -277,7 +278,7 @@ class OUTLINER_MT_editor_menus(bpy.types.Menu):
         :param context:
         """
 
-class OUTLINER_MT_id_data(bpy.types.Menu):
+class OUTLINER_MT_id_data(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -309,7 +310,7 @@ class OUTLINER_MT_id_data(bpy.types.Menu):
         :param context:
         """
 
-class OUTLINER_MT_liboverride(bpy.types.Menu):
+class OUTLINER_MT_liboverride(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -341,7 +342,7 @@ class OUTLINER_MT_liboverride(bpy.types.Menu):
         :param context:
         """
 
-class OUTLINER_MT_object(bpy.types.Menu):
+class OUTLINER_MT_object(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -366,7 +367,7 @@ class OUTLINER_MT_object(bpy.types.Menu):
         :param context:
         """
 
-class OUTLINER_MT_view_pie(bpy.types.Menu):
+class OUTLINER_MT_view_pie(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -391,7 +392,7 @@ class OUTLINER_MT_view_pie(bpy.types.Menu):
         :param _context:
         """
 
-class OUTLINER_PT_filter(bpy.types.Panel):
+class OUTLINER_PT_filter(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any

@@ -5,6 +5,7 @@ from collections.abc import (
 import datetime as dt
 from typing import (
     Literal,
+    final,
     overload,
 )
 
@@ -32,7 +33,9 @@ from pandas._typing import (
     num,
 )
 
-class TimedeltaIndex(DatetimeTimedeltaMixin[Timedelta], TimedeltaIndexProperties):
+class TimedeltaIndex(
+    DatetimeTimedeltaMixin[Timedelta, np.timedelta64], TimedeltaIndexProperties
+):
     def __new__(
         cls,
         data: (
@@ -69,18 +72,50 @@ class TimedeltaIndex(DatetimeTimedeltaMixin[Timedelta], TimedeltaIndexProperties
         self, other: dt.timedelta | Sequence[dt.timedelta]
     ) -> Index[int]: ...
     def __rfloordiv__(self, other: dt.timedelta | Sequence[dt.timedelta]) -> Index[int]: ...  # type: ignore[override] # pyright: ignore[reportIncompatibleMethodOverride]
-    def astype(self, dtype, copy: bool = ...): ...
     def searchsorted(self, value, side: str = ..., sorter=...): ...
     @property
     def inferred_type(self) -> str: ...
+    @final
     def to_series(self, index=..., name: Hashable = ...) -> TimedeltaSeries: ...
-    def shift(self, periods: int = ..., freq=...) -> Self: ...
+    def shift(self, periods: int = 1, freq=...) -> Self: ...
 
+@overload
 def timedelta_range(
-    start: TimedeltaConvertibleTypes = ...,
-    end: TimedeltaConvertibleTypes = ...,
-    periods: int | None = ...,
-    freq: str | DateOffset | Timedelta | dt.timedelta | None = ...,
-    name: Hashable | None = ...,
-    closed: Literal["left", "right"] | None = ...,
+    start: TimedeltaConvertibleTypes,
+    end: TimedeltaConvertibleTypes,
+    *,
+    freq: str | DateOffset | Timedelta | dt.timedelta | None = None,
+    name: Hashable | None = None,
+    closed: Literal["left", "right"] | None = None,
+    unit: None | str = ...,
+) -> TimedeltaIndex: ...
+@overload
+def timedelta_range(
+    *,
+    end: TimedeltaConvertibleTypes,
+    periods: int,
+    freq: str | DateOffset | Timedelta | dt.timedelta | None = None,
+    name: Hashable | None = None,
+    closed: Literal["left", "right"] | None = None,
+    unit: None | str = ...,
+) -> TimedeltaIndex: ...
+@overload
+def timedelta_range(
+    start: TimedeltaConvertibleTypes,
+    *,
+    periods: int,
+    freq: str | DateOffset | Timedelta | dt.timedelta | None = None,
+    name: Hashable | None = None,
+    closed: Literal["left", "right"] | None = None,
+    unit: None | str = ...,
+) -> TimedeltaIndex: ...
+@overload
+def timedelta_range(
+    start: TimedeltaConvertibleTypes,
+    end: TimedeltaConvertibleTypes,
+    periods: int,
+    *,
+    name: Hashable | None = None,
+    closed: Literal["left", "right"] | None = None,
+    unit: None | str = ...,
 ) -> TimedeltaIndex: ...

@@ -20,7 +20,9 @@ def flip(
     """
 
 def make_regular(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set UVW control points a uniform distance apart
 
@@ -56,7 +58,9 @@ def select_all(
     """
 
 def select_less(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Deselect vertices at the boundary of each selection region
 
@@ -83,7 +87,9 @@ def select_mirror(
     """
 
 def select_more(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select vertex directly linked to already selected ones
 

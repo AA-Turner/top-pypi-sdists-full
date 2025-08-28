@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 class IDPropertyArray:
     typecode: typing.Any
-    """ The type of the data in the array {'f': float, 'd': double, 'i': int, 'b': bool}."""
+    """ The type of the data in the array {f: float, d: double, i: int, b: bool}."""
 
     def to_list(self) -> None:
         """Return the array as a list."""
@@ -35,7 +35,7 @@ class IDPropertyGroup:
 
         :param key: Name of item to remove.
         :type key: str
-        :param default: Value to return when key isn't found, otherwise raise an exception.
+        :param default: Value to return when key isnt found, otherwise raise an exception.
         :type default: typing.Any
         """
 

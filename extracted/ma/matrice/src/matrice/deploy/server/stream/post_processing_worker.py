@@ -241,9 +241,12 @@ class PostProcessingWorker:
                 timeout=self.process_timeout
             )
             
-            # Create final result message
+            # Calculate processing timing
+            processing_time = asyncio.get_event_loop().time() - start_time
+            
+            # Create final result message with timing data
             final_message = self._create_final_result_message(
-                message, processed_result, post_processing_result
+                message, processed_result, post_processing_result, processing_time
             )
             
             # Add to output queue
@@ -261,7 +264,6 @@ class PostProcessingWorker:
                 self.logger.error(f"Failed to put post-processed result to output queue in worker {self.worker_id}: {str(put_exc)}")
             
             # Update metrics
-            processing_time = asyncio.get_event_loop().time() - start_time
             self.total_processing_time += processing_time
             self.messages_processed += 1
             self.last_processing_time = datetime.now(timezone.utc)
@@ -281,9 +283,39 @@ class PostProcessingWorker:
         self,
         inference_message: Dict[str, Any],
         processed_result: Any,
-        post_processing_result: Optional[Dict[str, Any]]
+        post_processing_result: Optional[Dict[str, Any]],
+        processing_time: float = 0.0
     ) -> Dict[str, Any]:
         """Create a final result message from post-processing results."""
+        # Extract inference timing from the original inference message
+        inference_timing = {}
+        if "inference_timing" in inference_message:
+            inference_timing = inference_message["inference_timing"]
+        elif "server_timing" in inference_message:
+            # Legacy compatibility
+            server_timing = inference_message["server_timing"]
+            inference_timing = {
+                "model_inference_time_sec": server_timing.get("model_inference_time_sec", 0.0),
+                "inference_total_time_sec": server_timing.get("inference_total_time_sec", 0.0),
+                "total_worker_time_sec": server_timing.get("total_worker_time_sec", 0.0),
+            }
+        
+        # Create post-processing timing data
+        post_processing_timing = {
+            "post_processing_time_sec": processing_time,
+            "total_worker_time_sec": processing_time,
+            "post_processing_timestamp": datetime.now(timezone.utc),
+        }
+        
+        # Extract additional timing from post_processing_result if available
+        if post_processing_result and isinstance(post_processing_result, dict):
+            timing_metadata = post_processing_result.get("timing_metadata", {})
+            if timing_metadata:
+                post_processing_timing.update({
+                    "post_processing_time_sec": timing_metadata.get("post_processing_time_sec", processing_time),
+                    "output_construct_time_sec": timing_metadata.get("output_construct_time_sec", 0.0),
+                })
+        
         return {
             "message_key": inference_message.get("message_key"),
             "input_stream": inference_message.get("input_stream"),
@@ -298,6 +330,9 @@ class PostProcessingWorker:
             "original_timestamp": inference_message.get("original_timestamp"),
             "consumer_worker_id": inference_message.get("consumer_worker_id"),
             "video_chunk_info": inference_message.get("video_chunk_info"),
+            # Add timing data for latency tracking
+            "inference_timing": inference_timing,
+            "post_processing_timing": post_processing_timing,
         }
     
     def get_metrics(self) -> Dict[str, Any]:

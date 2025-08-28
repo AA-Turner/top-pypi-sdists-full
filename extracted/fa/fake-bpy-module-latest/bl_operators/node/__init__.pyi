@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class NODE_FH_image_node(bpy.types.FileHandler):
+class NODE_FH_image_node(_bpy_types.FileHandler):
     bl_file_extensions: typing.Any
     bl_idname: typing.Any
     bl_import_operator: typing.Any
@@ -33,7 +34,7 @@ class NODE_FH_image_node(bpy.types.FileHandler):
         :param context:
         """
 
-class NODE_OT_add_closure_zone(NodeAddZoneOperator, bpy.types.Operator):
+class NODE_OT_add_closure_zone(NodeAddZoneOperator, _bpy_types.Operator):
     """Add a Closure zone"""
 
     add_default_geometry_link: typing.Any
@@ -59,7 +60,7 @@ class NODE_OT_add_closure_zone(NodeAddZoneOperator, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class NODE_OT_add_empty_group(NodeAddOperator, bpy.types.Operator):
+class NODE_OT_add_empty_group(NodeAddOperator, _bpy_types.Operator):
     bl_description: typing.Any
     bl_idname: typing.Any
     bl_label: typing.Any
@@ -95,7 +96,7 @@ class NODE_OT_add_empty_group(NodeAddOperator, bpy.types.Operator):
         """
 
 class NODE_OT_add_foreach_geometry_element_zone(
-    NodeAddZoneOperator, bpy.types.Operator
+    NodeAddZoneOperator, _bpy_types.Operator
 ):
     """Add a For Each Geometry Element zone that allows executing nodes e.g. for each vertex separately"""
 
@@ -122,7 +123,7 @@ class NODE_OT_add_foreach_geometry_element_zone(
         :rtype: typing.Any
         """
 
-class NODE_OT_add_node(NodeAddOperator, bpy.types.Operator):
+class NODE_OT_add_node(NodeAddOperator, _bpy_types.Operator):
     """Add a node to the active tree"""
 
     bl_idname: typing.Any
@@ -159,7 +160,7 @@ class NODE_OT_add_node(NodeAddOperator, bpy.types.Operator):
         :param context:
         """
 
-class NODE_OT_add_repeat_zone(NodeAddZoneOperator, bpy.types.Operator):
+class NODE_OT_add_repeat_zone(NodeAddZoneOperator, _bpy_types.Operator):
     """Add a repeat zone that allows executing nodes a dynamic number of times"""
 
     add_default_geometry_link: typing.Any
@@ -185,7 +186,7 @@ class NODE_OT_add_repeat_zone(NodeAddZoneOperator, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class NODE_OT_add_simulation_zone(NodeAddZoneOperator, bpy.types.Operator):
+class NODE_OT_add_simulation_zone(NodeAddZoneOperator, _bpy_types.Operator):
     """Add simulation zone input and output nodes to the active tree"""
 
     add_default_geometry_link: typing.Any
@@ -211,7 +212,7 @@ class NODE_OT_add_simulation_zone(NodeAddZoneOperator, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class NODE_OT_collapse_hide_unused_toggle(bpy.types.Operator):
+class NODE_OT_collapse_hide_unused_toggle(_bpy_types.Operator):
     """Toggle collapsed nodes and hide unused sockets"""
 
     bl_idname: typing.Any
@@ -247,7 +248,7 @@ class NODE_OT_collapse_hide_unused_toggle(bpy.types.Operator):
         :param context:
         """
 
-class NODE_OT_interface_item_duplicate(NodeInterfaceOperator, bpy.types.Operator):
+class NODE_OT_interface_item_duplicate(NodeInterfaceOperator, _bpy_types.Operator):
     """Add a copy of the active item to the interface"""
 
     bl_idname: typing.Any
@@ -284,7 +285,7 @@ class NODE_OT_interface_item_duplicate(NodeInterfaceOperator, bpy.types.Operator
         """
 
 class NODE_OT_interface_item_make_panel_toggle(
-    NodeInterfaceOperator, bpy.types.Operator
+    NodeInterfaceOperator, _bpy_types.Operator
 ):
     """Make the active boolean socket a toggle for its parent panel"""
 
@@ -321,7 +322,7 @@ class NODE_OT_interface_item_make_panel_toggle(
         :param context:
         """
 
-class NODE_OT_interface_item_new(NodeInterfaceOperator, bpy.types.Operator):
+class NODE_OT_interface_item_new(NodeInterfaceOperator, _bpy_types.Operator):
     """Add a new item to the interface"""
 
     bl_idname: typing.Any
@@ -364,7 +365,7 @@ class NODE_OT_interface_item_new(NodeInterfaceOperator, bpy.types.Operator):
         :param context:
         """
 
-class NODE_OT_interface_item_remove(NodeInterfaceOperator, bpy.types.Operator):
+class NODE_OT_interface_item_remove(NodeInterfaceOperator, _bpy_types.Operator):
     """Remove active item from the interface"""
 
     bl_idname: typing.Any
@@ -394,7 +395,7 @@ class NODE_OT_interface_item_remove(NodeInterfaceOperator, bpy.types.Operator):
         """
 
 class NODE_OT_interface_item_unlink_panel_toggle(
-    NodeInterfaceOperator, bpy.types.Operator
+    NodeInterfaceOperator, _bpy_types.Operator
 ):
     """Make the panel toggle a stand-alone socket"""
 
@@ -431,7 +432,7 @@ class NODE_OT_interface_item_unlink_panel_toggle(
         :param context:
         """
 
-class NODE_OT_tree_path_parent(bpy.types.Operator):
+class NODE_OT_tree_path_parent(_bpy_types.Operator):
     """Go to parent node tree"""
 
     bl_idname: typing.Any
@@ -467,7 +468,7 @@ class NODE_OT_tree_path_parent(bpy.types.Operator):
         :param context:
         """
 
-class NODE_OT_viewer_shortcut_get(bpy.types.Operator):
+class NODE_OT_viewer_shortcut_get(_bpy_types.Operator):
     """Activate a specific compositor viewer node using 1,2,..,9 keys"""
 
     bl_idname: typing.Any
@@ -503,7 +504,7 @@ class NODE_OT_viewer_shortcut_get(bpy.types.Operator):
         :param context:
         """
 
-class NODE_OT_viewer_shortcut_set(bpy.types.Operator):
+class NODE_OT_viewer_shortcut_set(_bpy_types.Operator):
     """Create a compositor viewer shortcut for the selected node by pressing ctrl+1,2,..9"""
 
     bl_idname: typing.Any
@@ -590,7 +591,7 @@ class NodeInterfaceOperator:
         :param context:
         """
 
-class NodeSetting(bpy.types.PropertyGroup):
+class NodeSetting(_bpy_types.PropertyGroup):
     bl_rna: typing.Any
     id_data: typing.Any
 

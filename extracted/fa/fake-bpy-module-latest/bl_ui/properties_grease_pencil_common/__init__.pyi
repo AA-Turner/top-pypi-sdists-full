@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
 class AnnotationDataPanel:
@@ -64,7 +65,7 @@ class AnnotationOnionSkin:
         :param context:
         """
 
-class GPENCIL_UL_annotation_layer(bpy.types.UIList):
+class GPENCIL_UL_annotation_layer(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -105,7 +106,7 @@ class GPENCIL_UL_annotation_layer(bpy.types.UIList):
         :param _index:
         """
 
-class GPENCIL_UL_layer(bpy.types.UIList):
+class GPENCIL_UL_layer(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -146,7 +147,7 @@ class GPENCIL_UL_layer(bpy.types.UIList):
         :param _index:
         """
 
-class GPENCIL_UL_masks(bpy.types.UIList):
+class GPENCIL_UL_masks(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -187,7 +188,7 @@ class GPENCIL_UL_masks(bpy.types.UIList):
         :param _index:
         """
 
-class GREASE_PENCIL_MT_draw_delete(bpy.types.Menu):
+class GREASE_PENCIL_MT_draw_delete(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -212,7 +213,7 @@ class GREASE_PENCIL_MT_draw_delete(bpy.types.Menu):
         :param _context:
         """
 
-class GREASE_PENCIL_MT_layer_active(bpy.types.Menu):
+class GREASE_PENCIL_MT_layer_active(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -237,7 +238,7 @@ class GREASE_PENCIL_MT_layer_active(bpy.types.Menu):
         :param context:
         """
 
-class GREASE_PENCIL_MT_move_to_layer(bpy.types.Menu):
+class GREASE_PENCIL_MT_move_to_layer(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -262,7 +263,7 @@ class GREASE_PENCIL_MT_move_to_layer(bpy.types.Menu):
         :param context:
         """
 
-class GREASE_PENCIL_MT_snap(bpy.types.Menu):
+class GREASE_PENCIL_MT_snap(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -287,7 +288,7 @@ class GREASE_PENCIL_MT_snap(bpy.types.Menu):
         :param _context:
         """
 
-class GREASE_PENCIL_MT_snap_pie(bpy.types.Menu):
+class GREASE_PENCIL_MT_snap_pie(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -312,7 +313,7 @@ class GREASE_PENCIL_MT_snap_pie(bpy.types.Menu):
         :param _context:
         """
 
-class GREASE_PENCIL_MT_stroke_simplify(bpy.types.Menu):
+class GREASE_PENCIL_MT_stroke_simplify(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -370,7 +371,7 @@ class GreasePencilDisplayPanel:
         :param context:
         """
 
-class GreasePencilFlipTintColors(bpy.types.Operator):
+class GreasePencilFlipTintColors(_bpy_types.Operator):
     """Switch tint colors"""
 
     bl_idname: typing.Any

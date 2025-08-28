@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: ops
-Version: 3.1.0
+Version: 3.2.0
 Summary: The Python library behind great charms
 Author: The Charm Tech team at Canonical Ltd.
-Project-URL: Homepage, https://ops.readthedocs.io/en/latest/
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://documentation.ubuntu.com/ops/latest/
 Project-URL: Repository, https://github.com/canonical/operator
 Project-URL: Issues, https://github.com/canonical/operator/issues
-Project-URL: Documentation, https://ops.readthedocs.io
+Project-URL: Documentation, https://documentation.ubuntu.com/ops/latest/
 Project-URL: Changelog, https://github.com/canonical/operator/blob/main/CHANGES.md
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -21,11 +21,10 @@ License-File: LICENSE.txt
 Requires-Dist: PyYAML==6.*
 Requires-Dist: websocket-client==1.*
 Requires-Dist: opentelemetry-api~=1.0
-Requires-Dist: importlib-metadata
 Provides-Extra: testing
-Requires-Dist: ops-scenario==8.1.0; extra == "testing"
+Requires-Dist: ops-scenario==8.2.0; extra == "testing"
 Provides-Extra: tracing
-Requires-Dist: ops-tracing==3.1.0; extra == "tracing"
+Requires-Dist: ops-tracing==3.2.0; extra == "tracing"
 Provides-Extra: harness
 Dynamic: license-file
 
@@ -36,8 +35,8 @@ Dynamic: license-file
 The `ops` library is a Python framework for developing and testing Kubernetes and machine [charms](https://charmhub.io/). While charms can be written in any language, `ops` defines the latest standard, and charmers are encouraged to use Python with `ops` for all charms. The library is an official component of the Charm SDK, itself a part of [the Juju universe](https://juju.is/).
 
 > - `ops` is  [available on PyPI](https://pypi.org/project/ops/).
-> - The latest version of `ops` requires Python 3.8 or above.
-> - Read our [docs](https://ops.readthedocs.io/en/latest/) for tutorials, how-to guides, the library reference, and more.
+> - The latest version of `ops` requires Python 3.10 or above.
+> - Read our [docs](https://documentation.ubuntu.com/ops/latest/) for tutorials, how-to guides, the library reference, and more.
 
 ## Give it a try
 
@@ -104,7 +103,7 @@ class OpsExampleCharm(ops.CharmBase):
         environment configuration for your specific workload.
 
         Learn more about interacting with Pebble at
-            https://ops.readthedocs.io/en/latest/reference/pebble.html
+            https://documentation.ubuntu.com/ops/latest/reference/pebble/
         """
         # Get a reference the container attribute on the PebbleReadyEvent
         container = event.workload
@@ -117,7 +116,7 @@ class OpsExampleCharm(ops.CharmBase):
         self.unit.status = ops.ActiveStatus()
 ```
 
-> See more: [`ops.PebbleReadyEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.PebbleReadyEvent)
+> See more: [`ops.PebbleReadyEvent`](https://documentation.ubuntu.com/ops/latest/reference/ops/#ops.PebbleReadyEvent)
 
 - The `tests/unit/test_charm.py` file imports `ops.testing` and uses it to set up a unit test:
 
@@ -158,7 +157,7 @@ def test_httpbin_pebble_ready():
     assert state_out.unit_status == testing.ActiveStatus()
 ```
 
-> See more: [`ops.testing`](https://ops.readthedocs.io/en/latest/reference/ops-testing.html)
+> See more: [`ops.testing`](https://documentation.ubuntu.com/ops/latest/reference/ops-testing/)
 
 
 Explore further, start editing the files, or skip ahead and pack the charm:
@@ -181,6 +180,6 @@ Congratulations, you’ve just built your first Kubernetes charm using `ops`!
 
 ## Next steps
 
-- Read the [docs](https://ops.readthedocs.io/en/latest/).
+- Read the [docs](https://documentation.ubuntu.com/ops/latest/).
 - Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) and join our [chat](https://matrix.to/#/#charmhub-ops:ubuntu.com) and [forum](https://discourse.charmhub.io/) or [open an issue](https://github.com/canonical/operator/issues).
 - Read our [CONTRIBUTING guide](https://github.com/canonical/operator/blob/main/HACKING.md) and contribute!

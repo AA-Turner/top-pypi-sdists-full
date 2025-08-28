@@ -12,7 +12,7 @@ requires = [
 [project]
 name = "Adafruit-PlatformDetect"
 description = "Platform detection for use by libraries like Adafruit-Blinka."
-version = "3.82.0"
+version = "3.83.0"
 readme = "README.rst"
 authors = [
     {name = "Adafruit Industries", email = "circuitpython@adafruit.com"}

@@ -47,8 +47,7 @@ impl rigetti_pyo3::PyTryFrom<pyo3::PyAny> for PyScalarType {
             "OCTET" => Ok(Self::Octet),
             "REAL" => Ok(Self::Real),
             _ => Err(PyValueError::new_err(format!(
-                "Invalid value for ScalarType: {}",
-                item
+                "Invalid value for ScalarType: {item}"
             ))),
         }
     }

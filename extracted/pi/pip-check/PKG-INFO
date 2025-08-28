@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip-check
-Version: 3.1
+Version: 3.2.1
 Summary: Display installed pip packages and their update status.
 Project-URL: Homepage, https://github.com/bartTC/pip-check/
 Project-URL: Issues, https://github.com/bartTC/pip-check/issues
@@ -85,10 +85,9 @@ options:
 pip-check uses `uv` for local development.
 
 ```
-$ pip install -U uv
-uv sync     # Create a .venv and install dependencies
-uv build    # Build distribution packages
-uv publish  # Publish on Pypi
+uv sync         # Create a .venv and install dependencies
+uv build        # Build distribution packages
+uvx uv-publish  # Publish on Pypi
 ```
 
 ### Testing:
@@ -106,6 +105,11 @@ $ uv run nox
 
 
 # Changelog
+
+v3.2 (2025-08-27):
+v3.2.1 (2025-08-27):
+
+- Fix 'uv' support to work with latest UV version.
 
 v3.1 (2025-04-14):
 

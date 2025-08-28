@@ -27,7 +27,7 @@ class VersionCommand(BaseCommand):
     # Command description
     description: str = "Displays the current Orionis framework version and metadata, including author, Python requirements, documentation, and repository links."
 
-    def handle(self) -> str:
+    def handle(self, console: Console) -> str:
         """
         Executes the version command to display the current Orionis framework version and metadata.
 
@@ -51,8 +51,6 @@ class VersionCommand(BaseCommand):
             with the original exception message.
         """
         try:
-            # Initialize the console for rich output
-            console = Console()
 
             # Compose the main information strings using framework metadata
             title = f"[bold yellow]{framework.NAME.capitalize()} Framework[/bold yellow] [white]v{framework.VERSION}[/white]"

@@ -225,6 +225,22 @@ def test_xom_setdefault_singleton(xom):
 
 
 @pytest.mark.nomocking
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://someserver/path",
+        "https://pypi.org/simple/package/",
+    ],
+)
+@pytest.mark.parametrize("allowRedirect", [True, False])
+def test_offline_mode_http_get_returns_server_error(makexom, url, allowRedirect):
+    xom = makexom(["--offline-mode"], http=XOM.http)
+    r = xom.http.get(url, allow_redirects=allowRedirect)
+    assert r.status_code == 503
+
+
+@pytest.mark.filterwarnings("ignore:The httpget")
+@pytest.mark.nomocking
 @pytest.mark.parametrize("url", [
     "http://someserver/path",
     "https://pypi.org/simple/package/",
@@ -232,31 +248,8 @@ def test_xom_setdefault_singleton(xom):
 @pytest.mark.parametrize("allowRedirect", [True, False])
 def test_offline_mode_httpget_returns_server_error(makexom, url, allowRedirect):
     xom = makexom(["--offline-mode"], httpget=XOM.httpget)
-    r = xom.httpget(url, allowRedirect)
+    r = xom.httpget(url, allow_redirects=allowRedirect)
     assert r.status_code == 503
-
-
-@pytest.mark.nomocking
-def test_replica_max_retries_option(makexom, monkeypatch):
-    from devpi_server.main import new_requests_session as orig_new_requests_session
-
-    def new_requests_session(*args, **kwargs):
-        _max_retries = None
-        if 'max_retries' in kwargs:
-            _max_retries = kwargs['max_retries']
-        elif len(args)>=2:
-            _max_retries = args[1]
-        assert _max_retries == 2
-        return orig_new_requests_session()
-
-    xom = makexom(["--replica-max-retries=2"])
-    monkeypatch.setenv("HTTP_PROXY", "http://this")
-    monkeypatch.setenv("HTTPS_PROXY", "http://that")
-    monkeypatch.setattr("devpi_server.main.new_requests_session", new_requests_session)
-
-    r = xom.httpget("http://example.com", allow_redirects=False,
-                              timeout=1.2)
-    assert r.status_code == -1
 
 
 @pytest.mark.nomocking
@@ -266,10 +259,47 @@ def test_replica_max_retries_option(makexom, monkeypatch):
     {'timeout': 123, 'arg': [], 'kwarg': 123}
 ])
 def test_request_args_timeout_handover(makexom, monkeypatch, input_set):
-    def mock_http_get(*args, **kwargs):
-        assert kwargs["timeout"] == input_set['timeout']
-    xom = makexom(input_set['arg'])
-    monkeypatch.setattr(xom._httpsession, "get", mock_http_get)
+    import contextlib
+
+    def http_get(*_args, **kwargs):
+        assert kwargs["timeout"] == input_set["timeout"]
+
+    @contextlib.contextmanager
+    def http_stream(*_args, **kwargs):
+        assert kwargs["timeout"] == input_set["timeout"]
+        yield
+
+    xom = makexom(input_set["arg"])
+    monkeypatch.setattr(xom.http.client, "get", http_get)
+    monkeypatch.setattr(xom.http.client, "stream", http_stream)
+
+    xom.http.get("http://whatever", allow_redirects=False, timeout=input_set["kwarg"])
+    with contextlib.ExitStack() as cstack:
+        xom.http.stream(
+            cstack,
+            "GET",
+            "http://whatever",
+            allow_redirects=False,
+            timeout=input_set["kwarg"],
+        )
+
+
+@pytest.mark.filterwarnings("ignore:The httpget")
+@pytest.mark.nomocking
+@pytest.mark.parametrize(
+    "input_set",
+    [
+        {"timeout": 5, "arg": [], "kwarg": None},
+        {"timeout": 42, "arg": ["--request-timeout=42"], "kwarg": None},
+        {"timeout": 123, "arg": [], "kwarg": 123},
+    ],
+)
+def test_request_args_timeout_handover_httpget(makexom, monkeypatch, input_set):
+    def mock_httpget(*_args, **kwargs):
+        assert kwargs["timeout"] == input_set["timeout"]
+
+    xom = makexom(input_set["arg"])
+    monkeypatch.setattr(xom._httpsession, "get", mock_httpget)
 
     xom.httpget("http://whatever", allow_redirects=False, timeout=input_set['kwarg'])
 

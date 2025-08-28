@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_ds.literals import CertificateStateType
+    from mypy_boto3_ds.literals import CaEnrollmentPolicyStatusType
 
-    data: CertificateStateType = "Deregistered"
+    data: CaEnrollmentPolicyStatusType = "Disabled"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "CaEnrollmentPolicyStatusType",
     "CertificateStateType",
     "CertificateTypeType",
     "ClientAuthenticationStatusType",
@@ -79,6 +80,9 @@ __all__ = (
     "WaiterName",
 )
 
+CaEnrollmentPolicyStatusType = Literal[
+    "Disabled", "Disabling", "Failed", "Impaired", "InProgress", "Success"
+]
 CertificateStateType = Literal[
     "DeregisterFailed",
     "Deregistered",
@@ -214,6 +218,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -225,8 +230,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -468,8 +475,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -602,16 +607,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_client_authentication_settings",

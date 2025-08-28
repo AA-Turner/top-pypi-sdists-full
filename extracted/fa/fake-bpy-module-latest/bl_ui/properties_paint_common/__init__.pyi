@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
 class BrushAssetShelf:
@@ -91,6 +92,7 @@ class UnifiedPaintPanel:
         context,
         brush,
         prop_name,
+        unified_paint_settings_override=None,
         unified_name=None,
         pressure_name=None,
         icon="NONE",
@@ -99,12 +101,14 @@ class UnifiedPaintPanel:
         header=False,
     ) -> None:
         """Generalized way of adding brush options to the UI,
-        along with their pen pressure setting and global toggle, if they exist.
+        along with their pen pressure setting and global toggle, if they exist.:param unified_paint_settings_override allows a caller to pass in a specific object for usage. Needed for
+        some brush-like tools.
 
                 :param layout:
                 :param context:
                 :param brush:
                 :param prop_name:
+                :param unified_paint_settings_override:
                 :param unified_name:
                 :param pressure_name:
                 :param icon:
@@ -137,7 +141,7 @@ class UnifiedPaintPanel:
         :param value_slider:
         """
 
-class VIEW3D_MT_tools_projectpaint_clone(bpy.types.Menu):
+class VIEW3D_MT_tools_projectpaint_clone(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -162,7 +166,7 @@ class VIEW3D_MT_tools_projectpaint_clone(bpy.types.Menu):
         :param context:
         """
 
-class VIEW3D_PT_brush_asset_shelf_filter(bpy.types.Panel):
+class VIEW3D_PT_brush_asset_shelf_filter(_bpy_types.Panel):
     bl_label: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
@@ -345,7 +349,7 @@ def brush_basic_gpencil_sculpt_settings(
     layout, _context, brush, *, compact=False
 ) -> None: ...
 def brush_basic_gpencil_vertex_settings(
-    layout, _context, brush, *, compact=False
+    layout, context, brush, *, compact=False
 ) -> None: ...
 def brush_basic_gpencil_weight_settings(
     layout, _context, brush, *, compact=False

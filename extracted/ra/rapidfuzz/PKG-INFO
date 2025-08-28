@@ -1,21 +1,21 @@
 Metadata-Version: 2.4
 Name: RapidFuzz
-Version: 3.13.0
+Version: 3.14.0
 Summary: rapid fuzzy string matching
 Author-Email: Max Bachmann <pypi@maxbachmann.de>
 License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://github.com/rapidfuzz/RapidFuzz
 Project-URL: Documentation, https://rapidfuzz.github.io/RapidFuzz/
 Project-URL: Repository, https://github.com/rapidfuzz/RapidFuzz.git
 Project-URL: Issues, https://github.com/rapidfuzz/RapidFuzz/issues
 Project-URL: Changelog, https://github.com/rapidfuzz/RapidFuzz/blob/main/CHANGELOG.rst
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Provides-Extra: all
 Requires-Dist: numpy; extra == "all"
 Description-Content-Type: text/markdown
@@ -75,7 +75,7 @@ RapidFuzz is a fast string matching library for Python and C++, which is using t
 
 ## Requirements
 
-- Python 3.9 or later
+- Python 3.10 or later
 - On Windows the [Visual C++ 2019 redistributable](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads) is required
 
 ## Installation

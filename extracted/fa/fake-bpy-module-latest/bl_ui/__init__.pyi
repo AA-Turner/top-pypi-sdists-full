@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
 from . import anim as anim
@@ -82,7 +83,7 @@ from . import space_view3d as space_view3d
 from . import space_view3d_toolbar as space_view3d_toolbar
 from . import utils as utils
 
-class UI_MT_button_context_menu(bpy.types.Menu):
+class UI_MT_button_context_menu(_bpy_types.Menu):
     """UI button context menu definition. Scripts can append/prepend this to
     add own operators to the context menu. They must check context though, so
     their items only draw in a valid context and for the correct buttons.
@@ -113,7 +114,7 @@ class UI_MT_button_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class UI_MT_list_item_context_menu(bpy.types.Menu):
+class UI_MT_list_item_context_menu(_bpy_types.Menu):
     """UI List item context menu definition. Scripts can append/prepend this to
     add own operators to the context menu. They must check context though, so
     their items only draw in a valid context and for the correct UI list.
@@ -144,7 +145,7 @@ class UI_MT_list_item_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class UI_UL_list(bpy.types.UIList):
+class UI_UL_list(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 

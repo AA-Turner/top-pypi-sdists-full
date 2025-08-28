@@ -22,23 +22,24 @@ from . import icons as icons
 from . import timers as timers
 from . import translations as translations
 
-def help_text(all: bool | None = False) -> None:
+def help_text(*, all: bool | None = False) -> None:
     """Return the help text as a string.
 
-    :param all: Return all arguments, even those which aren't available for the current platform.
+    :param all: Return all arguments, even those which arent available for the current platform.
     :type all: bool | None
     """
 
-def is_job_running(job_type: bpy.stub_internal.rna_enums.WmJobTypeItems) -> None:
+def is_job_running(job_type: bpy.stub_internal.rna_enums.WmJobTypeItems) -> bool:
     """Check whether a job of the given type is running.
 
     :param job_type: job type in `rna_enum_wm_job_type_items`.
     :type job_type: bpy.stub_internal.rna_enums.WmJobTypeItems
     :return: Whether a job of the given type is currently running.
+    :rtype: bool
     """
 
 alembic: typing.Any
-""" Constant value bpy.app.alembic(supported=True, version=(1, 8, 3), version_string=' 1,  8,  3')
+""" Constant value bpy.app.alembic(supported=True, version=(1, 8, 3), version_string= 1,  8,  3)
 """
 
 autoexec_fail: typing.Any
@@ -58,7 +59,7 @@ background: typing.Any
 """
 
 binary_path: str
-""" The location of Blender's executable, useful for utilities that open new instances. Read-only unless Blender is built as a Python module - in this case the value is an empty string which script authors may point to a Blender binary.
+""" The location of Blenders executable, useful for utilities that open new instances. Read-only unless Blender is built as a Python module - in this case the value is an empty string which script authors may point to a Blender binary.
 """
 
 build_branch: typing.Any
@@ -118,71 +119,67 @@ build_type: typing.Any
 """
 
 debug: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_depsgraph: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_depsgraph_build: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_depsgraph_eval: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_depsgraph_pretty: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_depsgraph_tag: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_depsgraph_time: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_events: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
-"""
-
-debug_ffmpeg: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_freestyle: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_handlers: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_io: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_python: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_simdata: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 debug_value: typing.Any
-""" Short, number which can be set to non-zero values for testing purposes
+""" Short, number which can be set to non-zero values for testing purposes.
 """
 
 debug_wm: typing.Any
-""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name)
+""" Boolean, for debug info (started with --debug / --debug-* matching this attribute name).
 """
 
 driver_namespace: typing.Any
-""" Dictionary for drivers namespace, editable in-place, reset on file load (read-only)
+""" Dictionary for drivers namespace, editable in-place, reset on file load (read-only).
 """
 
 factory_startup: typing.Any
@@ -190,7 +187,7 @@ factory_startup: typing.Any
 """
 
 ffmpeg: typing.Any
-""" Constant value bpy.app.ffmpeg(supported=True, avcodec_version=(61, 19, 101), avcodec_version_string='61, 19, 101', avdevice_version=(61, 3, 100), avdevice_version_string='61,  3, 100', avformat_version=(61, 7, 100), avformat_version_string='61,  7, 100', avutil_version=(59, 39, 100), avutil_version_string='59, 39, 100', swscale_version=(8, 3, 100), swscale_version_string=' 8,  3, 100')
+""" Constant value bpy.app.ffmpeg(supported=True, avcodec_version=(61, 19, 101), avcodec_version_string=61, 19, 101, avdevice_version=(61, 3, 100), avdevice_version_string=61,  3, 100, avformat_version=(61, 7, 100), avformat_version_string=61,  7, 100, avutil_version=(59, 39, 100), avutil_version_string=59, 39, 100, swscale_version=(8, 3, 100), swscale_version_string= 8,  3, 100)
 """
 
 module: typing.Any
@@ -198,27 +195,27 @@ module: typing.Any
 """
 
 ocio: typing.Any
-""" Constant value bpy.app.ocio(supported=True, version=(2, 4, 1), version_string=' 2,  4,  1')
+""" Constant value bpy.app.ocio(supported=True, version=(2, 4, 1), version_string= 2,  4,  1)
 """
 
 oiio: typing.Any
-""" Constant value bpy.app.oiio(supported=True, version=(3, 0, 6), version_string=' 3,  0,  6')
+""" Constant value bpy.app.oiio(supported=True, version=(3, 0, 6), version_string= 3,  0,  6)
 """
 
 online_access: typing.Any
-""" Boolean, true when internet access is allowed by Blender & 3rd party scripts (read-only)
+""" Boolean, true when internet access is allowed by Blender & 3rd party scripts (read-only).
 """
 
 online_access_override: typing.Any
-""" Boolean, true when internet access preference is overridden by the command line (read-only)
+""" Boolean, true when internet access preference is overridden by the command line (read-only).
 """
 
 opensubdiv: typing.Any
-""" Constant value bpy.app.opensubdiv(supported=True, version=(3, 6, 0), version_string=' 3,  6,  0')
+""" Constant value bpy.app.opensubdiv(supported=True, version=(3, 6, 0), version_string= 3,  6,  0)
 """
 
 openvdb: typing.Any
-""" Constant value bpy.app.openvdb(supported=True, version=(12, 0, 0), version_string='12,  0,  0')
+""" Constant value bpy.app.openvdb(supported=True, version=(12, 0, 0), version_string=12,  0,  0)
 """
 
 portable: typing.Any
@@ -230,23 +227,23 @@ python_args: typing.Any
 """
 
 render_icon_size: typing.Any
-""" Reference size for icon/preview renders (read-only)
+""" Reference size for icon/preview renders (read-only).
 """
 
 render_preview_size: typing.Any
-""" Reference size for icon/preview renders (read-only)
+""" Reference size for icon/preview renders (read-only).
 """
 
 sdl: typing.Any
-""" Constant value bpy.app.sdl(supported=False, version=(0, 0, 0), version_string='Unknown')
+""" Constant value bpy.app.sdl(supported=False, version=(0, 0, 0), version_string=Unknown)
 """
 
 tempdir: typing.Any
-""" String, the temp directory used by blender (read-only)
+""" String, the temp directory used by blender (read-only).
 """
 
 usd: typing.Any
-""" Constant value bpy.app.usd(supported=True, version=(0, 25, 2), version_string=' 0, 25,  2')
+""" Constant value bpy.app.usd(supported=True, version=(0, 25, 2), version_string= 0, 25,  2)
 """
 
 use_event_simulate: typing.Any

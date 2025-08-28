@@ -70,9 +70,10 @@ def create_or_update_secrets(ctx: RunContext[TinybirdAgentContext], secrets: dic
         preview_content = create_terminal_box(new_content, title=".env.local")
         click.echo(preview_content)
 
+        active_plan = ctx.deps.get_plan() is not None
         confirmation = show_confirmation(
             title=f"{action} {len(secrets)} secret(s) in .env.local?",
-            skip_confirmation=ctx.deps.dangerously_skip_permissions,
+            skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,
         )
 
         if confirmation == "review":

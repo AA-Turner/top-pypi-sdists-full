@@ -876,6 +876,7 @@ You have access to the following tools:
 15. `run_command` - Run a command using the Tinybird CLI.
 16. `diff_resource` - Diff the content of a resource in Tinybird Cloud vs Tinybird Local vs Project local file.
 17. `rename_datafile_or_fixture` - Rename a datafile or fixture.
+18. `complete_plan` - Complete a plan.
 
 # When creating, updating, or deleting files:
 1. Use `plan` tool to plan the creation, update, rename, or deletion of resources.
@@ -885,6 +886,7 @@ You have access to the following tools:
 5. If the file was created or removed successfully, report the result to the user.
 6. If the file was not created or removed, finish the process and just wait for a new user prompt.
 7. If the file was created or removed successfully, but the build failed, try to fix the error and repeat the process.
+8. If the plan is completed or cancelled, use the `complete_plan` tool to complete the plan.
 
 # When creating a landing datasource given a .ndjson file:
 - If the user does not specify anything about the desired schema, create a schema like this (sorting key not needed in this case)

@@ -7,7 +7,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "RapidFuzz"
 dynamic = ["version"]
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 authors = [
   {name = "Max Bachmann", email = "pypi@maxbachmann.de"},
 ]
@@ -16,11 +16,11 @@ readme = "README.md"
 license = "MIT"
 classifiers=[
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 
 [project.urls]
@@ -36,7 +36,6 @@ all = [
 ]
 
 [project.entry-points.pyinstaller40]
-hook-dirs = "rapidfuzz.__pyinstaller:get_hook_dirs"
 tests = "rapidfuzz.__pyinstaller:get_PyInstaller_tests"
 
 [tool.scikit-build]
@@ -95,7 +94,7 @@ line-length = 120
 
 [tool.mypy]
 files = ["src"]
-python_version = "3.9"
+python_version = "3.10"
 warn_unused_configs = true
 show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
@@ -111,7 +110,7 @@ xfail_strict = true
 log_cli_level = "info"
 
 [tool.pylint]
-py-version = "3.9"
+py-version = "3.10"
 
 [tool.pylint.reports]
 output-format = "colorized"
@@ -179,3 +178,10 @@ isort.combine-as-imports = true
 "tools/test_process_typing.py" = ["ARG001"]
 "_custom_build/backend.py" = ["T20"]
 "setup.py" = ["T20"]
+
+[tool.cibuildwheel]
+enable = ["cpython-freethreading", "pypy"]
+# in theory some tests require numpy / pandas as well. However those don't provider
+# wheels for all target platforms
+test-requires = ["pytest", "hypothesis"]
+test-command = "pytest {package}/tests"

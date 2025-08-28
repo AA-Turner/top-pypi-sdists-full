@@ -136,10 +136,10 @@ def BoolProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is 'read',
+        :param get: Function to be called when this value is read,
     This function must take 1 value (self) and return the value of the property.
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], bool] | None
-        :param set: Function to be called when this value is 'written',
+        :param set: Function to be called when this value is written,
     This function must take 2 values (self, value) and return None.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, bool], None] | None
     """
@@ -187,17 +187,17 @@ def BoolVectorProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is 'read',
+        :param get: Function to be called when this value is read,
     This function must take 1 value (self) and return the value of the property.
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[bool]] | None
-        :param set: Function to be called when this value is 'written',
+        :param set: Function to be called when this value is written,
     This function must take 2 values (self, value) and return None.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[bool, ...]], None] | None
     """
 
 def CollectionProperty(
     *,
-    type: type[bpy.types.PropertyGroup] | None = None,
+    type: type[bpy.types.PropertyGroup] | None,
     name: str | None = "",
     description: str | None = "",
     translation_context: str | None = "*",
@@ -317,10 +317,10 @@ def EnumProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is 'read',
+        :param get: Function to be called when this value is read,
     This function must take 1 value (self) and return the value of the property.
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None
-        :param set: Function to be called when this value is 'written',
+        :param set: Function to be called when this value is written,
     This function must take 2 values (self, value) and return None.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None
     """
@@ -359,13 +359,13 @@ def FloatProperty(
         :type min: float | None
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
         :type max: float | None
-        :param soft_min: Soft minimum (>= min), user won't be able to drag the widget below this value in the UI.
+        :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
         :type soft_min: float | None
-        :param soft_max: Soft maximum (<= max), user won't be able to drag the widget above this value in the UI.
+        :param soft_max: Soft maximum (<= max), user wont be able to drag the widget above this value in the UI.
         :type soft_max: float | None
         :param step: Step of increment/decrement in UI, in [1, 100], defaults to 3 (WARNING: actual value is /100).
         :type step: int | None
-        :param precision: Maximum number of decimal digits to display, in [0, 6]. Fraction is automatically hidden for exact integer values of fields with unit 'NONE' or 'TIME' (frame count) and step divisible by 100.
+        :param precision: Maximum number of decimal digits to display, in [0, 6]. Fraction is automatically hidden for exact integer values of fields with unit NONE or TIME (frame count) and step divisible by 100.
         :type precision: int | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
         :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
@@ -380,10 +380,10 @@ def FloatProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is 'read',
+        :param get: Function to be called when this value is read,
     This function must take 1 value (self) and return the value of the property.
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], float] | None
-        :param set: Function to be called when this value is 'written',
+        :param set: Function to be called when this value is written,
     This function must take 2 values (self, value) and return None.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, float], None] | None
     """
@@ -429,13 +429,13 @@ def FloatVectorProperty(
         :type min: float | None
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
         :type max: float | None
-        :param soft_min: Soft minimum (>= min), user won't be able to drag the widget below this value in the UI.
+        :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
         :type soft_min: float | None
-        :param soft_max: Soft maximum (<= max), user won't be able to drag the widget above this value in the UI.
+        :param soft_max: Soft maximum (<= max), user wont be able to drag the widget above this value in the UI.
         :type soft_max: float | None
         :param step: Step of increment/decrement in UI, in [1, 100], defaults to 3 (WARNING: actual value is /100).
         :type step: int | None
-        :param precision: Maximum number of decimal digits to display, in [0, 6]. Fraction is automatically hidden for exact integer values of fields with unit 'NONE' or 'TIME' (frame count) and step divisible by 100.
+        :param precision: Maximum number of decimal digits to display, in [0, 6]. Fraction is automatically hidden for exact integer values of fields with unit NONE or TIME (frame count) and step divisible by 100.
         :type precision: int | None
         :param options: Enumerator in `rna_enum_property_flag_items`.
         :type options: set[bpy.stub_internal.rna_enums.PropertyFlagItems]
@@ -452,10 +452,10 @@ def FloatVectorProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is 'read',
+        :param get: Function to be called when this value is read,
     This function must take 1 value (self) and return the value of the property.
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[float]] | None
-        :param set: Function to be called when this value is 'written',
+        :param set: Function to be called when this value is written,
     This function must take 2 values (self, value) and return None.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[float, ...]], None] | None
     """
@@ -492,9 +492,9 @@ def IntProperty(
         :type min: int | None
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
         :type max: int | None
-        :param soft_min: Soft minimum (>= min), user won't be able to drag the widget below this value in the UI.
+        :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
         :type soft_min: int | None
-        :param soft_max: Soft maximum (<= max), user won't be able to drag the widget above this value in the UI.
+        :param soft_max: Soft maximum (<= max), user wont be able to drag the widget above this value in the UI.
         :type soft_max: int | None
         :param step: Step of increment/decrement in UI, in [1, 100], defaults to 1 (WARNING: unused currently!).
         :type step: int | None
@@ -509,10 +509,10 @@ def IntProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is 'read',
+        :param get: Function to be called when this value is read,
     This function must take 1 value (self) and return the value of the property.
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None
-        :param set: Function to be called when this value is 'written',
+        :param set: Function to be called when this value is written,
     This function must take 2 values (self, value) and return None.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None
     """
@@ -554,9 +554,9 @@ def IntVectorProperty(
         :type min: int | None
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
         :type max: int | None
-        :param soft_min: Soft minimum (>= min), user won't be able to drag the widget below this value in the UI.
+        :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
         :type soft_min: int | None
-        :param soft_max: Soft maximum (<= max), user won't be able to drag the widget above this value in the UI.
+        :param soft_max: Soft maximum (<= max), user wont be able to drag the widget above this value in the UI.
         :type soft_max: int | None
         :param step: Step of increment/decrement in UI, in [1, 100], defaults to 1 (WARNING: unused currently!).
         :type step: int | None
@@ -573,17 +573,17 @@ def IntVectorProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is 'read',
+        :param get: Function to be called when this value is read,
     This function must take 1 value (self) and return the value of the property.
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[int]] | None
-        :param set: Function to be called when this value is 'written',
+        :param set: Function to be called when this value is written,
     This function must take 2 values (self, value) and return None.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[int, ...]], None] | None
     """
 
 def PointerProperty(
     *,
-    type: type[bpy.types.PropertyGroup | bpy.types.ID] | None = None,
+    type: type[bpy.types.PropertyGroup | bpy.types.ID] | None,
     name: str | None = "",
     description: str | None = "",
     translation_context: str | None = "*",
@@ -675,10 +675,10 @@ def StringProperty(
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
         :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
-        :param get: Function to be called when this value is 'read',
+        :param get: Function to be called when this value is read,
     This function must take 1 value (self) and return the value of the property.
         :type get: collections.abc.Callable[[bpy.types.bpy_struct], str] | None
-        :param set: Function to be called when this value is 'written',
+        :param set: Function to be called when this value is written,
     This function must take 2 values (self, value) and return None.
         :type set: collections.abc.Callable[[bpy.types.bpy_struct, str], None] | None
         :param search: Function to be called to show candidates for this string (shown in the UI).
@@ -692,9 +692,9 @@ def StringProperty(
         :type search: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context, str], collections.abc.Iterable[str | tuple[str, str]]] | None
         :param search_options: Set of strings in:
 
-    'SORT' sorts the resulting items.
+    SORT sorts the resulting items.
 
-    'SUGGESTION' lets the user enter values not found in search candidates.
+    SUGGESTION lets the user enter values not found in search candidates.
     WARNING disabling this flag causes the search callback to run on redraw,
-    so only disable this flag if it's not likely to cause performance issues.
+    so only disable this flag if its not likely to cause performance issues.
     """

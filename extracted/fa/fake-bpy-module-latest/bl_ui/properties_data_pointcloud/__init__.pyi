@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import rna_prop_ui
 
-class DATA_PT_context_pointcloud(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_context_pointcloud(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -36,10 +37,10 @@ class DATA_PT_context_pointcloud(DataButtonsPanel, bpy.types.Panel):
         """
 
 class DATA_PT_custom_props_pointcloud(
-    rna_prop_ui.PropertyPanel, DataButtonsPanel, bpy.types.Panel
+    rna_prop_ui.PropertyPanel, DataButtonsPanel, _bpy_types.Panel
 ):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     COMPAT_ENGINES: typing.Any
@@ -66,7 +67,7 @@ class DATA_PT_custom_props_pointcloud(
         :rtype: typing.Any
         """
 
-class DATA_PT_pointcloud_attributes(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_pointcloud_attributes(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -107,7 +108,7 @@ class DataButtonsPanel:
         :param context:
         """
 
-class POINTCLOUD_MT_add_attribute(bpy.types.Menu):
+class POINTCLOUD_MT_add_attribute(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -143,7 +144,7 @@ class POINTCLOUD_MT_add_attribute(bpy.types.Menu):
         :param context:
         """
 
-class POINTCLOUD_MT_attribute_context_menu(bpy.types.Menu):
+class POINTCLOUD_MT_attribute_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -168,7 +169,7 @@ class POINTCLOUD_MT_attribute_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class POINTCLOUD_UL_attributes(bpy.types.UIList):
+class POINTCLOUD_UL_attributes(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 

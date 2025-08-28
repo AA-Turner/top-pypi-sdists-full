@@ -12,7 +12,9 @@ class UrlRewriteCinemageddon:
     """Cinemageddon urlrewriter."""
 
     def url_rewritable(self, task, entry):
-        return entry['url'].startswith('http://cinemageddon.net/details.php?id=')
+        return entry['url'].startswith('http://cinemageddon.net/details.php?id=') or entry[
+            'url'
+        ].startswith('https://cinemageddon.net/details.php?id=')
 
     def url_rewrite(self, task, entry):
         entry['url'] = entry['url'].replace('details.php?id=', 'download.php?id=')

@@ -2,11 +2,12 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.space_properties
 import bpy.types
 import rna_prop_ui
 
-class DATA_PT_context_lattice(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_context_lattice(DataButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -36,10 +37,10 @@ class DATA_PT_context_lattice(DataButtonsPanel, bpy.types.Panel):
         """
 
 class DATA_PT_custom_props_lattice(
-    rna_prop_ui.PropertyPanel, DataButtonsPanel, bpy.types.Panel
+    rna_prop_ui.PropertyPanel, DataButtonsPanel, _bpy_types.Panel
 ):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     bl_context: typing.Any
@@ -65,7 +66,7 @@ class DATA_PT_custom_props_lattice(
         :rtype: typing.Any
         """
 
-class DATA_PT_lattice(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_lattice(DataButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -97,9 +98,9 @@ class DATA_PT_lattice_animation(
     rna_prop_ui.PropertyPanel,
     DataButtonsPanel,
     bl_ui.space_properties.PropertiesAnimationMixin,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
-    """Mix-in class for Animation panels.This class can be used to show a generic 'Animation' panel for IDs shown in
+    """Mix-in class for Animation panels.This class can be used to show a generic Animation panel for IDs shown in
     the properties editor. Specific ID types need specific subclasses.For an example, see DATA_PT_camera_animation in properties_data_camera.py
     """
 

@@ -5,9 +5,14 @@ from matrice.deploy.optimize.frame_comparators import SSIMComparator
 from matrice.deploy.optimize.frame_difference import IntelligentFrameCache
 from matrice.deploy.utils.post_processing import (
     PostProcessor,
-    create_config_from_template
+    create_config_from_template,
 )
-from matrice.deploy.utils.post_processing.core.config import BaseConfig
+from matrice.deploy.utils.post_processing.core.config import (
+    BaseConfig,
+    AlertConfig,
+    ZoneConfig,
+    TrackingConfig,
+)
 from matrice.deploy.utils.post_processing.config import (
     get_usecase_from_app_name,
     get_category_from_app_name,
@@ -16,8 +21,7 @@ from typing import Dict, Any, Optional, Callable, Tuple, List, Union
 from matrice.action_tracker import ActionTracker
 from datetime import datetime, timezone
 import logging
-from matrice.deploy.utils.post_processing.core.config import AlertConfig, ZoneConfig, TrackingConfig
-
+import time
 
 class InferenceInterface:
     """Interface for proxying requests to model servers with optional post-processing."""
@@ -266,6 +270,11 @@ class InferenceInterface:
                 cached_result = self.intelligent_cache.get_cached_result(stream_key, action_data)
                 if cached_result is not None:
                     if not apply_post_processing:
+                        # Check if this is face recognition use case and return empty predictions for raw results
+                        config_to_use = self._parse_post_processing_config(post_processing_config) or self.post_processing_config
+                        if config_to_use and hasattr(config_to_use, 'usecase') and config_to_use.usecase == 'face_recognition':
+                            self.logger.debug(f"Face recognition use case detected, returning empty predictions for cached results (no post-processing)")
+                            return [], None
                         return cached_result, None
                     processed = await self._apply_post_processing(
                         cached_result, input1, post_processing_config, stream_key, stream_info, camera_info
@@ -370,7 +379,10 @@ class InferenceInterface:
                 camera_info,
             )
 
-        # Get raw inference results
+        # Get raw inference results with timing
+        model_start_time = time.time()
+        model_inference_time = 0.0
+        
         if input_hash:
             # Try centralized cache first
             cached = self.cache_manager.get_cached_result(input_hash, stream_key)
@@ -379,6 +391,7 @@ class InferenceInterface:
                     f"Central cache hit stream_key={stream_key} hash={input_hash}"
                 )
                 raw_results = cached
+                model_inference_time = 0.0  # No model time for cache hit
             else:
                 # Try intelligent cache before invoking model
                 self.logger.debug(
@@ -395,6 +408,8 @@ class InferenceInterface:
                 if maybe_cached is not None:
                     return maybe_cached
 
+                # Measure model inference time
+                model_start_time = time.time()
                 raw_results, success = self._run_model_inference(
                     input1=input1,
                     input2=input2,
@@ -403,10 +418,12 @@ class InferenceInterface:
                     stream_info=stream_info,
                     input_hash=input_hash,
                 )
+                model_inference_time = time.time() - model_start_time
+                
                 if not success:
                     raise RuntimeError("Model inference failed")
                 self.logger.debug(
-                    f"Model inference executed stream_key={stream_key} hash={input_hash}"
+                    f"Model inference executed stream_key={stream_key} hash={input_hash} time={model_inference_time:.4f}s"
                 )
                 self._update_caches_post_inference(
                     input1=input1,
@@ -430,6 +447,8 @@ class InferenceInterface:
             if maybe_cached is not None:
                 return maybe_cached
 
+            # Measure model inference time
+            model_start_time = time.time()
             raw_results, success = self._run_model_inference(
                 input1=input1,
                 input2=input2,
@@ -438,10 +457,12 @@ class InferenceInterface:
                 stream_info=stream_info,
                 input_hash=input_hash,
             )
+            model_inference_time = time.time() - model_start_time
+            
             if not success:
                 raise RuntimeError("Model inference failed")
             self.logger.debug(
-                f"Model inference executed stream_key={stream_key} no_hash"
+                f"Model inference executed stream_key={stream_key} no_hash time={model_inference_time:.4f}s"
             )
             self._update_caches_post_inference(
                 input1=input1,
@@ -451,12 +472,39 @@ class InferenceInterface:
             )
 
         if not apply_post_processing:
-            return raw_results, None
+            # Return raw results with timing metadata
+            return raw_results, {
+                "timing_metadata": {
+                    "model_inference_time_sec": model_inference_time,
+                    "post_processing_time_sec": 0.0,
+                    "total_time_sec": model_inference_time,
+                }
+            }
 
-        # Apply post-processing
-        return await self._apply_post_processing(
+        # Apply post-processing with timing
+        post_processing_start_time = time.time()
+        processed_results, post_processing_result = await self._apply_post_processing(
             raw_results, input1, post_processing_config, stream_key, stream_info, camera_info
         )
+        post_processing_time = time.time() - post_processing_start_time
+        
+        # Add timing metadata to post-processing result
+        if post_processing_result is None:
+            post_processing_result = {}
+        
+        post_processing_result["timing_metadata"] = {
+            "model_inference_time_sec": model_inference_time,
+            "post_processing_time_sec": post_processing_time,
+            "total_time_sec": model_inference_time + post_processing_time,
+        }
+        
+        self.logger.debug(
+            f"Inference timing for stream_key={stream_key}: "
+            f"model={model_inference_time:.4f}s, post_proc={post_processing_time:.4f}s, "
+            f"total={model_inference_time + post_processing_time:.4f}s"
+        )
+        
+        return processed_results, post_processing_result
 
     async def _apply_post_processing(
         self,
@@ -477,11 +525,20 @@ class InferenceInterface:
             
             self.logger.debug(f"Post-processing config to use: {config_to_use} for stream: {normalized_stream_key}")
 
+            # Check if this is face recognition use case and return empty predictions for raw results
+            if config_to_use and hasattr(config_to_use, 'usecase') and config_to_use.usecase == 'face_recognition':
+                self.logger.debug(f"Face recognition use case detected, returning empty predictions for raw results")
+                # Return empty predictions structure for face recognition raw results
+                empty_raw_results = []
+                
+            else:
+                empty_raw_results = raw_results
+
             if config_to_use is None and self.custom_post_processing_fn is None:
                 self.logger.debug(
                     f"No post-processing configuration or custom function provided for stream: {normalized_stream_key}"
                 )
-                return raw_results, None
+                return empty_raw_results, None
 
             # Use custom function if provided and no specific config
             if self.custom_post_processing_fn and post_processing_config is None:
@@ -495,14 +552,14 @@ class InferenceInterface:
                 else:
                     processed_result = post_processing_result
                     post_processing_result = {"processed_data": processed_result}
-                return processed_result, post_processing_result
+                return empty_raw_results, post_processing_result
 
             if config_to_use is None:
                 self.logger.error(f"Failed to parse post-processing configuration for stream: {normalized_stream_key}")
-                return raw_results, {
+                return empty_raw_results, {
                     "error": "Invalid post-processing configuration",
                     "status": "configuration_error",
-                    "processed_data": raw_results,
+                    "processed_data": empty_raw_results,
                     "stream_key": normalized_stream_key,
                 }
 
@@ -515,7 +572,7 @@ class InferenceInterface:
                 if hasattr(result, 'data') and isinstance(result.data, dict):
                     agg_summary = result.data.get("agg_summary", {})
 
-                return raw_results, {
+                return empty_raw_results, {
                     "status": "success",
                     "processing_time": result.processing_time,
                     "usecase": result.usecase,
@@ -529,12 +586,12 @@ class InferenceInterface:
                 }
             else:
                 self.logger.error(f"Post-processing failed for stream {normalized_stream_key}: {result.error_message}")
-                return raw_results, {
+                return empty_raw_results, {
                     "error": result.error_message,
                     "error_type": result.error_type,
                     "status": "post_processing_failed",
                     "processing_time": result.processing_time,
-                    "processed_data": raw_results,
+                    "processed_data": empty_raw_results,
                     "stream_key": normalized_stream_key,
                 }
 
@@ -542,10 +599,18 @@ class InferenceInterface:
             # Log the error and return raw results with error info
             normalized_stream_key = stream_key or "default_stream"
             self.logger.error(f"Post-processing failed for stream {normalized_stream_key}: {str(e)}", exc_info=True)
-            return raw_results, {
+            
+            # Check if this is face recognition use case and return empty predictions for raw results
+            config_to_use = self._parse_post_processing_config(post_processing_config) or self.post_processing_config
+            if config_to_use and hasattr(config_to_use, 'usecase') and config_to_use.usecase == 'face_recognition':
+                empty_raw_results = []
+            else:
+                empty_raw_results = raw_results
+                
+            return empty_raw_results, {
                 "error": str(e),
                 "status": "post_processing_failed",
-                "processed_data": raw_results,
+                "processed_data": empty_raw_results,
                 "stream_key": normalized_stream_key,
             }
 
@@ -690,7 +755,16 @@ class InferenceInterface:
                     )
                     results.append((processed_result, post_processing_result))
                 else:
-                    results.append((result, None))
+                    # Check if this is face recognition use case and return empty predictions for raw results
+                    config = None
+                    if post_processing_configs:
+                        config = post_processing_configs[i]
+                    config_to_use = self._parse_post_processing_config(config) or self.post_processing_config
+                    if config_to_use and hasattr(config_to_use, 'usecase') and config_to_use.usecase == 'face_recognition':
+                        self.logger.debug(f"Face recognition use case detected, returning empty predictions for batch results (no post-processing)")
+                        results.append(([], None))
+                    else:
+                        results.append((result, None))
 
             return results
 

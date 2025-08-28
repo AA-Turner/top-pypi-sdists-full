@@ -64,10 +64,10 @@ class GreasePencilStrokePoint(AttributeGetterSetter):
     vertex_color: typing.Any
 
 class GreasePencilStrokePointSlice(SliceHelper):
-    """A helper class that represents a slice of GreasePencilStrokePoint's."""
+    """A helper class that represents a slice of GreasePencilStrokePoints."""
 
 class GreasePencilStrokeSlice(SliceHelper):
-    """A helper class that represents a slice of GreasePencilStroke's."""
+    """A helper class that represents a slice of GreasePencilStrokes."""
 
 def DefAttributeGetterSetters(attributes_list) -> None:
     """A class decorator that reads a list of attribute information &

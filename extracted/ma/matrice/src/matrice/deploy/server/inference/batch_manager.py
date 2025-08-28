@@ -181,7 +181,11 @@ class DynamicBatchManager:
                                 (processed_result, post_processing_result)
                             )
                         else:
-                            request.future.set_result((result, None))
+                            # Check if this is face recognition use case and return empty predictions for raw results
+                            if self._is_face_recognition_request(request):
+                                request.future.set_result(([], None))
+                            else:
+                                request.future.set_result((result, None))
                     except Exception as e:
                         request.future.set_exception(e)
 
@@ -196,6 +200,21 @@ class DynamicBatchManager:
             self.logger.error(f"Batch processing failed: {str(e)}")
             async with self.batch_lock:
                 self.processing_batch = False
+
+    def _is_face_recognition_request(self, request: BatchRequest) -> bool:
+        """Check if a request is for face recognition use case."""
+        try:
+            # Parse the post-processing config to check if it's face recognition
+            config = request.post_processing_config
+            if isinstance(config, BaseConfig):
+                return hasattr(config, 'usecase') and config.usecase == 'face_recognition'
+            elif isinstance(config, dict):
+                return config.get('usecase') == 'face_recognition'
+            elif isinstance(config, str):
+                return config == 'face_recognition'
+            return False
+        except Exception:
+            return False
 
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the current batching state."""

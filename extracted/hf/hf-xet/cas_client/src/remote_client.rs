@@ -54,7 +54,7 @@ utils::configurable_constants! {
 }
 
 lazy_static! {
-    static ref DOWNLOAD_CONCURRENCY_LIMITER: GlobalSemaphoreHandle =
+    static ref DOWNLOAD_CHUNK_RANGE_CONCURRENCY_LIMITER: GlobalSemaphoreHandle =
         global_semaphore_handle!(*NUM_CONCURRENT_RANGE_GETS);
 }
 
@@ -243,16 +243,16 @@ impl RemoteClient {
         let client = self.authenticated_http_client.clone();
         let api_tag = "cas::query_dedup";
 
-        let response = RetryWrapper::new(api_tag)
+        let result = RetryWrapper::new(api_tag)
             .with_429_no_retry()
             .log_errors_as_info()
             .run(move || client.get(url.clone()).with_extension(Api(api_tag)).send())
             .await;
 
-        if matches!(response, Err(CasClientError::ServerConnectionError(_))) {
+        if result.as_ref().is_err_and(|e| e.status().is_some()) {
             return Ok(None);
         }
-        Ok(Some(response?))
+        Ok(Some(result?))
     }
 }
 
@@ -329,7 +329,8 @@ impl RemoteClient {
         let download_scheduler = DownloadSegmentLengthTuner::from_configurable_constants();
         let download_scheduler_clone = download_scheduler.clone();
 
-        let download_concurrency_limiter = ThreadPool::current().global_semaphore(*DOWNLOAD_CONCURRENCY_LIMITER);
+        let download_concurrency_limiter =
+            ThreadPool::current().global_semaphore(*DOWNLOAD_CHUNK_RANGE_CONCURRENCY_LIMITER);
 
         let queue_dispatcher: JoinHandle<Result<()>> = tokio::spawn(async move {
             let mut remaining_total_len = total_len;
@@ -479,7 +480,8 @@ impl RemoteClient {
         let term_download_client = self.http_client_with_retry.clone();
         let download_scheduler = DownloadSegmentLengthTuner::from_configurable_constants();
 
-        let download_concurrency_limiter = ThreadPool::current().global_semaphore(*DOWNLOAD_CONCURRENCY_LIMITER);
+        let download_concurrency_limiter =
+            ThreadPool::current().global_semaphore(*DOWNLOAD_CHUNK_RANGE_CONCURRENCY_LIMITER);
 
         let process_result = move |result: TermDownloadResult<u64>,
                                    total_written: &mut u64,

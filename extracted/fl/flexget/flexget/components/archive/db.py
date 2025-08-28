@@ -1,12 +1,13 @@
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from loguru import logger
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, Table, Unicode
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm.exc import NoResultFound
 
 from flexget import db_schema
+from flexget.event import event
 from flexget.utils.sqlalchemy_utils import get_index_by_name, table_schema
 
 logger = logger.bind(name='archive.db')
@@ -172,3 +173,15 @@ def search(session, text, tags=None, sources=None, desc=False):
             yield a
         else:
             logger.trace('title {} is too wide match', a.title)
+
+
+@event('manager.db_cleanup')
+def db_cleanup(manager, session):
+    """Remove ArchiveEntry records older than 2 years."""
+    result = (
+        session.query(ArchiveEntry)
+        .filter(ArchiveEntry.added < datetime.now() - timedelta(days=730))
+        .delete()
+    )
+    if result:
+        logger.verbose('Removed {} archive entries older than 2 years', result)

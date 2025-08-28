@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
 class Fade:
@@ -14,7 +15,7 @@ class Fade:
 
     def calculate_max_value(self, strip, fade_fcurve) -> None:
         """Returns the maximum Y coordinate the fade animation should use for a given strip
-        Uses either the strip's value for the animated property, or the next keyframe after the fade
+        Uses either the strips value for the animated property, or the next keyframe after the fade
 
                 :param strip:
                 :param fade_fcurve:
@@ -28,7 +29,7 @@ class SequencerFileHandlerBase:
         :param context:
         """
 
-class SequencerCrossfadeSounds(bpy.types.Operator):
+class SequencerCrossfadeSounds(_bpy_types.Operator):
     """Do cross-fading volume animation of two selected sound strips"""
 
     bl_idname: typing.Any
@@ -64,7 +65,7 @@ class SequencerCrossfadeSounds(bpy.types.Operator):
         :param context:
         """
 
-class SequencerDeinterlaceSelectedMovies(bpy.types.Operator):
+class SequencerDeinterlaceSelectedMovies(_bpy_types.Operator):
     """Deinterlace all selected movie sources"""
 
     bl_idname: typing.Any
@@ -100,7 +101,7 @@ class SequencerDeinterlaceSelectedMovies(bpy.types.Operator):
         :param context:
         """
 
-class SequencerFadesAdd(bpy.types.Operator):
+class SequencerFadesAdd(_bpy_types.Operator):
     """Adds or updates a fade animation for either visual or audio strips"""
 
     bl_idname: typing.Any
@@ -146,7 +147,7 @@ class SequencerFadesAdd(bpy.types.Operator):
         """
 
     def fade_animation_clear(self, fade_fcurve, fades) -> None:
-        """Removes existing keyframes in the fades' time range, in fast mode, without
+        """Removes existing keyframes in the fades time range, in fast mode, without
         updating the fcurve
 
                 :param fade_fcurve:
@@ -164,7 +165,7 @@ class SequencerFadesAdd(bpy.types.Operator):
     def fade_find_or_create_fcurve(self, context, strip, animated_property) -> None:
         """Iterates over all the fcurves until it finds an fcurve with a data path
         that corresponds to the strip.
-        Returns the matching FCurve or creates a new one if the function can't find a match.
+        Returns the matching FCurve or creates a new one if the function cant find a match.
 
                 :param context:
                 :param strip:
@@ -185,7 +186,7 @@ class SequencerFadesAdd(bpy.types.Operator):
         :param context:
         """
 
-class SequencerFadesClear(bpy.types.Operator):
+class SequencerFadesClear(_bpy_types.Operator):
     """Removes fade animation from selected strips"""
 
     bl_idname: typing.Any
@@ -221,7 +222,7 @@ class SequencerFadesClear(bpy.types.Operator):
         :param context:
         """
 
-class SequencerSplitMulticam(bpy.types.Operator):
+class SequencerSplitMulticam(_bpy_types.Operator):
     """Split multicam strip and select camera"""
 
     bl_idname: typing.Any
@@ -257,7 +258,7 @@ class SequencerSplitMulticam(bpy.types.Operator):
         :param context:
         """
 
-class SEQUENCER_FH_image_strip(bpy.types.FileHandler, SequencerFileHandlerBase):
+class SEQUENCER_FH_image_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
     bl_file_extensions: typing.Any
     bl_idname: typing.Any
     bl_import_operator: typing.Any
@@ -279,7 +280,7 @@ class SEQUENCER_FH_image_strip(bpy.types.FileHandler, SequencerFileHandlerBase):
         :rtype: typing.Any
         """
 
-class SEQUENCER_FH_movie_strip(bpy.types.FileHandler, SequencerFileHandlerBase):
+class SEQUENCER_FH_movie_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
     bl_file_extensions: typing.Any
     bl_idname: typing.Any
     bl_import_operator: typing.Any
@@ -301,7 +302,7 @@ class SEQUENCER_FH_movie_strip(bpy.types.FileHandler, SequencerFileHandlerBase):
         :rtype: typing.Any
         """
 
-class SEQUENCER_FH_sound_strip(bpy.types.FileHandler, SequencerFileHandlerBase):
+class SEQUENCER_FH_sound_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
     bl_file_extensions: typing.Any
     bl_idname: typing.Any
     bl_import_operator: typing.Any

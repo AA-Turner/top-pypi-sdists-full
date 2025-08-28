@@ -67,6 +67,9 @@ class TinybirdAgentContext(BaseModel):
     local_host: str
     local_token: str
     run_id: Optional[str] = None
+    get_plan: Callable[..., Optional[str]]
+    start_plan: Callable[..., str]
+    cancel_plan: Callable[..., Optional[str]]
 
 
 default_style = PromptStyle.from_dict(
@@ -718,6 +721,12 @@ class AgentRunCancelled(Exception):
     pass
 
 
+class SubAgentRunCancelled(Exception):
+    """Exception raised when sub-agent cancels an operation"""
+
+    pass
+
+
 def show_confirmation(title: str, skip_confirmation: bool = False, show_review: bool = True) -> ConfirmationResult:
     if skip_confirmation:
         return "yes"
@@ -778,10 +787,10 @@ def copy_fixture_to_project_folder_if_needed(
         if input_path.exists() and not _is_path_inside_project(input_path, project_folder):
             # Ask for confirmation to copy the file
             click.echo(FeedbackManager.highlight(message=f"» File {fixture_pathname} is outside the project folder."))
-
+            active_plan = ctx.deps.get_plan() is not None
             confirmation = show_confirmation(
                 title=f"Copy {input_path.name} to project folder for analysis?",
-                skip_confirmation=ctx.deps.dangerously_skip_permissions,
+                skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,
             )
 
             if confirmation == "review":

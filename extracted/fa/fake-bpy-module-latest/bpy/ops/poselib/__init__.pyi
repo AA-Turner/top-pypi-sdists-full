@@ -22,7 +22,9 @@ def apply_pose_asset(
     """
 
 def asset_delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete the selected Pose Asset
 
@@ -44,7 +46,7 @@ def asset_modify(
         :param mode: Overwrite Mode, Specify which parts of the pose asset are overwritten
 
     ADJUST
-    Adjust -- Update existing channels in the pose asset but don't remove or add any channels.
+    Adjust -- Update existing channels in the pose asset but dont remove or add any channels.
 
     REPLACE
     Replace with Selection -- Completely replace all channels in the pose asset with the current selection.
@@ -79,7 +81,9 @@ def blend_pose_asset(
     """
 
 def convert_old_object_poselib(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a pose asset for each pose marker in this legacy pose library data-block
 
@@ -88,7 +92,9 @@ def convert_old_object_poselib(
     """
 
 def convert_old_poselib(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a pose asset for each pose marker in the current action
 
@@ -97,7 +103,9 @@ def convert_old_poselib(
     """
 
 def copy_as_asset(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new pose asset on the clipboard, to be pasted into an Asset Browser
 
@@ -130,7 +138,9 @@ def create_pose_asset(
     """
 
 def paste_asset(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Paste the Asset that was previously copied using Copy As Asset
 
@@ -157,7 +167,9 @@ def pose_asset_select_bones(
     """
 
 def restore_previous_action(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Switch back to the previous Action, after creating a pose asset
 

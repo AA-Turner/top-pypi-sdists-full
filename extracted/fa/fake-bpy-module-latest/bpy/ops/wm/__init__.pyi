@@ -145,7 +145,7 @@ def alembic_export(
         :type selected: bool | None
         :param visible_objects_only: Visible Objects Only, Export only objects that are visible
         :type visible_objects_only: bool | None
-        :param flatten: Flatten Hierarchy, Do not preserve objects' parent/children relationship
+        :param flatten: Flatten Hierarchy, Do not preserve objects parent/children relationship
         :type flatten: bool | None
         :param collection: Collection
         :type collection: str
@@ -161,7 +161,7 @@ def alembic_export(
         :type orcos: bool | None
         :param face_sets: Face Sets, Export per face shading group assignments
         :type face_sets: bool | None
-        :param subdiv_schema: Use Subdivision Schema, Export meshes using Alembic's subdivision schema
+        :param subdiv_schema: Use Subdivision Schema, Export meshes using Alembics subdivision schema
         :type subdiv_schema: bool | None
         :param apply_subdiv: Apply Subdivision Surface, Export subdivision surfaces as meshes
         :type apply_subdiv: bool | None
@@ -169,7 +169,7 @@ def alembic_export(
         :type curves_as_mesh: bool | None
         :param use_instancing: Use Instancing, Export data of duplicated objects as Alembic instances; speeds up the export and can be disabled for compatibility with other software
         :type use_instancing: bool | None
-        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the world's origin
+        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
         :type global_scale: float | None
         :param triangulate: Triangulate, Export polygons (quads and n-gons) as triangles
         :type triangulate: bool | None
@@ -302,9 +302,9 @@ def alembic_import(
         :param sort_method: File sorting mode
         :type sort_method: str | None
         :type filter_glob: str
-        :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the world's origin
+        :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
         :type scale: float | None
-        :param set_frame_range: Set Frame Range, If checked, update scene's start and end frame to match those of the Alembic archive
+        :param set_frame_range: Set Frame Range, If checked, update scenes start and end frame to match those of the Alembic archive
         :type set_frame_range: bool | None
         :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
         :type validate_meshes: bool | None
@@ -427,7 +427,7 @@ def append(
         :type link: bool | None
         :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy
         :type do_reuse_local_id: bool | None
-        :param clear_asset_data: Clear Asset Data, Don't add asset meta-data or tags from the original data-block
+        :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block
         :type clear_asset_data: bool | None
         :param autoselect: Select, Select new objects
         :type autoselect: bool | None
@@ -456,7 +456,7 @@ def batch_rename(
         "CURVE",
         "META",
         "VOLUME",
-        "GPENCIL",
+        "GREASEPENCIL",
         "ARMATURE",
         "LATTICE",
         "LIGHT",
@@ -480,7 +480,7 @@ def batch_rename(
     :type execution_context: int | str | None
     :type undo: bool | None
     :param data_type: Type, Type of data to rename
-    :type data_type: typing.Literal['OBJECT','COLLECTION','MATERIAL','MESH','CURVE','META','VOLUME','GPENCIL','ARMATURE','LATTICE','LIGHT','LIGHT_PROBE','CAMERA','SPEAKER','BONE','NODE','SEQUENCE_STRIP','ACTION_CLIP','SCENE','BRUSH'] | None
+    :type data_type: typing.Literal['OBJECT','COLLECTION','MATERIAL','MESH','CURVE','META','VOLUME','GREASEPENCIL','ARMATURE','LATTICE','LIGHT','LIGHT_PROBE','CAMERA','SPEAKER','BONE','NODE','SEQUENCE_STRIP','ACTION_CLIP','SCENE','BRUSH'] | None
     :param data_source: Source
     :type data_source: typing.Literal['SELECT','ALL'] | None
     :param actions: actions
@@ -488,7 +488,9 @@ def batch_rename(
     """
 
 def blend_strings_utf8_validate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Check and fix all strings in current .blend file to be valid UTF-8 Unicode (needed for some old, 2.4x area files)
 
@@ -575,7 +577,9 @@ def clear_recent_files(
     """
 
 def collection_export_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Invoke all configured exporters for all collections
 
@@ -759,7 +763,7 @@ def context_scale_int(
     :type data_path: str
     :param value: Value, Assign value
     :type value: float | None
-    :param always_step: Always Step, Always adjust the value by a minimum of 1 when 'value' is not 1.0
+    :param always_step: Always Step, Always adjust the value by a minimum of 1 when value is not 1.0
     :type always_step: bool | None
     """
 
@@ -980,7 +984,9 @@ def doc_view_manual(
     """
 
 def doc_view_manual_ui_context(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """View a context based online manual in a web browser
 
@@ -1055,6 +1061,8 @@ def fbx_import(
     | None = "DEFAULT",
     sort_method: str | None = "",
     global_scale: float | None = 1.0,
+    mtl_name_collision_mode: typing.Literal["MAKE_UNIQUE", "REFERENCE_EXISTING"]
+    | None = "MAKE_UNIQUE",
     import_colors: typing.Literal["NONE", "SRGB", "LINEAR"] | None = "SRGB",
     use_custom_normals: bool | None = True,
     use_custom_props: bool | None = True,
@@ -1130,6 +1138,14 @@ def fbx_import(
         :type sort_method: str | None
         :param global_scale: Scale
         :type global_scale: float | None
+        :param mtl_name_collision_mode: Material Name Collision, Behavior when the name of an imported material conflicts with an existing material
+
+    MAKE_UNIQUE
+    Make Unique -- Import each FBX material as a unique Blender material.
+
+    REFERENCE_EXISTING
+    Reference Existing -- If a material with the same name already exists, reference that instead of importing.
+        :type mtl_name_collision_mode: typing.Literal['MAKE_UNIQUE','REFERENCE_EXISTING'] | None
         :param import_colors: Vertex Colors, Import vertex color attributes
 
     NONE
@@ -1517,7 +1533,7 @@ def grease_pencil_import_svg(
         :type resolution: int | None
         :param scale: Scale, Scale of the final strokes
         :type scale: float | None
-        :param use_scene_unit: Scene Unit, Apply current scene's unit (as defined by unit scale) to imported data
+        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data
         :type use_scene_unit: bool | None
     """
 
@@ -1632,7 +1648,7 @@ def id_linked_relocate(
         :type link: bool | None
         :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy
         :type do_reuse_local_id: bool | None
-        :param clear_asset_data: Clear Asset Data, Don't add asset meta-data or tags from the original data-block
+        :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block
         :type clear_asset_data: bool | None
         :param autoselect: Select, Select new objects
         :type autoselect: bool | None
@@ -2075,7 +2091,7 @@ def link(
         :type link: bool | None
         :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy
         :type do_reuse_local_id: bool | None
-        :param clear_asset_data: Clear Asset Data, Don't add asset meta-data or tags from the original data-block
+        :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block
         :type clear_asset_data: bool | None
         :param autoselect: Select, Select new objects
         :type autoselect: bool | None
@@ -2088,7 +2104,9 @@ def link(
     """
 
 def memory_statistics(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Print memory statistics to the console
 
@@ -2136,6 +2154,7 @@ def obj_export(
     | None = "Y",
     global_scale: float | None = 1.0,
     apply_modifiers: bool | None = True,
+    apply_transform: bool | None = True,
     export_eval_mode: typing.Literal["DAG_EVAL_RENDER", "DAG_EVAL_VIEWPORT"]
     | None = "DAG_EVAL_VIEWPORT",
     export_selected_objects: bool | None = False,
@@ -2260,10 +2279,12 @@ def obj_export(
     NEGATIVE_Z
     -Z -- Negative Z axis.
         :type up_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
-        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the world's origin
+        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
         :type global_scale: float | None
         :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes
         :type apply_modifiers: bool | None
+        :param apply_transform: Apply Transform, Apply object transforms to exported vertices
+        :type apply_transform: bool | None
         :param export_eval_mode: Object Properties, Determines properties like object visibility, modifiers etc., where they differ for Render and Viewport
 
     DAG_EVAL_RENDER
@@ -2308,7 +2329,7 @@ def obj_export(
         :type export_triangulated_mesh: bool | None
         :param export_curves_as_nurbs: Export Curves as NURBS, Export curves in parametric form instead of exporting as mesh
         :type export_curves_as_nurbs: bool | None
-        :param export_object_groups: Export Object Groups, Append mesh name to object name, separated by a '_'
+        :param export_object_groups: Export Object Groups, Append mesh name to object name, separated by a _
         :type export_object_groups: bool | None
         :param export_material_groups: Export Material Groups, Generate an OBJ group for each part of a geometry using a different material
         :type export_material_groups: bool | None
@@ -2316,7 +2337,7 @@ def obj_export(
         :type export_vertex_groups: bool | None
         :param export_smooth_groups: Export Smooth Groups, Generate smooth groups identifiers for each group of smooth faces, as unique integer values by default
         :type export_smooth_groups: bool | None
-        :param smooth_group_bitflags: Bitflags Smooth Groups, If exporting smoothgroups, generate 'bitflags' values for the groups, instead of unique integer values. The same bitflag value can be re-used for different groups of smooth faces, as long as they have no common sharp edges or vertices
+        :param smooth_group_bitflags: Bitflags Smooth Groups, If exporting smoothgroups, generate bitflags values for the groups, instead of unique integer values. The same bitflag value can be re-used for different groups of smooth faces, as long as they have no common sharp edges or vertices
         :type smooth_group_bitflags: bool | None
         :param filter_glob: Extension Filter
         :type filter_glob: str
@@ -2436,7 +2457,7 @@ def obj_import(
         :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
         :type sort_method: str | None
-        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the world's origin
+        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
         :type global_scale: float | None
         :param clamp_size: Clamp Bounding Box, Resize the objects to keep bounding box under this value. Value 0 disables clamping
         :type clamp_size: float | None
@@ -2480,9 +2501,9 @@ def obj_import(
     NEGATIVE_Z
     -Z -- Negative Z axis.
         :type up_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
-        :param use_split_objects: Split By Object, Import each OBJ 'o' as a separate object
+        :param use_split_objects: Split By Object, Import each OBJ o as a separate object
         :type use_split_objects: bool | None
-        :param use_split_groups: Split By Group, Import each OBJ 'g' as a separate object
+        :param use_split_groups: Split By Group, Import each OBJ g as a separate object
         :type use_split_groups: bool | None
         :param import_vertex_groups: Vertex Groups, Import OBJ groups as vertex groups
         :type import_vertex_groups: bool | None
@@ -2610,7 +2631,9 @@ def open_mainfile(
     """
 
 def operator_cheat_sheet(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """List all the operators in a text-block, useful for scripting
 
@@ -2619,7 +2642,9 @@ def operator_cheat_sheet(
     """
 
 def operator_defaults(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set the active operator to its default values
 
@@ -2878,7 +2903,7 @@ def ply_export(
     NEGATIVE_Z
     -Z -- Negative Z axis.
         :type up_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
-        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the world's origin
+        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
         :type global_scale: float | None
         :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes
         :type apply_modifiers: bool | None
@@ -3020,7 +3045,7 @@ def ply_import(
         :type sort_method: str | None
         :param global_scale: Scale
         :type global_scale: float | None
-        :param use_scene_unit: Scene Unit, Apply current scene's unit (as defined by unit scale) to imported data
+        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data
         :type use_scene_unit: bool | None
         :param forward_axis: Forward Axis
 
@@ -3098,7 +3123,7 @@ def previews_batch_clear(
     use_trusted: bool | None = False,
     use_backups: bool | None = True,
 ) -> None:
-    """Clear selected .blend file's previews
+    """Clear selected .blend files previews
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -3110,13 +3135,13 @@ def previews_batch_clear(
     :type filter_blender: bool | None
     :param filter_folder: filter_folder
     :type filter_folder: bool | None
-    :param use_scenes: Scenes, Clear scenes' previews
+    :param use_scenes: Scenes, Clear scenes previews
     :type use_scenes: bool | None
-    :param use_collections: Collections, Clear collections' previews
+    :param use_collections: Collections, Clear collections previews
     :type use_collections: bool | None
-    :param use_objects: Objects, Clear objects' previews
+    :param use_objects: Objects, Clear objects previews
     :type use_objects: bool | None
-    :param use_intern_data: Materials & Textures, Clear 'internal' previews (materials, textures, images, etc.)
+    :param use_intern_data: Materials & Textures, Clear internal previews (materials, textures, images, etc.)
     :type use_intern_data: bool | None
     :param use_trusted: Trusted Blend Files, Enable Python evaluation for selected files
     :type use_trusted: bool | None
@@ -3141,7 +3166,7 @@ def previews_batch_generate(
     use_trusted: bool | None = False,
     use_backups: bool | None = True,
 ) -> None:
-    """Generate selected .blend file's previews
+    """Generate selected .blend files previews
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -3153,13 +3178,13 @@ def previews_batch_generate(
     :type filter_blender: bool | None
     :param filter_folder: Show folders in the File Browser
     :type filter_folder: bool | None
-    :param use_scenes: Scenes, Generate scenes' previews
+    :param use_scenes: Scenes, Generate scenes previews
     :type use_scenes: bool | None
-    :param use_collections: Collections, Generate collections' previews
+    :param use_collections: Collections, Generate collections previews
     :type use_collections: bool | None
-    :param use_objects: Objects, Generate objects' previews
+    :param use_objects: Objects, Generate objects previews
     :type use_objects: bool | None
-    :param use_intern_data: Materials & Textures, Generate 'internal' previews (materials, textures, images, etc.)
+    :param use_intern_data: Materials & Textures, Generate internal previews (materials, textures, images, etc.)
     :type use_intern_data: bool | None
     :param use_trusted: Trusted Blend Files, Enable Python evaluation for selected files
     :type use_trusted: bool | None
@@ -3231,7 +3256,9 @@ def previews_clear(
     """
 
 def previews_ensure(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Ensure data-block previews are available and up-to-date (to be saved in .blend file, only for some types like materials, textures, etc.)
 
@@ -3451,7 +3478,7 @@ def properties_edit(
     | None = "OBJECT",
     eval_string: str = "",
 ) -> None:
-    """Change a custom property's type, or adjust how it is displayed in the interface
+    """Change a custom propertys type, or adjust how it is displayed in the interface
 
         :type execution_context: int | str | None
         :type undo: bool | None
@@ -3574,7 +3601,9 @@ def properties_remove(
     """
 
 def quit_blender(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Quit Blender
 
@@ -3666,7 +3695,9 @@ def read_factory_userpref(
     """
 
 def read_history(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reloads history and bookmarks
 
@@ -3697,7 +3728,7 @@ def read_homefile(
     :type load_ui: bool | None
     :param use_splash: Splash
     :type use_splash: bool | None
-    :param use_factory_startup: Factory Startup, Load the default ('factory startup') blend file. This is independent of the normal start-up file that the user can save
+    :param use_factory_startup: Factory Startup, Load the default (factory startup) blend file. This is independent of the normal start-up file that the user can save
     :type use_factory_startup: bool | None
     :param use_factory_startup_app_template_only: Factory Startup App-Template Only
     :type use_factory_startup_app_template_only: bool | None
@@ -3707,7 +3738,9 @@ def read_homefile(
     """
 
 def read_userpref(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Load last saved preferences
 
@@ -3995,7 +4028,9 @@ def save_as_mainfile(
     """
 
 def save_homefile(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make the current file the default startup file
 
@@ -4109,7 +4144,9 @@ def save_mainfile(
     """
 
 def save_userpref(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make the current preferences default
 
@@ -4118,7 +4155,9 @@ def save_userpref(
     """
 
 def search_menu(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Pop-up a search over all menus in the current context
 
@@ -4127,7 +4166,9 @@ def search_menu(
     """
 
 def search_operator(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Pop-up a search over all available operators in current context
 
@@ -4183,7 +4224,9 @@ def set_stereo_3d(
     """
 
 def splash(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Open the splash screen with release info
 
@@ -4192,7 +4235,9 @@ def splash(
     """
 
 def splash_about(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Open a window with information about Blender
 
@@ -4312,7 +4357,7 @@ def stl_export(
         :type collection: str
         :param global_scale: Scale
         :type global_scale: float | None
-        :param use_scene_unit: Scene Unit, Apply current scene's unit (as defined by unit scale) to exported data
+        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to exported data
         :type use_scene_unit: bool | None
         :param forward_axis: Forward Axis
 
@@ -4468,7 +4513,7 @@ def stl_import(
         :type sort_method: str | None
         :param global_scale: Scale
         :type global_scale: float | None
-        :param use_scene_unit: Scene Unit, Apply current scene's unit (as defined by unit scale) to imported data
+        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data
         :type use_scene_unit: bool | None
         :param use_facet_normal: Facet Normals, Use (import) facet normals (note that this will still give flat shading)
         :type use_facet_normal: bool | None
@@ -4666,7 +4711,9 @@ def tool_set_by_index(
     """
 
 def toolbar(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -4675,7 +4722,9 @@ def toolbar(
     """
 
 def toolbar_fallback_pie(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -4684,7 +4733,9 @@ def toolbar_fallback_pie(
     """
 
 def toolbar_prompt(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Leader key like functionality for accessing tools
 
@@ -4780,7 +4831,6 @@ def usd_export(
         "X", "Y", "Z", "NEGATIVE_X", "NEGATIVE_Y", "NEGATIVE_Z"
     ]
     | None = "Y",
-    export_textures: bool | None = False,
     export_textures_mode: typing.Literal["KEEP", "PRESERVE", "NEW"] | None = "NEW",
     overwrite_textures: bool | None = False,
     relative_paths: bool | None = True,
@@ -4790,7 +4840,7 @@ def usd_export(
     custom_properties_namespace: str = "userProperties",
     author_blender_name: bool | None = True,
     convert_world_material: bool | None = True,
-    allow_unicode: bool | None = False,
+    allow_unicode: bool | None = True,
     export_meshes: bool | None = True,
     export_lights: bool | None = True,
     export_cameras: bool | None = True,
@@ -4973,8 +5023,6 @@ def usd_export(
     NEGATIVE_Z
     -Z -- Negative Z axis.
         :type export_global_up_selection: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
-        :param export_textures: Export Textures, If exporting materials, export textures referenced by material nodes to a 'textures' directory in the same directory as the USD file
-        :type export_textures: bool | None
         :param export_textures_mode: Export Textures, Texture export method
 
     KEEP
@@ -4982,10 +5030,10 @@ def usd_export(
 
     PRESERVE
     Preserve -- Preserve file paths of textures from already imported USD files.
-    Export remaining textures to a 'textures' folder next to the USD file.
+    Export remaining textures to a textures folder next to the USD file.
 
     NEW
-    New Path -- Export textures to a 'textures' folder next to the USD file.
+    New Path -- Export textures to a textures folder next to the USD file.
         :type export_textures_mode: typing.Literal['KEEP','PRESERVE','NEW'] | None
         :param overwrite_textures: Overwrite Textures, Overwrite existing files when exporting textures
         :type overwrite_textures: bool | None
@@ -5006,7 +5054,7 @@ def usd_export(
         :type root_prim_path: str
         :param export_custom_properties: Custom Properties, Export custom properties as USD attributes
         :type export_custom_properties: bool | None
-        :param custom_properties_namespace: Namespace, If set, add the given namespace as a prefix to exported custom property names. This only applies to property names that do not already have a prefix (e.g., it would apply to name 'bar' but not 'foo:bar') and does not apply to blender object and data names which are always exported in the 'userProperties:blender' namespace
+        :param custom_properties_namespace: Namespace, If set, add the given namespace as a prefix to exported custom property names. This only applies to property names that do not already have a prefix (e.g., it would apply to name bar but not foo:bar) and does not apply to blender object and data names which are always exported in the userProperties:blender namespace
         :type custom_properties_namespace: str
         :param author_blender_name: Blender Names, Author USD custom attributes containing the original Blender object and object data names
         :type author_blender_name: bool | None
@@ -5132,7 +5180,7 @@ def usd_import(
     import_skeletons: bool | None = True,
     import_blendshapes: bool | None = True,
     import_points: bool | None = True,
-    import_subdiv: bool | None = False,
+    import_subdivision: bool | None = False,
     support_scene_instancing: bool | None = True,
     import_visible_only: bool | None = True,
     create_collection: bool | None = False,
@@ -5156,7 +5204,7 @@ def usd_import(
     import_textures_dir: str = "//textures/",
     tex_name_collision_mode: typing.Literal["USE_EXISTING", "OVERWRITE"]
     | None = "USE_EXISTING",
-    attr_import_mode: typing.Literal["NONE", "USER", "ALL"] | None = "ALL",
+    property_import_mode: typing.Literal["NONE", "USER", "ALL"] | None = "ALL",
     validate_meshes: bool | None = False,
     create_world_material: bool | None = True,
     import_defined_only: bool | None = True,
@@ -5224,9 +5272,9 @@ def usd_import(
         :param sort_method: File sorting mode
         :type sort_method: str | None
         :type filter_glob: str
-        :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the world's origin
+        :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
         :type scale: float | None
-        :param set_frame_range: Set Frame Range, Update the scene's start and end frame to match those of the USD archive
+        :param set_frame_range: Set Frame Range, Update the scenes start and end frame to match those of the USD archive
         :type set_frame_range: bool | None
         :param import_cameras: Cameras
         :type import_cameras: bool | None
@@ -5248,8 +5296,8 @@ def usd_import(
         :type import_blendshapes: bool | None
         :param import_points: Point Clouds
         :type import_points: bool | None
-        :param import_subdiv: Import Subdivision Scheme, Create subdivision surface modifiers based on the USD SubdivisionScheme attribute
-        :type import_subdiv: bool | None
+        :param import_subdivision: Import Subdivision Scheme, Create subdivision surface modifiers based on the USD SubdivisionScheme attribute
+        :type import_subdivision: bool | None
         :param support_scene_instancing: Scene Instancing, Import USD scene graph instances as collection instances
         :type support_scene_instancing: bool | None
         :param import_visible_only: Visible Primitives Only, Do not import invisible USD primitives. Only applies to primitives with a non-animated visibility attribute. Primitives with animated visibility will always be imported
@@ -5274,20 +5322,20 @@ def usd_import(
         :type import_all_materials: bool | None
         :param import_usd_preview: Import USD Preview, Convert UsdPreviewSurface shaders to Principled BSDF shader networks
         :type import_usd_preview: bool | None
-        :param set_material_blend: Set Material Blend, If the Import USD Preview option is enabled, the material blend method will automatically be set based on the shader's opacity and opacityThreshold inputs
+        :param set_material_blend: Set Material Blend, If the Import USD Preview option is enabled, the material blend method will automatically be set based on the shaders opacity and opacityThreshold inputs
         :type set_material_blend: bool | None
         :param light_intensity_scale: Light Intensity Scale, Scale for the intensity of imported lights
         :type light_intensity_scale: float | None
         :param mtl_purpose: Material Purpose, Attempt to import materials with the given purpose. If no material with this purpose is bound to the primitive, fall back on loading any other bound material
 
     MTL_ALL_PURPOSE
-    All Purpose -- Attempt to import 'allPurpose' materials..
+    All Purpose -- Attempt to import allPurpose materials..
 
     MTL_PREVIEW
-    Preview -- Attempt to import 'preview' materials. Load 'allPurpose' materials as a fallback.
+    Preview -- Attempt to import preview materials. Load allPurpose materials as a fallback.
 
     MTL_FULL
-    Full -- Attempt to import 'full' materials. Load 'allPurpose' or 'preview' materials, in that order, as a fallback.
+    Full -- Attempt to import full materials. Load allPurpose or preview materials, in that order, as a fallback.
         :type mtl_purpose: typing.Literal['MTL_ALL_PURPOSE','MTL_PREVIEW','MTL_FULL'] | None
         :param mtl_name_collision_mode: Material Name Collision, Behavior when the name of an imported material conflicts with an existing material
 
@@ -5300,7 +5348,7 @@ def usd_import(
         :param import_textures_mode: Import Textures, Behavior when importing textures from a USDZ archive
 
     IMPORT_NONE
-    None -- Don't import textures.
+    None -- Dont import textures.
 
     IMPORT_PACK
     Packed -- Import textures as packed data.
@@ -5318,17 +5366,17 @@ def usd_import(
     OVERWRITE
     Overwrite -- Overwrite existing files.
         :type tex_name_collision_mode: typing.Literal['USE_EXISTING','OVERWRITE'] | None
-        :param attr_import_mode: Custom Properties, Behavior when importing USD attributes as Blender custom properties
+        :param property_import_mode: Custom Properties, Behavior when importing USD attributes as Blender custom properties
 
     NONE
     None -- Do not import USD custom attributes.
 
     USER
-    User -- Import USD attributes in the 'userProperties' namespace as Blender custom properties. The namespace will be stripped from the property names.
+    User -- Import USD attributes in the userProperties namespace as Blender custom properties. The namespace will be stripped from the property names.
 
     ALL
     All Custom -- Import all USD custom attributes as Blender custom properties. Namespaces will be retained in the property names.
-        :type attr_import_mode: typing.Literal['NONE','USER','ALL'] | None
+        :type property_import_mode: typing.Literal['NONE','USER','ALL'] | None
         :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
         :type validate_meshes: bool | None
         :param create_world_material: World Dome Light, Convert the first discovered USD dome light to a world background shader
@@ -5337,12 +5385,14 @@ def usd_import(
         :type import_defined_only: bool | None
         :param merge_parent_xform: Merge parent Xform, Allow USD primitives to merge with their Xform parent if they are the only child in the hierarchy
         :type merge_parent_xform: bool | None
-        :param apply_unit_conversion_scale: Apply Unit Conversion Scale, Scale the scene objects by the USD stage's meters per unit value. This scaling is applied in addition to the value specified in the Scale option
+        :param apply_unit_conversion_scale: Apply Unit Conversion Scale, Scale the scene objects by the USD stages meters per unit value. This scaling is applied in addition to the value specified in the Scale option
         :type apply_unit_conversion_scale: bool | None
     """
 
 def window_close(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Close the current window
 
@@ -5351,7 +5401,9 @@ def window_close(
     """
 
 def window_fullscreen_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle the current window full-screen
 
@@ -5360,7 +5412,9 @@ def window_fullscreen_toggle(
     """
 
 def window_new(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new window
 
@@ -5369,7 +5423,9 @@ def window_new(
     """
 
 def window_new_main(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new main window with its own workspace and scene selection
 
@@ -5443,23 +5499,23 @@ def xr_navigation_fly(
     Turn Right -- Turn clockwise around navigation up axis.
 
     VIEWER_FORWARD
-    Viewer Forward -- Move along viewer's forward axis.
+    Viewer Forward -- Move along viewers forward axis.
 
     VIEWER_BACK
-    Viewer Back -- Move along viewer's back axis.
+    Viewer Back -- Move along viewers back axis.
 
     VIEWER_LEFT
-    Viewer Left -- Move along viewer's left axis.
+    Viewer Left -- Move along viewers left axis.
 
     VIEWER_RIGHT
-    Viewer Right -- Move along viewer's right axis.
+    Viewer Right -- Move along viewers right axis.
 
     CONTROLLER_FORWARD
-    Controller Forward -- Move along controller's forward axis.
+    Controller Forward -- Move along controllers forward axis.
         :type mode: typing.Literal['FORWARD','BACK','LEFT','RIGHT','UP','DOWN','TURNLEFT','TURNRIGHT','VIEWER_FORWARD','VIEWER_BACK','VIEWER_LEFT','VIEWER_RIGHT','CONTROLLER_FORWARD'] | None
         :param lock_location_z: Lock Elevation, Prevent changes to viewer elevation
         :type lock_location_z: bool | None
-        :param lock_direction: Lock Direction, Limit movement to viewer's initial direction
+        :param lock_direction: Lock Direction, Limit movement to viewers initial direction
         :type lock_direction: bool | None
         :param speed_frame_based: Frame Based Speed, Apply fixed movement deltas every update
         :type speed_frame_based: bool | None
@@ -5558,7 +5614,9 @@ def xr_navigation_teleport(
     """
 
 def xr_session_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Open a view for use with virtual reality headsets, or close it if already opened
 

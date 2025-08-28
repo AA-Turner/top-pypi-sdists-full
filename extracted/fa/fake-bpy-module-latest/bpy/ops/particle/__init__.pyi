@@ -19,7 +19,7 @@ def brush_edit(
     :type undo: bool | None
     :param stroke: Stroke
     :type stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement] | None
-    :param pen_flip: Pen Flip, Whether a tablet's eraser mode is being used
+    :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
     :type pen_flip: bool | None
     """
 
@@ -54,7 +54,7 @@ def copy_particle_systems(
         :param space: Space, Space transform for copying from one object to another
 
     OBJECT
-    Object -- Copy inside each object's local space.
+    Object -- Copy inside each objects local space.
 
     WORLD
     World -- Copy in world space.
@@ -111,7 +111,9 @@ def duplicate_particle_system(
     """
 
 def dupliob_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Duplicate the current instance object
 
@@ -120,7 +122,9 @@ def dupliob_copy(
     """
 
 def dupliob_move_down(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move instance object down in the list
 
@@ -129,7 +133,9 @@ def dupliob_move_down(
     """
 
 def dupliob_move_up(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move instance object up in the list
 
@@ -138,7 +144,9 @@ def dupliob_move_up(
     """
 
 def dupliob_refresh(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Refresh list of instance objects and their weights
 
@@ -147,7 +155,9 @@ def dupliob_refresh(
     """
 
 def dupliob_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the selected instance object
 
@@ -156,7 +166,9 @@ def dupliob_remove(
     """
 
 def edited_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undo all edition performed on the particle system
 
@@ -201,7 +213,9 @@ def hide(
     """
 
 def mirror(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Duplicate and mirror the selected particles along the local X axis
 
@@ -209,7 +223,11 @@ def mirror(
     :type undo: bool | None
     """
 
-def new(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def new(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Add new particle settings
 
     :type execution_context: int | str | None
@@ -217,7 +235,9 @@ def new(execution_context: int | str | None = None, undo: bool | None = None) ->
     """
 
 def new_target(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a new particle target
 
@@ -226,7 +246,9 @@ def new_target(
     """
 
 def particle_edit_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle particle edit mode
 
@@ -235,7 +257,9 @@ def particle_edit_toggle(
     """
 
 def particle_system_remove_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove all particle system within the active object
 
@@ -295,7 +319,7 @@ def select_all(
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
 ) -> None:
-    """(De)select all particles' keys
+    """(De)select all particles keys
 
         :type execution_context: int | str | None
         :type undo: bool | None
@@ -316,7 +340,9 @@ def select_all(
     """
 
 def select_less(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Deselect boundary selected keys of each particle
 
@@ -325,7 +351,9 @@ def select_less(
     """
 
 def select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all keys linked to already selected ones
 
@@ -352,7 +380,9 @@ def select_linked_pick(
     """
 
 def select_more(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select keys linked to boundary selected keys of each particle
 
@@ -445,7 +475,9 @@ def select_tips(
     """
 
 def shape_cut(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Cut hair to conform to the set shape object
 
@@ -454,7 +486,9 @@ def shape_cut(
     """
 
 def subdivide(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Subdivide selected particles segments (adds keys)
 
@@ -463,7 +497,9 @@ def subdivide(
     """
 
 def target_move_down(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move particle target down in the list
 
@@ -472,7 +508,9 @@ def target_move_down(
     """
 
 def target_move_up(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move particle target up in the list
 
@@ -481,7 +519,9 @@ def target_move_up(
     """
 
 def target_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the selected particle target
 
@@ -490,7 +530,9 @@ def target_remove(
     """
 
 def unify_length(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make selected hair the same length
 
@@ -509,6 +551,6 @@ def weight_set(
 
     :type execution_context: int | str | None
     :type undo: bool | None
-    :param factor: Factor, Interpolation factor between current brush weight, and keys' weights
+    :param factor: Factor, Interpolation factor between current brush weight, and keys weights
     :type factor: float | None
     """

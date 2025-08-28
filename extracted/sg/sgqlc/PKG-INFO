@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sgqlc
-Version: 16.5
+Version: 17
 Summary: Simple GraphQL Client
 License: ISCL
 Keywords: graphql,client,http,endpoint
@@ -12,20 +12,14 @@ Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: ISC License (ISCL)
-Classifier: License :: Other/Proprietary License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Utilities
+Provides-Extra: httpx
 Provides-Extra: requests
 Provides-Extra: websocket
-Requires-Dist: graphql-core (>=3.2.4,<4.0.0)
+Requires-Dist: graphql-core (>=3.2.6,<3.3.0)
+Requires-Dist: httpx ; extra == "httpx"
 Requires-Dist: requests ; extra == "requests"
 Requires-Dist: websocket-client ; extra == "websocket"
 Project-URL: Documentation, https://sgqlc.readthedocs.io/
@@ -278,6 +272,24 @@ hand-written query (see more at ``examples/basic/01_http_endpoint.py``):
 
    endpoint = HTTPEndpoint(url, headers)
    data = endpoint(query, variables)
+
+To make an asynchronous query, use the `httpx` library with `HTTPXEndpoint`
+(see more at ``examples/basic/04_httpx_endpoint.py``):
+
+.. code-block:: python
+
+   from sgqlc.endpoint.httpx import HTTPXEndpoint
+   import httpx
+
+   async def main():
+       url = 'http://server.com/graphql'
+       headers = {'Authorization': 'bearer TOKEN'}
+
+       query = 'query { ... }'
+       variables = {'varName': 'value'}
+
+       endpoint = HTTPXEndpoint(url, headers, client=httpx.AsyncClient())
+       data = await endpoint(query, variables)
 
 
 However, writing GraphQL queries and later interpreting the results

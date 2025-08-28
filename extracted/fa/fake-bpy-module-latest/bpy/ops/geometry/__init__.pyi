@@ -47,7 +47,9 @@ def attribute_convert(
     """
 
 def attribute_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove attribute from geometry
 
@@ -100,7 +102,9 @@ def color_attribute_convert(
     """
 
 def color_attribute_duplicate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Duplicate color attribute
 
@@ -109,7 +113,9 @@ def color_attribute_duplicate(
     """
 
 def color_attribute_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove color attribute from geometry
 

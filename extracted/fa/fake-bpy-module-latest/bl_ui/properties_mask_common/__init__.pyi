@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class MASK_MT_add(bpy.types.Menu):
+class MASK_MT_add(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -31,7 +32,7 @@ class MASK_MT_add(bpy.types.Menu):
         :param _context:
         """
 
-class MASK_MT_animation(bpy.types.Menu):
+class MASK_MT_animation(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -56,7 +57,7 @@ class MASK_MT_animation(bpy.types.Menu):
         :param _context:
         """
 
-class MASK_MT_mask(bpy.types.Menu):
+class MASK_MT_mask(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -81,7 +82,7 @@ class MASK_MT_mask(bpy.types.Menu):
         :param _context:
         """
 
-class MASK_MT_select(bpy.types.Menu):
+class MASK_MT_select(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -106,7 +107,7 @@ class MASK_MT_select(bpy.types.Menu):
         :param _context:
         """
 
-class MASK_MT_transform(bpy.types.Menu):
+class MASK_MT_transform(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -131,7 +132,7 @@ class MASK_MT_transform(bpy.types.Menu):
         :param _context:
         """
 
-class MASK_MT_visibility(bpy.types.Menu):
+class MASK_MT_visibility(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -288,7 +289,7 @@ class MASK_PT_transforms:
         :param context:
         """
 
-class MASK_UL_layers(bpy.types.UIList):
+class MASK_UL_layers(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 

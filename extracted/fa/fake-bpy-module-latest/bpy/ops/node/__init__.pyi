@@ -9,7 +9,9 @@ import bpy.stub_internal.rna_enums
 import bpy.types
 
 def activate_viewer(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Activate selected viewer node in compositor and geometry nodes
 
@@ -136,7 +138,7 @@ def add_group(
     :type name: str
     :param session_uid: Session UID, Session UID of the data-block to use by the operator
     :type session_uid: int | None
-    :param show_datablock_in_node: Show the datablock selector in the node
+    :param show_datablock_in_node: Show the data-block selector in the node
     :type show_datablock_in_node: bool | None
     """
 
@@ -482,7 +484,9 @@ def add_simulation_zone(
     """
 
 def attach(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Attach active node to a frame
 
@@ -491,7 +495,9 @@ def attach(
     """
 
 def backimage_fit(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Fit the background image to the view
 
@@ -500,7 +506,9 @@ def backimage_fit(
     """
 
 def backimage_move(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move node backdrop
 
@@ -509,7 +517,9 @@ def backimage_move(
     """
 
 def backimage_sample(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Use mouse to sample background image
 
@@ -533,7 +543,9 @@ def backimage_zoom(
     """
 
 def bake_node_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -557,7 +569,9 @@ def bake_node_item_move(
     """
 
 def bake_node_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -566,7 +580,9 @@ def bake_node_item_remove(
     """
 
 def capture_attribute_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -590,7 +606,9 @@ def capture_attribute_item_move(
     """
 
 def capture_attribute_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -599,7 +617,9 @@ def capture_attribute_item_remove(
     """
 
 def clear_viewer_border(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the boundaries for viewer operations
 
@@ -608,7 +628,9 @@ def clear_viewer_border(
     """
 
 def clipboard_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the selected nodes to the internal clipboard
 
@@ -632,7 +654,9 @@ def clipboard_paste(
     """
 
 def closure_input_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -656,7 +680,9 @@ def closure_input_item_move(
     """
 
 def closure_input_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -665,7 +691,9 @@ def closure_input_item_remove(
     """
 
 def closure_output_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -689,7 +717,9 @@ def closure_output_item_move(
     """
 
 def closure_output_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -698,7 +728,9 @@ def closure_output_item_remove(
     """
 
 def collapse_hide_unused_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle collapsed nodes and hide unused sockets
 
@@ -707,7 +739,9 @@ def collapse_hide_unused_toggle(
     """
 
 def combine_bundle_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -731,7 +765,9 @@ def combine_bundle_item_move(
     """
 
 def combine_bundle_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -755,7 +791,9 @@ def connect_to_output(
     """
 
 def cryptomatte_layer_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a new input layer to a Cryptomatte node
 
@@ -764,7 +802,9 @@ def cryptomatte_layer_add(
     """
 
 def cryptomatte_layer_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove layer from a Cryptomatte node
 
@@ -773,7 +813,9 @@ def cryptomatte_layer_remove(
     """
 
 def deactivate_viewer(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Deactivate selected viewer node in geometry nodes
 
@@ -782,7 +824,9 @@ def deactivate_viewer(
     """
 
 def default_group_width_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set the width based on the parent group node in the current context
 
@@ -791,7 +835,9 @@ def default_group_width_set(
     """
 
 def delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected nodes
 
@@ -800,7 +846,9 @@ def delete(
     """
 
 def delete_reconnect(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove nodes and reconnect nodes as if deletion was muted
 
@@ -809,7 +857,9 @@ def delete_reconnect(
     """
 
 def detach(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Detach selected nodes from parents
 
@@ -911,7 +961,9 @@ def duplicate_move_linked(
     """
 
 def enum_definition_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -935,7 +987,9 @@ def enum_definition_item_move(
     """
 
 def enum_definition_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -944,7 +998,9 @@ def enum_definition_item_remove(
     """
 
 def evaluate_closure_input_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -968,7 +1024,9 @@ def evaluate_closure_input_item_move(
     """
 
 def evaluate_closure_input_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -977,7 +1035,9 @@ def evaluate_closure_input_item_remove(
     """
 
 def evaluate_closure_output_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -1001,7 +1061,46 @@ def evaluate_closure_output_item_move(
     """
 
 def evaluate_closure_output_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Remove active item
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    """
+
+def file_output_item_add(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Add item below active item
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    """
+
+def file_output_item_move(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    direction: typing.Literal["UP", "DOWN"] | None = "UP",
+) -> None:
+    """Move active item
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param direction: Direction, Move direction
+    :type direction: typing.Literal['UP','DOWN'] | None
+    """
+
+def file_output_item_remove(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -1010,7 +1109,9 @@ def evaluate_closure_output_item_remove(
     """
 
 def find_node(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Search for a node by name and focus and select it
 
@@ -1019,7 +1120,9 @@ def find_node(
     """
 
 def foreach_geometry_element_zone_generation_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -1043,7 +1146,9 @@ def foreach_geometry_element_zone_generation_item_move(
     """
 
 def foreach_geometry_element_zone_generation_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -1052,7 +1157,9 @@ def foreach_geometry_element_zone_generation_item_remove(
     """
 
 def foreach_geometry_element_zone_input_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -1076,7 +1183,9 @@ def foreach_geometry_element_zone_input_item_move(
     """
 
 def foreach_geometry_element_zone_input_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -1085,7 +1194,9 @@ def foreach_geometry_element_zone_input_item_remove(
     """
 
 def foreach_geometry_element_zone_main_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -1109,7 +1220,9 @@ def foreach_geometry_element_zone_main_item_move(
     """
 
 def foreach_geometry_element_zone_main_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -1118,7 +1231,9 @@ def foreach_geometry_element_zone_main_item_remove(
     """
 
 def format_string_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -1142,7 +1257,9 @@ def format_string_item_move(
     """
 
 def format_string_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -1151,7 +1268,9 @@ def format_string_item_remove(
     """
 
 def gltf_settings_node_operator(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a node to the active tree for glTF export
 
@@ -1175,7 +1294,9 @@ def group_edit(
     """
 
 def group_insert(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Insert selected nodes into a node group
 
@@ -1184,7 +1305,9 @@ def group_insert(
     """
 
 def group_make(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make group from selected nodes
 
@@ -1214,7 +1337,9 @@ def group_separate(
     """
 
 def group_ungroup(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Ungroup selected nodes
 
@@ -1223,7 +1348,9 @@ def group_ungroup(
     """
 
 def hide_socket_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle unused node socket display
 
@@ -1232,16 +1359,20 @@ def hide_socket_toggle(
     """
 
 def hide_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Toggle hiding of selected nodes
+    """Toggle collapsing of selected nodes
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
 def index_switch_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add bake item
 
@@ -1265,7 +1396,9 @@ def index_switch_item_remove(
     """
 
 def insert_offset(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Automatically offset nodes on insertion
 
@@ -1274,7 +1407,9 @@ def insert_offset(
     """
 
 def interface_item_duplicate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a copy of the active item to the interface
 
@@ -1283,7 +1418,9 @@ def interface_item_duplicate(
     """
 
 def interface_item_make_panel_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make the active boolean socket a toggle for its parent panel
 
@@ -1307,7 +1444,9 @@ def interface_item_new(
     """
 
 def interface_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item from the interface
 
@@ -1316,7 +1455,9 @@ def interface_item_remove(
     """
 
 def interface_item_unlink_panel_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make the panel toggle a stand-alone socket
 
@@ -1324,7 +1465,11 @@ def interface_item_unlink_panel_toggle(
     :type undo: bool | None
     """
 
-def join(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def join(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Attach selected nodes to a new common frame
 
     :type execution_context: int | str | None
@@ -1401,7 +1546,9 @@ def link_make(
     """
 
 def link_viewer(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Link to viewer node
 
@@ -1428,7 +1575,9 @@ def links_cut(
     """
 
 def links_detach(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove all links to selected nodes, and try to connect neighbor nodes together
 
@@ -1491,7 +1640,9 @@ def move_detach_links_release(
     """
 
 def mute_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle muting of selected nodes
 
@@ -1504,9 +1655,9 @@ def new_compositing_node_group(
     undo: bool | None = None,
     /,
     *,
-    name: str = "Compositing Node Tree",
+    name: str = "Compositor Nodes",
 ) -> None:
-    """Create a new compositing node tree and initialize it with default nodes
+    """Create a new compositing node group and initialize it with default nodes
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -1515,7 +1666,9 @@ def new_compositing_node_group(
     """
 
 def new_geometry_node_group_assign(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new geometry node group and assign it to the active modifier
 
@@ -1524,7 +1677,9 @@ def new_geometry_node_group_assign(
     """
 
 def new_geometry_node_group_tool(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new geometry node group for a tool
 
@@ -1533,7 +1688,9 @@ def new_geometry_node_group_tool(
     """
 
 def new_geometry_nodes_modifier(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new modifier with a new geometry node group
 
@@ -1581,7 +1738,9 @@ def node_color_preset_add(
     """
 
 def node_copy_color(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy color to all selected nodes
 
@@ -1590,7 +1749,9 @@ def node_copy_color(
     """
 
 def options_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle option buttons display for selected nodes
 
@@ -1598,47 +1759,10 @@ def options_toggle(
     :type undo: bool | None
     """
 
-def output_file_add_socket(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-    *,
-    file_path: str = "Image",
-) -> None:
-    """Add a new input to a file output node
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param file_path: File Path, Subpath of the output file
-    :type file_path: str
-    """
-
-def output_file_move_active_socket(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-    *,
-    direction: typing.Literal["UP", "DOWN"] | None = "DOWN",
-) -> None:
-    """Move the active input of a file output node up or down the list
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param direction: Direction
-    :type direction: typing.Literal['UP','DOWN'] | None
-    """
-
-def output_file_remove_active_socket(
-    execution_context: int | str | None = None, undo: bool | None = None
-) -> None:
-    """Remove the active input from a file output node
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
-
 def parent_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Attach selected nodes
 
@@ -1647,7 +1771,9 @@ def parent_set(
     """
 
 def preview_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle preview display for selected nodes
 
@@ -1656,7 +1782,9 @@ def preview_toggle(
     """
 
 def read_viewlayers(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Read all render layers of all used scenes
 
@@ -1665,16 +1793,20 @@ def read_viewlayers(
     """
 
 def render_changed(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Render current scene, when input node's layer has been changed
+    """Render current scene, when input nodes layer has been changed
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
 def repeat_zone_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -1698,7 +1830,9 @@ def repeat_zone_item_move(
     """
 
 def repeat_zone_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -1707,7 +1841,9 @@ def repeat_zone_item_remove(
     """
 
 def resize(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Resize a node
 
@@ -1932,7 +2068,9 @@ def select_link_viewer(
     """
 
 def select_linked_from(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select nodes linked from the selected ones
 
@@ -1941,7 +2079,9 @@ def select_linked_from(
     """
 
 def select_linked_to(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select nodes linked to the selected ones
 
@@ -1965,7 +2105,9 @@ def select_same_type_step(
     """
 
 def separate_bundle_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -1989,7 +2131,9 @@ def separate_bundle_item_move(
     """
 
 def separate_bundle_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -1998,7 +2142,9 @@ def separate_bundle_item_remove(
     """
 
 def shader_script_update(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Update shader script node with new sockets and options from the script
 
@@ -2007,7 +2153,9 @@ def shader_script_update(
     """
 
 def simulation_zone_item_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add item below active item
 
@@ -2031,7 +2179,9 @@ def simulation_zone_item_move(
     """
 
 def simulation_zone_item_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active item
 
@@ -2040,12 +2190,18 @@ def simulation_zone_item_remove(
     """
 
 def sockets_sync(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    node_name: str = "",
 ) -> None:
     """Update sockets to match what is actually used
 
     :type execution_context: int | str | None
     :type undo: bool | None
+    :param node_name: Node Name
+    :type node_name: str
     """
 
 def translate_attach(
@@ -2085,16 +2241,24 @@ def translate_attach_remove_on_cancel(
     """
 
 def tree_path_parent(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    parent_tree_index: int | None = 0,
 ) -> None:
     """Go to parent node tree
 
     :type execution_context: int | str | None
     :type undo: bool | None
+    :param parent_tree_index: Parent Index, Parent index in context path
+    :type parent_tree_index: int | None
     """
 
 def view_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Resize view so you can see all nodes
 
@@ -2103,7 +2267,9 @@ def view_all(
     """
 
 def view_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Resize view so you can see selected nodes
 

@@ -4,7 +4,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def assign_action(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set this pose Action as active Action on the active Object
 
@@ -139,7 +141,9 @@ def catalog_new(
     """
 
 def catalog_redo(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Redo the last undone edit to the asset catalogs
 
@@ -148,7 +152,9 @@ def catalog_redo(
     """
 
 def catalog_undo(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undo the last edit to the asset catalogs
 
@@ -157,7 +163,9 @@ def catalog_undo(
     """
 
 def catalog_undo_push(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Store the current state of the asset catalogs in the undo buffer
 
@@ -166,7 +174,9 @@ def catalog_undo_push(
     """
 
 def catalogs_save(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make any edits to any catalogs permanent by writing the current set up to the asset library
 
@@ -205,7 +215,9 @@ def clear_single(
     """
 
 def library_refresh(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reread assets and asset catalogs from the asset library on disk
 
@@ -213,7 +225,11 @@ def library_refresh(
     :type undo: bool | None
     """
 
-def mark(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def mark(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Enable easier reuse of selected data-blocks through the Asset Browser, with the help of customizable metadata (like previews, descriptions and tags)
 
     :type execution_context: int | str | None
@@ -221,7 +237,9 @@ def mark(execution_context: int | str | None = None, undo: bool | None = None) -
     """
 
 def mark_single(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Enable easier reuse of a data-block through the Asset Browser, with the help of customizable metadata (like previews, descriptions and tags)
 
@@ -230,7 +248,9 @@ def mark_single(
     """
 
 def open_containing_blend_file(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Open the blend file that contains the active asset
 
@@ -260,7 +280,9 @@ def screenshot_preview(
     """
 
 def tag_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a new keyword tag to the active asset
 
@@ -269,7 +291,9 @@ def tag_add(
     """
 
 def tag_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove an existing keyword tag from the active asset
 

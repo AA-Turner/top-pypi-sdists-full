@@ -214,6 +214,7 @@ def update_verified_name_status(
 def create_verified_name_config(user, use_verified_name_for_certs=None):
     """
     Create verified name configuration for the given user.
+
     Arguments:
         * `user` (User object)
         * `use_verified_name_for_certs` (bool): If True, certificates will prioritize

@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    CaEnrollmentPolicyStatusType,
     CertificateStateType,
     CertificateTypeType,
     ClientAuthenticationStatusType,
@@ -115,6 +116,8 @@ __all__ = (
     "DeregisterEventTopicRequestTypeDef",
     "DescribeADAssessmentRequestTypeDef",
     "DescribeADAssessmentResultTypeDef",
+    "DescribeCAEnrollmentPolicyRequestTypeDef",
+    "DescribeCAEnrollmentPolicyResultTypeDef",
     "DescribeCertificateRequestTypeDef",
     "DescribeCertificateResultTypeDef",
     "DescribeClientAuthenticationSettingsRequestPaginateTypeDef",
@@ -163,12 +166,14 @@ __all__ = (
     "DirectoryVpcSettingsOutputTypeDef",
     "DirectoryVpcSettingsTypeDef",
     "DirectoryVpcSettingsUnionTypeDef",
+    "DisableCAEnrollmentPolicyRequestTypeDef",
     "DisableClientAuthenticationRequestTypeDef",
     "DisableDirectoryDataAccessRequestTypeDef",
     "DisableLDAPSRequestTypeDef",
     "DisableRadiusRequestTypeDef",
     "DisableSsoRequestTypeDef",
     "DomainControllerTypeDef",
+    "EnableCAEnrollmentPolicyRequestTypeDef",
     "EnableClientAuthenticationRequestTypeDef",
     "EnableDirectoryDataAccessRequestTypeDef",
     "EnableLDAPSRequestTypeDef",
@@ -454,6 +459,10 @@ class DescribeADAssessmentRequestTypeDef(TypedDict):
     AssessmentId: str
 
 
+class DescribeCAEnrollmentPolicyRequestTypeDef(TypedDict):
+    DirectoryId: str
+
+
 class DescribeCertificateRequestTypeDef(TypedDict):
     DirectoryId: str
     CertificateId: str
@@ -704,6 +713,10 @@ class DirectoryVpcSettingsTypeDef(TypedDict):
     SubnetIds: Sequence[str]
 
 
+class DisableCAEnrollmentPolicyRequestTypeDef(TypedDict):
+    DirectoryId: str
+
+
 DisableClientAuthenticationRequestTypeDef = TypedDict(
     "DisableClientAuthenticationRequestTypeDef",
     {
@@ -734,6 +747,11 @@ class DisableSsoRequestTypeDef(TypedDict):
     DirectoryId: str
     UserName: NotRequired[str]
     Password: NotRequired[str]
+
+
+class EnableCAEnrollmentPolicyRequestTypeDef(TypedDict):
+    DirectoryId: str
+    PcaConnectorArn: str
 
 
 EnableClientAuthenticationRequestTypeDef = TypedDict(
@@ -1000,6 +1018,15 @@ class DeleteSnapshotResultTypeDef(TypedDict):
 
 class DeleteTrustResultTypeDef(TypedDict):
     TrustId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeCAEnrollmentPolicyResultTypeDef(TypedDict):
+    DirectoryId: str
+    PcaConnectorArn: str
+    CaEnrollmentPolicyStatus: CaEnrollmentPolicyStatusType
+    LastUpdatedDateTime: datetime
+    CaEnrollmentPolicyStatusReason: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

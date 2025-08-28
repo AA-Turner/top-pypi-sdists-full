@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-25T21:23:22.200368                                                            #
+# MF version: 2.18.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-28T00:53:38.067046                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.exception
-    import metaflow.datastore.inputs
     import typing
+    import metaflow.datastore.inputs
     import metaflow.flowspec
     import metaflow.unbounded_foreach
 
@@ -267,6 +267,15 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
           `@step` decorator and `foreach_iterator` is a variable name in the current class that
           evaluates to an iterator. A task will be launched for each value in the iterator and
           each task will execute the code specified by the step `foreach_step`.
+        
+        - Switch statement:
+          ```
+          self.next({"case1": self.step_a, "case2": self.step_b}, condition='condition_variable')
+          ```
+          In this situation, `step_a` and `step_b` are methods in the current class decorated
+          with the `@step` decorator and `condition_variable` is a variable name in the current
+          class. The value of the condition variable determines which step to execute. If the
+          value doesn't match any of the dictionary keys, a RuntimeError is raised.
         
         Parameters
         ----------

@@ -31,7 +31,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import boards, chips
 
-__version__ = "3.82.0"
+__version__ = "3.83.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 

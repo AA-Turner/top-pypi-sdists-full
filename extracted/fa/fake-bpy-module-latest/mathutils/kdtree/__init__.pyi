@@ -20,6 +20,7 @@ class KDTree:
     def find(
         self,
         co: collections.abc.Sequence[float],
+        *,
         filter: collections.abc.Callable[int, bool] | None = None,
     ) -> tuple[mathutils.Vector, int, float]:
         """Find nearest point to co.

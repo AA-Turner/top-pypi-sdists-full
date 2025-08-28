@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class NODE_MT_category_shader_color(bpy.types.Menu):
+class NODE_MT_category_shader_color(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -30,7 +31,7 @@ class NODE_MT_category_shader_color(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_shader_converter(bpy.types.Menu):
+class NODE_MT_category_shader_converter(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -56,7 +57,7 @@ class NODE_MT_category_shader_converter(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_shader_group(bpy.types.Menu):
+class NODE_MT_category_shader_group(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -82,7 +83,7 @@ class NODE_MT_category_shader_group(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_shader_input(bpy.types.Menu):
+class NODE_MT_category_shader_input(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -108,7 +109,7 @@ class NODE_MT_category_shader_input(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_shader_output(bpy.types.Menu):
+class NODE_MT_category_shader_output(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -128,7 +129,7 @@ class NODE_MT_category_shader_output(bpy.types.Menu):
         :rtype: typing.Any
         """
 
-class NODE_MT_category_shader_script(bpy.types.Menu):
+class NODE_MT_category_shader_script(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -154,7 +155,7 @@ class NODE_MT_category_shader_script(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_shader_shader(bpy.types.Menu):
+class NODE_MT_category_shader_shader(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -180,7 +181,7 @@ class NODE_MT_category_shader_shader(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_shader_texture(bpy.types.Menu):
+class NODE_MT_category_shader_texture(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -206,7 +207,7 @@ class NODE_MT_category_shader_texture(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_shader_vector(bpy.types.Menu):
+class NODE_MT_category_shader_vector(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -232,7 +233,7 @@ class NODE_MT_category_shader_vector(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_shader_node_add_all(bpy.types.Menu):
+class NODE_MT_shader_node_add_all(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any

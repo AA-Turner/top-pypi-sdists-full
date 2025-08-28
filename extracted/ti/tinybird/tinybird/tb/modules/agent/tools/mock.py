@@ -70,9 +70,10 @@ def generate_mock_fixture(
         content = create_terminal_box(preview_content, title=f"fixtures/{datasource_name}.{data_format}")
         click.echo(content)
         click.echo("Showing a preview of the file.\n")
+        active_plan = ctx.deps.get_plan() is not None
         confirmation = show_confirmation(
             title=f"Create fixture file for datasource '{datasource_name}'?",
-            skip_confirmation=ctx.deps.dangerously_skip_permissions,
+            skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,
         )
 
         if confirmation == "review":
@@ -85,7 +86,7 @@ def generate_mock_fixture(
         click.echo(FeedbackManager.success(message=f"✓ {fixture_path_name} created"))
         confirmation = show_confirmation(
             title=f"Append {fixture_path_name} to datasource '{datasource_name}'?",
-            skip_confirmation=ctx.deps.dangerously_skip_permissions,
+            skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,
         )
         if confirmation == "review":
             feedback = show_input(ctx.deps.workspace_name)

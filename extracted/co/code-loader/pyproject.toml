@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "code-loader"
-version = "1.0.109"
+version = "1.0.113"
 description = ""
 authors = ["dorhar <doron.harnoy@tensorleap.ai>"]
 license = "MIT"
@@ -12,7 +12,7 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.8,<3.13"
 numpy = "^1.22.3"
 psutil = "^5.9.5"
 requests = "^2.32.3"

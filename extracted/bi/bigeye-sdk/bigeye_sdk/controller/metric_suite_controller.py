@@ -205,6 +205,7 @@ class MetricSuiteController:
                     muted_until_timestamp=c.muted_until_timestamp,
                 ).collection
                 merged_or_new = SimpleCollection.from_datawatch_object(c)
+                existing_collections[c.name] = c
                 deployment_collections.append(merged_or_new)
 
         return deployment_collections

@@ -164,6 +164,8 @@ class OperationDBM(SimpleDBM):
             return None
         return self.duration.total_seconds()
 
+    # ---SDP---
+
     @property
     def sdp_duration_total_seconds(self) -> float | None:
         """

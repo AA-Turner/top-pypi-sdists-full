@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: pandas-stubs
-Version: 2.3.0.250703
+Version: 2.3.2.250827
 Summary: Type annotations for pandas
-Home-page: https://pandas.pydata.org
 License: BSD-3-Clause
 Author: The Pandas Development Team
 Author-email: pandas-dev@python.org
@@ -17,14 +16,15 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering
 Classifier: Typing :: Stubs Only
 Requires-Dist: numpy (>=1.23.5)
 Requires-Dist: types-pytz (>=2022.1.1)
 Project-URL: Bug Tracker, https://github.com/pandas-dev/pandas-stubs/issues
 Project-URL: Documentation, https://pandas.pydata.org/pandas-docs/stable
+Project-URL: Homepage, https://pandas.pydata.org
 Project-URL: Repository, https://github.com/pandas-dev/pandas-stubs
 Description-Content-Type: text/markdown
 

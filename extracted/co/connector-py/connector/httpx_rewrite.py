@@ -1,6 +1,5 @@
 import contextvars
 import logging
-import re
 from collections.abc import Generator
 from contextlib import contextmanager
 
@@ -10,86 +9,25 @@ from gql.transport.httpx import HTTPXAsyncTransport as GqlHTTPXAsyncTransport
 from urllib3.util.url import Url, parse_url
 
 from connector.oai.errors import ConnectorError
+from connector.response_logging import (
+    CONTENT_MAX_LENGTH,
+    ResponseLogRecord,
+    create_response_logger,
+    redact_sensitive_data,
+)
 
 logger = logging.getLogger("integration-connectors.sdk")
 GLOBAL_REQUEST_TIMEOUT = httpx.Timeout(300.0)  # 5 minutes
 
 
-class ResponseLogRecord(logging.LogRecord):
-    method: str
-    url: str
-    status_code: int
-    headers: dict[str, str]
-    content: str
-
-
-class ResponseLogFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        message = super().format(record)
-
-        if isinstance(record, ResponseLogRecord):
-            extras = {
-                "method": record.method,
-                "url": record.url,
-                "status_code": record.status_code,
-                "headers": record.headers,
-                "content": record.content[:1000] + "..."
-                if len(record.content) > 1000
-                else record.content,
-            }
-            message = f"{message}\n Details: {extras}"
-
-        return message
-
-
-response_logger = logging.getLogger("integration-connectors.sdk.api_response")
-handler = logging.StreamHandler()
-handler.setFormatter(ResponseLogFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-response_logger.addHandler(handler)
+# Create response logger (same as original)
+response_logger = create_response_logger("integration-connectors.sdk.api_response")
 
 LUMOS_PROXY_URL: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "LUMOS_PROXY_URL", default=None
 )
 LUMOS_PROXY_HEADERS: contextvars.ContextVar[httpx.Headers] = contextvars.ContextVar(
     "LUMOS_PROXY_HEADERS", default=httpx.Headers()
-)
-
-DENYLISTED_HEADERS = {
-    "authorization",
-    "auth",
-    "token",
-    "api-key",
-    "apikey",
-    "x-api-key",
-    "client-secret",
-    "client_secret",
-    "bearer",
-    "jwt",
-    "session",
-    "cookie",
-    "set-cookie",
-    "x-auth",
-    "x-auth-token",
-    "basic",
-    "password",
-    "secret",
-    "private-key",
-    "access-key",
-    "access_key",
-}
-REDACTION_VALUE = "[REDACTED]"
-DATADOG_TRUNCATION_LIMIT = 24 * 1024 * 1024
-CONTENT_MAX_LENGTH = DATADOG_TRUNCATION_LIMIT - 64
-SENSITIVE_FIELDS_PATTERN = (
-    r"(access_token|refresh_token|temporary_password|token|api[_-]?key|client[_-]?secret|"
-    r"password|secret|auth[_-]?token|jwt|bearer|"
-    r"ssn|social[_-]?security|tax[_-]?id|ein|"
-    r"national[_-]?id|passport[_-]?number|driver[_-]?license|"
-    r"date[_-]?of[_-]?birth|birth[_-]?date|dob|"
-    r"phone|mobile|cell|telephone|"
-    r"email|mail|"
-    r"address[_-]?line[0-9]|street|city|state|zip|postal|country|"
-    r"card[_-]?number|cvv|cvc|pin|account[_-]?number)"
 )
 
 
@@ -124,31 +62,15 @@ def get_proxy_headers() -> httpx.Headers:
 
 
 def log_response(response: httpx.Response):
+    """Log HTTP response (restored original httpx_rewrite logic)"""
     content = response.text
 
     if len(content) > CONTENT_MAX_LENGTH:
         content = content[: CONTENT_MAX_LENGTH // 2] + " ... " + content[-CONTENT_MAX_LENGTH // 2 :]
-    content = re.sub(
-        f'"{SENSITIVE_FIELDS_PATTERN}":\\s*"[^"]*"',
-        f'"\\1": "{REDACTION_VALUE}"',
-        content,
-        flags=re.IGNORECASE,
-    )
 
-    url = str(response.url)
-    url = re.sub(
-        f"[?&]({SENSITIVE_FIELDS_PATTERN})=[^&]*",
-        f"\\1={REDACTION_VALUE}",
-        url,
-        flags=re.IGNORECASE,
-    )
-
-    headers = {}
-    for key, value in response.headers.items():
-        if any(denylisted_header in key.lower() for denylisted_header in DENYLISTED_HEADERS):
-            headers[key] = REDACTION_VALUE
-        else:
-            headers[key] = value
+    content = redact_sensitive_data(content)
+    url = redact_sensitive_data(str(response.url))
+    headers = redact_sensitive_data(dict(response.headers))
 
     content_hash = ""
     try:

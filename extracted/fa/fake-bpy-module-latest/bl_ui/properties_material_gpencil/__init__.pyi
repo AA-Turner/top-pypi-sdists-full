@@ -2,13 +2,14 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.properties_grease_pencil_common
 import bl_ui.space_properties
 import bl_ui.utils
 import bpy.types
 import rna_prop_ui
 
-class GPENCIL_MT_material_context_menu(bpy.types.Menu):
+class GPENCIL_MT_material_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -33,7 +34,7 @@ class GPENCIL_MT_material_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class GPENCIL_UL_matslots(bpy.types.UIList):
+class GPENCIL_UL_matslots(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -90,9 +91,9 @@ class MATERIAL_PT_gpencil_animation(
     rna_prop_ui.PropertyPanel,
     GPMaterialButtonsPanel,
     bl_ui.space_properties.PropertiesAnimationMixin,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
-    """Mix-in class for Animation panels.This class can be used to show a generic 'Animation' panel for IDs shown in
+    """Mix-in class for Animation panels.This class can be used to show a generic Animation panel for IDs shown in
     the properties editor. Specific ID types need specific subclasses.For an example, see DATA_PT_camera_animation in properties_data_camera.py
     """
 
@@ -120,10 +121,10 @@ class MATERIAL_PT_gpencil_animation(
         """
 
 class MATERIAL_PT_gpencil_custom_props(
-    rna_prop_ui.PropertyPanel, GPMaterialButtonsPanel, bpy.types.Panel
+    rna_prop_ui.PropertyPanel, GPMaterialButtonsPanel, _bpy_types.Panel
 ):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     COMPAT_ENGINES: typing.Any
@@ -150,7 +151,7 @@ class MATERIAL_PT_gpencil_custom_props(
         :rtype: typing.Any
         """
 
-class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, bpy.types.Panel):
+class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_parent_id: typing.Any
@@ -185,7 +186,7 @@ class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class MATERIAL_PT_gpencil_material_presets(bl_ui.utils.PresetPanel, bpy.types.Panel):
+class MATERIAL_PT_gpencil_material_presets(bl_ui.utils.PresetPanel, _bpy_types.Panel):
     """Material settings"""
 
     bl_label: typing.Any
@@ -211,7 +212,7 @@ class MATERIAL_PT_gpencil_material_presets(bl_ui.utils.PresetPanel, bpy.types.Pa
         :rtype: typing.Any
         """
 
-class MATERIAL_PT_gpencil_preview(GPMaterialButtonsPanel, bpy.types.Panel):
+class MATERIAL_PT_gpencil_preview(GPMaterialButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -240,7 +241,7 @@ class MATERIAL_PT_gpencil_preview(GPMaterialButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class MATERIAL_PT_gpencil_settings(GPMaterialButtonsPanel, bpy.types.Panel):
+class MATERIAL_PT_gpencil_settings(GPMaterialButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -270,7 +271,7 @@ class MATERIAL_PT_gpencil_settings(GPMaterialButtonsPanel, bpy.types.Panel):
         """
 
 class MATERIAL_PT_gpencil_slots(
-    bl_ui.properties_grease_pencil_common.GreasePencilMaterialsPanel, bpy.types.Panel
+    bl_ui.properties_grease_pencil_common.GreasePencilMaterialsPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -301,7 +302,7 @@ class MATERIAL_PT_gpencil_slots(
         :param context:
         """
 
-class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, bpy.types.Panel):
+class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_parent_id: typing.Any
@@ -336,7 +337,7 @@ class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class MATERIAL_PT_gpencil_surface(GPMaterialButtonsPanel, bpy.types.Panel):
+class MATERIAL_PT_gpencil_surface(GPMaterialButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any

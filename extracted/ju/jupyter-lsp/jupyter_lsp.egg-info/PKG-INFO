@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter-lsp
-Version: 2.2.6
+Version: 2.3.0
 Summary: Multi-Language Server WebSocket proxy for Jupyter Notebook/Lab server
 Author: jupyter-lsp Contributors
 Author-email: project.jupyter@gmail.com

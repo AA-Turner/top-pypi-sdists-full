@@ -4,7 +4,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def color_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add new color to active palette
 
@@ -13,7 +15,9 @@ def color_add(
     """
 
 def color_delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active color from palette
 
@@ -66,7 +70,11 @@ def join(
     :type palette: str
     """
 
-def new(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def new(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Add new palette
 
     :type execution_context: int | str | None

@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class MoveModifierToNodes(bpy.types.Operator):
+class MoveModifierToNodes(_bpy_types.Operator):
     """Move inputs and outputs from in the modifier to a new node group"""
 
     bl_idname: typing.Any
@@ -47,7 +48,7 @@ class MoveModifierToNodes(bpy.types.Operator):
         :param context:
         """
 
-class NewGeometryNodeGroupTool(bpy.types.Operator):
+class NewGeometryNodeGroupTool(_bpy_types.Operator):
     """Create a new geometry node group for a tool"""
 
     bl_idname: typing.Any
@@ -83,7 +84,7 @@ class NewGeometryNodeGroupTool(bpy.types.Operator):
         :param context:
         """
 
-class NewGeometryNodeTreeAssign(bpy.types.Operator):
+class NewGeometryNodeTreeAssign(_bpy_types.Operator):
     """Create a new geometry node group and assign it to the active modifier"""
 
     bl_idname: typing.Any
@@ -119,7 +120,7 @@ class NewGeometryNodeTreeAssign(bpy.types.Operator):
         :param context:
         """
 
-class NewGeometryNodesModifier(bpy.types.Operator):
+class NewGeometryNodesModifier(_bpy_types.Operator):
     """Create a new modifier with a new geometry node group"""
 
     bl_idname: typing.Any

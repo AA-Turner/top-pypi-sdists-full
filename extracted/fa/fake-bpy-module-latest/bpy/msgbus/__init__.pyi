@@ -1,6 +1,6 @@
 """
 The message bus system can be used to receive notifications when properties of
-Blender datablocks are changed via the data API.
+Blender data-blocks are changed via the data API.
 
 
 --------------------
@@ -69,7 +69,7 @@ def publish_rna(
     key: bpy.types.Property | bpy.types.Struct | tuple[bpy.types.Struct, str] | None,
 ) -> None:
     """Notify subscribers of changes to this property
-    (this typically doesn't need to be called explicitly since changes will automatically publish updates).
+    (this typically doesnt need to be called explicitly since changes will automatically publish updates).
     In some cases it may be useful to publish changes explicitly using more general keys.
 
         :param key: Represents the type of data being subscribed to
@@ -86,6 +86,7 @@ def subscribe_rna(
     owner: typing.Any | None,
     args,
     notify,
+    *,
     options=set(),
 ) -> None:
     """Register a message bus subscription. It will be cleared when another blend file is

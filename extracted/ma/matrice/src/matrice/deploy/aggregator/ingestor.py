@@ -15,7 +15,7 @@ class ResultsIngestor:
     """
 
     def __init__(
-        self, deployment_ids: List[str], session: Session, consumer_timeout: float = 60, action_id: str = ""
+        self, deployment_ids: List[str], session: Session, consumer_timeout: float = 300, action_id: str = ""
     ):
         """
         Initialize the results streamer.

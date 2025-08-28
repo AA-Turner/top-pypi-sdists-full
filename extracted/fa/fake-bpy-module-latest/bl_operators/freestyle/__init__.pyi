@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class SCENE_OT_freestyle_add_edge_marks_to_keying_set(bpy.types.Operator):
+class SCENE_OT_freestyle_add_edge_marks_to_keying_set(_bpy_types.Operator):
     """Add the data paths to the Freestyle Edge Mark property of selected edges to the active keying set"""
 
     bl_idname: typing.Any
@@ -40,7 +41,7 @@ class SCENE_OT_freestyle_add_edge_marks_to_keying_set(bpy.types.Operator):
         :param context:
         """
 
-class SCENE_OT_freestyle_add_face_marks_to_keying_set(bpy.types.Operator):
+class SCENE_OT_freestyle_add_face_marks_to_keying_set(_bpy_types.Operator):
     """Add the data paths to the Freestyle Face Mark property of selected polygons to the active keying set"""
 
     bl_idname: typing.Any
@@ -76,7 +77,7 @@ class SCENE_OT_freestyle_add_face_marks_to_keying_set(bpy.types.Operator):
         :param context:
         """
 
-class SCENE_OT_freestyle_fill_range_by_selection(bpy.types.Operator):
+class SCENE_OT_freestyle_fill_range_by_selection(_bpy_types.Operator):
     """Fill the Range Min/Max entries by the min/max distance between selected mesh objects and the source object (either a user-specified object or the active camera)"""
 
     bl_idname: typing.Any
@@ -112,7 +113,7 @@ class SCENE_OT_freestyle_fill_range_by_selection(bpy.types.Operator):
         :param context:
         """
 
-class SCENE_OT_freestyle_module_open(bpy.types.Operator):
+class SCENE_OT_freestyle_module_open(_bpy_types.Operator):
     """Open a style module file"""
 
     bl_idname: typing.Any

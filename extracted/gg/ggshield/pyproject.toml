@@ -27,6 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.9",
     "Operating System :: OS Independent",
     "Topic :: Security",
@@ -40,7 +41,7 @@ dependencies = [
     "marshmallow~=3.18.0",
     "marshmallow-dataclass~=8.5.8",
     "oauthlib~=3.2.1",
-    "pygitguardian~=1.24.0",
+    "pygitguardian~=1.25.0",
     "pyjwt~=2.6.0",
     "python-dotenv~=0.21.0",
     "pyyaml~=6.0.1",
@@ -50,7 +51,7 @@ dependencies = [
     "urllib3~=2.2.2",
     "truststore>=0.10.1; python_version >= \"3.10\"",
 ]
-version = "1.42.0"
+version = "1.43.0"
 
 [project.license]
 text = "MIT"
@@ -141,7 +142,7 @@ tests = [
     "pytest-xdist",
     "pytest-voluptuous",
     "seed-isort-config",
-    "snapshottest",
+    "syrupy",
     "import-linter",
     "jsonschema",
     "vcrpy>=5.1.0",

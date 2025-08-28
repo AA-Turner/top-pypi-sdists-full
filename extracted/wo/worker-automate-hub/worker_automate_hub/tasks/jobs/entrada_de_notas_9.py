@@ -1172,9 +1172,9 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                 retorno = await emsys.incluir_registro(chave_nfe=nota.get("nfe"))
                 if retorno.sucesso == True:
                     return RpaRetornoProcessoDTO(
-                        sucesso=error_work.sucesso,
-                        retorno=error_work.retorno,
-                        status=error_work.status,
+                        sucesso=retorno.sucesso,
+                        retorno=retorno.retorno,
+                        status=retorno.status,
                     )
             except:
                 console.print("A Nota fiscal ainda não foi incluída, continuando o processo...")
@@ -1270,46 +1270,47 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
         
         await worker_sleep(8)
         nf_chave_acesso = int(nota.get("nfe"))
-        status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
-        if status_nf_emsys.get("status") == "Lançada":
-            console.print("\nNota lançada com sucesso, processo finalizado...", style="bold green")
-            return RpaRetornoProcessoDTO(
-                sucesso=True,
-                retorno="Nota Lançada com sucesso!",
-                status=RpaHistoricoStatusEnum.Sucesso,
-            )
-        else:
-            console.print("Dupla confirmação lançamento da nota fiscal")
-            # Verifica se a info 'Nota fiscal incluida' está na tela
-            nf_imported = await check_nota_importada(nota.get("nfe"))
-            if nf_imported.sucesso == True:
-                await worker_sleep(12)
-                console.print("\nVerifica se a nota ja foi lançada...")
-                status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
-                if status_nf_emsys.get("status") == "Lançada":
+        try:
+            status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
+            if status_nf_emsys.get("status") == "Lançada":
                     console.print("\nNota lançada com sucesso, processo finalizado...", style="bold green")
                     return RpaRetornoProcessoDTO(
                         sucesso=True,
                         retorno="Nota Lançada com sucesso!",
                         status=RpaHistoricoStatusEnum.Sucesso,
                     )
-                else:
-                    console.print("Erro ao lançar nota", style="bold red")
-                    return RpaRetornoProcessoDTO(
-                        sucesso=False,
-                        retorno=f"Pop-up nota incluida encontrada, porém nota encontrada como 'já lançada' trazendo as seguintes informações: {nf_imported.retorno} - {error_work}",
-                        status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-                    )
+                    
+        except:
+            console.print("Dupla confirmação lançamento da nota fiscal")
+            # Verifica se a info 'Nota fiscal incluida' está na tela
+            nf_imported = await check_nota_importada(nota.get("nfe"))
+            if nf_imported.sucesso == True:
+                        await worker_sleep(12)
+                        console.print("\nVerifica se a nota ja foi lançada...")
+                        status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
+                        if status_nf_emsys.get("status") == "Lançada":
+                            console.print("\nNota lançada com sucesso, processo finalizado...", style="bold green")
+                            return RpaRetornoProcessoDTO(
+                                sucesso=True,
+                                retorno="Nota Lançada com sucesso!",
+                                status=RpaHistoricoStatusEnum.Sucesso,
+                            )
+                        else:
+                            console.print("Erro ao lançar nota", style="bold red")
+                            return RpaRetornoProcessoDTO(
+                                sucesso=False,
+                                retorno=f"Pop-up nota incluida encontrada, porém nota encontrada como 'já lançada' trazendo as seguintes informações: {nf_imported.retorno} - {error_work}",
+                                status=RpaHistoricoStatusEnum.Falha,
+                                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                            )
             else:
                 console.print("Erro ao lançar nota", style="bold red")
                 return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=f"Erro ao lançar nota, erro: {nf_imported.retorno}",
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
-                )
-
+                            sucesso=False,
+                            retorno=f"Erro ao lançar nota, erro: {nf_imported.retorno}",
+                            status=RpaHistoricoStatusEnum.Falha,
+                            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                        )
     except Exception as ex:
         observacao = f"Erro Processo Entrada de Notas: {str(ex)}"
         logger.error(observacao)

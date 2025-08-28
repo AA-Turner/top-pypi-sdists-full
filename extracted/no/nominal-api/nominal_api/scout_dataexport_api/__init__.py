@@ -1,6 +1,7 @@
 # coding=utf-8
 from .._impl import (
     scout_dataexport_api_AllTimestampsForwardFillStrategy as AllTimestampsForwardFillStrategy,
+    scout_dataexport_api_Arrow as Arrow,
     scout_dataexport_api_CompressionFormat as CompressionFormat,
     scout_dataexport_api_Csv as Csv,
     scout_dataexport_api_DataExportService as DataExportService,
@@ -25,6 +26,7 @@ from .._impl import (
 
 __all__ = [
     'AllTimestampsForwardFillStrategy',
+    'Arrow',
     'CompressionFormat',
     'Csv',
     'ExportChannels',

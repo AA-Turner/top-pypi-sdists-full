@@ -45,7 +45,7 @@ class ProgressReport:
         """
 
 class ProgressReportSubstep:
-    """A sub-step context manager for ProgressReport.It can be used to generate other sub-step contexts too, and can act as a (limited) proxy of its real ProgressReport.Its exit method always ensure ProgressReport is back on 'level' it was before entering this context.
+    """A sub-step context manager for ProgressReport.It can be used to generate other sub-step contexts too, and can act as a (limited) proxy of its real ProgressReport.Its exit method always ensure ProgressReport is back on level it was before entering this context.
     This means it is especially useful to ensure a coherent behavior around code that could return/continue/break
     from many places, without having to bother to explicitly leave sub-step in each and every possible place!
     """

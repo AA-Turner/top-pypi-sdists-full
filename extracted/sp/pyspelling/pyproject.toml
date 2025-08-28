@@ -9,7 +9,7 @@ name = "pyspelling"
 description = "Spell checker."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     { name = "Isaac Muse", email = "Isaac.Muse@gmail.com" },
 ]
@@ -82,7 +82,7 @@ include = [
 [tool.ruff]
 line-length = 120
 
-select = [
+lint.select = [
     "A",    # flake8-builtins
     "B",    # flake8-bugbear
     "D",    # pydocstyle
@@ -98,7 +98,7 @@ select = [
     "PERF"  # Perflint
 ]
 
-ignore = [
+lint.ignore = [
     "E741",
     "D202",
     "D401",
@@ -121,7 +121,7 @@ legacy_tox_ini = """
 [tox]
 isolated_build = true
 envlist =
-    py38,py39,py310,py311,py312,lint
+    py39,py310,py311,py312,py313,py314,lint
 
 [testenv]
 passenv = LANG,TOX_SPELL_PATH,TOX_SPELL_REQUIRE,HOME

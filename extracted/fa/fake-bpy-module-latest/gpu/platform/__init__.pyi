@@ -11,14 +11,14 @@ import numpy.typing as npt
 def backend_type_get() -> str:
     """Get actuve GPU backend.
 
-    :return: Backend type ('OPENGL', 'VULKAN', 'METAL', 'NONE', 'UNKNOWN').
+    :return: Backend type (OPENGL, VULKAN, METAL, NONE, UNKNOWN).
     :rtype: str
     """
 
 def device_type_get() -> str:
     """Get GPU device type.
 
-    :return: Device type ('APPLE', 'NVIDIA', 'AMD', 'INTEL', 'SOFTWARE', 'QUALCOMM', 'UNKNOWN').
+    :return: Device type (APPLE, NVIDIA, AMD, INTEL, SOFTWARE, QUALCOMM, UNKNOWN).
     :rtype: str
     """
 

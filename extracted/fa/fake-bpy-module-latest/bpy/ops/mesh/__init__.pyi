@@ -210,7 +210,7 @@ def bevel(
     Grid Fill -- Default patterned fill.
 
     CUTOFF
-    Cutoff -- A cutoff at each profile's end before the intersection.
+    Cutoff -- A cutoff at each profiles end before the intersection.
         :type vmesh_method: typing.Literal['ADJ','CUTOFF'] | None
         :param release_confirm: Confirm on Release
         :type release_confirm: bool | None
@@ -334,7 +334,9 @@ def bridge_edge_loops(
     """
 
 def colors_reverse(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Flip direction of face corner color attribute inside faces
 
@@ -409,7 +411,9 @@ def convex_hull(
     """
 
 def customdata_custom_splitnormals_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a custom normals layer, if none exists yet
 
@@ -418,7 +422,9 @@ def customdata_custom_splitnormals_add(
     """
 
 def customdata_custom_splitnormals_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the custom normals layer, if it exists
 
@@ -427,7 +433,9 @@ def customdata_custom_splitnormals_clear(
     """
 
 def customdata_mask_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear vertex sculpt masking data from the mesh
 
@@ -436,7 +444,9 @@ def customdata_mask_clear(
     """
 
 def customdata_skin_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a vertex skin layer
 
@@ -445,7 +455,9 @@ def customdata_skin_add(
     """
 
 def customdata_skin_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear vertex skin layer
 
@@ -556,7 +568,7 @@ def dissolve_edges(
     /,
     *,
     use_verts: bool | None = True,
-    angle_threshold: float | None = 0.349066,
+    angle_threshold: float | None = 3.14159,
     use_face_split: bool | None = False,
 ) -> None:
     """Dissolve edges, merging faces
@@ -613,7 +625,7 @@ def dissolve_mode(
     /,
     *,
     use_verts: bool | None = False,
-    angle_threshold: float | None = 0.349066,
+    angle_threshold: float | None = 3.14159,
     use_face_split: bool | None = False,
     use_boundary_tear: bool | None = False,
 ) -> None:
@@ -698,7 +710,9 @@ def duplicate_move(
     """
 
 def edge_collapse(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Collapse isolated edge and face regions, merging data such as UVs and color attributes. This can collapse edge-rings as well as regions of connected faces into vertices
 
@@ -707,7 +721,9 @@ def edge_collapse(
     """
 
 def edge_face_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add an edge or face to selected
 
@@ -1046,7 +1062,9 @@ def face_make_planar(
     """
 
 def face_split_by_edges(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Weld loose edges into faces (splitting them into new faces)
 
@@ -1088,7 +1106,9 @@ def faces_select_linked_flat(
     """
 
 def faces_shade_flat(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Display faces flat
 
@@ -1097,7 +1117,9 @@ def faces_shade_flat(
     """
 
 def faces_shade_smooth(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Display faces smooth (using vertex normals)
 
@@ -1163,7 +1185,7 @@ def flip_normals(
     *,
     only_clnors: bool | None = False,
 ) -> None:
-    """Flip the direction of selected faces' normals (and of their vertices)
+    """Flip the direction of selected faces normals (and of their vertices)
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -1172,7 +1194,9 @@ def flip_normals(
     """
 
 def flip_quad_tessellation(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Flips the tessellation of selected quads
 
@@ -1248,7 +1272,7 @@ def intersect(
     mode: typing.Literal["SELECT", "SELECT_UNSELECT"] | None = "SELECT_UNSELECT",
     separate_mode: typing.Literal["ALL", "CUT", "NONE"] | None = "CUT",
     threshold: float | None = 1e-06,
-    solver: typing.Literal["FAST", "EXACT"] | None = "EXACT",
+    solver: typing.Literal["FLOAT", "EXACT"] | None = "EXACT",
 ) -> None:
     """Cut an intersection into faces
 
@@ -1277,12 +1301,12 @@ def intersect(
         :type threshold: float | None
         :param solver: Solver, Which Intersect solver to use
 
-    FAST
+    FLOAT
     Float -- Simple solver with good performance, without support for overlapping geometry.
 
     EXACT
     Exact -- Slower solver with the best results for coplanar faces.
-        :type solver: typing.Literal['FAST','EXACT'] | None
+        :type solver: typing.Literal['FLOAT','EXACT'] | None
     """
 
 def intersect_boolean(
@@ -1294,7 +1318,7 @@ def intersect_boolean(
     use_swap: bool | None = False,
     use_self: bool | None = False,
     threshold: float | None = 1e-06,
-    solver: typing.Literal["FAST", "EXACT"] | None = "EXACT",
+    solver: typing.Literal["FLOAT", "EXACT"] | None = "EXACT",
 ) -> None:
     """Cut solid geometry from selected to unselected
 
@@ -1310,12 +1334,12 @@ def intersect_boolean(
         :type threshold: float | None
         :param solver: Solver, Which Boolean solver to use
 
-    FAST
-    Fast -- Faster solver, some limitations.
+    FLOAT
+    Float -- Faster solver, some limitations.
 
     EXACT
     Exact -- Exact solver, slower, handles more cases.
-        :type solver: typing.Literal['FAST','EXACT'] | None
+        :type solver: typing.Literal['FLOAT','EXACT'] | None
     """
 
 def knife_project(
@@ -1577,7 +1601,9 @@ def merge(
     """
 
 def merge_normals(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Merge custom normals of selected vertices
 
@@ -1793,7 +1819,9 @@ def polybuild_delete_at_cursor(
     """
 
 def polybuild_dissolve_at_cursor(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -2024,7 +2052,7 @@ def primitive_circle_add(
         :param fill_type: Fill Type
 
     NOTHING
-    Nothing -- Don't fill at all.
+    Nothing -- Dont fill at all.
 
     NGON
     N-Gon -- Use n-gons.
@@ -2095,7 +2123,7 @@ def primitive_cone_add(
         :param end_fill_type: Base Fill Type
 
     NOTHING
-    Nothing -- Don't fill at all.
+    Nothing -- Dont fill at all.
 
     NGON
     N-Gon -- Use n-gons.
@@ -2270,7 +2298,7 @@ def primitive_cylinder_add(
         :param end_fill_type: Cap Fill Type
 
     NOTHING
-    Nothing -- Don't fill at all.
+    Nothing -- Dont fill at all.
 
     NGON
     N-Gon -- Use n-gons.
@@ -2568,7 +2596,7 @@ def primitive_torus_add(
         :type mode: typing.Literal['MAJOR_MINOR','EXT_INT'] | None
         :param major_radius: Major Radius, Radius from the origin to the center of the cross sections
         :type major_radius: float | None
-        :param minor_radius: Minor Radius, Radius of the torus' cross section
+        :param minor_radius: Minor Radius, Radius of the torus cross section
         :type minor_radius: float | None
         :param abso_major_rad: Exterior Radius, Total Exterior Radius of the torus
         :type abso_major_rad: float | None
@@ -2655,7 +2683,9 @@ def quads_convert_to_tris(
     """
 
 def region_to_loop(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select boundary edges around the selected faces
 
@@ -2682,6 +2712,17 @@ def remove_doubles(
     :type use_unselected: bool | None
     :param use_sharp_edge_from_normals: Sharp Edges, Calculate sharp edges using custom normal data (when available)
     :type use_sharp_edge_from_normals: bool | None
+    """
+
+def reorder_vertices_spatial(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Reorder mesh faces and vertices based on their spatial position for better BVH building and sculpting performance.
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
     """
 
 def reveal(
@@ -2888,7 +2929,9 @@ def select_axis(
     """
 
 def select_by_attribute(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select elements based on the active boolean attribute
 
@@ -2942,7 +2985,9 @@ def select_face_by_sides(
     """
 
 def select_interior_faces(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select faces where all edges have more than 2 face users
 
@@ -3084,7 +3129,9 @@ def select_more(
     """
 
 def select_next_item(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select the next element (using selection order)
 
@@ -3144,7 +3191,9 @@ def select_nth(
     """
 
 def select_prev_item(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select the previous element (using selection order)
 
@@ -3225,7 +3274,9 @@ def select_similar(
     """
 
 def select_similar_region(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select similar face regions to the current selection
 
@@ -3297,7 +3348,9 @@ def set_sharpness_by_angle(
     """
 
 def shape_propagate_to_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Apply selected vertex locations to all other shape keys
 
@@ -3444,7 +3497,7 @@ def sort_elements(
 
     SELECTED
     Selected -- Move all selected elements in first places, preserving their relative order.
-    Warning: This will affect unselected elements' indices as well.
+    Warning: This will affect unselected elements indices as well.
 
     RANDOMIZE
     Randomize -- Randomize order of selected elements.
@@ -3493,7 +3546,11 @@ def spin(
     :type axis: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
-def split(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def split(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Split off selected geometry from connected unselected geometry
 
     :type execution_context: int | str | None
@@ -3501,7 +3558,9 @@ def split(execution_context: int | str | None = None, undo: bool | None = None) 
     """
 
 def split_normals(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Split custom normals of selected vertices
 
@@ -3670,7 +3729,9 @@ def unsubdivide(
     """
 
 def uv_texture_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add UV map
 
@@ -3679,7 +3740,9 @@ def uv_texture_add(
     """
 
 def uv_texture_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove UV map
 
@@ -3688,7 +3751,9 @@ def uv_texture_remove(
     """
 
 def uvs_reverse(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Flip direction of UV coordinates inside faces
 
@@ -3712,7 +3777,9 @@ def uvs_rotate(
     """
 
 def vert_connect(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Connect selected vertices of faces, splitting the face
 
@@ -3721,7 +3788,9 @@ def vert_connect(
     """
 
 def vert_connect_concave(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make all faces convex
 
@@ -3745,7 +3814,9 @@ def vert_connect_nonplanar(
     """
 
 def vert_connect_path(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Connect vertices by their selection order, creating edges, splitting faces
 

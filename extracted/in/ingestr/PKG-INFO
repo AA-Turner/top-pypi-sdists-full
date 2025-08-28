@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ingestr
-Version: 0.13.88
+Version: 0.13.90
 Summary: ingestr is a command-line application that ingests data from various sources and stores them in any database.
 Project-URL: Homepage, https://github.com/bruin-data/ingestr
 Project-URL: Issues, https://github.com/bruin-data/ingestr/issues
@@ -42,7 +42,7 @@ Requires-Dist: confluent-kafka==2.8.0
 Requires-Dist: crate==2.0.0
 Requires-Dist: cryptography==44.0.2
 Requires-Dist: curlify==2.2.1
-Requires-Dist: databricks-sql-connector==2.9.3
+Requires-Dist: databricks-sql-connector==4.0.5
 Requires-Dist: databricks-sqlalchemy==1.0.2
 Requires-Dist: dataclasses-json==0.6.7
 Requires-Dist: decorator==5.2.1

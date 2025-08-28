@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class PHYSICS_PT_add(PhysicButtonsPanel, bpy.types.Panel):
+class PHYSICS_PT_add(PhysicButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any

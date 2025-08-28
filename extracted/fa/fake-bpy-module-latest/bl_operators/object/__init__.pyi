@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class ClearAllRestrictRender(bpy.types.Operator):
+class ClearAllRestrictRender(_bpy_types.Operator):
     """Reveal all render objects by setting the hide render flag"""
 
     bl_idname: typing.Any
@@ -33,7 +34,7 @@ class ClearAllRestrictRender(bpy.types.Operator):
         :param context:
         """
 
-class DupliOffsetFromCursor(bpy.types.Operator):
+class DupliOffsetFromCursor(_bpy_types.Operator):
     """Set offset used for collection instances based on cursor position"""
 
     bl_idname: typing.Any
@@ -62,7 +63,7 @@ class DupliOffsetFromCursor(bpy.types.Operator):
         :param context:
         """
 
-class DupliOffsetFromObject(bpy.types.Operator):
+class DupliOffsetFromObject(_bpy_types.Operator):
     """Set offset used for collection instances based on the active object position"""
 
     bl_idname: typing.Any
@@ -98,7 +99,7 @@ class DupliOffsetFromObject(bpy.types.Operator):
         :param context:
         """
 
-class DupliOffsetToCursor(bpy.types.Operator):
+class DupliOffsetToCursor(_bpy_types.Operator):
     """Set cursor position to the offset used for collection instances"""
 
     bl_idname: typing.Any
@@ -127,7 +128,7 @@ class DupliOffsetToCursor(bpy.types.Operator):
         :param context:
         """
 
-class IsolateTypeRender(bpy.types.Operator):
+class IsolateTypeRender(_bpy_types.Operator):
     """Hide unselected render objects of same type as active by setting the hide render flag"""
 
     bl_idname: typing.Any
@@ -163,7 +164,7 @@ class IsolateTypeRender(bpy.types.Operator):
         :param context:
         """
 
-class JoinUVs(bpy.types.Operator):
+class JoinUVs(_bpy_types.Operator):
     """Transfer UV Maps from active to selected objects (needs matching geometry)"""
 
     bl_idname: typing.Any
@@ -199,7 +200,7 @@ class JoinUVs(bpy.types.Operator):
         :param context:
         """
 
-class MakeDupliFace(bpy.types.Operator):
+class MakeDupliFace(_bpy_types.Operator):
     """Convert objects into instanced faces"""
 
     bl_idname: typing.Any
@@ -228,7 +229,7 @@ class MakeDupliFace(bpy.types.Operator):
         :param context:
         """
 
-class OBJECT_OT_assign_property_defaults(bpy.types.Operator):
+class OBJECT_OT_assign_property_defaults(_bpy_types.Operator):
     """Assign the current values of custom properties as their defaults, for use as part of the rest pose state in NLA track mixing"""
 
     bl_idname: typing.Any
@@ -271,7 +272,7 @@ class OBJECT_OT_assign_property_defaults(bpy.types.Operator):
         :param context:
         """
 
-class SelectCamera(bpy.types.Operator):
+class SelectCamera(_bpy_types.Operator):
     """Select the active camera"""
 
     bl_idname: typing.Any
@@ -300,8 +301,8 @@ class SelectCamera(bpy.types.Operator):
         :param context:
         """
 
-class SelectHierarchy(bpy.types.Operator):
-    """Select object relative to the active object's position in the hierarchy"""
+class SelectHierarchy(_bpy_types.Operator):
+    """Select object relative to the active objects position in the hierarchy"""
 
     bl_idname: typing.Any
     bl_label: typing.Any
@@ -336,7 +337,7 @@ class SelectHierarchy(bpy.types.Operator):
         :param context:
         """
 
-class SelectPattern(bpy.types.Operator):
+class SelectPattern(_bpy_types.Operator):
     """Select objects matching a naming pattern"""
 
     bl_idname: typing.Any
@@ -386,7 +387,7 @@ class SelectPattern(bpy.types.Operator):
         :param context:
         """
 
-class ShapeTransfer(bpy.types.Operator):
+class ShapeTransfer(_bpy_types.Operator):
     """Copy the active shape key of another selected object to this one"""
 
     bl_idname: typing.Any
@@ -422,7 +423,7 @@ class ShapeTransfer(bpy.types.Operator):
         :param context:
         """
 
-class SubdivisionSet(bpy.types.Operator):
+class SubdivisionSet(_bpy_types.Operator):
     """Sets a Subdivision Surface level (1 to 5)"""
 
     bl_idname: typing.Any
@@ -458,7 +459,7 @@ class SubdivisionSet(bpy.types.Operator):
         :param context:
         """
 
-class TransformsToDeltas(bpy.types.Operator):
+class TransformsToDeltas(_bpy_types.Operator):
     """Convert normal object transforms to delta transforms, any existing delta transforms will be included as well"""
 
     bl_idname: typing.Any
@@ -512,7 +513,7 @@ class TransformsToDeltas(bpy.types.Operator):
         :param obj:
         """
 
-class TransformsToDeltasAnim(bpy.types.Operator):
+class TransformsToDeltasAnim(_bpy_types.Operator):
     """Convert object animation for normal transforms to delta transforms"""
 
     bl_idname: typing.Any

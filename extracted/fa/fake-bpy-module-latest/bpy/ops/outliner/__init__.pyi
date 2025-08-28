@@ -53,7 +53,9 @@ def animdata_operation(
     """
 
 def clear_filter(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the search filter
 
@@ -77,7 +79,9 @@ def collection_color_tag_set(
     """
 
 def collection_disable(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Disable viewport display in the view layers
 
@@ -86,7 +90,9 @@ def collection_disable(
     """
 
 def collection_disable_render(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Do not render this collection
 
@@ -95,7 +101,9 @@ def collection_disable_render(
     """
 
 def collection_drop(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Drag to move to collection in Outliner
 
@@ -104,7 +112,9 @@ def collection_drop(
     """
 
 def collection_duplicate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Recursively duplicate the collection, all its children, objects and object data
 
@@ -113,7 +123,9 @@ def collection_duplicate(
     """
 
 def collection_duplicate_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Recursively duplicate the collection, all its children and objects, with linked object data
 
@@ -122,7 +134,9 @@ def collection_duplicate_linked(
     """
 
 def collection_enable(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Enable viewport display in the view layers
 
@@ -131,7 +145,9 @@ def collection_enable(
     """
 
 def collection_enable_render(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Render the collection
 
@@ -140,7 +156,9 @@ def collection_enable_render(
     """
 
 def collection_exclude_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Include collection in the active view layer
 
@@ -149,7 +167,9 @@ def collection_exclude_clear(
     """
 
 def collection_exclude_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Exclude collection from the active view layer
 
@@ -158,7 +178,9 @@ def collection_exclude_set(
     """
 
 def collection_hide(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Hide the collection in this view layer
 
@@ -167,7 +189,9 @@ def collection_hide(
     """
 
 def collection_hide_inside(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Hide all the objects and collections inside the collection
 
@@ -176,7 +200,9 @@ def collection_hide_inside(
     """
 
 def collection_hierarchy_delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete selected collection hierarchies
 
@@ -185,7 +211,9 @@ def collection_hierarchy_delete(
     """
 
 def collection_holdout_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear masking of collection in the active view layer
 
@@ -194,7 +222,9 @@ def collection_holdout_clear(
     """
 
 def collection_holdout_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Mask collection in the active view layer
 
@@ -203,7 +233,9 @@ def collection_holdout_set(
     """
 
 def collection_indirect_only_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear collection contributing only indirectly in the view layer
 
@@ -212,7 +244,9 @@ def collection_indirect_only_clear(
     """
 
 def collection_indirect_only_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set collection to only contribute indirectly (through shadows and reflections) in the view layer
 
@@ -221,7 +255,9 @@ def collection_indirect_only_set(
     """
 
 def collection_instance(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Instance selected collections to active scene
 
@@ -245,7 +281,9 @@ def collection_isolate(
     """
 
 def collection_link(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Link selected collections to active scene
 
@@ -269,7 +307,9 @@ def collection_new(
     """
 
 def collection_objects_deselect(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Deselect objects in collection
 
@@ -278,7 +318,9 @@ def collection_objects_deselect(
     """
 
 def collection_objects_select(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select objects in collection
 
@@ -287,7 +329,9 @@ def collection_objects_select(
     """
 
 def collection_show(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Show the collection in this view layer
 
@@ -296,7 +340,9 @@ def collection_show(
     """
 
 def collection_show_inside(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Show all the objects and collections inside the collection
 
@@ -335,7 +381,9 @@ def data_operation(
     """
 
 def datastack_drop(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy or reorder modifiers, constraints, and effects
 
@@ -359,7 +407,9 @@ def delete(
     """
 
 def drivers_add_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add drivers to selected items
 
@@ -368,7 +418,9 @@ def drivers_add_selected(
     """
 
 def drivers_delete_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete drivers assigned to selected items
 
@@ -377,7 +429,9 @@ def drivers_delete_selected(
     """
 
 def expanded_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Expand/Collapse all items
 
@@ -385,7 +439,11 @@ def expanded_toggle(
     :type undo: bool | None
     """
 
-def hide(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def hide(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Hide selected objects and collections
 
     :type execution_context: int | str | None
@@ -393,7 +451,9 @@ def hide(execution_context: int | str | None = None, undo: bool | None = None) -
     """
 
 def highlight_update(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Update the item highlight based on the current mouse position
 
@@ -402,7 +462,9 @@ def highlight_update(
     """
 
 def id_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the selected data-blocks to the internal clipboard
 
@@ -411,7 +473,9 @@ def id_copy(
     """
 
 def id_delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete the ID under cursor
 
@@ -420,7 +484,9 @@ def id_delete(
     """
 
 def id_linked_relocate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Replace the active linked ID (and its dependencies if any) by another one, from the same or a different library
 
@@ -476,7 +542,7 @@ def id_operation(
     Paste.
 
     ADD_FAKE
-    Add Fake User -- Ensure data-block gets saved even if it isn't in use (e.g. for motion and material libraries).
+    Add Fake User -- Ensure data-block gets saved even if it isnt in use (e.g. for motion and material libraries).
 
     CLEAR_FAKE
     Clear Fake User.
@@ -490,7 +556,9 @@ def id_operation(
     """
 
 def id_paste(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Paste data-blocks from the internal clipboard
 
@@ -515,7 +583,7 @@ def id_remap(
     :type id_type: bpy.stub_internal.rna_enums.IdTypeItems | None
     :param old_id: Old ID, Old ID to replace
     :type old_id: str | None
-    :param new_id: New ID, New ID to remap all selected IDs' users to
+    :param new_id: New ID, New ID to remap all selected IDs users to
     :type new_id: str | None
     """
 
@@ -544,7 +612,9 @@ def item_activate(
     """
 
 def item_drag_drop(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Drag and drop element to another place
 
@@ -583,7 +653,9 @@ def item_rename(
     """
 
 def keyingset_add_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add selected items (blue-gray rows) to active Keying Set
 
@@ -592,7 +664,9 @@ def keyingset_add_selected(
     """
 
 def keyingset_remove_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected items (blue-gray rows) from active Keying Set
 
@@ -625,7 +699,9 @@ def lib_operation(
     """
 
 def lib_relocate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Relocate the library under cursor
 
@@ -718,7 +794,9 @@ def liboverride_troubleshoot_operation(
     """
 
 def material_drop(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Drag material to object in Outliner
 
@@ -773,7 +851,9 @@ def object_operation(
     """
 
 def operation(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Context menu for item operations
 
@@ -782,7 +862,9 @@ def operation(
     """
 
 def orphans_manage(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Open a window to manage unused data
 
@@ -812,7 +894,9 @@ def orphans_purge(
     """
 
 def parent_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Drag to clear parent in Outliner
 
@@ -821,7 +905,9 @@ def parent_clear(
     """
 
 def parent_drop(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Drag to parent in Outliner
 
@@ -830,7 +916,9 @@ def parent_drop(
     """
 
 def scene_drop(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Drag object to scene in Outliner
 
@@ -959,7 +1047,9 @@ def select_walk(
     """
 
 def show_active(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Open up the tree and adjust the view so that the active object is shown centered
 
@@ -968,7 +1058,9 @@ def show_active(
     """
 
 def show_hierarchy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Open all object entries and close all others
 
@@ -992,7 +1084,9 @@ def show_one_level(
     """
 
 def start_filter(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Start entering filter text
 
@@ -1001,7 +1095,9 @@ def start_filter(
     """
 
 def unhide_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Unhide all objects and collections
 

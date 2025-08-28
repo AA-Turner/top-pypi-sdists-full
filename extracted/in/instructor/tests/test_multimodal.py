@@ -1,6 +1,13 @@
 import pytest
 from pathlib import Path
-from instructor.multimodal import Image, convert_contents, convert_messages
+from instructor.processing.multimodal import (
+    PDF,
+    Audio,
+    Image,
+    autodetect_media,
+    convert_contents,
+    convert_messages,
+)
 from instructor.mode import Mode
 from unittest.mock import patch, MagicMock
 import instructor
@@ -374,3 +381,149 @@ def test_raw_base64_autodetect_png(base64_png):
     image = Image.autodetect(raw_base_64)
     assert image.media_type == "image/png"
     assert image.source == image.data == raw_base_64
+
+
+def test_autodetect_media_data_uris():
+    img_uri = (
+        "data:image/png;base64,"
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
+    )
+    pdf_uri = "data:application/pdf;base64,JVBERi0xLjQK"  # "%PDF-1.4\n"
+    aud_uri = "data:audio/wav;base64,UklGRiQAAABXQVZF"  # minimal header-ish
+
+    img = autodetect_media(img_uri)
+    pdf = autodetect_media(pdf_uri)
+    aud = autodetect_media(aud_uri)
+
+    assert isinstance(img, Image)
+    assert img.media_type == "image/png"
+
+    assert isinstance(pdf, PDF)
+    assert pdf.media_type == "application/pdf"
+
+    assert isinstance(aud, Audio)
+    assert aud.media_type == "audio/wav"
+
+
+def test_convert_messages_autodetect_media():
+    img_uri = (
+        "data:image/png;base64,"
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
+    )
+    pdf_uri = "data:application/pdf;base64,JVBERi0xLjQK"
+
+    messages = [
+        {"role": "user", "content": ["hello", img_uri, pdf_uri]},
+    ]
+
+    out = convert_messages(messages, mode=Mode.RESPONSES_TOOLS, autodetect_images=True)
+    assert isinstance(out, list) and len(out) == 1
+
+    content = out[0]["content"]
+    assert isinstance(content, list) and len(content) == 3
+
+    # Text
+    assert content[0]["type"] in {"input_text", "text"}
+    assert content[0]["text"] == "hello"
+
+    # Image → input_image with data URI
+    assert content[1]["type"] == "input_image"
+    assert isinstance(content[1].get("image_url"), str)
+    assert content[1]["image_url"].startswith("data:image/png;base64,")
+
+    # PDF → input_file with data URI
+    assert content[2]["type"] == "input_file"
+    assert isinstance(content[2].get("file_data"), str)
+    assert content[2]["file_data"].startswith("data:application/pdf;base64,")
+
+
+def test_pdf_from_url():
+    # URL without extension → should HEAD and set media_type; data stays None.
+    with patch("instructor.processing.multimodal.requests.head") as mock_head:
+        resp = MagicMock()
+        resp.headers = {"Content-Type": "application/pdf"}
+        resp.raise_for_status = MagicMock()
+        mock_head.return_value = resp
+
+        pdf = PDF.from_url("https://example.com/file")
+
+    assert isinstance(pdf, PDF)
+    assert pdf.source == "https://example.com/file"
+    assert pdf.media_type == "application/pdf"
+    assert pdf.data is None
+
+
+def test_pdf_from_gs_url():
+    # gs:// → https://storage.googleapis.com/... (GET) and bytes are base64-encoded.
+    pdf_bytes = b"%PDF-1.4\n..."
+    with patch("instructor.processing.multimodal.requests.get") as mock_get:
+        resp = MagicMock()
+        resp.headers = {"Content-Type": "application/pdf"}
+        resp.content = pdf_bytes
+        resp.raise_for_status = MagicMock()
+        mock_get.return_value = resp
+
+        pdf = PDF.from_gs_url("gs://bucket/doc.pdf")
+
+    assert isinstance(pdf, PDF)
+    assert pdf.source == "gs://bucket/doc.pdf"
+    assert pdf.media_type == "application/pdf"
+    # Optional strictness without adding global imports:
+    import base64 as _b64
+
+    assert pdf.data == _b64.b64encode(pdf_bytes).decode("utf-8")
+
+
+def test_audio_from_url():
+    # Audio URL → GET; implementation reads headers.get('content-type')
+    audio_bytes = b"RIFFxxxxWAVEfmt "
+    with patch("instructor.processing.multimodal.requests.get") as mock_get:
+        resp = MagicMock()
+        resp.headers = {"content-type": "audio/wav"}
+        resp.content = audio_bytes
+        resp.raise_for_status = MagicMock()
+        mock_get.return_value = resp
+
+        audio = Audio.from_url("https://cdn.example.com/a.wav")
+
+    assert isinstance(audio, Audio)
+    assert audio.source == "https://cdn.example.com/a.wav"
+    assert audio.media_type == "audio/wav"
+    import base64 as _b64
+
+    assert audio.data == _b64.b64encode(audio_bytes).decode("utf-8")
+
+
+def test_audio_from_gs_url():
+    # gs:// audio → public GCS GET and base64-encode.
+    audio_bytes = b"\x00\x01\x02\x03"
+    with patch("instructor.processing.multimodal.requests.get") as mock_get:
+        resp = MagicMock()
+        resp.headers = {"Content-Type": "audio/mpeg"}
+        resp.content = audio_bytes
+        resp.raise_for_status = MagicMock()
+        mock_get.return_value = resp
+
+        audio = Audio.from_gs_url("gs://bkt/path/song.mp3")
+
+    assert isinstance(audio, Audio)
+    assert audio.source == "gs://bkt/path/song.mp3"
+    assert audio.media_type == "audio/mpeg"
+    import base64 as _b64
+
+    assert audio.data == _b64.b64encode(audio_bytes).decode("utf-8")
+
+
+def test_audio_from_base64():
+    # data:audio/* data URI → parsed without network.
+    import base64 as _b64
+
+    raw = b"\x11\x22\x33\x44"
+    uri = "data:audio/wav;base64," + _b64.b64encode(raw).decode("utf-8")
+
+    audio = Audio.from_base64(uri)
+
+    assert isinstance(audio, Audio)
+    assert audio.source == uri
+    assert audio.media_type == "audio/wav"
+    assert audio.data == _b64.b64encode(raw).decode("utf-8")

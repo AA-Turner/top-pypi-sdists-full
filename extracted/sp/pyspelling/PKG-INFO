@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyspelling
-Version: 2.10
+Version: 2.11
 Summary: Spell checker.
 Project-URL: Homepage, https://github.com/facelessuser/pyspelling
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>
@@ -13,14 +13,15 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: beautifulsoup4
 Requires-Dist: html5lib
 Requires-Dist: lxml
@@ -35,7 +36,7 @@ Description-Content-Type: text/markdown
 [![Coverage Status][codecov-image]][codecov-link]
 [![PyPI Version][pypi-image]][pypi-link]
 [![PyPI - Python Version][python-image]][pypi-link]
-![License][license-image-mit]
+[![License][license-image-mit]][license-link]
 # PySpelling
 
 ## Overview
@@ -64,7 +65,7 @@ MIT
 [aspell]: http://aspell.net/
 [hunspell]: https://hunspell.github.io/
 
-[github-ci-image]: https://github.com/facelessuser/pyspelling/workflows/build/badge.svg?branch=master&event=push
+[github-ci-image]: https://github.com/facelessuser/pyspelling/workflows/build/badge.svg
 [github-ci-link]: https://github.com/facelessuser/pyspelling/actions?query=workflow%3Abuild+branch%3Amaster
 [codecov-image]: https://img.shields.io/codecov/c/github/facelessuser/pyspelling/master.svg?logo=codecov&logoColor=aaaaaa&labelColor=333333
 [codecov-link]: https://codecov.io/github/facelessuser/pyspelling
@@ -72,5 +73,6 @@ MIT
 [pypi-link]: https://pypi.python.org/pypi/pyspelling
 [python-image]: https://img.shields.io/pypi/pyversions/pyspelling?logo=python&logoColor=aaaaaa&labelColor=333333
 [license-image-mit]: https://img.shields.io/badge/license-MIT-blue.svg?labelColor=333333
+[license-link]: https://github.com/facelessuser/pyspelling/blob/main/LICENSE.md
 [donate-image]: https://img.shields.io/badge/Donate-PayPal-3fabd1?logo=paypal
 [donate-link]: https://www.paypal.me/facelessuser

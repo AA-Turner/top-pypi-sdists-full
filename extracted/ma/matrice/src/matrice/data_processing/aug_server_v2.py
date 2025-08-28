@@ -109,7 +109,7 @@ class AugmentationServer:
 
         # Track last request time
         self.last_request_time = time.time()
-        self.idle_timeout_seconds = 600  # 10 minutes
+        self.idle_timeout_seconds = 6000  # 10 minutes
 
         self._setup_routes()
         self._setup_shutdown_handlers()

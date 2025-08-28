@@ -4,7 +4,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def flush_edits(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Flush edit data from active editing modes
 
@@ -13,7 +15,9 @@ def flush_edits(
     """
 
 def lib_id_fake_user_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Save this data-block even if it has no users
 
@@ -22,7 +26,9 @@ def lib_id_fake_user_toggle(
     """
 
 def lib_id_generate_preview(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create an automatic preview for the selected data-block
 
@@ -31,7 +37,9 @@ def lib_id_generate_preview(
     """
 
 def lib_id_generate_preview_from_object(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a preview for this asset by rendering the active object
 
@@ -139,7 +147,9 @@ def lib_id_load_custom_preview(
     """
 
 def lib_id_override_editable_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set if this library override data-block can be edited
 
@@ -148,7 +158,9 @@ def lib_id_override_editable_toggle(
     """
 
 def lib_id_remove_preview(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the preview of this data-block
 
@@ -157,7 +169,9 @@ def lib_id_remove_preview(
     """
 
 def lib_id_unlink(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove a usage of a data-block, clearing the assignment
 
@@ -165,14 +179,22 @@ def lib_id_unlink(
     :type undo: bool | None
     """
 
-def redo(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def redo(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Redo previous action
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
-def undo(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def undo(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Undo previous action
 
     :type execution_context: int | str | None
@@ -210,7 +232,9 @@ def undo_push(
     """
 
 def undo_redo(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undo and redo previous action
 

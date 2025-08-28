@@ -37,9 +37,9 @@ def brush_stroke(
     ERASE
     Erase -- Switch brush to erase mode for duration of stroke.
         :type mode: typing.Literal['NORMAL','INVERT','SMOOTH','ERASE'] | None
-        :param pen_flip: Pen Flip, Whether a tablet's eraser mode is being used
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
         :type pen_flip: bool | None
-        :param override_location: Override Location, Override the given location array by recalculating object space positions from the provided mouse_event positions
+        :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions
         :type override_location: bool | None
         :param ignore_background_click: Ignore Background Click, Clicks on the background do not start the stroke
         :type ignore_background_click: bool | None
@@ -87,10 +87,10 @@ def cloth_filter(
     Inflate -- Inflates the cloth.
 
     EXPAND
-    Expand -- Expands the cloth's dimensions.
+    Expand -- Expands the cloths dimensions.
 
     PINCH
-    Pinch -- Pulls the cloth to the cursor's start position.
+    Pinch -- Pulls the cloth to the cursors start position.
 
     SCALE
     Scale -- Scales the mesh as a soft body using the origin of the object as scale.
@@ -207,7 +207,9 @@ def color_filter(
     """
 
 def detail_flood_fill(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Flood fill the mesh with the selected detail setting
 
@@ -216,7 +218,9 @@ def detail_flood_fill(
     """
 
 def dynamic_topology_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Dynamic topology alters the mesh topology while sculpting
 
@@ -225,7 +229,9 @@ def dynamic_topology_toggle(
     """
 
 def dyntopo_detail_size_edit(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Modify the detail size of dyntopo interactively
 
@@ -566,7 +572,9 @@ def face_sets_init(
     """
 
 def face_sets_randomize_colors(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Generates a new set of random colors to render the Face Sets in the viewport
 
@@ -845,7 +853,9 @@ def mesh_filter(
     """
 
 def optimize(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Recalculate the sculpt BVH to improve performance
 
@@ -938,7 +948,9 @@ def project_line_gesture(
     """
 
 def sample_color(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Sample the vertex color of the active vertex
 
@@ -971,7 +983,9 @@ def sample_detail_size(
     """
 
 def sculptmode_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle sculpt mode in 3D view
 
@@ -980,7 +994,9 @@ def sculptmode_toggle(
     """
 
 def set_persistent_base(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset the copy of the mesh that is being sculpted on
 
@@ -1019,9 +1035,9 @@ def set_pivot_position(
     SURFACE
     Surface -- Sets the pivot position to the surface under the cursor.
         :type mode: typing.Literal['ORIGIN','UNMASKED','BORDER','ACTIVE','SURFACE'] | None
-        :param mouse_x: Mouse Position X, Position of the mouse used for "Surface" mode
+        :param mouse_x: Mouse Position X, Position of the mouse used for "Surface" and "Active Vertex" mode
         :type mouse_x: float | None
-        :param mouse_y: Mouse Position Y, Position of the mouse used for "Surface" mode
+        :param mouse_y: Mouse Position Y, Position of the mouse used for "Surface" and "Active Vertex" mode
         :type mouse_y: float | None
     """
 

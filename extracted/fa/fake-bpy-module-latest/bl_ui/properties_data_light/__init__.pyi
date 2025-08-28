@@ -2,11 +2,12 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.space_properties
 import bpy.types
 import rna_prop_ui
 
-class DATA_PT_EEVEE_light(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_EEVEE_light(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -35,7 +36,7 @@ class DATA_PT_EEVEE_light(DataButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class DATA_PT_EEVEE_light_distance(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_EEVEE_light_distance(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -79,7 +80,7 @@ class DATA_PT_EEVEE_light_distance(DataButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class DATA_PT_EEVEE_light_influence(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_EEVEE_light_influence(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -110,7 +111,7 @@ class DATA_PT_EEVEE_light_influence(DataButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class DATA_PT_EEVEE_light_shadow(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_EEVEE_light_shadow(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -147,7 +148,7 @@ class DATA_PT_EEVEE_light_shadow(DataButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class DATA_PT_context_light(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_context_light(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -178,10 +179,10 @@ class DATA_PT_context_light(DataButtonsPanel, bpy.types.Panel):
         """
 
 class DATA_PT_custom_props_light(
-    rna_prop_ui.PropertyPanel, DataButtonsPanel, bpy.types.Panel
+    rna_prop_ui.PropertyPanel, DataButtonsPanel, _bpy_types.Panel
 ):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     COMPAT_ENGINES: typing.Any
@@ -208,7 +209,7 @@ class DATA_PT_custom_props_light(
         :rtype: typing.Any
         """
 
-class DATA_PT_light(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_light(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -241,9 +242,9 @@ class DATA_PT_light_animation(
     rna_prop_ui.PropertyPanel,
     DataButtonsPanel,
     bl_ui.space_properties.PropertiesAnimationMixin,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
-    """Mix-in class for Animation panels.This class can be used to show a generic 'Animation' panel for IDs shown in
+    """Mix-in class for Animation panels.This class can be used to show a generic Animation panel for IDs shown in
     the properties editor. Specific ID types need specific subclasses.For an example, see DATA_PT_camera_animation in properties_data_camera.py
     """
 
@@ -277,7 +278,7 @@ class DATA_PT_light_animation(
         :param context:
         """
 
-class DATA_PT_preview(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_preview(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -307,7 +308,7 @@ class DATA_PT_preview(DataButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class DATA_PT_spot(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_spot(DataButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any

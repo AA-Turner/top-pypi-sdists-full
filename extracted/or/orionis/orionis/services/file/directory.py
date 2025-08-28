@@ -48,6 +48,28 @@ class Directory(IDirectory):
         """
         return Path(self.__app.path('console'))
 
+    def consoleCommands(self) -> Path:
+        """
+        Get the console commands directory path.
+
+        Returns
+        -------
+        Path
+            The path to the console commands directory.
+        """
+        return Path(self.__app.path('console')) / 'commands'
+
+    def consoleListeners(self) -> Path:
+        """
+        Get the console listeners directory path.
+
+        Returns
+        -------
+        Path
+            The path to the console listeners directory.
+        """
+        return Path(self.__app.path('console')) / 'listeners'
+
     def controllers(self) -> Path:
         """
         Get the controllers directory path.

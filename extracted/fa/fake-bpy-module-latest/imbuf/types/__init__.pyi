@@ -31,11 +31,17 @@ class ImBuf:
     :type: int
     """
 
-    ppm: typing.Any
-    """ pixels per meter."""
+    ppm: tuple[float, float]
+    """ pixels per meter.
 
-    size: typing.Any
-    """ size of the image in pixels."""
+    :type: tuple[float, float]
+    """
+
+    size: tuple[int, int]
+    """ size of the image in pixels.
+
+    :type: tuple[int, int]
+    """
 
     def copy(self) -> typing_extensions.Self:
         """
@@ -56,11 +62,11 @@ class ImBuf:
     def free(self) -> None:
         """Clear image data immediately (causing an error on re-use)."""
 
-    def resize(self, size: tuple[int, int], method: str = "FAST") -> None:
+    def resize(self, size: tuple[int, int], *, method: str = "FAST") -> None:
         """Resize the image.
 
         :param size: New size.
         :type size: tuple[int, int]
-        :param method: Method of resizing ('FAST', 'BILINEAR')
+        :param method: Method of resizing (FAST, BILINEAR)
         :type method: str
         """

@@ -82,6 +82,7 @@ class TestAnalyzeEnvironment:
         with (
             patch("hud.cli.analyze.MCPClient") as MockClient,
             patch("hud.cli.analyze.console") as mock_console,
+            patch("platform.system", return_value="Windows"),
         ):
             # Setup mock client that will raise exception during initialization
             mock_client = MagicMock()
@@ -100,7 +101,7 @@ class TestAnalyzeEnvironment:
             mock_client.initialize.assert_called_once()
             mock_client.shutdown.assert_called_once()
 
-            # Check console printed error hints
+            # Check console printed Windows-specific error hints
             calls = mock_console.print.call_args_list
             assert any("Docker logs may not show on Windows" in str(call) for call in calls)
 

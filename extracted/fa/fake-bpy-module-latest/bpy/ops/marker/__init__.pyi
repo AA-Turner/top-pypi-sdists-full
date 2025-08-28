@@ -3,7 +3,11 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 
-def add(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def add(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Add a new time marker
 
     :type execution_context: int | str | None
@@ -11,7 +15,9 @@ def add(execution_context: int | str | None = None, undo: bool | None = None) ->
     """
 
 def camera_bind(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Bind the selected camera to a marker on the current frame
 

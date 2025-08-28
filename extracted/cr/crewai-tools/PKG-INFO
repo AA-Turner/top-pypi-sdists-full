@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.62.3
+Version: 0.65.0
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
@@ -10,11 +10,11 @@ License-File: LICENSE
 Requires-Python: <3.14,>=3.10
 Requires-Dist: chromadb==0.5.23
 Requires-Dist: click>=8.1.8
-Requires-Dist: crewai>=0.159.0
+Requires-Dist: crewai>=0.165.1
 Requires-Dist: docker>=7.1.0
 Requires-Dist: embedchain>=0.1.114
 Requires-Dist: lancedb>=0.5.4
-Requires-Dist: openai<1.100.0
+Requires-Dist: openai>=1.12.0
 Requires-Dist: portalocker==2.7.0
 Requires-Dist: pydantic>=2.6.1
 Requires-Dist: pyright>=1.1.350
@@ -63,6 +63,9 @@ Provides-Extra: patronus
 Requires-Dist: patronus>=0.0.16; extra == 'patronus'
 Provides-Extra: qdrant-client
 Requires-Dist: qdrant-client>=1.12.1; extra == 'qdrant-client'
+Provides-Extra: rag
+Requires-Dist: lxml<5.4.0,>=5.3.0; extra == 'rag'
+Requires-Dist: python-docx>=1.1.0; extra == 'rag'
 Provides-Extra: scrapegraph-py
 Requires-Dist: scrapegraph-py>=1.9.0; extra == 'scrapegraph-py'
 Provides-Extra: scrapfly-sdk

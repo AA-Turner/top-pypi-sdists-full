@@ -40,9 +40,9 @@ def bvh(
         :type frame_start: int | None
         :param use_fps_scale: Scale FPS, Scale the framerate from the BVH to the current scenes, otherwise each BVH frame maps directly to a Blender frame
         :type use_fps_scale: bool | None
-        :param update_scene_fps: Update Scene FPS, Set the scene framerate to that of the BVH file (note that this nullifies the 'Scale FPS' option, as the scale will be 1:1)
+        :param update_scene_fps: Update Scene FPS, Set the scene framerate to that of the BVH file (note that this nullifies the Scale FPS option, as the scale will be 1:1)
         :type update_scene_fps: bool | None
-        :param update_scene_duration: Update Scene Duration, Extend the scene's duration to the BVH duration (never shortens the scene)
+        :param update_scene_duration: Update Scene Duration, Extend the scenes duration to the BVH duration (never shortens the scene)
         :type update_scene_duration: bool | None
         :param use_cyclic: Loop, Loop the animation playback
         :type use_cyclic: bool | None

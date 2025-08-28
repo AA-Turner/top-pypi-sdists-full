@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.utils
 import bpy.types
 
@@ -169,7 +170,7 @@ class ThemePanel:
     bl_region_type: typing.Any
     bl_space_type: typing.Any
 
-class USERPREF_HT_header(bpy.types.Header):
+class USERPREF_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
@@ -202,7 +203,7 @@ class USERPREF_HT_header(bpy.types.Header):
         :param context:
         """
 
-class USERPREF_MT_editor_menus(bpy.types.Menu):
+class USERPREF_MT_editor_menus(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -228,7 +229,7 @@ class USERPREF_MT_editor_menus(bpy.types.Menu):
         :param _context:
         """
 
-class USERPREF_MT_extensions_active_repo(bpy.types.Menu):
+class USERPREF_MT_extensions_active_repo(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -247,7 +248,7 @@ class USERPREF_MT_extensions_active_repo(bpy.types.Menu):
         :rtype: typing.Any
         """
 
-class USERPREF_MT_extensions_active_repo_remove(bpy.types.Menu):
+class USERPREF_MT_extensions_active_repo_remove(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -272,7 +273,7 @@ class USERPREF_MT_extensions_active_repo_remove(bpy.types.Menu):
         :param context:
         """
 
-class USERPREF_MT_interface_theme_presets(bpy.types.Menu):
+class USERPREF_MT_interface_theme_presets(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -312,7 +313,7 @@ class USERPREF_MT_interface_theme_presets(bpy.types.Menu):
         :param _filepath:
         """
 
-class USERPREF_MT_keyconfigs(bpy.types.Menu):
+class USERPREF_MT_keyconfigs(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -339,7 +340,7 @@ class USERPREF_MT_keyconfigs(bpy.types.Menu):
         :param context:
         """
 
-class USERPREF_MT_save_load(bpy.types.Menu):
+class USERPREF_MT_save_load(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -364,7 +365,7 @@ class USERPREF_MT_save_load(bpy.types.Menu):
         :param context:
         """
 
-class USERPREF_MT_view(bpy.types.Menu):
+class USERPREF_MT_view(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -389,7 +390,7 @@ class USERPREF_MT_view(bpy.types.Menu):
         :param _context:
         """
 
-class USERPREF_PT_addons(AddOnPanel, bpy.types.Panel):
+class USERPREF_PT_addons(AddOnPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -437,7 +438,7 @@ class USERPREF_PT_addons(AddOnPanel, bpy.types.Panel):
         :param user_addon_paths:
         """
 
-class USERPREF_PT_addons_filter(bpy.types.Panel):
+class USERPREF_PT_addons_filter(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -465,7 +466,7 @@ class USERPREF_PT_addons_filter(bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_animation_fcurves(CenterAlignMixIn, AnimationPanel, bpy.types.Panel):
+class USERPREF_PT_animation_fcurves(CenterAlignMixIn, AnimationPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -499,7 +500,7 @@ class USERPREF_PT_animation_fcurves(CenterAlignMixIn, AnimationPanel, bpy.types.
         """
 
 class USERPREF_PT_animation_keyframes(
-    CenterAlignMixIn, AnimationPanel, bpy.types.Panel
+    CenterAlignMixIn, AnimationPanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -533,7 +534,9 @@ class USERPREF_PT_animation_keyframes(
         :param layout:
         """
 
-class USERPREF_PT_animation_timeline(CenterAlignMixIn, AnimationPanel, bpy.types.Panel):
+class USERPREF_PT_animation_timeline(
+    CenterAlignMixIn, AnimationPanel, _bpy_types.Panel
+):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -566,7 +569,7 @@ class USERPREF_PT_animation_timeline(CenterAlignMixIn, AnimationPanel, bpy.types
         :param layout:
         """
 
-class USERPREF_PT_edit_annotations(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
+class USERPREF_PT_edit_annotations(CenterAlignMixIn, EditingPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -599,7 +602,7 @@ class USERPREF_PT_edit_annotations(CenterAlignMixIn, EditingPanel, bpy.types.Pan
         :param layout:
         """
 
-class USERPREF_PT_edit_cursor(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
+class USERPREF_PT_edit_cursor(CenterAlignMixIn, EditingPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -632,41 +635,7 @@ class USERPREF_PT_edit_cursor(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
         :param layout:
         """
 
-class USERPREF_PT_edit_gpencil(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
-    """Base class for panels to center align contents with some horizontal margin.
-    Deriving classes need to implement a draw_centered(context, layout) function.
-    """
-
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_options: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw_centered(self, context, layout) -> None:
-        """
-
-        :param context:
-        :param layout:
-        """
-
-class USERPREF_PT_edit_misc(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
+class USERPREF_PT_edit_gpencil(CenterAlignMixIn, EditingPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -700,7 +669,7 @@ class USERPREF_PT_edit_misc(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
         :param layout:
         """
 
-class USERPREF_PT_edit_node_editor(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
+class USERPREF_PT_edit_misc(CenterAlignMixIn, EditingPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -734,7 +703,41 @@ class USERPREF_PT_edit_node_editor(CenterAlignMixIn, EditingPanel, bpy.types.Pan
         :param layout:
         """
 
-class USERPREF_PT_edit_objects(EditingPanel, bpy.types.Panel):
+class USERPREF_PT_edit_node_editor(CenterAlignMixIn, EditingPanel, _bpy_types.Panel):
+    """Base class for panels to center align contents with some horizontal margin.
+    Deriving classes need to implement a draw_centered(context, layout) function.
+    """
+
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw_centered(self, context, layout) -> None:
+        """
+
+        :param context:
+        :param layout:
+        """
+
+class USERPREF_PT_edit_objects(EditingPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -763,7 +766,7 @@ class USERPREF_PT_edit_objects(EditingPanel, bpy.types.Panel):
         """
 
 class USERPREF_PT_edit_objects_duplicate_data(
-    CenterAlignMixIn, EditingPanel, bpy.types.Panel
+    CenterAlignMixIn, EditingPanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -799,7 +802,7 @@ class USERPREF_PT_edit_objects_duplicate_data(
         :param layout:
         """
 
-class USERPREF_PT_edit_objects_new(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
+class USERPREF_PT_edit_objects_new(CenterAlignMixIn, EditingPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -833,7 +836,9 @@ class USERPREF_PT_edit_objects_new(CenterAlignMixIn, EditingPanel, bpy.types.Pan
         :param layout:
         """
 
-class USERPREF_PT_edit_sequence_editor(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
+class USERPREF_PT_edit_sequence_editor(
+    CenterAlignMixIn, EditingPanel, _bpy_types.Panel
+):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -867,7 +872,7 @@ class USERPREF_PT_edit_sequence_editor(CenterAlignMixIn, EditingPanel, bpy.types
         :param layout:
         """
 
-class USERPREF_PT_edit_text_editor(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
+class USERPREF_PT_edit_text_editor(CenterAlignMixIn, EditingPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -901,7 +906,7 @@ class USERPREF_PT_edit_text_editor(CenterAlignMixIn, EditingPanel, bpy.types.Pan
         :param layout:
         """
 
-class USERPREF_PT_edit_weight_paint(CenterAlignMixIn, EditingPanel, bpy.types.Panel):
+class USERPREF_PT_edit_weight_paint(CenterAlignMixIn, EditingPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -935,7 +940,7 @@ class USERPREF_PT_edit_weight_paint(CenterAlignMixIn, EditingPanel, bpy.types.Pa
         :param layout:
         """
 
-class USERPREF_PT_experimental_debugging(ExperimentalPanel, bpy.types.Panel):
+class USERPREF_PT_experimental_debugging(ExperimentalPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -971,7 +976,7 @@ class USERPREF_PT_experimental_debugging(ExperimentalPanel, bpy.types.Panel):
         :param _context:
         """
 
-class USERPREF_PT_experimental_new_features(ExperimentalPanel, bpy.types.Panel):
+class USERPREF_PT_experimental_new_features(ExperimentalPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1000,7 +1005,7 @@ class USERPREF_PT_experimental_new_features(ExperimentalPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_experimental_prototypes(ExperimentalPanel, bpy.types.Panel):
+class USERPREF_PT_experimental_prototypes(ExperimentalPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1029,7 +1034,7 @@ class USERPREF_PT_experimental_prototypes(ExperimentalPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_extensions(ExtensionsPanel, bpy.types.Panel):
+class USERPREF_PT_extensions(ExtensionsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -1052,7 +1057,7 @@ class USERPREF_PT_extensions(ExtensionsPanel, bpy.types.Panel):
         :rtype: typing.Any
         """
 
-class USERPREF_PT_extensions_repos(bpy.types.Panel):
+class USERPREF_PT_extensions_repos(_bpy_types.Panel):
     bl_label: typing.Any
     bl_options: typing.Any
     bl_region_type: typing.Any
@@ -1081,7 +1086,7 @@ class USERPREF_PT_extensions_repos(bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_file_paths_applications(FilePathsPanel, bpy.types.Panel):
+class USERPREF_PT_file_paths_applications(FilePathsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -1110,7 +1115,7 @@ class USERPREF_PT_file_paths_applications(FilePathsPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_file_paths_asset_libraries(FilePathsPanel, bpy.types.Panel):
+class USERPREF_PT_file_paths_asset_libraries(FilePathsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1138,7 +1143,7 @@ class USERPREF_PT_file_paths_asset_libraries(FilePathsPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_file_paths_data(FilePathsPanel, bpy.types.Panel):
+class USERPREF_PT_file_paths_data(FilePathsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1166,7 +1171,7 @@ class USERPREF_PT_file_paths_data(FilePathsPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_file_paths_development(FilePathsPanel, bpy.types.Panel):
+class USERPREF_PT_file_paths_development(FilePathsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -1202,7 +1207,7 @@ class USERPREF_PT_file_paths_development(FilePathsPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_file_paths_render(FilePathsPanel, bpy.types.Panel):
+class USERPREF_PT_file_paths_render(FilePathsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_parent_id: typing.Any
@@ -1231,7 +1236,7 @@ class USERPREF_PT_file_paths_render(FilePathsPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_file_paths_script_directories(FilePathsPanel, bpy.types.Panel):
+class USERPREF_PT_file_paths_script_directories(FilePathsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1259,7 +1264,7 @@ class USERPREF_PT_file_paths_script_directories(FilePathsPanel, bpy.types.Panel)
         :param context:
         """
 
-class USERPREF_PT_input_keyboard(CenterAlignMixIn, InputPanel, bpy.types.Panel):
+class USERPREF_PT_input_keyboard(CenterAlignMixIn, InputPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -1292,7 +1297,7 @@ class USERPREF_PT_input_keyboard(CenterAlignMixIn, InputPanel, bpy.types.Panel):
         :param layout:
         """
 
-class USERPREF_PT_input_mouse(CenterAlignMixIn, InputPanel, bpy.types.Panel):
+class USERPREF_PT_input_mouse(CenterAlignMixIn, InputPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -1325,81 +1330,7 @@ class USERPREF_PT_input_mouse(CenterAlignMixIn, InputPanel, bpy.types.Panel):
         :param layout:
         """
 
-class USERPREF_PT_input_ndof(CenterAlignMixIn, InputPanel, bpy.types.Panel):
-    """Base class for panels to center align contents with some horizontal margin.
-    Deriving classes need to implement a draw_centered(context, layout) function.
-    """
-
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_options: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw_centered(self, context, layout) -> None:
-        """
-
-        :param context:
-        :param layout:
-        """
-
-    @classmethod
-    def poll(cls, context) -> None:
-        """
-
-        :param context:
-        """
-
-class USERPREF_PT_input_tablet(CenterAlignMixIn, InputPanel, bpy.types.Panel):
-    """Base class for panels to center align contents with some horizontal margin.
-    Deriving classes need to implement a draw_centered(context, layout) function.
-    """
-
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw_centered(self, context, layout) -> None:
-        """
-
-        :param context:
-        :param layout:
-        """
-
-class USERPREF_PT_input_touchpad(CenterAlignMixIn, InputPanel, bpy.types.Panel):
+class USERPREF_PT_input_ndof(CenterAlignMixIn, InputPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -1440,7 +1371,7 @@ class USERPREF_PT_input_touchpad(CenterAlignMixIn, InputPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_interface_display(CenterAlignMixIn, InterfacePanel, bpy.types.Panel):
+class USERPREF_PT_input_tablet(CenterAlignMixIn, InputPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -1473,7 +1404,48 @@ class USERPREF_PT_interface_display(CenterAlignMixIn, InterfacePanel, bpy.types.
         :param layout:
         """
 
-class USERPREF_PT_interface_editors(CenterAlignMixIn, InterfacePanel, bpy.types.Panel):
+class USERPREF_PT_input_touchpad(CenterAlignMixIn, InputPanel, _bpy_types.Panel):
+    """Base class for panels to center align contents with some horizontal margin.
+    Deriving classes need to implement a draw_centered(context, layout) function.
+    """
+
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw_centered(self, context, layout) -> None:
+        """
+
+        :param context:
+        :param layout:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
+class USERPREF_PT_interface_display(CenterAlignMixIn, InterfacePanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -1506,7 +1478,40 @@ class USERPREF_PT_interface_editors(CenterAlignMixIn, InterfacePanel, bpy.types.
         :param layout:
         """
 
-class USERPREF_PT_interface_menus(InterfacePanel, bpy.types.Panel):
+class USERPREF_PT_interface_editors(CenterAlignMixIn, InterfacePanel, _bpy_types.Panel):
+    """Base class for panels to center align contents with some horizontal margin.
+    Deriving classes need to implement a draw_centered(context, layout) function.
+    """
+
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw_centered(self, context, layout) -> None:
+        """
+
+        :param context:
+        :param layout:
+        """
+
+class USERPREF_PT_interface_menus(InterfacePanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -1536,7 +1541,7 @@ class USERPREF_PT_interface_menus(InterfacePanel, bpy.types.Panel):
         """
 
 class USERPREF_PT_interface_menus_mouse_over(
-    CenterAlignMixIn, InterfacePanel, bpy.types.Panel
+    CenterAlignMixIn, InterfacePanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -1578,7 +1583,7 @@ class USERPREF_PT_interface_menus_mouse_over(
         """
 
 class USERPREF_PT_interface_menus_pie(
-    CenterAlignMixIn, InterfacePanel, bpy.types.Panel
+    CenterAlignMixIn, InterfacePanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -1614,7 +1619,7 @@ class USERPREF_PT_interface_menus_pie(
         """
 
 class USERPREF_PT_interface_statusbar(
-    CenterAlignMixIn, InterfacePanel, bpy.types.Panel
+    CenterAlignMixIn, InterfacePanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -1651,7 +1656,7 @@ class USERPREF_PT_interface_statusbar(
         """
 
 class USERPREF_PT_interface_temporary_windows(
-    CenterAlignMixIn, InterfacePanel, bpy.types.Panel
+    CenterAlignMixIn, InterfacePanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -1687,7 +1692,7 @@ class USERPREF_PT_interface_temporary_windows(
         :param layout:
         """
 
-class USERPREF_PT_interface_text(CenterAlignMixIn, InterfacePanel, bpy.types.Panel):
+class USERPREF_PT_interface_text(CenterAlignMixIn, InterfacePanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -1722,7 +1727,7 @@ class USERPREF_PT_interface_text(CenterAlignMixIn, InterfacePanel, bpy.types.Pan
         """
 
 class USERPREF_PT_interface_translation(
-    CenterAlignMixIn, InterfacePanel, bpy.types.Panel
+    CenterAlignMixIn, InterfacePanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -1764,7 +1769,7 @@ class USERPREF_PT_interface_translation(
         :param _context:
         """
 
-class USERPREF_PT_keymap(KeymapPanel, bpy.types.Panel):
+class USERPREF_PT_keymap(KeymapPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -1793,7 +1798,7 @@ class USERPREF_PT_keymap(KeymapPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_navigation_bar(bpy.types.Panel):
+class USERPREF_PT_navigation_bar(_bpy_types.Panel):
     bl_label: typing.Any
     bl_options: typing.Any
     bl_region_type: typing.Any
@@ -1822,7 +1827,7 @@ class USERPREF_PT_navigation_bar(bpy.types.Panel):
         """
 
 class USERPREF_PT_navigation_fly_walk(
-    CenterAlignMixIn, NavigationPanel, bpy.types.Panel
+    CenterAlignMixIn, NavigationPanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -1857,7 +1862,7 @@ class USERPREF_PT_navigation_fly_walk(
         """
 
 class USERPREF_PT_navigation_fly_walk_gravity(
-    CenterAlignMixIn, NavigationPanel, bpy.types.Panel
+    CenterAlignMixIn, NavigationPanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -1907,7 +1912,7 @@ class USERPREF_PT_navigation_fly_walk_gravity(
         """
 
 class USERPREF_PT_navigation_fly_walk_navigation(
-    CenterAlignMixIn, NavigationPanel, bpy.types.Panel
+    CenterAlignMixIn, NavigationPanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -1950,7 +1955,7 @@ class USERPREF_PT_navigation_fly_walk_navigation(
         :param context:
         """
 
-class USERPREF_PT_navigation_orbit(CenterAlignMixIn, NavigationPanel, bpy.types.Panel):
+class USERPREF_PT_navigation_orbit(CenterAlignMixIn, NavigationPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -1983,7 +1988,7 @@ class USERPREF_PT_navigation_orbit(CenterAlignMixIn, NavigationPanel, bpy.types.
         :param layout:
         """
 
-class USERPREF_PT_navigation_zoom(CenterAlignMixIn, NavigationPanel, bpy.types.Panel):
+class USERPREF_PT_navigation_zoom(CenterAlignMixIn, NavigationPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2016,7 +2021,7 @@ class USERPREF_PT_navigation_zoom(CenterAlignMixIn, NavigationPanel, bpy.types.P
         :param layout:
         """
 
-class USERPREF_PT_ndof_settings(bpy.types.Panel):
+class USERPREF_PT_ndof_settings(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -2053,7 +2058,7 @@ class USERPREF_PT_ndof_settings(bpy.types.Panel):
         :param show_3dview_settings:
         """
 
-class USERPREF_PT_save_preferences(bpy.types.Panel):
+class USERPREF_PT_save_preferences(_bpy_types.Panel):
     bl_label: typing.Any
     bl_options: typing.Any
     bl_region_type: typing.Any
@@ -2088,7 +2093,7 @@ class USERPREF_PT_save_preferences(bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_saveload_autorun(FilePathsPanel, bpy.types.Panel):
+class USERPREF_PT_saveload_autorun(FilePathsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_parent_id: typing.Any
@@ -2123,7 +2128,7 @@ class USERPREF_PT_saveload_autorun(FilePathsPanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_saveload_blend(CenterAlignMixIn, SaveLoadPanel, bpy.types.Panel):
+class USERPREF_PT_saveload_blend(CenterAlignMixIn, SaveLoadPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2157,7 +2162,7 @@ class USERPREF_PT_saveload_blend(CenterAlignMixIn, SaveLoadPanel, bpy.types.Pane
         """
 
 class USERPREF_PT_saveload_file_browser(
-    CenterAlignMixIn, SaveLoadPanel, bpy.types.Panel
+    CenterAlignMixIn, SaveLoadPanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -2191,7 +2196,7 @@ class USERPREF_PT_saveload_file_browser(
         :param layout:
         """
 
-class USERPREF_PT_studiolight_light_editor(StudioLightPanel, bpy.types.Panel):
+class USERPREF_PT_studiolight_light_editor(StudioLightPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -2230,7 +2235,7 @@ class USERPREF_PT_studiolight_light_editor(StudioLightPanel, bpy.types.Panel):
         """
 
 class USERPREF_PT_studiolight_lights(
-    StudioLightPanelMixin, StudioLightPanel, bpy.types.Panel
+    StudioLightPanelMixin, StudioLightPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2263,7 +2268,7 @@ class USERPREF_PT_studiolight_lights(
     def get_error_message(self) -> None: ...
 
 class USERPREF_PT_studiolight_matcaps(
-    StudioLightPanelMixin, StudioLightPanel, bpy.types.Panel
+    StudioLightPanelMixin, StudioLightPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2296,7 +2301,7 @@ class USERPREF_PT_studiolight_matcaps(
     def get_error_message(self) -> None: ...
 
 class USERPREF_PT_studiolight_world(
-    StudioLightPanelMixin, StudioLightPanel, bpy.types.Panel
+    StudioLightPanelMixin, StudioLightPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2328,7 +2333,9 @@ class USERPREF_PT_studiolight_world(
 
     def get_error_message(self) -> None: ...
 
-class USERPREF_PT_system_cycles_devices(CenterAlignMixIn, SystemPanel, bpy.types.Panel):
+class USERPREF_PT_system_cycles_devices(
+    CenterAlignMixIn, SystemPanel, _bpy_types.Panel
+):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2362,7 +2369,7 @@ class USERPREF_PT_system_cycles_devices(CenterAlignMixIn, SystemPanel, bpy.types
         """
 
 class USERPREF_PT_system_display_graphics(
-    CenterAlignMixIn, SystemPanel, bpy.types.Panel
+    CenterAlignMixIn, SystemPanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -2403,7 +2410,7 @@ class USERPREF_PT_system_display_graphics(
         :param _context:
         """
 
-class USERPREF_PT_system_memory(CenterAlignMixIn, SystemPanel, bpy.types.Panel):
+class USERPREF_PT_system_memory(CenterAlignMixIn, SystemPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2436,7 +2443,7 @@ class USERPREF_PT_system_memory(CenterAlignMixIn, SystemPanel, bpy.types.Panel):
         :param layout:
         """
 
-class USERPREF_PT_system_network(CenterAlignMixIn, SystemPanel, bpy.types.Panel):
+class USERPREF_PT_system_network(CenterAlignMixIn, SystemPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2469,7 +2476,7 @@ class USERPREF_PT_system_network(CenterAlignMixIn, SystemPanel, bpy.types.Panel)
         :param layout:
         """
 
-class USERPREF_PT_system_os_settings(CenterAlignMixIn, SystemPanel, bpy.types.Panel):
+class USERPREF_PT_system_os_settings(CenterAlignMixIn, SystemPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2509,7 +2516,7 @@ class USERPREF_PT_system_os_settings(CenterAlignMixIn, SystemPanel, bpy.types.Pa
         :param _context:
         """
 
-class USERPREF_PT_system_sound(CenterAlignMixIn, SystemPanel, bpy.types.Panel):
+class USERPREF_PT_system_sound(CenterAlignMixIn, SystemPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2544,7 +2551,7 @@ class USERPREF_PT_system_sound(CenterAlignMixIn, SystemPanel, bpy.types.Panel):
         """
 
 class USERPREF_PT_system_video_sequencer(
-    CenterAlignMixIn, SystemPanel, bpy.types.Panel
+    CenterAlignMixIn, SystemPanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -2578,7 +2585,7 @@ class USERPREF_PT_system_video_sequencer(
         :param layout:
         """
 
-class USERPREF_PT_text_editor(FilePathsPanel, bpy.types.Panel):
+class USERPREF_PT_text_editor(FilePathsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_parent_id: typing.Any
@@ -2613,7 +2620,7 @@ class USERPREF_PT_text_editor(FilePathsPanel, bpy.types.Panel):
         :param _context:
         """
 
-class USERPREF_PT_text_editor_presets(bl_ui.utils.PresetPanel, bpy.types.Panel):
+class USERPREF_PT_text_editor_presets(bl_ui.utils.PresetPanel, _bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -2637,7 +2644,7 @@ class USERPREF_PT_text_editor_presets(bl_ui.utils.PresetPanel, bpy.types.Panel):
         :rtype: typing.Any
         """
 
-class USERPREF_PT_theme(ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme(ThemePanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -2666,7 +2673,7 @@ class USERPREF_PT_theme(ThemePanel, bpy.types.Panel):
         :param context:
         """
 
-class USERPREF_PT_theme_bone_color_sets(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme_bone_color_sets(CenterAlignMixIn, ThemePanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2707,7 +2714,7 @@ class USERPREF_PT_theme_bone_color_sets(CenterAlignMixIn, ThemePanel, bpy.types.
         """
 
 class USERPREF_PT_theme_collection_colors(
-    CenterAlignMixIn, ThemePanel, bpy.types.Panel
+    CenterAlignMixIn, ThemePanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -2748,7 +2755,9 @@ class USERPREF_PT_theme_collection_colors(
         :param _context:
         """
 
-class USERPREF_PT_theme_interface_gizmos(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme_interface_gizmos(
+    CenterAlignMixIn, ThemePanel, _bpy_types.Panel
+):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2783,7 +2792,7 @@ class USERPREF_PT_theme_interface_gizmos(CenterAlignMixIn, ThemePanel, bpy.types
         :param layout:
         """
 
-class USERPREF_PT_theme_interface_icons(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme_interface_icons(CenterAlignMixIn, ThemePanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2818,7 +2827,7 @@ class USERPREF_PT_theme_interface_icons(CenterAlignMixIn, ThemePanel, bpy.types.
         :param layout:
         """
 
-class USERPREF_PT_theme_interface_panel(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme_interface_panel(CenterAlignMixIn, ThemePanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2853,7 +2862,7 @@ class USERPREF_PT_theme_interface_panel(CenterAlignMixIn, ThemePanel, bpy.types.
         :param layout:
         """
 
-class USERPREF_PT_theme_interface_state(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme_interface_state(CenterAlignMixIn, ThemePanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2888,7 +2897,9 @@ class USERPREF_PT_theme_interface_state(CenterAlignMixIn, ThemePanel, bpy.types.
         :param layout:
         """
 
-class USERPREF_PT_theme_interface_styles(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme_interface_styles(
+    CenterAlignMixIn, ThemePanel, _bpy_types.Panel
+):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -2924,7 +2935,7 @@ class USERPREF_PT_theme_interface_styles(CenterAlignMixIn, ThemePanel, bpy.types
         """
 
 class USERPREF_PT_theme_interface_transparent_checker(
-    CenterAlignMixIn, ThemePanel, bpy.types.Panel
+    CenterAlignMixIn, ThemePanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -2960,7 +2971,7 @@ class USERPREF_PT_theme_interface_transparent_checker(
         :param layout:
         """
 
-class USERPREF_PT_theme_strip_colors(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme_strip_colors(CenterAlignMixIn, ThemePanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -3000,7 +3011,7 @@ class USERPREF_PT_theme_strip_colors(CenterAlignMixIn, ThemePanel, bpy.types.Pan
         :param _context:
         """
 
-class USERPREF_PT_theme_text_style(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme_text_style(CenterAlignMixIn, ThemePanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -3040,7 +3051,7 @@ class USERPREF_PT_theme_text_style(CenterAlignMixIn, ThemePanel, bpy.types.Panel
         :param _context:
         """
 
-class USERPREF_PT_theme_user_interface(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+class USERPREF_PT_theme_user_interface(CenterAlignMixIn, ThemePanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -3079,7 +3090,7 @@ class USERPREF_PT_theme_user_interface(CenterAlignMixIn, ThemePanel, bpy.types.P
         :param _context:
         """
 
-class USERPREF_PT_viewport_display(CenterAlignMixIn, ViewportPanel, bpy.types.Panel):
+class USERPREF_PT_viewport_display(CenterAlignMixIn, ViewportPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -3112,7 +3123,7 @@ class USERPREF_PT_viewport_display(CenterAlignMixIn, ViewportPanel, bpy.types.Pa
         :param layout:
         """
 
-class USERPREF_PT_viewport_quality(CenterAlignMixIn, ViewportPanel, bpy.types.Panel):
+class USERPREF_PT_viewport_quality(CenterAlignMixIn, ViewportPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -3146,7 +3157,7 @@ class USERPREF_PT_viewport_quality(CenterAlignMixIn, ViewportPanel, bpy.types.Pa
         """
 
 class USERPREF_PT_viewport_subdivision(
-    CenterAlignMixIn, ViewportPanel, bpy.types.Panel
+    CenterAlignMixIn, ViewportPanel, _bpy_types.Panel
 ):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -3181,7 +3192,7 @@ class USERPREF_PT_viewport_subdivision(
         :param layout:
         """
 
-class USERPREF_PT_viewport_textures(CenterAlignMixIn, ViewportPanel, bpy.types.Panel):
+class USERPREF_PT_viewport_textures(CenterAlignMixIn, ViewportPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
     """
@@ -3214,7 +3225,7 @@ class USERPREF_PT_viewport_textures(CenterAlignMixIn, ViewportPanel, bpy.types.P
         :param layout:
         """
 
-class USERPREF_UL_asset_libraries(bpy.types.UIList):
+class USERPREF_UL_asset_libraries(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -3255,7 +3266,7 @@ class USERPREF_UL_asset_libraries(bpy.types.UIList):
         :param _index:
         """
 
-class USERPREF_UL_extension_repos(bpy.types.UIList):
+class USERPREF_UL_extension_repos(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 

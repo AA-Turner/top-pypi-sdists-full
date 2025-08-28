@@ -30,7 +30,9 @@ def asset_activate(
     """
 
 def asset_delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete the active brush asset
 
@@ -51,7 +53,7 @@ def asset_edit_metadata(
 
     :type execution_context: int | str | None
     :type undo: bool | None
-    :param catalog_path: Catalog, The asset's catalog path
+    :param catalog_path: Catalog, The assets catalog path
     :type catalog_path: str
     :param author: Author
     :type author: str
@@ -159,7 +161,9 @@ def asset_load_preview(
     """
 
 def asset_revert(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Revert the active brush settings to the default values from the asset library
 
@@ -168,7 +172,9 @@ def asset_revert(
     """
 
 def asset_save(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Update the active brush asset in the asset library with current settings
 

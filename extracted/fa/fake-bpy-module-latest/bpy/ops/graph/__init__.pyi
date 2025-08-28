@@ -7,7 +7,9 @@ import bpy.stub_internal.rna_enums
 import bpy.types
 
 def bake_keys(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add keyframes on every frame between the selected keyframes
 
@@ -189,7 +191,11 @@ def clickselect(
     :type curves: bool | None
     """
 
-def copy(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def copy(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Copy selected keyframes to the internal clipboard
 
     :type execution_context: int | str | None
@@ -257,7 +263,9 @@ def delete(
     """
 
 def driver_delete_invalid(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete all visible drivers considered invalid
 
@@ -266,7 +274,9 @@ def driver_delete_invalid(
     """
 
 def driver_variables_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the driver variables of the active driver
 
@@ -364,29 +374,31 @@ def equalize_handles(
     handle_length: float | None = 5.0,
     flatten: bool | None = False,
 ) -> None:
-    """Ensure selected keyframes' handles have equal length, optionally making them horizontal. Automatic, Automatic Clamped, or Vector handle types will be converted to Aligned
+    """Ensure selected keyframes handles have equal length, optionally making them horizontal. Automatic, Automatic Clamped, or Vector handle types will be converted to Aligned
 
         :type execution_context: int | str | None
         :type undo: bool | None
-        :param side: Side, Side of the keyframes' Bézier handles to affect
+        :param side: Side, Side of the keyframes Bézier handles to affect
 
     LEFT
-    Left -- Equalize selected keyframes' left handles.
+    Left -- Equalize selected keyframes left handles.
 
     RIGHT
-    Right -- Equalize selected keyframes' right handles.
+    Right -- Equalize selected keyframes right handles.
 
     BOTH
-    Both -- Equalize both of a keyframe's handles.
+    Both -- Equalize both of a keyframes handles.
         :type side: typing.Literal['LEFT','RIGHT','BOTH'] | None
-        :param handle_length: Handle Length, Length to make selected keyframes' Bézier handles
+        :param handle_length: Handle Length, Length to make selected keyframes Bézier handles
         :type handle_length: float | None
-        :param flatten: Flatten, Make the values of the selected keyframes' handles the same as their respective keyframes
+        :param flatten: Flatten, Make the values of the selected keyframes handles the same as their respective keyframes
         :type flatten: bool | None
     """
 
 def euler_filter(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Fix large jumps and flips in the selected Euler Rotation F-Curves arising from rotation values being clipped when baking physics
 
@@ -415,7 +427,7 @@ def extrapolation_type(
     Linear Extrapolation -- Straight-line slope of end segments are extended past the endpoint keyframes.
 
     MAKE_CYCLIC
-    Make Cyclic (F-Modifier) -- Add Cycles F-Modifier if one doesn't exist already.
+    Make Cyclic (F-Modifier) -- Add Cycles F-Modifier if one does not exist already.
 
     CLEAR_CYCLIC
     Clear Cyclic (F-Modifier) -- Remove Cycles F-Modifier if not needed anymore.
@@ -441,7 +453,9 @@ def fmodifier_add(
     """
 
 def fmodifier_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the F-Modifier(s) of the active F-Curve
 
@@ -468,7 +482,9 @@ def fmodifier_paste(
     """
 
 def frame_jump(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Place the cursor on the midpoint of selected keyframes
 
@@ -498,7 +514,9 @@ def gaussian_smooth(
     """
 
 def ghost_curves_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear F-Curve snapshots (Ghosts) for active Graph Editor
 
@@ -507,7 +525,9 @@ def ghost_curves_clear(
     """
 
 def ghost_curves_create(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create snapshot (Ghosts) of selected F-Curves as background aid for active Graph Editor
 
@@ -576,13 +596,13 @@ def keyframe_insert(
         :param type: Type
 
     ALL
-    All Channels -- Insert a keyframe on all visible and editable F-Curves using each curve's current value.
+    All Channels -- Insert a keyframe on all visible and editable F-Curves using each curves current value.
 
     SEL
-    Only Selected Channels -- Insert a keyframe on selected F-Curves using each curve's current value.
+    Only Selected Channels -- Insert a keyframe on selected F-Curves using each curves current value.
 
     ACTIVE
-    Only Active F-Curve -- Insert a keyframe on the active F-Curve using the curve's current value.
+    Only Active F-Curve -- Insert a keyframe on the active F-Curve using the curves current value.
 
     CURSOR_ACTIVE
     Active Channels at Cursor -- Insert a keyframe for the active F-Curve at the cursor point.
@@ -608,7 +628,9 @@ def keyframe_jump(
     """
 
 def keys_to_samples(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Convert selected channels to an uneditable set of samples to save storage space
 
@@ -687,7 +709,9 @@ def paste(
     """
 
 def previewrange_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set Preview Range based on range of selected keyframes
 
@@ -726,7 +750,9 @@ def reveal(
     """
 
 def samples_to_keys(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Convert selected channels from samples to keyframes
 
@@ -1012,7 +1038,9 @@ def select_leftright(
     """
 
 def select_less(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Deselect keyframes on ends of selection islands
 
@@ -1021,7 +1049,9 @@ def select_less(
     """
 
 def select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select keyframes occurring in the same F-Curves as selected ones
 
@@ -1030,7 +1060,9 @@ def select_linked(
     """
 
 def select_more(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select keyframes beside already selected ones
 
@@ -1063,7 +1095,9 @@ def shear(
     """
 
 def smooth(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Apply weighted moving means to make selected F-Curves less bumpy
 
@@ -1113,7 +1147,9 @@ def snap(
     """
 
 def snap_cursor_value(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Place the cursor value on the average value of selected keyframes
 
@@ -1275,7 +1311,9 @@ def view_all(
     """
 
 def view_frame(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move the view to the current frame
 

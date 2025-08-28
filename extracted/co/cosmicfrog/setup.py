@@ -47,7 +47,7 @@ if not PSYCOPG2_INSTALLED:
 setup(
     name="cosmicfrog",
     include_package_data=True,
-    version="1.0.20",
+    version="1.0.21",
     description="Helpful utilities for working with Cosmic Frog models",
     url="https://cosmicfrog.com",
     author="Optilogic",

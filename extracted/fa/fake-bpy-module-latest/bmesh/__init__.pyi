@@ -32,7 +32,7 @@ def from_edit_mesh(mesh: bpy.types.Mesh) -> bmesh.types.BMesh:
     :rtype: bmesh.types.BMesh
     """
 
-def new(use_operators: bool = True) -> bmesh.types.BMesh:
+def new(*, use_operators: bool = True) -> bmesh.types.BMesh:
     """
 
     :param use_operators: Support calling operators in `bmesh.ops` (uses some extra memory per vert/edge/face).
@@ -42,7 +42,7 @@ def new(use_operators: bool = True) -> bmesh.types.BMesh:
     """
 
 def update_edit_mesh(
-    mesh: bpy.types.Mesh, loop_triangles: bool = True, destructive: bool = True
+    mesh: bpy.types.Mesh, *, loop_triangles: bool = True, destructive: bool = True
 ) -> None:
     """Update the mesh after changes to the BMesh in editmode,
     optionally recalculating n-gon tessellation.

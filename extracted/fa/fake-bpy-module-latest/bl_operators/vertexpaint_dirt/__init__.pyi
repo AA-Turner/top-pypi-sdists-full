@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class VertexPaintDirt(bpy.types.Operator):
+class VertexPaintDirt(_bpy_types.Operator):
     """Generate a dirt map gradient based on cavity"""
 
     bl_idname: typing.Any

@@ -51,6 +51,7 @@ __all__ = (
     "FargateProfileIssueCodeType",
     "FargateProfileStatusType",
     "InsightStatusValueType",
+    "InsightsRefreshStatusType",
     "IpFamilyType",
     "ListAccessEntriesPaginatorName",
     "ListAccessPoliciesPaginatorName",
@@ -198,6 +199,7 @@ FargateProfileStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING"
 ]
 InsightStatusValueType = Literal["ERROR", "PASSING", "UNKNOWN", "WARNING"]
+InsightsRefreshStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 IpFamilyType = Literal["ipv4", "ipv6"]
 ListAccessEntriesPaginatorName = Literal["list_access_entries"]
 ListAccessPoliciesPaginatorName = Literal["list_access_policies"]
@@ -602,8 +604,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -736,16 +736,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_addon_versions",

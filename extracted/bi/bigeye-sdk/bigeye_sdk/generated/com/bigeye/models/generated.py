@@ -654,6 +654,7 @@ class IssueSortField(betterproto.Enum):
     ISSUE_SORT_FIELD_METRIC_CATEGORY = 11
     ISSUE_SORT_FIELD_ASSIGNEE = 12
     ISSUE_SORT_FIELD_IS_ROOT_CAUSE = 13
+    ISSUE_SORT_FIELD_DIMENSION = 14
 
 
 class MetricSortField(betterproto.Enum):
@@ -922,6 +923,7 @@ class PermissionDomain(betterproto.Enum):
     PERMISSION_DOMAIN_COLLECTION = 4
     PERMISSION_DOMAIN_WORKSPACE_TAG = 5
     PERMISSION_DOMAIN_WORKSPACE_TAG_ENTITY = 6
+    PERMISSION_DOMAIN_PROFILE = 7
 
 
 class PermissionAction(betterproto.Enum):
@@ -929,6 +931,7 @@ class PermissionAction(betterproto.Enum):
     PERMISSION_ACTION_ALL = 1
     PERMISSION_ACTION_PREVIEW = 2
     PERMISSION_ACTION_WRITE = 3
+    PERMISSION_ACTION_EXECUTE = 4
 
 
 class RoleOperation(betterproto.Enum):
@@ -1010,6 +1013,7 @@ class TagSortField(betterproto.Enum):
 class SampleMethod(betterproto.Enum):
     SAMPLE_METHOD_UNSPECIFIED = 0
     SAMPLE_METHOD_SIMPLE_LIMIT = 1
+    SAMPLE_METHOD_FULL_TABLE_SCAN = 2
 
 
 class TopLevelCategory(betterproto.Enum):
@@ -2470,6 +2474,7 @@ class GetDbtProjectsRequest(betterproto.Message):
     sort_options: List["DbtProjectSortOption"] = betterproto.message_field(4)
     search: str = betterproto.string_field(5)
     workspace_id: int = betterproto.int32_field(6)
+    tag_ids: List[int] = betterproto.int32_field(7)
 
 
 @dataclass
@@ -2647,6 +2652,7 @@ class TableColumn(betterproto.Message):
     is_nullable: bool = betterproto.bool_field(12)
     tags: List["Tag"] = betterproto.message_field(13)
     is_key_in_join: bool = betterproto.bool_field(14)
+    extended_type: str = betterproto.string_field(15)
 
 
 @dataclass
@@ -3982,6 +3988,7 @@ class MetricTemplate(betterproto.Message):
     )
     source: "Warehouse" = betterproto.message_field(6)
     dimension: "IdAndDisplayName" = betterproto.message_field(7)
+    entity_info: "EntityInfo" = betterproto.message_field(8)
 
 
 @dataclass
@@ -5579,6 +5586,7 @@ class GetCustomRuleListRequest(betterproto.Message):
     rule_types: List["CustomRuleType"] = betterproto.enum_field(11)
     dimension_ids: List[int] = betterproto.int32_field(12)
     workspace_id: int = betterproto.int32_field(13)
+    tag_ids: List[int] = betterproto.int32_field(14)
 
 
 @dataclass
@@ -5606,6 +5614,7 @@ class GetMetricObservedColumnBulkRequest(betterproto.Message):
     is_for_custom_rule: bool = betterproto.bool_field(5)
     remove_duplicate_metrics: bool = betterproto.bool_field(6)
     source_ids: List[int] = betterproto.int32_field(7)
+    tag_ids: List[int] = betterproto.int32_field(8)
 
 
 @dataclass
@@ -5913,10 +5922,13 @@ class TableProfile(betterproto.Message):
 
     table_id: int = betterproto.int32_field(1)
     sample_selection: "SampleSelection" = betterproto.message_field(2)
-    run_at: int = betterproto.int64_field(3)
-    full_row_count: int = betterproto.int64_field(4)
-    sample_row_count: int = betterproto.int32_field(5)
-    column_profiles: List["ColumnProfile"] = betterproto.message_field(6)
+    requested_columns: List["IdAndDisplayName"] = betterproto.message_field(3)
+    where_clause: str = betterproto.string_field(4)
+    run_at: int = betterproto.int64_field(5)
+    full_row_count: int = betterproto.int64_field(6)
+    sample_row_count: int = betterproto.int32_field(7)
+    full_column_count: int = betterproto.int32_field(8)
+    column_profiles: List["ColumnProfile"] = betterproto.message_field(9)
 
 
 @dataclass
@@ -5927,6 +5939,7 @@ class ColumnProfile(betterproto.Message):
     existing_metric_count: int = betterproto.int32_field(4)
     metric_profiles: List["MetricProfile"] = betterproto.message_field(5)
     patterns: List["ObservedPattern"] = betterproto.message_field(6)
+    extended_type: str = betterproto.string_field(7)
 
 
 @dataclass
@@ -5945,7 +5958,9 @@ class ObservedPattern(betterproto.Message):
 class QueueTableProfileRequest(betterproto.Message):
     table_id: int = betterproto.int32_field(1)
     sample_selection: "SampleSelection" = betterproto.message_field(2)
-    user_id: int = betterproto.int32_field(3)
+    requested_columns: List["IdAndDisplayName"] = betterproto.message_field(3)
+    where_clause: str = betterproto.string_field(4)
+    user_id: int = betterproto.int32_field(5)
 
 
 @dataclass
@@ -5991,11 +6006,6 @@ class UpsertDimensionRequest(betterproto.Message):
     name: str = betterproto.string_field(2)
     top_level_category: "TopLevelCategory" = betterproto.enum_field(3)
     description: str = betterproto.string_field(4)
-
-
-@dataclass
-class UpsertDimensionResponse(betterproto.Message):
-    dimension: "Dimension" = betterproto.message_field(1)
 
 
 @dataclass
@@ -6188,6 +6198,9 @@ class QueryResult(betterproto.Message):
     conn_time_ms: int = betterproto.int32_field(5)
     exec_time_ms: int = betterproto.int32_field(6)
     col_type_ids: List[int] = betterproto.int32_field(7)
+    col_sizes: List[int] = betterproto.int64_field(8)
+    col_precisions: List[int] = betterproto.int32_field(9)
+    col_scales: List[int] = betterproto.int32_field(10)
 
 
 @dataclass
@@ -6295,6 +6308,10 @@ class AgentHeartbeatResponse(betterproto.Message):
 class AgentHeartbeatV2Source(betterproto.Message):
     name: str = betterproto.string_field(1)
     allowed_workspaces: List[int] = betterproto.int32_field(2)
+    max_concurrent_activities: int = betterproto.int32_field(3)
+    max_concurrent_interactive_activities: int = betterproto.int32_field(4)
+    max_concurrent_activity_task_pollers: int = betterproto.int32_field(5)
+    max_concurrent_interactive_activity_task_pollers: int = betterproto.int32_field(6)
 
 
 @dataclass
@@ -6306,6 +6323,16 @@ class AgentHeartbeatV2Payload(betterproto.Message):
     agent_type: "AgentType" = betterproto.enum_field(5)
     encryption_enabled: bool = betterproto.bool_field(6)
     signature: str = betterproto.string_field(7)
+    in_progress_activity_details: Dict[str, "InProgressActivityDetails"] = (
+        betterproto.map_field(8, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE)
+    )
+    worker_id: str = betterproto.string_field(9)
+
+
+@dataclass
+class InProgressActivityDetails(betterproto.Message):
+    source_id: int = betterproto.int32_field(1)
+    task_queue: str = betterproto.string_field(2)
 
 
 @dataclass
@@ -6554,13 +6581,15 @@ class GenerateTableProfileRequest(betterproto.Message):
     queue_request: "QueueTableProfileRequest" = betterproto.message_field(1)
     full_row_count_query: str = betterproto.string_field(2)
     full_row_count_result_set_column_name: str = betterproto.string_field(3)
-    sample_query: str = betterproto.string_field(4)
-    columns_to_profile: List["ColumnToProfile"] = betterproto.message_field(5)
-    is_agent: bool = betterproto.bool_field(6)
-    is_outbound: bool = betterproto.bool_field(7)
-    agent_queue_name: str = betterproto.string_field(8)
-    jdbc_info: "JdbcInfo" = betterproto.message_field(9)
-    workspace_id: int = betterproto.int32_field(10)
+    full_column_count: int = betterproto.int32_field(4)
+    sample_query: str = betterproto.string_field(5)
+    columns_to_profile: List["ColumnToProfile"] = betterproto.message_field(6)
+    is_agent: bool = betterproto.bool_field(7)
+    is_outbound: bool = betterproto.bool_field(8)
+    agent_queue_name: str = betterproto.string_field(9)
+    jdbc_info: "JdbcInfo" = betterproto.message_field(10)
+    workspace_id: int = betterproto.int32_field(11)
+    minimum_sample_size: int = betterproto.int32_field(12)
 
 
 @dataclass
@@ -10247,6 +10276,7 @@ class CustomRuleServiceStub(betterproto.ServiceStub):
         rule_types: List["CustomRuleType"] = [],
         dimension_ids: List[int] = [],
         workspace_id: int = 0,
+        tag_ids: List[int] = [],
     ) -> GetCustomRuleListResponse:
         """Get custom rules"""
 
@@ -10265,6 +10295,7 @@ class CustomRuleServiceStub(betterproto.ServiceStub):
         request.rule_types = rule_types
         request.dimension_ids = dimension_ids
         request.workspace_id = workspace_id
+        request.tag_ids = tag_ids
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.CustomRuleService/GetCustomRules",

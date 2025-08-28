@@ -8,6 +8,7 @@ import requests
 from PIL import Image
 import gc
 import io
+import logging
 import subprocess
 from matrice.session import Session
 from matrice.dataset import Dataset
@@ -206,7 +207,7 @@ class ActionTracker:
         except Exception as e:
             print("Update project error:", e)
 
-    @log_errors(raise_exception=True, log_error=False)
+    @log_errors(raise_exception=False, log_error=False)
     def _init_project_info(self):
         self.project = Projects(
             self.session,
@@ -983,16 +984,21 @@ class ActionTracker:
         >>> print(exported_mapping)
         {0: 'cat', 1: 'dog'}
         """
-        if self.index_to_category:
-            return self.index_to_category
-        if self.action_details.get("class_index_map"):
-            self.index_to_category = self.action_details.get("class_index_map")
-            return self.index_to_category
-        url = "/v1/model/model_train/" + str(self._idModel_str)
-        if is_exported is not None or self.is_exported:
-            url = f"/v1/model/get_model_train_by_export_id?exportId={self._idModel_str}"
-        modelTrain_doc = self.rpc.get(url)["data"]
-        self.index_to_category = modelTrain_doc.get("indexToCat", {})
+        try:
+            if self.index_to_category is not None:
+                return self.index_to_category
+            if self.action_details.get("class_index_map"):
+                self.index_to_category = self.action_details.get("class_index_map")
+                return self.index_to_category
+            url = "/v1/model/model_train/" + str(self._idModel_str)
+            if is_exported or self.is_exported:
+                url = f"/v1/model/get_model_train_by_export_id?exportId={self._idModel_str}"
+            modelTrain_doc = self.rpc.get(url)["data"]
+            self.index_to_category = modelTrain_doc.get("indexToCat", {})
+        except Exception as e:
+            print(f"Exception in get_index_to_category: {str(e)}")
+            logging.error(f"Exception in get_index_to_category: {str(e)}")
+            self.index_to_category = {}
         return self.index_to_category
 
 

@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class DATA_PT_shader_fx(ShaderFxButtonsPanel, bpy.types.Panel):
+class DATA_PT_shader_fx(ShaderFxButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any

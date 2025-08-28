@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import contextlib
 import os
 import re
-import traceback
 import warnings
 from time import time
+from collections import defaultdict
 from devpi_common.types import ensure_unicode
 from devpi_common.url import URL
 from devpi_common.metadata import get_pyversion_filetype
@@ -36,9 +37,9 @@ from pyramid.view import view_config
 from urllib.parse import urlparse
 import itertools
 import json
-from devpi_common.request import new_requests_session
 from devpi_common.validation import normalize_name, is_valid_archive_name
 
+from .config import NodeInfo
 from .config import hookimpl
 from .exceptions import lazy_format_exception_only
 from .filestore import BadGateway
@@ -202,7 +203,7 @@ def tween_request_logging(handler, registry):
             rheaders = response.headers
             serial = rheaders.get("X-DEVPI-SERIAL")
             rheaders.update(meta_headers)
-            uuid, primary_uuid = make_uuid_headers(nodeinfo)
+            uuid, primary_uuid = nodeinfo.make_uuid_headers()
             rheaders["X-DEVPI-UUID"] = uuid
             rheaders[H_MASTER_UUID] = primary_uuid
             rheaders[H_PRIMARY_UUID] = primary_uuid
@@ -220,17 +221,15 @@ def tween_request_logging(handler, registry):
 
 
 def make_uuid_headers(nodeinfo):
-    uuid = primary_uuid = nodeinfo.get("uuid")
-    if uuid is not None and nodeinfo["role"] == "replica":
-        if "master-uuid" in nodeinfo:
-            warnings.warn(
-                "master-uuid in nodeinfo is deprecated, use primary-uuid instead",
-                DeprecationWarning,
-                stacklevel=2)
-            primary_uuid = nodeinfo.get("master-uuid", "")
-        else:
-            primary_uuid = nodeinfo.get("primary-uuid", "")
-    return uuid, primary_uuid
+    warnings.warn(
+        "The make_uuid_headers function is deprecated, "
+        "use config.nodeinfo.make_uuid_headers instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    if not isinstance(nodeinfo, NodeInfo):
+        nodeinfo = NodeInfo(nodeinfo)
+    return nodeinfo.make_uuid_headers()
 
 
 def tween_keyfs_transaction(handler, registry):
@@ -309,19 +308,16 @@ class StatusView:
         status = {
             "serverdir": str(config.server_path),
             "uuid": self.xom.config.nodeinfo["uuid"],
-            "versioninfo":
-                dict(self.request.registry["devpi_version_info"]),
+            "versioninfo": dict(self.request.registry["devpi_version_info"]),
             "server-code": os.path.dirname(devpi_server.__file__),
             "host": config.args.host,
             "port": config.args.port,
-            "outside-url": config.args.outside_url,
+            "outside-url": config.outside_url,
             "serial": self.xom.keyfs.get_current_serial(),
             "last-commit-timestamp": self.xom.keyfs.get_last_commit_timestamp(),
             "event-serial": self.xom.keyfs.notifier.read_event_serial(),
-            "event-serial-timestamp":
-                self.xom.keyfs.notifier.get_event_serial_timestamp(),
-            "event-serial-in-sync-at":
-                self.xom.keyfs.notifier.event_serial_in_sync_at,
+            "event-serial-timestamp": self.xom.keyfs.notifier.get_event_serial_timestamp(),
+            "event-serial-in-sync-at": self.xom.keyfs.notifier.event_serial_in_sync_at,
             "metrics": [],
         }
         seen = set()
@@ -798,7 +794,7 @@ class PyPIView:
         response.vary = set(["User-Agent"])
         return response
 
-    @view_config(route_name="/{user}/{index}/+simple/")
+    @view_config(request_method="GET", route_name="/{user}/{index}/+simple/")
     def simple_list_all(self):
         self.log.info("starting +simple")
         stage = self.context.stage
@@ -1016,14 +1012,17 @@ class PyPIView:
             name = pushdata.pop("name")
             version = pushdata.pop("version")
         except KeyError:
-            apireturn(400, message="no name/version specified in json")
+            return apiresult(
+                400, f"there are no files for {name} {version} on stage {stage.name}"
+            )
 
         # first, get all the links related to the source "to push" release
         try:
             linkstore = stage.get_linkstore_perstage(name, version)
         except stage.MissesRegistration:
-            apireturn(400, "there are no files for %s-%s on stage %s" % (
-                name, version, stage.name))
+            return apiresult(
+                400, f"there are no files for {name} {version} on stage {stage.name}"
+            )
         rels = {'releasefile', 'doczip', 'toxresult'}
         no_docs = pushdata.pop("no_docs", False)
         only_docs = pushdata.pop("only_docs", False)
@@ -1033,117 +1032,149 @@ class PyPIView:
             rels.remove('doczip')
         elif only_docs:
             rels = {'doczip'}
-        links = {
-            rel: sorted(linkstore.get_links(rel=rel), key=attrgetter('basename'))
-            for rel in rels}
+        links = defaultdict(list)
+        for link in linkstore.get_links():
+            if link.rel not in rels:
+                continue
+            links[link.rel].append(link)
+        for rel in links:
+            links[rel] = sorted(links[rel], key=attrgetter("basename"))
         if not any(links.values()):
             self.log.info("%s: no files for version %s %s", stage.name, name, version)
-            apireturn(404, f"no release/files found for {name} {version}")
+            return apiresult(404, f"no release/files found for {name} {version}")
 
         if not request.has_permission("pkg_read"):
             abort(request, 403, "package read forbidden")
 
-        metadata = linkstore.metadata
-
-        results = []
         targetindex = pushdata.pop("targetindex", None)
-        if targetindex is not None:  # in-server push
-            if pushdata:
-                keys = ', '.join(sorted(pushdata.keys()))
-                return apiresult(400, f"unknown additional options: {keys}")
-            parts = targetindex.split("/")
-            if len(parts) != 2:
-                apireturn(400, message="targetindex not in format user/index")
-            target_stage = self.context.getstage(*parts)
-            auth_user = request.authenticated_userid
-            self.log.debug("targetindex %r, auth_user %r", targetindex,
-                           auth_user)
-            if not request.has_permission("upload", context=target_stage):
-                apireturn(401, message="user %r cannot upload to %r" % (
-                    auth_user, targetindex))
-            self._set_versiondata_dict(target_stage, metadata)
-            results.append((200, "register", name, version,
-                            "->", target_stage.name))
+        metadata = linkstore.metadata
+        if targetindex is None:
+            return self._push_external(name, version, links, metadata, pushdata)
+        if pushdata:
+            keys = ", ".join(sorted(pushdata.keys()))
+            return apiresult(400, f"unknown additional options: {keys}")
+        return self._push_internal(name, version, links, metadata, targetindex)
+
+    def _push_internal(self, name, version, links, metadata, targetindex):
+        request = self.request
+        results = []
+        parts = targetindex.split("/")
+        if len(parts) != 2:
+            return apiresult(400, "targetindex not in format user/index")
+        target_stage = self.context.getstage(*parts)
+        auth_user = request.authenticated_userid
+        self.log.debug("targetindex %r, auth_user %r", targetindex, auth_user)
+        if not request.has_permission("upload", context=target_stage):
+            return apiresult(
+                401, f"user {auth_user!r} cannot upload to {targetindex!r}"
+            )
+        self._set_versiondata_dict(target_stage, metadata)
+        results.append((200, "register", name, version, "->", target_stage.name))
+        try:
+            results.extend(self._push_links(links, target_stage, name, version))
+        except target_stage.NonVolatile as e:
+            return apiresult(
+                409, f"{e.link.basename} already exists in non-volatile index"
+            )
+        except BadGateway as e:
+            return apiresult(502, e.args[0])
+        return apiresult(200, result=results, type="actionlog")
+
+    def _push_external(self, name, version, links, metadata, pushdata):
+        results = []
+        register_project = pushdata.pop("register_project", False)
+        posturl = pushdata["posturl"]
+        pypiauth = f"{pushdata['username']}:{pushdata['password']}".encode()
+        extra_headers = {"Authorization": f"Basic {b64encode(pypiauth).decode()}"}
+        # prepare metadata for submission
+        metadata[":action"] = "submit"
+        ok_codes = {HTTPStatus.OK, HTTPStatus.CREATED}
+        if register_project:
+            self.log.info("registering %s %s to %s", name, version, posturl)
             try:
-                results.extend(self._push_links(links, target_stage, name, version))
-            except target_stage.NonVolatile as e:
-                apireturn(409, "%s already exists in non-volatile index" % (
-                          e.link.basename,))
-            except BadGateway as e:
-                return apireturn(502, e.args[0])
-            apireturn(200, result=results, type="actionlog")
+                r = self.xom.http.post(
+                    posturl, data=metadata, extra_headers=extra_headers
+                )
+                r.close()
+            except Exception as e:  # noqa: BLE001
+                exc_msg = lazy_format_exception_only(e)
+                results.append((-1, "exception on register:", str(exc_msg)))
+                return apiresult(502, result=results, type="actionlog")
+            self.log.debug("register returned: %s", r.status_code)
+            results.append((r.status_code, "register", name, version))
+            proceed = r.status_code in ok_codes | {HTTPStatus.GONE}
         else:
-            register_project = pushdata.pop("register_project", False)
-            posturl = pushdata["posturl"]
-            username = pushdata["username"]
-            password = pushdata["password"]
-            pypiauth = (username, password)
-            # prepare metadata for submission
-            metadata[":action"] = "submit"
-            session = new_requests_session(agent=("server", server_version))
-            with contextlib.closing(session):
-                ok_codes = {HTTPStatus.OK, HTTPStatus.CREATED}
-                if register_project:
-                    self.log.info("registering %s-%s to %s", name, version, posturl)
-                    try:
-                        r = session.post(posturl, data=metadata, auth=pypiauth)
-                        r.close()
-                    except Exception as e:  # noqa: BLE001
-                        exc_msg = ''.join(traceback.format_exception_only(e.__class__, e))
-                        results.append((-1, "exception on register:", exc_msg))
-                        apireturn(502, result=results, type="actionlog")
-                    self.log.debug("register returned: %s", r.status_code)
-                    results.append((r.status_code, "register", name, version))
-                    proceed = (r.status_code in ok_codes | {HTTPStatus.GONE})
-                else:
-                    proceed = True
-                if proceed:
-                    for link in links.get("releasefile", ()):
-                        entry = link.entry
-                        file_metadata = metadata.copy()
-                        file_metadata[":action"] = "file_upload"
-                        basename = link.basename
-                        pyver, filetype = get_pyversion_filetype(basename)
-                        file_metadata["filetype"] = filetype
-                        file_metadata["pyversion"] = pyver
-                        file_metadata["%s_digest" % link.best_available_hash_type] = link.best_available_hash_value
-                        content = entry.file_get_content()
-                        self.log.info(
-                            "sending %s to %s, metadata %s",
-                            basename, posturl, file_metadata)
-                        try:
-                            r = session.post(
-                                posturl, data=file_metadata, auth=pypiauth,
-                                files={"content": (basename, content)})
-                        except Exception as e:
-                            exc_msg = ''.join(traceback.format_exception_only(e.__class__, e))
-                            results.append((-1, "exception on release upload:", exc_msg))
-                        else:
-                            self.log.debug("send finished, status: %s", r.status_code)
-                            # ignore response body on success
-                            text = '' if r.status_code in (200, 201) else r.text
-                            results.append((
-                                r.status_code, "upload", entry.relpath, text))
-                            r.close()
-                    if links.get("doczip", ()):
-                        doc_metadata = metadata.copy()
-                        doc_metadata[":action"] = "doc_upload"
-                        doczip = links["doczip"][0].entry.file_get_content()
-                        try:
-                            r = session.post(
-                                posturl, data=doc_metadata, auth=pypiauth,
-                                files={"content": (name + ".zip", doczip)})
-                            r.close()
-                        except Exception as e:
-                            exc_msg = ''.join(traceback.format_exception_only(e.__class__, e))
-                            results.append((-1, "exception on documentation upload:", exc_msg))
-                        else:
-                            self.log.debug("send finished, status: %s", r.status_code)
-                            results.append((r.status_code, "docfile", name))
-                if r.status_code in ok_codes:
-                    apireturn(200, result=results, type="actionlog")
-                else:
-                    apireturn(502, result=results, type="actionlog")
+            proceed = True
+        if proceed:
+            for link in links["releasefile"]:
+                results.extend(
+                    self._push_external_release(link, metadata, posturl, extra_headers)
+                )
+            if doczip_link := next(iter(links["doczip"]), None):
+                results.extend(
+                    self._push_external_doczip(
+                        doczip_link, metadata, posturl, extra_headers
+                    )
+                )
+        return (
+            apiresult(200, result=results, type="actionlog")
+            if results[-1][0] in ok_codes
+            else apiresult(502, result=results, type="actionlog")
+        )
+
+    def _push_external_release(self, link, metadata, posturl, extra_headers):
+        results = []
+        entry = link.entry
+        file_metadata = metadata.copy()
+        file_metadata[":action"] = "file_upload"
+        basename = link.basename
+        pyver, filetype = get_pyversion_filetype(basename)
+        file_metadata["filetype"] = filetype
+        file_metadata["pyversion"] = pyver
+        file_metadata[f"{link.best_available_hash_type}_digest"] = (
+            link.best_available_hash_value
+        )
+        content = entry.file_get_content()
+        self.log.info("sending %s to %s, metadata %s", basename, posturl, file_metadata)
+        try:
+            r = self.xom.http.post(
+                posturl,
+                data=file_metadata,
+                extra_headers=extra_headers,
+                files={"content": (basename, content)},
+            )
+        except Exception as e:  # noqa: BLE001
+            exc_msg = lazy_format_exception_only(e)
+            results.append((-1, "exception on release upload:", str(exc_msg)))
+            return results
+        self.log.debug("send finished, status: %s", r.status_code)
+        # ignore response body on success
+        text = "" if r.status_code in (200, 201) else r.text
+        results.append((r.status_code, "upload", entry.relpath, text))
+        r.close()
+        return results
+
+    def _push_external_doczip(self, link, metadata, posturl, extra_headers):
+        results = []
+        doc_metadata = metadata.copy()
+        doc_metadata[":action"] = "doc_upload"
+        name = doc_metadata["name"]
+        doczip = link.entry.file_get_content()
+        try:
+            r = self.xom.http.post(
+                posturl,
+                data=doc_metadata,
+                extra_headers=extra_headers,
+                files={"content": (f"{name}.zip", doczip)},
+            )
+            r.close()
+        except Exception as e:  # noqa: BLE001
+            exc_msg = lazy_format_exception_only(e)
+            results.append((-1, "exception on documentation upload:", str(exc_msg)))
+            return results
+        self.log.debug("send finished, status: %s", r.status_code)
+        results.append((r.status_code, "docfile", name))
+        return results
 
     def _push_links(self, links, target_stage, name, version):
         stage = self.context.stage
@@ -1591,27 +1622,34 @@ class PyPIView:
                 200, "login successful", type="proxyauth", result=proxyauth)
         apireturn(401, "user %r could not be authenticated" % user)
 
-    @view_config(
-        route_name="/{user}", request_method="PATCH",
-        permission="user_modify")
-    @view_config(
-        route_name="/{user}/", request_method="PATCH",
-        permission="user_modify")
+    @view_config(route_name="/{user}", request_method="PATCH")
+    @view_config(route_name="/{user}/", request_method="PATCH")
     def user_patch(self):
         request = self.request
         kvdict = getjson(request)
         user = self.context.user
+        if len(keys := kvdict.keys()) == 1 and "password" in keys:
+            if not self.request.has_permission("user_modify_password"):
+                return apiresult(
+                    403, f"no permission to change password for user {user}"
+                )
+        elif not self.request.has_permission("user_modify"):
+            return apiresult(403, f"no permission to modify user {user}")
         password = kvdict.get("password")
         try:
             user.modify(**kvdict)
         except InvalidUserconfig as e:
-            apireturn(400, message=", ".join(e.messages))
+            return apiresult(400, message=", ".join(e.messages))
         if password is not None:
-            apireturn(200, "user updated, new proxy auth",
-                      type="userpassword",
-                      result=self.auth.new_proxy_auth(
-                          user.name, password=password, request=request))
-        apireturn(200, "user updated")
+            return apiresult(
+                200,
+                "user updated, new proxy auth",
+                type="userpassword",
+                result=self.auth.new_proxy_auth(
+                    user.name, password=password, request=request
+                ),
+            )
+        return apiresult(200, "user updated")
 
     @view_config(
         route_name="/{user}", request_method="PUT",
@@ -1711,9 +1749,10 @@ class FileStreamer:
 
         yield _headers_from_response(self.response)
 
+        data_iter = self.response.iter_raw(10240)
         while 1:
-            data = self.response.raw.read(10240)
-            if not data:
+            data = next(data_iter, None)
+            if data is None:
                 break
             filesize += len(data)
             for rh in running_hashes._running_hashes:
@@ -1737,15 +1776,14 @@ def iter_cache_remote_file(stage, entry, url):
     # we get and cache the file and some http headers from remote
     xom = stage.xom
     url = URL(url)
-    r = stage.httpget(url, allow_redirects=True)
-    if r.status_code != 200:
-        r.close()
-        msg = "error %s getting %r" % (r.status_code, url)
-        threadlog.error(msg)
-        raise BadGateway(msg, code=r.status_code, url=url)
 
     with contextlib.ExitStack() as cstack:
-        cstack.callback(r.close)
+        r = stage.http.stream(cstack, "GET", url, allow_redirects=True)
+        if r.status_code != 200:
+            r.close()
+            msg = f"error {r.status_code} getting {url}"
+            threadlog.error(msg)
+            raise BadGateway(msg, code=r.status_code, url=url)
         f = cstack.enter_context(entry.file_new_open())
         file_streamer = FileStreamer(f, entry, r)
         threadlog.info("reading remote: %r, target %s", URL(r.url), entry.relpath)
@@ -1794,32 +1832,38 @@ def iter_remote_file_replica(stage, entry, url):
         threadlog.warn("missing private file: %s" % entry.relpath)
     else:
         threadlog.info("replica doesn't have file: %s", entry.relpath)
-    r = stage.httpget(
-        primary_url, allow_redirects=True,
-        extra_headers={xom.replica_thread.H_REPLICA_FILEREPL: "YES"})
-    if r.status_code != 200:
-        r.close()
-        msg = "%s: received %s from primary" % (primary_url, r.status_code)
-        if not url:
-            threadlog.error(msg)
-            raise BadGateway(msg)
-        # try to get from original location
-        headers = {}
-        url = URL(url)
-        username = url.username or ''
-        password = url.password or ''
-        if username or password:
-            url = url.replace(username=None, password=None)
-            auth = f"{username}:{password}".encode()
-            headers["Authorization"] = f"Basic {b64encode(auth).decode()}"
-        r = xom.httpget(url, allow_redirects=True, extra_headers=headers)
-        if r.status_code != 200:
-            r.close()
-            msg = "%s\n%s: received %s" % (msg, url, r.status_code)
-            threadlog.error(msg)
-            raise BadGateway(msg)
 
     with contextlib.ExitStack() as cstack:
+        r = stage.http.stream(
+            cstack,
+            "GET",
+            primary_url,
+            allow_redirects=True,
+            extra_headers={xom.replica_thread.H_REPLICA_FILEREPL: "YES"},
+        )
+        if r.status_code != 200:
+            r.close()
+            msg = f"{primary_url}: received {r.status_code} from primary"
+            if not url:
+                threadlog.error(msg)
+                raise BadGateway(msg)
+            # try to get from original location
+            headers = {}
+            url = URL(url)
+            username = url.username or ""
+            password = url.password or ""
+            if username or password:
+                url = url.replace(username=None, password=None)
+                auth = f"{username}:{password}".encode()
+                headers["Authorization"] = f"Basic {b64encode(auth).decode()}"
+            r = xom.http.stream(
+                cstack, "GET", url, allow_redirects=True, extra_headers=headers
+            )
+            if r.status_code != 200:
+                r.close()
+                msg = f"{msg}\n{url}: received {r.status_code}"
+                threadlog.error(msg)
+                raise BadGateway(msg)
         cstack.callback(r.close)
         f = cstack.enter_context(entry.file_new_open())
         file_streamer = FileStreamer(f, entry, r)

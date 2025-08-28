@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs
-Version: 1.40.18
-Summary: Type annotations for boto3 1.40.18 generated with mypy-boto3-builder 8.11.0
+Version: 1.40.19
+Summary: Type annotations for boto3 1.40.19 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -36,7 +36,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.41.0,>=1.40.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.40.18; extra == "boto3"
+Requires-Dist: boto3==1.40.19; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.41.0,>=1.40.0; extra == "all"
@@ -321,8 +321,6 @@ Requires-Dist: mypy-boto3-odb<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-omics<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-opensearch<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-opensearchserverless<1.41.0,>=1.40.0; extra == "all"
-Requires-Dist: mypy-boto3-opsworks<1.41.0,>=1.40.0; extra == "all"
-Requires-Dist: mypy-boto3-opsworkscm<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-organizations<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-osis<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-outposts<1.41.0,>=1.40.0; extra == "all"
@@ -1027,10 +1025,6 @@ Provides-Extra: opensearch
 Requires-Dist: mypy-boto3-opensearch<1.41.0,>=1.40.0; extra == "opensearch"
 Provides-Extra: opensearchserverless
 Requires-Dist: mypy-boto3-opensearchserverless<1.41.0,>=1.40.0; extra == "opensearchserverless"
-Provides-Extra: opsworks
-Requires-Dist: mypy-boto3-opsworks<1.41.0,>=1.40.0; extra == "opsworks"
-Provides-Extra: opsworkscm
-Requires-Dist: mypy-boto3-opsworkscm<1.41.0,>=1.40.0; extra == "opsworkscm"
 Provides-Extra: organizations
 Requires-Dist: mypy-boto3-organizations<1.41.0,>=1.40.0; extra == "organizations"
 Provides-Extra: osis
@@ -1317,7 +1311,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.40.18](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.40.19](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1376,7 +1370,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.18' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.19' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1728,9 +1722,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs[full]` - Type annotations for all 415 services in one package
+- `boto3-stubs[full]` - Type annotations for all 413 services in one package
   (recommended).
-- `boto3-stubs[all]` - Type annotations for all 415 services in separate
+- `boto3-stubs[all]` - Type annotations for all 413 services in separate
   packages.
 - `boto3-stubs[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2564,12 +2558,6 @@ repository.
   service.
 - `boto3-stubs[opensearchserverless]` - Type annotations for
   [OpenSearchServiceServerless](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearchserverless/)
-  service.
-- `boto3-stubs[opsworks]` - Type annotations for
-  [OpsWorks](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opsworks/)
-  service.
-- `boto3-stubs[opsworkscm]` - Type annotations for
-  [OpsWorksCM](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opsworkscm/)
   service.
 - `boto3-stubs[organizations]` - Type annotations for
   [Organizations](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_organizations/)

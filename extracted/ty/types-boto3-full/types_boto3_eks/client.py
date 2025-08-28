@@ -97,6 +97,8 @@ from .type_defs import (
     DescribeIdentityProviderConfigResponseTypeDef,
     DescribeInsightRequestTypeDef,
     DescribeInsightResponseTypeDef,
+    DescribeInsightsRefreshRequestTypeDef,
+    DescribeInsightsRefreshResponseTypeDef,
     DescribeNodegroupRequestTypeDef,
     DescribeNodegroupResponseTypeDef,
     DescribePodIdentityAssociationRequestTypeDef,
@@ -134,6 +136,8 @@ from .type_defs import (
     ListUpdatesResponseTypeDef,
     RegisterClusterRequestTypeDef,
     RegisterClusterResponseTypeDef,
+    StartInsightsRefreshRequestTypeDef,
+    StartInsightsRefreshResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAccessEntryRequestTypeDef,
@@ -514,6 +518,16 @@ class EKSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#describe_insight)
         """
 
+    def describe_insights_refresh(
+        self, **kwargs: Unpack[DescribeInsightsRefreshRequestTypeDef]
+    ) -> DescribeInsightsRefreshResponseTypeDef:
+        """
+        Returns the status of the latest on-demand cluster insights refresh operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/describe_insights_refresh.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#describe_insights_refresh)
+        """
+
     def describe_nodegroup(
         self, **kwargs: Unpack[DescribeNodegroupRequestTypeDef]
     ) -> DescribeNodegroupResponseTypeDef:
@@ -704,6 +718,17 @@ class EKSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/register_cluster.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#register_cluster)
+        """
+
+    def start_insights_refresh(
+        self, **kwargs: Unpack[StartInsightsRefreshRequestTypeDef]
+    ) -> StartInsightsRefreshResponseTypeDef:
+        """
+        Initiates an on-demand refresh operation for cluster insights, getting the
+        latest analysis outside of the standard refresh schedule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/start_insights_refresh.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#start_insights_refresh)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:

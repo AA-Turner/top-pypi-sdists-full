@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import rna_prop_ui
 
-class VIEWLAYER_MT_lightgroup_sync(bpy.types.Menu):
+class VIEWLAYER_MT_lightgroup_sync(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -30,7 +31,44 @@ class VIEWLAYER_MT_lightgroup_sync(bpy.types.Menu):
         :param _context:
         """
 
-class VIEWLAYER_PT_eevee_layer_passes_data(ViewLayerButtonsPanel, bpy.types.Panel):
+class VIEWLAYER_PT_context_layer(ViewLayerButtonsPanel, _bpy_types.Panel):
+    COMPAT_ENGINES: typing.Any
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
+class VIEWLAYER_PT_eevee_layer_passes_data(ViewLayerButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -60,7 +98,7 @@ class VIEWLAYER_PT_eevee_layer_passes_data(ViewLayerButtonsPanel, bpy.types.Pane
         :param context:
         """
 
-class VIEWLAYER_PT_eevee_layer_passes_light(ViewLayerButtonsPanel, bpy.types.Panel):
+class VIEWLAYER_PT_eevee_layer_passes_light(ViewLayerButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -91,7 +129,7 @@ class VIEWLAYER_PT_eevee_layer_passes_light(ViewLayerButtonsPanel, bpy.types.Pan
         :param context:
         """
 
-class VIEWLAYER_PT_filter(ViewLayerButtonsPanel, bpy.types.Panel):
+class VIEWLAYER_PT_filter(ViewLayerButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -121,7 +159,7 @@ class VIEWLAYER_PT_filter(ViewLayerButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class VIEWLAYER_PT_layer(ViewLayerButtonsPanel, bpy.types.Panel):
+class VIEWLAYER_PT_layer(ViewLayerButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -150,9 +188,9 @@ class VIEWLAYER_PT_layer(ViewLayerButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class VIEWLAYER_PT_layer_custom_props(rna_prop_ui.PropertyPanel, bpy.types.Panel):
+class VIEWLAYER_PT_layer_custom_props(rna_prop_ui.PropertyPanel, _bpy_types.Panel):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     bl_context: typing.Any
@@ -178,7 +216,7 @@ class VIEWLAYER_PT_layer_custom_props(rna_prop_ui.PropertyPanel, bpy.types.Panel
         :rtype: typing.Any
         """
 
-class VIEWLAYER_PT_layer_passes(ViewLayerButtonsPanel, bpy.types.Panel):
+class VIEWLAYER_PT_layer_passes(ViewLayerButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -207,7 +245,7 @@ class VIEWLAYER_PT_layer_passes(ViewLayerButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class VIEWLAYER_PT_layer_passes_aov(ViewLayerAOVPanelHelper, bpy.types.Panel):
+class VIEWLAYER_PT_layer_passes_aov(ViewLayerAOVPanelHelper, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -232,7 +270,7 @@ class VIEWLAYER_PT_layer_passes_aov(ViewLayerAOVPanelHelper, bpy.types.Panel):
         """
 
 class VIEWLAYER_PT_layer_passes_cryptomatte(
-    ViewLayerCryptomattePanelHelper, bpy.types.Panel
+    ViewLayerCryptomattePanelHelper, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -258,7 +296,7 @@ class VIEWLAYER_PT_layer_passes_cryptomatte(
         """
 
 class VIEWLAYER_PT_layer_passes_lightgroups(
-    ViewLayerLightgroupsPanelHelper, bpy.types.Panel
+    ViewLayerLightgroupsPanelHelper, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -283,7 +321,7 @@ class VIEWLAYER_PT_layer_passes_lightgroups(
         :rtype: typing.Any
         """
 
-class VIEWLAYER_PT_override(ViewLayerButtonsPanel, bpy.types.Panel):
+class VIEWLAYER_PT_override(ViewLayerButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -313,7 +351,7 @@ class VIEWLAYER_PT_override(ViewLayerButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class VIEWLAYER_PT_workbench_layer_passes_data(ViewLayerButtonsPanel, bpy.types.Panel):
+class VIEWLAYER_PT_workbench_layer_passes_data(ViewLayerButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -343,7 +381,7 @@ class VIEWLAYER_PT_workbench_layer_passes_data(ViewLayerButtonsPanel, bpy.types.
         :param context:
         """
 
-class VIEWLAYER_UL_aov(bpy.types.UIList):
+class VIEWLAYER_UL_aov(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 

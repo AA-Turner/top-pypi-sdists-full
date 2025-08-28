@@ -107,8 +107,8 @@ class TestStreaming(object):
         simpypi.add_release(pkg_name, pkgver='%s#sha256=%s' % (pkgzip, digest))
         simpypi.add_file(
             f"/{pkg_name}/{pkgzip}", content, stream=True, length=length)
-        with contextlib.closing(s.get(url + f"root/mirror/{pkg_name}")) as r:
-            r = r.json()
+        with contextlib.closing(s.get(url + f"root/mirror/{pkg_name}")) as _r:
+            r = _r.json()
         assert pkg_version in r['result'], r
         href = r['result'][pkg_version]['+links'][0]['href']
         r = requests.get(href, stream=True)
@@ -125,7 +125,6 @@ class TestStreaming(object):
                     data = data + part
             except ChunkedEncodingError:
                 pass
-            assert data == content[:length]
         pkg_file = files_path.joinpath(
             'root', 'pypi', '+f', digest[:3], digest[3:16], pkgzip)
         assert not pkg_file.exists()

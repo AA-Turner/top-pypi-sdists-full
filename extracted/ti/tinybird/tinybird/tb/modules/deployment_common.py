@@ -134,7 +134,11 @@ def promote_deployment(host: Optional[str], headers: dict, wait: bool, ingest_hi
             result = api_fetch(TINYBIRD_API_URL, headers=headers)
 
             last_deployment = result.get("deployment")
-            if last_deployment.get("status") == "deleted":
+            if not last_deployment:
+                click.echo(FeedbackManager.error(message="Error parsing deployment from response"))
+                sys_exit("deployment_error", "Error parsing deployment from response")
+
+            if last_deployment and last_deployment.get("status") == "deleted":
                 click.echo(FeedbackManager.success(message=f"✓ Deployment #{candidate_deployment.get('id')} is live!"))
                 break
 

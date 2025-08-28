@@ -5,7 +5,9 @@ import numpy.typing as npt
 import bpy.stub_internal.rna_enums
 
 def delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete active scene
 
@@ -29,7 +31,9 @@ def drop_scene_asset(
     """
 
 def freestyle_add_edge_marks_to_keying_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add the data paths to the Freestyle Edge Mark property of selected edges to the active keying set
 
@@ -38,7 +42,9 @@ def freestyle_add_edge_marks_to_keying_set(
     """
 
 def freestyle_add_face_marks_to_keying_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add the data paths to the Freestyle Face Mark property of selected polygons to the active keying set
 
@@ -122,7 +128,9 @@ def freestyle_geometry_modifier_add(
     """
 
 def freestyle_lineset_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a line set into the list of line sets
 
@@ -131,7 +139,9 @@ def freestyle_lineset_add(
     """
 
 def freestyle_lineset_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the active line set to the internal clipboard
 
@@ -155,7 +165,9 @@ def freestyle_lineset_move(
     """
 
 def freestyle_lineset_paste(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Paste the internal clipboard content to the active line set
 
@@ -164,7 +176,9 @@ def freestyle_lineset_paste(
     """
 
 def freestyle_lineset_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the active line set from the list of line sets
 
@@ -173,7 +187,9 @@ def freestyle_lineset_remove(
     """
 
 def freestyle_linestyle_new(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new line style, reusable by multiple line sets
 
@@ -182,7 +198,9 @@ def freestyle_linestyle_new(
     """
 
 def freestyle_modifier_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Duplicate the modifier within the list of modifiers
 
@@ -206,7 +224,9 @@ def freestyle_modifier_move(
     """
 
 def freestyle_modifier_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the modifier from the list of modifiers
 
@@ -215,7 +235,9 @@ def freestyle_modifier_remove(
     """
 
 def freestyle_module_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a style module into the list of modules
 
@@ -257,7 +279,9 @@ def freestyle_module_open(
     """
 
 def freestyle_module_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the style module from the stack
 
@@ -266,7 +290,9 @@ def freestyle_module_remove(
     """
 
 def freestyle_stroke_material_create(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create Freestyle stroke material for testing
 
@@ -291,7 +317,9 @@ def freestyle_thickness_modifier_add(
     """
 
 def gltf2_action_filter_refresh(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Refresh list of actions
 
@@ -395,8 +423,37 @@ def new_sequencer(
         :type type: typing.Literal['NEW','EMPTY','LINK_COPY','FULL_COPY'] | None
     """
 
+def new_sequencer_scene(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    type: typing.Literal["NEW", "EMPTY", "LINK_COPY", "FULL_COPY"] | None = "NEW",
+) -> None:
+    """Add new scene to be used by the sequencer
+
+        :type execution_context: int | str | None
+        :type undo: bool | None
+        :param type: Type
+
+    NEW
+    New -- Add a new, empty scene with default settings.
+
+    EMPTY
+    Copy Settings -- Add a new, empty scene, and copy settings from the current scene.
+
+    LINK_COPY
+    Linked Copy -- Link in the collections from the current scene (shallow copy).
+
+    FULL_COPY
+    Full Copy -- Make a full copy of the current scene.
+        :type type: typing.Literal['NEW','EMPTY','LINK_COPY','FULL_COPY'] | None
+    """
+
 def render_view_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a render view
 
@@ -405,7 +462,9 @@ def render_view_add(
     """
 
 def render_view_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the selected render view
 
@@ -438,7 +497,9 @@ def view_layer_add(
     """
 
 def view_layer_add_aov(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a Shader AOV
 
@@ -462,7 +523,9 @@ def view_layer_add_lightgroup(
     """
 
 def view_layer_add_used_lightgroups(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add all used Light Groups
 
@@ -471,7 +534,9 @@ def view_layer_add_used_lightgroups(
     """
 
 def view_layer_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the selected view layer
 
@@ -480,7 +545,9 @@ def view_layer_remove(
     """
 
 def view_layer_remove_aov(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove Active AOV
 
@@ -489,7 +556,9 @@ def view_layer_remove_aov(
     """
 
 def view_layer_remove_lightgroup(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove Active Lightgroup
 
@@ -498,7 +567,9 @@ def view_layer_remove_lightgroup(
     """
 
 def view_layer_remove_unused_lightgroups(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove all unused Light Groups
 

@@ -50,9 +50,10 @@ def create_datafile(
             content = create_terminal_box(resource.content, title=resource.pathname)
         click.echo(content)
         action = "Create" if not exists else "Update"
+        active_plan = ctx.deps.get_plan() is not None
         confirmation = show_confirmation(
             title=f"{action} '{resource.pathname}'?",
-            skip_confirmation=ctx.deps.dangerously_skip_permissions,
+            skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,
         )
 
         if confirmation == "review":
@@ -146,9 +147,10 @@ def rename_datafile_or_fixture(ctx: RunContext[TinybirdAgentContext], path: str,
     """
     try:
         ctx.deps.thinking_animation.stop()
+        active_plan = ctx.deps.get_plan() is not None
         confirmation = show_confirmation(
             title=f"Rename '{path}' to '{new_path}'?",
-            skip_confirmation=ctx.deps.dangerously_skip_permissions,
+            skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,
         )
 
         if confirmation == "review":
@@ -211,10 +213,10 @@ def remove_file(ctx: RunContext[TinybirdAgentContext], path: str) -> str:
             click.echo(FeedbackManager.error(message=f"Error: File {path} not found"))
             ctx.deps.thinking_animation.start()
             return f"Error: File {path} not found (double check the file path)"
-
+        active_plan = ctx.deps.get_plan() is not None
         confirmation = show_confirmation(
             title=f"Delete '{path}'?",
-            skip_confirmation=ctx.deps.dangerously_skip_permissions,
+            skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,
         )
 
         if confirmation == "review":

@@ -37,6 +37,7 @@ def is_registered(function: collections.abc.Callable[[], float | None]) -> bool:
 
 def register(
     function: collections.abc.Callable[[], float | None],
+    *,
     first_interval: float | None = 0,
     persistent: bool | None = False,
 ) -> None:
@@ -50,7 +51,7 @@ def register(
         :type function: collections.abc.Callable[[], float | None]
         :param first_interval: Seconds until the callback should be called the first time.
         :type first_interval: float | None
-        :param persistent: Don't remove timer when a new file is loaded.
+        :param persistent: Dont remove timer when a new file is loaded.
         :type persistent: bool | None
     """
 

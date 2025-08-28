@@ -31,7 +31,9 @@ def gizmo_select(
     """
 
 def gizmo_tweak(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Tweak the active gizmo
 

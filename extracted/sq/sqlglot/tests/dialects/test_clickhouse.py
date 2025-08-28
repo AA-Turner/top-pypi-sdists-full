@@ -642,6 +642,8 @@ class TestClickhouse(Validator):
             "SELECT parseDateTime('2021-01-04+23:00:00', '%Y-%m-%d+%H:%i:%s', 'Asia/Istanbul')"
         )
 
+        self.validate_identity("farmFingerprint64(x1, x2, x3)")
+
     def test_clickhouse_values(self):
         ast = self.parse_one("SELECT * FROM VALUES (1, 2, 3)")
         self.assertEqual(len(list(ast.find_all(exp.Tuple))), 4)
@@ -1222,6 +1224,35 @@ LIFETIME(MIN 0 MAX 0)""",
             )
         )
 
+        self.validate_all(
+            """
+            CREATE TABLE session_log
+            (
+                UserID UInt64,
+                SessionID UUID
+            )
+            ENGINE = MergeTree
+            PARTITION BY sipHash64(UserID) % 16
+            ORDER BY tuple();
+            """,
+            pretty=True,
+        )
+
+        self.validate_all(
+            """
+            CREATE TABLE visits
+            (
+                VisitDate Date,
+                Hour UInt8,
+                ClientID UUID
+            )
+            ENGINE = MergeTree()
+            PARTITION BY (toYYYYMM(VisitDate), Hour)
+            ORDER BY Hour;
+            """,
+            pretty=True,
+        )
+
     def test_agg_functions(self):
         def extract_agg_func(query):
             return parse_one(query, read="clickhouse").selects[0].this
@@ -1248,6 +1279,16 @@ LIFETIME(MIN 0 MAX 0)""",
         )
 
         parse_one("foobar(x)").assert_is(exp.Anonymous)
+
+        self.validate_identity("SELECT approx_top_sum(column, weight) FROM t").selects[0].assert_is(
+            exp.AnonymousAggFunc
+        )
+        self.validate_identity("SELECT approx_top_sum(N)(column, weight) FROM t").selects[
+            0
+        ].assert_is(exp.ParameterizedAgg)
+        self.validate_identity("SELECT approx_top_sum(N, reserved)(column, weight) FROM t").selects[
+            0
+        ].assert_is(exp.ParameterizedAgg)
 
     def test_drop_on_cluster(self):
         for creatable in ("DATABASE", "TABLE", "VIEW", "DICTIONARY", "FUNCTION"):

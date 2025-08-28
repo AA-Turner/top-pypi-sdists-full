@@ -2,8 +2,8 @@ import datetime
 import getpass
 import os
 import sys
-from orionis.console.output.enums import ANSIColors
 from orionis.console.contracts.console import IConsole
+from orionis.console.enums.styles import ANSIColors
 
 class Console(IConsole):
     """

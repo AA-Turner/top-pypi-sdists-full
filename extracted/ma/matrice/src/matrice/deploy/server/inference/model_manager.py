@@ -84,10 +84,13 @@ class ModelManager:
         if not hasattr(self, "_round_robin_counter"):
             self._round_robin_counter = 0
 
+        order = self._round_robin_counter % len(self.model_instances)
         # Get the current model instance
-        model = self.model_instances[
-            self._round_robin_counter % len(self.model_instances)
-        ]
+        model = self.model_instances[order]
+        if not model:
+            logging.error(f"No model instance found for model {self.model_id}, will try to load model")
+            self.model_instances[order] = self.load_model(self.action_tracker)
+            model = self.model_instances[order]
 
         # Increment counter for next call
         self._round_robin_counter = (self._round_robin_counter + 1) % len(

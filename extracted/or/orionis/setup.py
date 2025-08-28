@@ -58,6 +58,7 @@ setup(
             'bootstrap',
             'config',
             'database'
+            'routes',
             'storage',
             'tests'
         ]

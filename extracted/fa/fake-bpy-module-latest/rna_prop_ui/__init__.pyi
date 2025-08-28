@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 class PropertyPanel:
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     bl_label: typing.Any

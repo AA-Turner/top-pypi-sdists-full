@@ -19,7 +19,9 @@ def create(
     """
 
 def export_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Invoke all configured exporters on this collection
 
@@ -34,7 +36,7 @@ def exporter_add(
     *,
     name: str = "",
 ) -> None:
-    """Add Exporter
+    """Add exporter to the exporter list
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -57,6 +59,21 @@ def exporter_export(
     :type index: int | None
     """
 
+def exporter_move(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    direction: typing.Literal["UP", "DOWN"] | None = "UP",
+) -> None:
+    """Move exporter up or down in the exporter list
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param direction: Direction, Direction to move the active exporter
+    :type direction: typing.Literal['UP','DOWN'] | None
+    """
+
 def exporter_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
@@ -64,7 +81,7 @@ def exporter_remove(
     *,
     index: int | None = 0,
 ) -> None:
-    """Remove Exporter
+    """Remove exporter from the exporter list
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -118,7 +135,9 @@ def objects_remove_active(
     """
 
 def objects_remove_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected objects from all collections
 

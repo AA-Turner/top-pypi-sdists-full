@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import asdict
 import time
 from datetime import datetime, timezone
+import math
 
 from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol
 from ..utils import (
@@ -23,16 +24,18 @@ from ..core.config import BaseConfig, AlertConfig
 @dataclass
 class AbandonedObjectConfig(BaseConfig):
     """Configuration for abandoned object detection use case."""
-    enable_smoothing: bool = False
-    centroid_threshold: float = 10.0
+    enable_smoothing: bool = True
+    centroid_threshold: float = 30.0
+    proximity_threshold: float = 50.0  # New: Distance threshold for person proximity
+    proximity_hysteresis_frames: int = 5  # New: Frames required for proximity reset
     smoothing_algorithm: str = "observability"
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
     confidence_threshold: float = 0.4
-    stationary_threshold_frames: int = 60
+    stationary_threshold_frames: int = 30
     usecase_categories: List[str] = field(default_factory=lambda: ['backpack', 'handbag', 'suitcase'])
-    target_categories: List[str] = field(default_factory=lambda: ['backpack', 'handbag', 'suitcase'])
+    target_categories: List[str] = field(default_factory=lambda: ['handbag'])
     alert_config: Optional[AlertConfig] = None
     zone_config: Optional[Dict[str, Dict[str, List[List[float]]]]] = None
     index_to_category: Optional[Dict[int, str]] = field(
@@ -49,7 +52,7 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
         self.category = "security"
         self.CASE_TYPE: Optional[str] = 'abandoned_object_detection'
         self.CASE_VERSION: Optional[str] = '1.0'
-        self.target_categories = ['backpack', 'handbag', 'suitcase']
+        self.target_categories = ['handbag']
         self.smoothing_tracker = None
         self.tracker = None
         self._total_frame_counter = 0
@@ -80,13 +83,12 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
         context.input_format = input_format
         context.confidence_threshold = config.confidence_threshold
 
-        all_data = filter_by_confidence(data, config.confidence_threshold)
+        processed_data = filter_by_confidence(data, config.confidence_threshold)
         if config.index_to_category:
-            all_data = apply_category_mapping(all_data, config.index_to_category)
+            processed_data = apply_category_mapping(processed_data, config.index_to_category)
 
-        person_dets = [d for d in all_data if d.get('category') == config.person_category]
-        object_dets = [d for d in all_data if d.get('category') in self.target_categories]
-        processed_data = person_dets + object_dets
+        person_dets = [d for d in processed_data if d.get('category') == config.person_category]
+        object_dets = [d for d in processed_data if d.get('category') in self.target_categories]
 
         if config.enable_smoothing:
             if self.smoothing_tracker is None:
@@ -113,7 +115,6 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
 
         person_dets = [d for d in processed_data if d.get('category') == config.person_category]
         object_dets = [d for d in processed_data if d.get('category') in self.target_categories]
-
         abandoned_data = self._check_abandoned_objects(object_dets, person_dets, config)
         self._update_tracking_state(abandoned_data)
         self._total_frame_counter += 1
@@ -170,7 +171,6 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
     def _check_abandoned_objects(self, object_dets: List[Dict], person_dets: List[Dict], config: AbandonedObjectConfig) -> List[Dict]:
         abandoned_data = []
         current_time = time.time()
-        overlap_iou_threshold = 0.05
 
         for det in object_dets:
             track_id = det.get('track_id')
@@ -180,12 +180,17 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
 
             centroid = self._calculate_centroid(bbox)
             in_zone = self._is_in_zone(bbox, config.zone_config['zones'] if config.zone_config else None)
-            overlaps = any(self._compute_iou(bbox, p.get('bounding_box')) > overlap_iou_threshold for p in person_dets if p.get('bounding_box'))
+            is_near_person = False
 
-            if overlaps:
-                if track_id in self._stationary_tracks:
-                    del self._stationary_tracks[track_id]
-                continue
+            # Proximity check: Calculate distance to nearest person's centroid
+            for person in person_dets:
+                person_bbox = person.get('bounding_box')
+                if person_bbox:
+                    person_centroid = self._calculate_centroid(person_bbox)
+                    distance = math.sqrt((centroid[0] - person_centroid[0])**2 + (centroid[1] - person_centroid[1])**2)
+                    if distance < config.proximity_threshold:
+                        is_near_person = True
+                        break
 
             if track_id not in self._stationary_tracks:
                 self._stationary_tracks[track_id] = {
@@ -193,14 +198,25 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
                     'frame_count': 1,
                     'start_time': current_time,
                     'bbox': bbox,
-                    'in_zone': in_zone
+                    'in_zone': in_zone,
+                    'proximal_frames': 0
                 }
                 track_info = self._stationary_tracks[track_id]
                 if track_info['frame_count'] >= config.stationary_threshold_frames and in_zone:
                     det['category'] = 'abandoned_object'
                     abandoned_data.append(det)
+                    self.logger.info(f"Marked as abandoned_object: {det}")
             else:
                 track_info = self._stationary_tracks[track_id]
+
+                if is_near_person:
+                    track_info['proximal_frames'] = track_info.get('proximal_frames', 0) + 1
+                    if track_info['proximal_frames'] >= config.proximity_hysteresis_frames:
+                        track_info['frame_count'] = 1
+                        track_info['start_time'] = current_time
+                    continue
+
+                track_info['proximal_frames'] = 0
                 prev_centroid = track_info['centroid']
                 track_info['frame_count'] += 1
                 track_info['bbox'] = bbox
@@ -210,10 +226,13 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
                     if track_info['frame_count'] >= config.stationary_threshold_frames and in_zone:
                         det['category'] = 'abandoned_object'
                         abandoned_data.append(det)
+                        self.logger.info(f"Marked as abandoned_object: {det}")
                 else:
                     track_info['frame_count'] = max(1, track_info['frame_count'] - 5)
                     track_info['centroid'] = centroid
                     track_info['start_time'] = current_time
+
+                self.logger.info(f"Object: confidence={det.get('confidence')}, category={det.get('category')}, track_id={track_id}, frame_count={track_info['frame_count']}, in_zone={in_zone}, centroid={centroid}, is_near_person={is_near_person}")
 
         return abandoned_data
 
@@ -470,7 +489,7 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
             if any(count > 0 for count in per_category_count.values()):
                 for cat, count in per_category_count.items():
                     if count > 0:
-                        human_text_lines.append(f"\t- {count} Abandoned Object[s] detected")
+                        human_text_lines.append(f"\t- {count} Abandoned Objects detected")
                     else:
                         human_text_lines.append(f"\t- No detections")
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}")

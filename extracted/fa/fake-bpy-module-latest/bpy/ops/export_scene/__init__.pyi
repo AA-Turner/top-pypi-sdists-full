@@ -100,7 +100,7 @@ def fbx(
         :type apply_scale_options: typing.Literal['FBX_SCALE_NONE','FBX_SCALE_UNITS','FBX_SCALE_CUSTOM','FBX_SCALE_ALL'] | None
         :param use_space_transform: Use Space Transform, Apply global space transform to the object rotations. When disabled only the axis space is written to the file and all object transforms are left as-is
         :type use_space_transform: bool | None
-        :param bake_space_transform: Apply Transform, Bake space transform into object data, avoids getting unwanted rotations to objects when target space is not aligned with Blender's space (WARNING! experimental option, use at own risk, known to be broken with armatures/animations)
+        :param bake_space_transform: Apply Transform, Bake space transform into object data, avoids getting unwanted rotations to objects when target space is not aligned with Blenders space (WARNING! experimental option, use at own risk, known to be broken with armatures/animations)
         :type bake_space_transform: bool | None
         :param object_types: Object Types, Which kind of object to export
 
@@ -126,7 +126,7 @@ def fbx(
         :type use_mesh_modifiers: bool | None
         :param use_mesh_modifiers_render: Use Modifiers Render Setting, Use render settings when applying modifiers to mesh objects (DISABLED in Blender 2.8)
         :type use_mesh_modifiers_render: bool | None
-        :param mesh_smooth_type: Smoothing, Export smoothing information (prefer 'Normals Only' option if your target importer understands custom normals)
+        :param mesh_smooth_type: Smoothing, Export smoothing information (prefer Normals Only option if your target importer understands custom normals)
 
     OFF
     Normals Only -- Export only normals instead of writing edge or face smoothing data.
@@ -153,7 +153,7 @@ def fbx(
         :type colors_type: typing.Literal['NONE','SRGB','LINEAR'] | None
         :param prioritize_active_color: Prioritize Active Color, Make sure active color will be exported first. Could be important since some other software can discard other color attributes besides the first one
         :type prioritize_active_color: bool | None
-        :param use_subsurf: Export Subdivision Surface, Export the last Catmull-Rom subdivision modifier as FBX subdivision (does not apply the modifier even if 'Apply Modifiers' is enabled)
+        :param use_subsurf: Export Subdivision Surface, Export the last Catmull-Rom subdivision modifier as FBX subdivision (does not apply the modifier even if Apply Modifiers is enabled)
         :type use_subsurf: bool | None
         :param use_mesh_edges: Loose Edges, Export loose edges (as two-vertices polygons)
         :type use_mesh_edges: bool | None
@@ -171,24 +171,24 @@ def fbx(
         :type secondary_bone_axis: typing.Literal['X','Y','Z','-X','-Y','-Z'] | None
         :param use_armature_deform_only: Only Deform Bones, Only write deforming bones (and non-deforming ones when they have deforming children)
         :type use_armature_deform_only: bool | None
-        :param armature_nodetype: Armature FBXNode Type, FBX type of node (object) used to represent Blender's armatures (use the Null type unless you experience issues with the other app, as other choices may not import back perfectly into Blender...)
+        :param armature_nodetype: Armature FBXNode Type, FBX type of node (object) used to represent Blenders armatures (use the Null type unless you experience issues with the other app, as other choices may not import back perfectly into Blender...)
 
     NULL
-    Null -- 'Null' FBX node, similar to Blender's Empty (default).
+    Null -- Null FBX node, similar to Blenders Empty (default).
 
     ROOT
-    Root -- 'Root' FBX node, supposed to be the root of chains of bones....
+    Root -- Root FBX node, supposed to be the root of chains of bones....
 
     LIMBNODE
-    LimbNode -- 'LimbNode' FBX node, a regular joint between two bones....
+    LimbNode -- LimbNode FBX node, a regular joint between two bones....
         :type armature_nodetype: typing.Literal['NULL','ROOT','LIMBNODE'] | None
         :param bake_anim: Baked Animation, Export baked keyframe animation
         :type bake_anim: bool | None
         :param bake_anim_use_all_bones: Key All Bones, Force exporting at least one key of animation for all bones (needed with some target applications, like UE4)
         :type bake_anim_use_all_bones: bool | None
-        :param bake_anim_use_nla_strips: NLA Strips, Export each non-muted NLA strip as a separated FBX's AnimStack, if any, instead of global scene animation
+        :param bake_anim_use_nla_strips: NLA Strips, Export each non-muted NLA strip as a separated FBXs AnimStack, if any, instead of global scene animation
         :type bake_anim_use_nla_strips: bool | None
-        :param bake_anim_use_all_actions: All Actions, Export each action as a separated FBX's AnimStack, instead of global scene animation (note that animated objects will get all actions compatible with them, others will get no animation at all)
+        :param bake_anim_use_all_actions: All Actions, Export each action as a separated FBXs AnimStack, instead of global scene animation (note that animated objects will get all actions compatible with them, others will get no animation at all)
         :type bake_anim_use_all_actions: bool | None
         :param bake_anim_force_startend_keying: Force Start/End Keying, Always add a keyframe at start and end of actions for animated channels
         :type bake_anim_force_startend_keying: bool | None
@@ -205,13 +205,13 @@ def fbx(
     Absolute -- Always write absolute paths.
 
     RELATIVE
-    Relative -- Always write relative paths (where possible).
+    Relative -- Write relative paths where possible.
 
     MATCH
     Match -- Match absolute/relative setting with input path.
 
     STRIP
-    Strip Path -- Filename only.
+    Strip -- Filename only.
 
     COPY
     Copy -- Copy the file to the destination path (or subdirectory).
@@ -455,7 +455,7 @@ def gltf(
     WebP Format -- Save images as WebPs as main image (no fallback).
 
     NONE
-    None -- Don't export images.
+    None -- Dont export images.
         :type export_image_format: typing.Literal['AUTO','JPEG','WEBP','NONE'] | None
         :param export_image_add_webp: Create WebP, Creates WebP textures for every texture. For already WebP textures, nothing happens
         :type export_image_add_webp: bool | None
@@ -577,7 +577,7 @@ def gltf(
     STEP
     Step -- No interpolation between keyframes.
         :type export_sampling_interpolation_fallback: typing.Literal['LINEAR','STEP'] | None
-        :param export_pointer_animation: Export Animation Pointer (Experimental), Export material, Light & Camera animation as Animation Pointer. Available only for baked animation mode 'NLA Tracks' and 'Scene'
+        :param export_pointer_animation: Export Animation Pointer (Experimental), Export material, Light & Camera animation as Animation Pointer. Available only for baked animation mode NLA Tracks and Scene
         :type export_pointer_animation: bool | None
         :param export_animation_mode: Animation Mode, Export Animation mode
 
@@ -645,7 +645,7 @@ def gltf(
         :type export_reset_pose_bones: bool | None
         :param export_current_frame: Use Current Frame as Object Rest Transformations, Export the scene in the current animation frame. When off, frame 0 is used as rest transformations for objects
         :type export_current_frame: bool | None
-        :param export_rest_position_armature: Use Rest Position Armature, Export armatures using rest position as joints' rest pose. When off, current frame pose is used as rest pose
+        :param export_rest_position_armature: Use Rest Position Armature, Export armatures using rest position as joints rest pose. When off, current frame pose is used as rest pose
         :type export_rest_position_armature: bool | None
         :param export_anim_scene_split_object: Split Animation by Object, Export Scene as seen in Viewport, But split animation by Object
         :type export_anim_scene_split_object: bool | None
@@ -677,7 +677,7 @@ def gltf(
         :type export_action_filter: bool | None
         :param export_convert_animation_pointer: Convert TRS/Weights to Animation Pointer, Export TRS and weights as Animation Pointer. Using KHR_animation_pointer extension
         :type export_convert_animation_pointer: bool | None
-        :param export_nla_strips: Group by NLA Track, When on, multiple actions become part of the same glTF animation if they're pushed onto NLA tracks with the same name. When off, all the currently assigned actions become one glTF animation
+        :param export_nla_strips: Group by NLA Track, When on, multiple actions become part of the same glTF animation if theyre pushed onto NLA tracks with the same name. When off, all the currently assigned actions become one glTF animation
         :type export_nla_strips: bool | None
         :param export_original_specular: Export Original PBR Specular, Export original glTF PBR Specular, instead of Blender Principled Shader Specular
         :type export_original_specular: bool | None

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-pagerduty",
-    "version": "14.2.1",
+    "version": "14.2.2",
     "description": "Prebuilt pagerduty Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-pagerduty.git",
@@ -113,7 +113,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_pagerduty._jsii": [
-            "provider-pagerduty@14.2.1.jsii.tgz"
+            "provider-pagerduty@14.2.2.jsii.tgz"
         ],
         "cdktf_cdktf_provider_pagerduty": [
             "py.typed"

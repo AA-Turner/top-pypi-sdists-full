@@ -11,6 +11,7 @@ def svg(
     *,
     filepath: str = "",
     filter_glob: str = "*.svg",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
 ) -> None:
@@ -22,6 +23,8 @@ def svg(
     :type filepath: str
     :param filter_glob: filter_glob
     :type filter_glob: str
+    :param directory: directory
+    :type directory: str
     :param files: File Path
     :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
     """

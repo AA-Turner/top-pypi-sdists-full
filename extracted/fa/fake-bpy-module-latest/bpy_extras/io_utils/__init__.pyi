@@ -41,7 +41,7 @@ class ImportHelper:
         """
 
 def axis_conversion(from_forward="Y", from_up="Z", to_forward="Y", to_up="Z") -> None:
-    """Each argument us an axis in ['X', 'Y', 'Z', '-X', '-Y', '-Z']
+    """Each argument us an axis in [X, Y, Z, -X, -Y, -Z]
     where the first 2 are a source and the second 2 are the target.
 
     """
@@ -95,7 +95,7 @@ def path_reference(
     exporters.
 
         :param filepath: the file path to return,
-    supporting blenders relative '//' prefix.
+    supporting blenders relative // prefix.
         :type filepath: str
         :param base_src: the directory the filepath is relative too
     (normally the blend file).
@@ -104,11 +104,11 @@ def path_reference(
     (normally the export path).
         :type base_dst: str
         :param mode: the method used get the path in
-    ['AUTO', 'ABSOLUTE', 'RELATIVE', 'MATCH', 'STRIP', 'COPY']
+    [AUTO, ABSOLUTE, RELATIVE, MATCH, STRIP, COPY]
         :type mode: str
-        :param copy_subdir: the subdirectory of base_dst to use when mode='COPY'.
+        :param copy_subdir: the subdirectory of base_dst to use when mode=COPY.
         :type copy_subdir: str
-        :param copy_set: collect from/to pairs when mode='COPY',
+        :param copy_set: collect from/to pairs when mode=COPY,
     pass to path_reference_copy when exporting is done.
         :param library: The library this path is relative to.
         :type library: None | bpy.types.Library | None

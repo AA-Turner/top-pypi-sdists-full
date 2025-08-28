@@ -63,10 +63,13 @@ class ActionInstance:
             "dataset_annotation": dataset_annotation_execute,
             "dataset_augmentation": dataset_augmentation_execute,
             "augmentation_setup": augmentation_server_creation_execute,
+            "dataset_generation": synthetic_dataset_generation_execute,
+            "synthetic_data_setup": synthetic_data_setup_execute,
             "image_build": image_build_execute,
             "resource_clone": resource_clone_execute,
             "kafka_setup": kafka_setup_execute,
             "inference_aggregator": deploy_aggregator_execute,
+            "redis_setup": redis_setup_execute,
         }
         if self.action_type not in self.actions_map:
             raise ValueError(f"Unknown action type: {self.action_type}")
@@ -259,6 +262,7 @@ class ActionInstance:
         model_key="",
         extra_env_vars=None,
         port_mapping=None,
+        network_config="",
         destination_workspace_path="/usr/src/workspace",
         docker_workdir="",
     ):
@@ -289,7 +293,8 @@ class ActionInstance:
         if extra_env_vars:
             env_vars.update(extra_env_vars)
 
-        network_config = "--net=host" if not port_mapping else " ".join(f"-p {host}:{container}" for host, container in port_mapping.items())
+        if network_config=="":
+            network_config = "--net=host" if not port_mapping else " ".join(f"-p {host}:{container}" for host, container in port_mapping.items())
 
         if not docker_workdir:
             if action_id:
@@ -353,6 +358,19 @@ class ActionInstance:
                 )
             else:
                 hugging_face_token = resp["user_access_token"]
+        return hugging_face_token
+
+    @log_errors(default_return="", raise_exception=False)
+    def get_hugging_face_token_for_data_generation(self):
+        secret_name = "hugging_face"
+        resp, error, message = self.scaling.get_model_secret_keys(secret_name)
+        if error is not None:
+            logging.error(
+                "Error getting Hugging Face token: %s",
+                message,
+            )
+        else:
+            hugging_face_token = resp["user_access_token"]
         return hugging_face_token
 
     @log_errors(default_return="", raise_exception=False)
@@ -442,6 +460,81 @@ class ActionInstance:
                 str(err),
             )
             raise
+
+
+    @log_errors(raise_exception=False)
+    def create_redis_container(self, redis_image=None,redis_password=None):
+        """Create and start a Redis container using Docker.
+        
+        Args:
+            redis_image (str, optional): Redis Docker image to use. Defaults to 'redis:latest'
+        
+        Returns:
+            tuple: (container_info, error, message)
+        """
+        if redis_image is None:
+            redis_image = "redis:latest"
+
+        network_name = f"redis_network_{int(time.time())}"
+        subprocess.run(f"docker network create {network_name}", shell=True, check=True)
+
+        try:
+            # Get an available port for Redis
+            external_port = "6379"
+            
+            # Generate a unique container name and password
+            container_name = f"redis_container_{int(time.time())}"
+            
+            # Build the docker command to create Redis container with password
+            cmd = (
+                f"docker run -d "
+                f"--network {network_name} "
+                f"--name {container_name} "
+                f"-p {external_port}:6379 "
+                f"--restart unless-stopped "
+                f"{redis_image} "
+                f"redis-server --bind 0.0.0.0 --appendonly yes --requirepass {redis_password}"
+            )
+            
+            logging.info("Creating Redis container with command: %s", cmd)
+            
+            # Execute the command
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode == 0:
+                container_id = result.stdout.strip()
+                container_info = {
+                    "container_id": container_id,
+                    "container_name": container_name,
+                    "network_name": network_name,
+                    "external_port": external_port,
+                    "internal_port": 6379,
+                    "password": redis_password,
+                    "image": redis_image,
+                    "status": "running"
+                }
+                
+                logging.info("Redis container created successfully: %s", container_info)
+                return container_info, None, "Redis container created successfully"
+            else:
+                error_message = f"Failed to create Redis container: {result.stderr}"
+                logging.error(error_message)
+                return None, "ContainerCreationError", error_message
+                
+        except subprocess.TimeoutExpired:
+            error_message = "Timeout while creating Redis container"
+            logging.error(error_message)
+            return None, "TimeoutError", error_message
+        except Exception as e:
+            error_message = f"Unexpected error creating Redis container: {str(e)}"
+            logging.error(error_message)
+            return None, "UnexpectedError", error_message  
 
     @log_errors(raise_exception=False, log_error=False)
     def send_logs_continuously(self):
@@ -776,6 +869,108 @@ def augmentation_server_creation_execute(
     cmd = f'{self.get_base_docker_cmd(work_fs)} python3 /usr/src/app/aug_server.py {self.action_record_id} {external_port} "'
     logging.info("cmd: %s", cmd)
     self.start(cmd, "augmentation_setup")
+
+@log_errors(raise_exception=False)
+def synthetic_dataset_generation_execute(
+    self: ActionInstance
+):
+    """Execute synthetic dataset generation task."""
+    work_fs = get_max_file_system()
+    action_details = self.get_action_details()
+    if not action_details:
+        return
+    self.setup_action_requirements(action_details, work_fs)
+    extra_env_vars = {}
+    hf_token = self.get_hugging_face_token_for_data_generation()
+    extra_env_vars["HUGGING_FACE_ACCESS_TOKEN"] = hf_token
+    if hf_token:
+        extra_env_vars["HUGGING_FACE_ACCESS_TOKEN"] = hf_token
+    else:
+        return
+    use_gpu = self.get_gpu_config(action_details)
+    cmd = f'{self.get_base_docker_cmd(work_fs=work_fs, use_gpu=use_gpu, extra_env_vars=extra_env_vars)} python3 /usr/src/app/synthetic_dataset_generation.py {self.action_record_id} "'
+    logging.info("cmd is: %s", cmd)
+    self.start(cmd, "dataset_generation")
+
+@log_errors(raise_exception=False)
+def synthetic_data_setup_execute(
+    self: ActionInstance
+):
+    """Execute synthetic data setup task."""
+    work_fs = get_max_file_system()
+    action_details = self.get_action_details()
+    external_port = self.scaling.get_open_port()
+    if not action_details:
+        return
+    self.setup_action_requirements(action_details, work_fs)
+    extra_env_vars = {}
+    hf_token = self.get_hugging_face_token_for_data_generation()
+    if hf_token:
+        extra_env_vars["HUGGING_FACE_ACCESS_TOKEN"] = hf_token
+    else:
+        return
+    use_gpu = self.get_gpu_config(action_details)
+    cmd = f'{self.get_base_docker_cmd(work_fs=work_fs, use_gpu=use_gpu, extra_env_vars=extra_env_vars)} python3 /usr/src/app/data_generation.py {self.action_record_id} {external_port} "'
+    logging.info("cmd is: %s", cmd)
+    self.start(cmd, "synthetic_data_setup")
+
+@log_errors(raise_exception=False)
+def redis_setup_execute(self: ActionInstance):
+    """
+    Creates and starts a Redis container using Docker.
+    """
+    external_port = self.scaling.get_open_port()
+    work_fs = get_max_file_system()
+
+    action_details = self.get_action_details()
+    if not action_details:
+        return
+    action_id = action_details["_id"]
+
+    redis_password = action_details["jobParams"].get("password", f"redis_pass_{int(time.time())}")
+
+    container_info, error, message = self.create_redis_container(action_details["actionDetails"].get("redis_image", "redis:latest"),redis_password=redis_password)
+    if error:
+        logging.error(
+            "Error creating Redis container: %s",
+            message,
+        )
+        return
+    logging.info("Redis container created successfully: %s", container_info)
+
+    # Initialize redis container
+    self.setup_action_requirements(
+        action_details,
+        work_fs,
+        model_family="",
+        action_id=action_id,
+    )
+
+    env_vars = {
+        "REDIS_URL": f"{container_info['container_name']}:{container_info['external_port']}",
+        "REDIS_PASSWORD": container_info['password'],
+    }
+
+    network_config = f" --network {container_info['network_name']} -p 8080:8080"
+
+    # Make the docker file here
+    cmd = (
+        f"docker run "
+        f"{network_config} "
+        f"-e REDIS_URL={shlex.quote(env_vars['REDIS_URL'])} "
+        f"-e REDIS_PASSWORD={shlex.quote(env_vars['REDIS_PASSWORD'])} "
+        f"-e MATRICE_ACCESS_KEY_ID={shlex.quote(self.matrice_access_key_id)} "
+        f"-e MATRICE_SECRET_ACCESS_KEY={shlex.quote(self.matrice_secret_access_key)} "
+        f"-e ENV={shlex.quote(os.environ.get('ENV', 'prod'))} "
+        f"-v /var/run/docker.sock:/var/run/docker.sock "
+        f"--shm-size=30G --pull=always "
+        f"{self.docker_container} "
+        f"{self.action_record_id} "
+    )
+    
+    logging.info("cmd is: %s", cmd)
+
+    self.start(cmd, "redis_setup")
 
 @log_errors(raise_exception=False)
 def deploy_aggregator_execute(

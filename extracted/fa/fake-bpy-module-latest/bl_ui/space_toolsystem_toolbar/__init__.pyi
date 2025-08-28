@@ -2,11 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.space_toolsystem_common
-import bpy.types
 
 class IMAGE_PT_tools_active(
-    bl_ui.space_toolsystem_common.ToolSelectPanelHelper, bpy.types.Panel
+    bl_ui.space_toolsystem_common.ToolSelectPanelHelper, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_options: typing.Any
@@ -30,7 +30,7 @@ class IMAGE_PT_tools_active(
         """
 
 class NODE_PT_tools_active(
-    bl_ui.space_toolsystem_common.ToolSelectPanelHelper, bpy.types.Panel
+    bl_ui.space_toolsystem_common.ToolSelectPanelHelper, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_options: typing.Any
@@ -54,7 +54,7 @@ class NODE_PT_tools_active(
         """
 
 class SEQUENCER_PT_tools_active(
-    bl_ui.space_toolsystem_common.ToolSelectPanelHelper, bpy.types.Panel
+    bl_ui.space_toolsystem_common.ToolSelectPanelHelper, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_options: typing.Any
@@ -78,7 +78,7 @@ class SEQUENCER_PT_tools_active(
         """
 
 class VIEW3D_PT_tools_active(
-    bl_ui.space_toolsystem_common.ToolSelectPanelHelper, bpy.types.Panel
+    bl_ui.space_toolsystem_common.ToolSelectPanelHelper, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_options: typing.Any
@@ -171,6 +171,7 @@ class _defs_gpencil_weight: ...
 
 class _defs_grease_pencil_edit:
     interpolate: typing.Any
+    pen: typing.Any
     shear: typing.Any
     texture_gradient: typing.Any
 
@@ -235,6 +236,22 @@ class _defs_image_generic:
 
         :param context:
         """
+
+class _defs_image_mask_primitive:
+    box: typing.Any
+    circle: typing.Any
+
+class _defs_image_mask_select:
+    box: typing.Any
+    circle: typing.Any
+    lasso: typing.Any
+    select: typing.Any
+
+class _defs_image_mask_transform:
+    rotate: typing.Any
+    scale: typing.Any
+    transform: typing.Any
+    translate: typing.Any
 
 class _defs_image_uv_edit:
     rip_region: typing.Any
@@ -338,6 +355,7 @@ class _defs_sequencer_generic:
     rotate: typing.Any
     sample: typing.Any
     scale: typing.Any
+    slip: typing.Any
     transform: typing.Any
     translate: typing.Any
 

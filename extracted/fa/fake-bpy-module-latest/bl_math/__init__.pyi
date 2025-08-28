@@ -1,5 +1,5 @@
 """
-Miscellaneous math utilities module
+Miscellaneous math utilities module.
 
 """
 

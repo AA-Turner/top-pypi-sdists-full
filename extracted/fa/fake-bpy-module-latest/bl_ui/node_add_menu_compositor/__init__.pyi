@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class NODE_MT_category_compositor_color(bpy.types.Menu):
+class NODE_MT_category_compositor_color(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -30,7 +31,7 @@ class NODE_MT_category_compositor_color(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_color_adjust(bpy.types.Menu):
+class NODE_MT_category_compositor_color_adjust(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -56,7 +57,7 @@ class NODE_MT_category_compositor_color_adjust(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_color_mix(bpy.types.Menu):
+class NODE_MT_category_compositor_color_mix(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -82,7 +83,7 @@ class NODE_MT_category_compositor_color_mix(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_filter(bpy.types.Menu):
+class NODE_MT_category_compositor_filter(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -108,7 +109,7 @@ class NODE_MT_category_compositor_filter(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_filter_blur(bpy.types.Menu):
+class NODE_MT_category_compositor_filter_blur(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -134,7 +135,7 @@ class NODE_MT_category_compositor_filter_blur(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_group(bpy.types.Menu):
+class NODE_MT_category_compositor_group(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -160,7 +161,7 @@ class NODE_MT_category_compositor_group(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_input(bpy.types.Menu):
+class NODE_MT_category_compositor_input(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -186,7 +187,7 @@ class NODE_MT_category_compositor_input(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_input_constant(bpy.types.Menu):
+class NODE_MT_category_compositor_input_constant(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -212,7 +213,7 @@ class NODE_MT_category_compositor_input_constant(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_input_scene(bpy.types.Menu):
+class NODE_MT_category_compositor_input_scene(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -238,7 +239,7 @@ class NODE_MT_category_compositor_input_scene(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_keying(bpy.types.Menu):
+class NODE_MT_category_compositor_keying(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -264,7 +265,7 @@ class NODE_MT_category_compositor_keying(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_mask(bpy.types.Menu):
+class NODE_MT_category_compositor_mask(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -290,7 +291,7 @@ class NODE_MT_category_compositor_mask(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_output(bpy.types.Menu):
+class NODE_MT_category_compositor_output(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -316,7 +317,7 @@ class NODE_MT_category_compositor_output(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_texture(bpy.types.Menu):
+class NODE_MT_category_compositor_texture(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -342,7 +343,7 @@ class NODE_MT_category_compositor_texture(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_tracking(bpy.types.Menu):
+class NODE_MT_category_compositor_tracking(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -369,7 +370,7 @@ class NODE_MT_category_compositor_tracking(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_transform(bpy.types.Menu):
+class NODE_MT_category_compositor_transform(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -395,7 +396,7 @@ class NODE_MT_category_compositor_transform(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_utilities(bpy.types.Menu):
+class NODE_MT_category_compositor_utilities(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -421,7 +422,7 @@ class NODE_MT_category_compositor_utilities(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_vector(bpy.types.Menu):
+class NODE_MT_category_compositor_vector(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -447,7 +448,7 @@ class NODE_MT_category_compositor_vector(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_compositor_node_add_all(bpy.types.Menu):
+class NODE_MT_compositor_node_add_all(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any

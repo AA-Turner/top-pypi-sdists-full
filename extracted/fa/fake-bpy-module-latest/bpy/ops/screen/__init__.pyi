@@ -53,7 +53,9 @@ def animation_play(
     """
 
 def animation_step(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Step through animation by position
 
@@ -62,7 +64,9 @@ def animation_step(
     """
 
 def area_close(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Close selected area
 
@@ -71,7 +75,9 @@ def area_close(
     """
 
 def area_dupli(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Duplicate selected area into new window
 
@@ -119,7 +125,9 @@ def area_move(
     """
 
 def area_options(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Operations for splitting and merging
 
@@ -164,7 +172,9 @@ def area_swap(
     """
 
 def back_to_previous(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Revert back to the original screen layout, before fullscreen area overlay
 
@@ -173,7 +183,9 @@ def back_to_previous(
     """
 
 def delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete active screen
 
@@ -182,7 +194,9 @@ def delete(
     """
 
 def drivers_editor_show(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Show drivers editor in a separate window
 
@@ -221,7 +235,9 @@ def frame_offset(
     """
 
 def header_toggle_menus(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Expand or collapse the header pull-down menus
 
@@ -230,7 +246,9 @@ def header_toggle_menus(
     """
 
 def info_log_show(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Show info log in a separate window
 
@@ -268,7 +286,11 @@ def marker_jump(
     :type next: bool | None
     """
 
-def new(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def new(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Add a new screen
 
     :type execution_context: int | str | None
@@ -276,7 +298,9 @@ def new(execution_context: int | str | None = None, undo: bool | None = None) ->
     """
 
 def redo_last(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Display parameters for last action performed
 
@@ -285,7 +309,9 @@ def redo_last(
     """
 
 def region_blend(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Blend in and out overlapping region
 
@@ -294,7 +320,9 @@ def region_blend(
     """
 
 def region_context_menu(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Display region context menu
 
@@ -303,16 +331,20 @@ def region_context_menu(
     """
 
 def region_flip(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Toggle the region's alignment (left/right or top/bottom)
+    """Toggle the regions alignment (left/right or top/bottom)
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
 def region_quadview(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Split selected area into camera, front, right, and top views
 
@@ -321,7 +353,9 @@ def region_quadview(
     """
 
 def region_scale(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Scale selected area
 
@@ -360,7 +394,9 @@ def repeat_history(
     """
 
 def repeat_last(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Repeat last action
 
@@ -379,7 +415,7 @@ def screen_full_area(
 
     :type execution_context: int | str | None
     :type undo: bool | None
-    :param use_hide_panels: Hide Panels, Hide all the panels
+    :param use_hide_panels: Hide Panels, Hide all the panels (Focus Mode)
     :type use_hide_panels: bool | None
     """
 
@@ -627,7 +663,9 @@ def space_type_set_or_cycle(
     """
 
 def spacedata_cleanup(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove unused settings for invisible editors
 

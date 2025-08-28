@@ -5,7 +5,7 @@
 
     Tests for Tokenizer module
 
-    Copyright (C) 2016-2024 by Miðeind ehf.
+    Copyright (C) 2016-2025 by Miðeind ehf.
     Original author: Vilhjálmur Þorsteinsson
 
     This software is licensed under the MIT License:
@@ -50,9 +50,9 @@ def strip_originals(tokens: list[Tok]) -> list[Tok]:
     tracking during tokenization.
     """
 
-    for t in tokens:
-        t.original = None
-        t.origin_spans = None
+    for tk in tokens:
+        tk.original = None
+        tk.origin_spans = None
 
     return tokens
 
@@ -570,11 +570,11 @@ def test_single_tokens() -> None:
             else:
                 txt, kind = cast(tuple[str, int], test_case)
                 c = [Tok(kind, txt, None)]
-            l = list(t.tokenize(txt, **options))
-            assert len(l) == len(c) + 2, repr(l)
-            assert l[0].kind == TOK.S_BEGIN, repr(l[0])
-            assert l[-1].kind == TOK.S_END, repr(l[-1])
-            for tok, check in zip(l[1:-1], c):
+            lt = list(t.tokenize(txt, **options))
+            assert len(lt) == len(c) + 2, repr(lt)
+            assert lt[0].kind == TOK.S_BEGIN, repr(lt[0])
+            assert lt[-1].kind == TOK.S_END, repr(lt[-1])
+            for tok, check in zip(lt[1:-1], c):
                 assert tok.kind == check.kind, (
                     tok.txt
                     + ": "
@@ -1145,6 +1145,15 @@ def test_correct_spaces() -> None:
         "Þetta er setning.Þetta er önnur setning.Líka.En hvað með þetta?"
     )
     assert s == "Þetta er setning. Þetta er önnur setning. Líka. En hvað með þetta?"
+    # Test that colon-separated times are not space-separated
+    s = t.correct_spaces("Klukkan er 12: 00 og ég ætla að fara út .")
+    assert s == "Klukkan er 12:00 og ég ætla að fara út."
+    s = t.correct_spaces("Tíminn byrjar kl . 4: 14 og klukkan er núna 5:00 .")
+    assert s == "Tíminn byrjar kl. 4:14 og klukkan er núna 5:00."
+    s = t.correct_spaces("Veislan verður kl . 12 : 00 - 14 : 00.")
+    assert s == "Veislan verður kl. 12:00-14:00."
+    s = t.correct_spaces("Hún kom í mark á tímanum 3 : 59 : 04 ,rétt fyrir lokin.")
+    assert s == "Hún kom í mark á tímanum 3:59:04, rétt fyrir lokin."
 
 
 def test_abbrev() -> None:
@@ -2566,15 +2575,3 @@ def test_one_sent_per_line() -> None:
         Tok(kind=11002, txt=None, val=None),
     ]
     assert toklist == correct
-
-
-if __name__ == "__main__":
-    test_single_tokens()
-    test_sentences()
-    test_correct_spaces()
-    test_correction()
-    test_abbrev()
-    test_overlap()
-    test_split_sentences()
-    test_normalization()
-    test_html_escapes()

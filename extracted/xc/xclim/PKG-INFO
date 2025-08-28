@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xclim
-Version: 0.57.0
+Version: 0.58.0
 Summary: Climate indices computation package based on Xarray.
 Keywords: xclim,xarray,climate,climatology,bias correction,ensemble,indicators,analysis
 Author-email: Travis Logan <logan.travis@ouranos.ca>
@@ -38,7 +38,7 @@ Requires-Dist: pint >=0.24.4
 Requires-Dist: pyarrow >=15.0
 Requires-Dist: pyyaml >=6.0.1
 Requires-Dist: scikit-learn >=1.2.0
-Requires-Dist: scipy >=1.11.0
+Requires-Dist: scipy >=1.11.0, <1.16.0
 Requires-Dist: xarray >=2023.11.0,!=2024.10.0
 Requires-Dist: yamale >=5.0.0
 Requires-Dist: xclim[dev] ; extra == "all"
@@ -55,7 +55,6 @@ Requires-Dist: h5netcdf>=1.3.0 ; extra == "dev"
 Requires-Dist: ipython >=8.10.0 ; extra == "dev"
 Requires-Dist: mypy >=1.14.1 ; extra == "dev"
 Requires-Dist: nbconvert >=7.16.4 ; extra == "dev"
-Requires-Dist: nbqa >=1.8.2 ; extra == "dev"
 Requires-Dist: nbval >=0.11.0 ; extra == "dev"
 Requires-Dist: numpydoc >=1.8.0 ; extra == "dev"
 Requires-Dist: pandas-stubs >=2.2 ; extra == "dev"
@@ -94,6 +93,7 @@ Requires-Dist: sphinxcontrib-bibtex ; extra == "docs"
 Requires-Dist: sphinxcontrib-svg2pdfconverter[cairosvg] ; extra == "docs"
 Requires-Dist: flox >=0.9 ; extra == "extras"
 Requires-Dist: xsdba >=0.4.0 ; extra == "extras"
+Requires-Dist: numbagg >= 0.8 ; extra == "extras"
 Project-URL: About Ouranos, https://www.ouranos.ca/en/
 Project-URL: Changelog, https://xclim.readthedocs.io/en/stable/history.html
 Project-URL: Homepage, https://xclim.readthedocs.io/

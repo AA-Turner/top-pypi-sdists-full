@@ -24,9 +24,13 @@ from pandas._typing import (
     S1,
     AxisIndex,
     DropKeep,
+    DTypeLike,
+    GenericT,
+    GenericT_co,
     NDFrameT,
     Scalar,
-    npt,
+    SupportsDType,
+    np_1darray,
 )
 from pandas.util._decorators import cache_readonly
 
@@ -42,7 +46,7 @@ class SelectionMixin(Generic[NDFrameT]):
     def __getitem__(self, key): ...
     def aggregate(self, func, *args, **kwargs): ...
 
-class IndexOpsMixin(OpsMixin, Generic[S1]):
+class IndexOpsMixin(OpsMixin, Generic[S1, GenericT_co]):
     __array_priority__: int = ...
     @property
     def T(self) -> Self: ...
@@ -57,22 +61,47 @@ class IndexOpsMixin(OpsMixin, Generic[S1]):
     def size(self) -> int: ...
     @property
     def array(self) -> ExtensionArray: ...
+    @overload
     def to_numpy(
         self,
-        dtype: npt.DTypeLike | None = ...,
-        copy: bool = ...,
+        dtype: None = None,
+        copy: bool = False,
         na_value: Scalar = ...,
         **kwargs,
-    ) -> np.ndarray: ...
+    ) -> np_1darray[GenericT_co]: ...
+    @overload
+    def to_numpy(
+        self,
+        dtype: np.dtype[GenericT] | SupportsDType[GenericT] | type[GenericT],
+        copy: bool = False,
+        na_value: Scalar = ...,
+        **kwargs,
+    ) -> np_1darray[GenericT]: ...
+    @overload
+    def to_numpy(
+        self,
+        dtype: DTypeLike,
+        copy: bool = False,
+        na_value: Scalar = ...,
+        **kwargs,
+    ) -> np_1darray: ...
     @property
     def empty(self) -> bool: ...
     def max(self, axis=..., skipna: bool = ..., **kwargs): ...
     def min(self, axis=..., skipna: bool = ..., **kwargs): ...
     def argmax(
-        self, axis: AxisIndex | None = ..., skipna: bool = ..., *args, **kwargs
+        self,
+        axis: AxisIndex | None = ...,
+        skipna: bool = True,
+        *args,
+        **kwargs,
     ) -> np.int64: ...
     def argmin(
-        self, axis: AxisIndex | None = ..., skipna: bool = ..., *args, **kwargs
+        self,
+        axis: AxisIndex | None = ...,
+        skipna: bool = True,
+        *args,
+        **kwargs,
     ) -> np.int64: ...
     def tolist(self) -> list[S1]: ...
     def to_list(self) -> list[S1]: ...
@@ -97,7 +126,7 @@ class IndexOpsMixin(OpsMixin, Generic[S1]):
         bins=...,
         dropna: bool = ...,
     ) -> Series[float]: ...
-    def nunique(self, dropna: bool = ...) -> int: ...
+    def nunique(self, dropna: bool = True) -> int: ...
     @property
     def is_unique(self) -> bool: ...
     @property
@@ -105,8 +134,8 @@ class IndexOpsMixin(OpsMixin, Generic[S1]):
     @property
     def is_monotonic_increasing(self) -> bool: ...
     def factorize(
-        self, sort: bool = ..., use_na_sentinel: bool = ...
-    ) -> tuple[np.ndarray, np.ndarray | Index | Categorical]: ...
+        self, sort: bool = False, use_na_sentinel: bool = True
+    ) -> tuple[np_1darray, np_1darray | Index | Categorical]: ...
     def searchsorted(
         self, value, side: Literal["left", "right"] = ..., sorter=...
     ) -> int | list[int]: ...

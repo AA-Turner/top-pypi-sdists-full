@@ -1,9 +1,13 @@
+import contextlib
 import time
 import unittest
 
 import comtypes
 import comtypes.client
-import comtypes.test
+
+with contextlib.redirect_stdout(None):  # supress warnings
+    comtypes.client.GetModule("msvidctl.dll")
+from comtypes.gen import MSVidCtlLib as msvidctl
 
 try:
     # pass Word libUUID
@@ -29,7 +33,7 @@ class Test_Word(unittest.TestCase):
     def setUp(self):
         try:
             comtypes.client.GetActiveObject("Word.Application")
-        except WindowsError:
+        except OSError:
             pass
         else:
             # seems word is running, we cannot test this.
@@ -65,6 +69,19 @@ class Test_Word(unittest.TestCase):
         self.assertEqual(variables, err.args)
         with self.assertRaises(WindowsError):
             comtypes.client.GetActiveObject("Word.Application")
+
+
+class Test_MSVidCtlLib(unittest.TestCase):
+    def test_register_and_revoke(self):
+        vidctl = comtypes.client.CreateObject(msvidctl.MSVidCtl)
+        with self.assertRaises(WindowsError):
+            comtypes.client.GetActiveObject(msvidctl.MSVidCtl)
+        handle = comtypes.client.RegisterActiveObject(vidctl, msvidctl.MSVidCtl)
+        activeobj = comtypes.client.GetActiveObject(msvidctl.MSVidCtl)
+        self.assertEqual(vidctl, activeobj)
+        comtypes.client.RevokeActiveObject(handle)
+        with self.assertRaises(WindowsError):
+            comtypes.client.GetActiveObject(msvidctl.MSVidCtl)
 
 
 if __name__ == "__main__":

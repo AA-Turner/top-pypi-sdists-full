@@ -1,7 +1,7 @@
 import inspect
-from typing import Any, Callable, Dict, Literal, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, TypeVar, Union
 
-from typing_extensions import TYPE_CHECKING, ParamSpec
+from typing_extensions import ParamSpec
 
 from chalk._lsp.error_builder import get_resolver_error_builder
 from chalk.features.tag import Environments

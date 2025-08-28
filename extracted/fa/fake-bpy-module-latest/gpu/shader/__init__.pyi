@@ -69,7 +69,7 @@ POLYLINE_UNIFORM_COLOR
 
 
     Attributes: vec3 pos
-    Uniforms: vec2 viewportSize, float lineWidth
+    Uniforms: vec2 viewportSize, float lineWidth, vec4 color
 
 
 
@@ -81,7 +81,7 @@ POINT_FLAT_COLOR
 
 
 
-POLYLINE_UNIFORM_COLOR
+POINT_UNIFORM_COLOR
 
 
     Attributes: vec3 pos
@@ -106,7 +106,7 @@ def create_from_info(shader_info: gpu.types.GPUShaderCreateInfo) -> gpu.types.GP
     :rtype: gpu.types.GPUShader
     """
 
-def from_builtin(shader_name: str, config: str = "DEFAULT") -> gpu.types.GPUShader:
+def from_builtin(shader_name: str, *, config: str = "DEFAULT") -> gpu.types.GPUShader:
     """Shaders that are embedded in the blender internal code (see `built-in-shaders`).
     They all read the uniform mat4 ModelViewProjectionMatrix,
     which can be edited by the `gpu.matrix` module.You can also choose a shader configuration that uses clip_planes by setting the CLIPPED value to the config parameter. Note that in this case you also need to manually set the value of mat4 ModelMatrix.

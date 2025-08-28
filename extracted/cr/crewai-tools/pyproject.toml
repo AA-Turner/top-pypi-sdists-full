@@ -1,6 +1,6 @@
 [project]
 name = "crewai-tools"
-version = "0.62.3"
+version = "0.65.0"
 description = "Set of tools for the crewAI framework"
 readme = "README.md"
 authors = [
@@ -10,14 +10,14 @@ requires-python = ">=3.10,<3.14"
 dependencies = [
     "pydantic>=2.6.1",
     "lancedb>=0.5.4",
-    "openai<1.100.0", # TODO: Temporarily pin due to https://github.com/openai/openai-python/issues/2564. Can revert once the issue is fixed.
+    "openai>=1.12.0",
     "chromadb==0.5.23",
     "pyright>=1.1.350",
     "pytube>=15.0.0",
     "requests>=2.31.0",
     "docker>=7.1.0",
     "embedchain>=0.1.114",
-    "crewai>=0.159.0",
+    "crewai>=0.165.1",
     "click>=8.1.8",
     "lancedb>=0.5.4",
     "tiktoken>=0.8.0",
@@ -117,6 +117,10 @@ stagehand = [
 github = [
     "gitpython==3.1.38",
     "PyGithub==1.59.1",
+]
+rag = [
+    "python-docx>=1.1.0",
+    "lxml>=5.3.0,<5.4.0",  # Pin to avoid etree import issues in 5.4.0
 ]
 xml = [
     "unstructured[local-inference, all-docs]>=0.17.2"

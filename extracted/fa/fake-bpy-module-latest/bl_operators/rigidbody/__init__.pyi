@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class BakeToKeyframes(bpy.types.Operator):
+class BakeToKeyframes(_bpy_types.Operator):
     """Bake rigid body transformations of selected objects to keyframes"""
 
     bl_idname: typing.Any
@@ -47,7 +48,7 @@ class BakeToKeyframes(bpy.types.Operator):
         :param context:
         """
 
-class ConnectRigidBodies(bpy.types.Operator):
+class ConnectRigidBodies(_bpy_types.Operator):
     """Create rigid body constraints between selected rigid bodies"""
 
     bl_idname: typing.Any
@@ -83,7 +84,7 @@ class ConnectRigidBodies(bpy.types.Operator):
         :param context:
         """
 
-class CopyRigidbodySettings(bpy.types.Operator):
+class CopyRigidbodySettings(_bpy_types.Operator):
     """Copy Rigid Body settings from active object to selected"""
 
     bl_idname: typing.Any

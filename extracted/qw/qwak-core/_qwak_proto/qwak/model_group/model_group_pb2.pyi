@@ -72,15 +72,18 @@ class SystemPullSecretInfo(google.protobuf.message.Message):
 
     MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
     SECRET_PULL_IMAGE_FIELD_NUMBER: builtins.int
+    ACCOUNT_ID_FIELD_NUMBER: builtins.int
     model_group_name: builtins.str
     secret_pull_image: builtins.str
+    account_id: builtins.str
     def __init__(
         self,
         *,
         model_group_name: builtins.str = ...,
         secret_pull_image: builtins.str = ...,
+        account_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["model_group_name", b"model_group_name", "secret_pull_image", b"secret_pull_image"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["account_id", b"account_id", "model_group_name", b"model_group_name", "secret_pull_image", b"secret_pull_image"]) -> None: ...
 
 global___SystemPullSecretInfo = SystemPullSecretInfo
 

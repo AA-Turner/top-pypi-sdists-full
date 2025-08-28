@@ -4,7 +4,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def clear_filter(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the search filter
 
@@ -13,7 +15,9 @@ def clear_filter(
     """
 
 def context_menu(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Display properties editor context_menu
 
@@ -217,7 +221,9 @@ def file_browse(
     """
 
 def start_filter(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Start entering filter text
 
@@ -226,7 +232,9 @@ def start_filter(
     """
 
 def toggle_pin(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Keep the current data-block displayed
 

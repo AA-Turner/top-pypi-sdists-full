@@ -3,7 +3,11 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 
-def new(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def new(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Add a new texture
 
     :type execution_context: int | str | None
@@ -11,7 +15,9 @@ def new(execution_context: int | str | None = None, undo: bool | None = None) ->
     """
 
 def slot_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the material texture settings and nodes
 
@@ -35,7 +41,9 @@ def slot_move(
     """
 
 def slot_paste(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the texture settings and nodes
 

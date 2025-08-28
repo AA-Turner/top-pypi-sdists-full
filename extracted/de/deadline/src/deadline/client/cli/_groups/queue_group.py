@@ -16,6 +16,7 @@ from botocore.exceptions import ClientError  # type: ignore[import]
 from datetime import datetime, timedelta, timezone
 
 from ... import api
+from ...api._session import get_session_client
 from ...config import config_file
 from ...exceptions import DeadlineOperationError
 from .._common import _apply_cli_options_to_config, _cli_object_repr, _handle_error
@@ -209,7 +210,7 @@ def queue_get(**args):
     click.echo(_cli_object_repr(response))
 
 
-@cli_queue.command(name="incremental-output-download")
+@cli_queue.command(name="sync-output")
 @click.option("--farm-id", help="The AWS Deadline Cloud Farm to use.")
 @click.option("--queue-id", help="The AWS Deadline Cloud Queue to use.")
 @click.option(
@@ -268,35 +269,34 @@ def queue_get(**args):
     default=False,
 )
 @_handle_error
-def incremental_output_download(
+@api.record_success_fail_telemetry_event(metric_name="queue_sync_output")
+def sync_output(
     json: bool,
     bootstrap_lookback_minutes: float,
     checkpoint_dir: str,
     force_bootstrap: bool,
     ignore_storage_profiles: bool,
+    conflict_resolution: str,
     dry_run: bool,
     **args,
 ):
     """
-    BETA - Downloads job attachments output incrementally for all jobs in a queue. When run for the
-    first time or with the --force-bootstrap option, it starts downloading from --bootstrap-lookback-minutes
+    Downloads any new job attachments output for all jobs in a queue since the last run of the same command.
+
+    When run for the first time or with the --force-bootstrap option, it starts downloading from --bootstrap-lookback-minutes
     in the past. When run each subsequent time, it loads  the previous checkpoint and continues
     where it left off.
 
-    To try this command, set the ENABLE_INCREMENTAL_OUTPUT_DOWNLOAD environment variable to 1 to acknowledge its
-    incomplete beta status.
+    With default options, the sync-output operation requires a storage profile defined in the deadline client configuration
+    or provided with the --storage-profile-id option. Storage profiles are used to generate path mappings when a job was
+    submitted from a machine with a different operating system or file system mount locations than the machine downloading outputs.
 
-    [NOTE] This command is still WIP and partially implemented right now.
+    If you only submit and download jobs from the same operating system and mount locations, you can use the --ignore-storage-profiles option.
     """
-    if os.environ.get("ENABLE_INCREMENTAL_OUTPUT_DOWNLOAD") != "1":
-        raise DeadlineOperationError(
-            "The incremental-output-download command is not fully implemented. You must set the environment variable ENABLE_INCREMENTAL_OUTPUT_DOWNLOAD to 1 to acknowledge this."
-        )
+    api._session.session_context["cli-command-name"] = "deadline.queue.sync-output"
 
     if sys.version_info < (3, 9):
-        raise DeadlineOperationError(
-            "The incremental-output-download command requires Python version 3.9 or later"
-        )
+        raise DeadlineOperationError("The sync-output command requires Python version 3.9 or later")
 
     if ignore_storage_profiles and args.get("storage_profile_id") is not None:
         raise click.UsageError(
@@ -324,8 +324,7 @@ def incremental_output_download(
     farm_id = config_file.get_setting("defaults.farm_id", config=config)
     queue_id = config_file.get_setting("defaults.queue_id", config=config)
     boto3_session: boto3.Session = api.get_boto3_session(config=config)
-
-    deadline = boto3_session.client("deadline")
+    deadline = get_session_client(boto3_session, "deadline")
 
     if ignore_storage_profiles:
         local_storage_profile_id = None
@@ -336,14 +335,13 @@ def incremental_output_download(
         )
         if not local_storage_profile_id:
             raise DeadlineOperationError(
-                "The incremental-output-download operation requires a storage profile configured locally\n"
-                "or provided with the --storage-profile-id option in order to determine file system paths\n"
-                "for download. Storage profiles are used to generate path mappings when a job was submitted\n"
-                "from a machine with a different operating system or file system mount locations than the download machine. \n\n"
-                "See https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/modeling-your-shared-filesystem-locations-with-storage-profiles.html\n\n"
-                "If you only submit and download jobs from one machine, you can use the --ignore-storage-profiles option\n"
-                "to ignore the storage profiles, and download all job outputs to whereever the paths are configured.\n"
-                "This is not recommended if more than one machine will submit or download jobs."
+                "The sync-output operation requires a storage profile defined in the deadline client configuration or "
+                "provided with the --storage-profile-id option.\n\n"
+                "Storage profiles are used to generate path mappings when a job was submitted from a machine with a different "
+                "operating system or file system mount locations than the machine downloading outputs. See "
+                "https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/modeling-your-shared-filesystem-locations-with-storage-profiles.html "
+                "for more information.\n\n"
+                "If you only submit and download jobs from the same operating system and mount locations, you can use the --ignore-storage-profiles option."
             )
 
         try:
@@ -447,6 +445,7 @@ def incremental_output_download(
             farm_id=farm_id,
             queue=queue,
             checkpoint=checkpoint,
+            file_conflict_resolution=FileConflictResolution[conflict_resolution],
             config=config,
             print_function_callback=logger.echo,
             dry_run=dry_run,

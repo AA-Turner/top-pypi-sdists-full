@@ -1,9 +1,8 @@
 Metadata-Version: 2.4
 Name: datacompy
-Version: 0.17.1
+Version: 0.18.0
 Summary: Dataframe comparison in Python
-Author: Ian Robertson, Dan Coates
-Author-email: Faisal Dosani <faisal.dosani@capitalone.com>
+Author-email: Faisal Dosani <faisal.dosani@capitalone.com>, Raymond Haffar <raymond.haffar@capitalone.com>, Jacob Dawang <jacob.dawang@capitalone.com>
 Maintainer-email: Faisal Dosani <faisal.dosani@capitalone.com>, Jacob Dawang <jacob.dawang@capitalone.com>, Raymond Haffar <raymond.haffar@capitalone.com>
 License: Apache Software License
 Project-URL: Homepage, https://github.com/capitalone/datacompy
@@ -24,15 +23,15 @@ Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pandas<=2.3.1,>=0.25.0
-Requires-Dist: numpy<=2.2.6,>=1.22.0
+Requires-Dist: numpy<=2.2.6,>=1.22.0; python_version == "3.10"
+Requires-Dist: numpy<=2.3.2,>=1.22.0; python_version >= "3.11"
 Requires-Dist: ordered-set<=4.1.0,>=4.0.2
-Requires-Dist: polars[pandas]<=1.31.0,>=0.20.4
+Requires-Dist: polars[pandas]<=1.32.3,>=0.20.4
 Requires-Dist: Jinja2>=3.0.0
 Provides-Extra: fugue
 Requires-Dist: fugue[dask,duckdb,ray]<=0.9.1,>=0.8.7; extra == "fugue"
 Provides-Extra: spark
-Requires-Dist: pyspark[connect]<=3.5.6,>=3.1.1; python_version < "3.11" and extra == "spark"
-Requires-Dist: pyspark[connect]<=3.5.6,>=3.4; python_version >= "3.11" and extra == "spark"
+Requires-Dist: pyspark[connect]<=3.5.6,>=3.4.0; extra == "spark"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python; extra == "snowflake"
 Requires-Dist: snowflake-snowpark-python; extra == "snowflake"
@@ -139,18 +138,18 @@ With the move to Pandas on Spark API and compatability issues with Pandas 2+ we 
 with the Pandas on Spark implementation. Spark plans to support Pandas 2 in [Spark 4](https://issues.apache.org/jira/browse/SPARK-44101)
 
 
-|             | Spark 3.2.4 | Spark 3.3.4 | Spark 3.4.2 | Spark 3.5.1 |
-|-------------|-------------|-------------|-------------|-------------|
-| Python 3.10 | ✅           | ✅           | ✅           | ✅           |
-| Python 3.11 | ❌           | ❌           | ✅           | ✅           |
-| Python 3.12 | ❌           | ❌           | ❌           | ❌           |
+|             |  Spark 3.4.4 | Spark 3.5.6 |
+|-------------|--------------|-------------|
+| Python 3.10 |   ✅         | ✅           |
+| Python 3.11 |   ✅         | ✅           |
+| Python 3.12 |   ❌         | ❌           |
 
 
 |                        | Pandas < 1.5.3 | Pandas >=2.0.0 |
 |------------------------|----------------|----------------|
-| ``Compare``            | ✅              | ✅              |
-| ``SparkSQLCompare``    | ✅              | ✅              |
-| Fugue                  | ✅              | ✅              |
+| ``Compare``            | ✅              | ✅             |
+| ``SparkSQLCompare``    | ✅              | ✅             |
+| Fugue                  | ✅              | ✅             |
 
 
 

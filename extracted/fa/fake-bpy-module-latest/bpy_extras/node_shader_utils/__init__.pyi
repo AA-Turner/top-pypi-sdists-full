@@ -23,7 +23,7 @@ class ShaderWrapper:
         """
 
 class ShaderImageTextureWrapper:
-    """Generic 'image texture'-like wrapper, handling image node, some mapping (texture coordinates transformations),
+    """Generic image texture-like wrapper, handling image node, some mapping (texture coordinates transformations),
     and texture coordinates source.
     """
 

@@ -61,6 +61,30 @@ class ClientStreamUtils:
         self.frames_skipped = 0
         self.frames_diff_sent = 0
         self.bytes_saved = 0
+        
+        # Latency statistics for the previous message per stream
+        self.last_read_times = {}  # Dict[stream_key, float]
+        self.last_write_times = {}  # Dict[stream_key, float]
+        self.last_process_times = {}  # Dict[stream_key, float]
+
+    def _get_stream_key_for_timing(self, stream_key: Optional[str]) -> str:
+        """Get normalized stream key for timing data."""
+        return stream_key if stream_key is not None else "default"
+
+    def _get_last_timings(self, stream_key: Optional[str]) -> Tuple[float, float, float]:
+        """Get last timing data for a specific stream."""
+        key = self._get_stream_key_for_timing(stream_key)
+        read_time = self.last_read_times.get(key, 0.0)
+        write_time = self.last_write_times.get(key, 0.0)
+        process_time = self.last_process_times.get(key, 0.0)
+        return read_time, write_time, process_time
+
+    def _update_last_timings(self, stream_key: Optional[str], read_time: float, write_time: float, process_time: float) -> None:
+        """Update last timing data for a specific stream."""
+        key = self._get_stream_key_for_timing(stream_key)
+        self.last_read_times[key] = read_time
+        self.last_write_times[key] = write_time
+        self.last_process_times[key] = process_time
 
     def _determine_transmission_strategy(
         self, frame: np.ndarray, stream_key: str
@@ -434,7 +458,11 @@ class ClientStreamUtils:
 
             while not self._stop_streaming:
                 start_time = time.time()
+                
+                # Measure read time from camera/stream
+                read_start_time = time.time()
                 ret, frame = cap.read()
+                read_time = time.time() - read_start_time
 
                 if not ret:
                     retry_count += 1
@@ -508,13 +536,33 @@ class ClientStreamUtils:
                 elif strategy == "difference":
                     self.frames_diff_sent += 1
 
-                # Produce
-                if self.produce_request(
+                # Get previous message timing data for this stream
+                last_read_time, last_write_time, last_process_time = self._get_last_timings(stream_key)
+                
+                # Add previous message timing data to current metadata
+                frame_metadata.update({
+                    "last_read_time_sec": last_read_time,
+                    "last_write_time_sec": last_write_time,
+                    "last_process_time_sec": last_process_time,
+                })
+
+                # Measure write time to Kafka and produce
+                write_start_time = time.time()
+                produce_success = self.produce_request(
                     input_bytes,
                     stream_key,
                     stream_group_key,
                     metadata=frame_metadata,
-                ):
+                )
+                write_time = time.time() - write_start_time
+                
+                # Calculate total process time for current message
+                process_time = read_time + write_time
+                
+                # Update timing data for next message for this stream
+                self._update_last_timings(stream_key, read_time, write_time, process_time)
+
+                if produce_success:
                     if strategy == "full":
                         self.frames_sent += 1
                 else:
@@ -593,9 +641,9 @@ class ClientStreamUtils:
                 "location": metadata.get("camera_location", "Unknown Location")
                 },
             "latency_stats": {
-                "last_read_time_sec": "TODO",
-                "last_write_time_sec": "TODO",
-                "last_process_time_sec": "TODO",
+                "last_read_time_sec": metadata.get("last_read_time_sec", 0),
+                "last_write_time_sec": metadata.get("last_write_time_sec", 0),
+                "last_process_time_sec": metadata.get("last_process_time_sec", 0),
             },
             "content": (
                 base64.b64encode(input_data).decode("utf-8") if input_data else ""
@@ -620,6 +668,9 @@ class ClientStreamUtils:
             "video_format",
             "stream_type",
             "reference_input_hash",
+            "last_read_time_sec",
+            "last_write_time_sec",
+            "last_process_time_sec",
         }
         for k, v in (metadata or {}).items():
             if k in passthrough_keys and v is not None:
@@ -727,6 +778,24 @@ class ClientStreamUtils:
             "threshold_a": self.threshold_a,
             "threshold_b": self.threshold_b,
             "cached_streams": len(self.txh.frame_cache),
+            "latency_stats": {
+                "per_stream": {
+                    stream_key: {
+                        "last_read_time_sec": read_time,
+                        "last_write_time_sec": write_time,
+                        "last_process_time_sec": process_time,
+                    }
+                    for stream_key, (read_time, write_time, process_time) in zip(
+                        self.last_read_times.keys(),
+                        zip(
+                            self.last_read_times.values(),
+                            self.last_write_times.values(),
+                            self.last_process_times.values(),
+                        ),
+                    )
+                },
+                "active_streams": list(self.last_read_times.keys()),
+            },
         }
 
     def reset_transmission_stats(self) -> None:
@@ -735,11 +804,63 @@ class ClientStreamUtils:
         self.frames_skipped = 0
         self.frames_diff_sent = 0
         self.bytes_saved = 0
+        # Reset latency statistics for all streams
+        self.last_read_times.clear()
+        self.last_write_times.clear()
+        self.last_process_times.clear()
         # Clear frame cache to prevent memory leaks
         if self.txh:
             self.txh.frame_cache.clear()
             self.txh.last_frame_hashes.clear()
         logging.info("Reset transmission statistics and cleared frame cache")
+
+    def reset_stream_timing_stats(self, stream_key: Optional[str] = None) -> None:
+        """Reset timing statistics for a specific stream or all streams."""
+        if stream_key is None:
+            # Reset all streams
+            self.last_read_times.clear()
+            self.last_write_times.clear()
+            self.last_process_times.clear()
+            logging.info("Reset timing statistics for all streams")
+        else:
+            # Reset specific stream
+            key = self._get_stream_key_for_timing(stream_key)
+            self.last_read_times.pop(key, None)
+            self.last_write_times.pop(key, None)
+            self.last_process_times.pop(key, None)
+            logging.info(f"Reset timing statistics for stream '{key}'")
+
+    def get_stream_timing_stats(self, stream_key: Optional[str] = None) -> Dict[str, Any]:
+        """Get timing statistics for a specific stream."""
+        if stream_key is None:
+            # Return all streams data
+            return {
+                "per_stream": {
+                    stream_key: {
+                        "last_read_time_sec": read_time,
+                        "last_write_time_sec": write_time,
+                        "last_process_time_sec": process_time,
+                    }
+                    for stream_key, (read_time, write_time, process_time) in zip(
+                        self.last_read_times.keys(),
+                        zip(
+                            self.last_read_times.values(),
+                            self.last_write_times.values(),
+                            self.last_process_times.values(),
+                        ),
+                    )
+                },
+                "active_streams": list(self.last_read_times.keys()),
+            }
+        else:
+            # Return specific stream data
+            read_time, write_time, process_time = self._get_last_timings(stream_key)
+            return {
+                "stream_key": stream_key or "default",
+                "last_read_time_sec": read_time,
+                "last_write_time_sec": write_time,
+                "last_process_time_sec": process_time,
+            }
 
     async def close(self) -> None:
         """Close all client connections including Kafka stream."""

@@ -4,7 +4,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def autopack_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Automatically pack all external files into the .blend file
 
@@ -13,7 +15,9 @@ def autopack_toggle(
     """
 
 def bookmark_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a bookmark for the selected/active directory
 
@@ -22,7 +26,9 @@ def bookmark_add(
     """
 
 def bookmark_cleanup(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete all invalid bookmarks
 
@@ -73,7 +79,9 @@ def bookmark_move(
     """
 
 def cancel(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Cancel file operation
 
@@ -82,7 +90,9 @@ def cancel(
     """
 
 def delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move selected files to the trash or recycle bin
 
@@ -112,7 +122,9 @@ def directory_new(
     """
 
 def edit_directory_path(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Start editing directory field
 
@@ -121,7 +133,9 @@ def edit_directory_path(
     """
 
 def execute(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Execute selected file
 
@@ -134,7 +148,6 @@ def external_operation(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
     operation: typing.Literal[
         "OPEN",
         "FOLDER_OPEN",
@@ -158,9 +171,7 @@ def external_operation(
 
         :type execution_context: int | str | None
         :type undo: bool | None
-        :param filepath: File or folder path
-        :type filepath: str
-        :param operation: Operation, Operation to perform on the file or path
+        :param operation: Operation, Operation to perform on the selected file or path
 
     OPEN
     Open -- Open the file.
@@ -335,7 +346,9 @@ def find_missing_files(
     """
 
 def hidedot(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle hide hidden dot files
 
@@ -344,7 +357,9 @@ def hidedot(
     """
 
 def highlight(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Highlight selected file(s)
 
@@ -353,7 +368,9 @@ def highlight(
     """
 
 def make_paths_absolute(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make all paths to external files absolute
 
@@ -362,7 +379,9 @@ def make_paths_absolute(
     """
 
 def make_paths_relative(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make all paths to external files relative to current .blend
 
@@ -371,7 +390,9 @@ def make_paths_relative(
     """
 
 def mouse_execute(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Perform the current execute action for the file under the cursor (e.g. open the file)
 
@@ -379,7 +400,11 @@ def mouse_execute(
     :type undo: bool | None
     """
 
-def next(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def next(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Move to next folder
 
     :type execution_context: int | str | None
@@ -387,7 +412,9 @@ def next(execution_context: int | str | None = None, undo: bool | None = None) -
     """
 
 def pack_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Pack all used external files into this .blend
 
@@ -396,7 +423,9 @@ def pack_all(
     """
 
 def pack_libraries(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Store all data-blocks linked from other .blend files in the current .blend file. Library references are preserved so the linked data-blocks can be unpacked again
 
@@ -405,7 +434,9 @@ def pack_libraries(
     """
 
 def parent(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move to parent directory
 
@@ -414,7 +445,9 @@ def parent(
     """
 
 def previous(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move to previous folder
 
@@ -423,7 +456,9 @@ def previous(
     """
 
 def refresh(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Refresh the file list
 
@@ -432,7 +467,9 @@ def refresh(
     """
 
 def rename(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Rename file or file directory
 
@@ -441,7 +478,9 @@ def rename(
     """
 
 def report_missing_files(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Report all missing external files
 
@@ -450,7 +489,9 @@ def report_missing_files(
     """
 
 def reset_recent(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset recent files
 
@@ -600,7 +641,9 @@ def select_walk(
     """
 
 def smoothscroll(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Smooth scroll to make editable file visible
 
@@ -609,7 +652,9 @@ def smoothscroll(
     """
 
 def sort_column_ui_context(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Change sorting to use column under cursor
 
@@ -618,7 +663,9 @@ def sort_column_ui_context(
     """
 
 def start_filter(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Start entering filter text
 
@@ -667,7 +714,9 @@ def unpack_item(
     """
 
 def unpack_libraries(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Restore all packed linked data-blocks to their original locations
 
@@ -676,7 +725,9 @@ def unpack_libraries(
     """
 
 def view_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Scroll the selected files into view
 

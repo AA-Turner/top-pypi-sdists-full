@@ -81,6 +81,8 @@ from .type_defs import (
     DeregisterEventTopicRequestTypeDef,
     DescribeADAssessmentRequestTypeDef,
     DescribeADAssessmentResultTypeDef,
+    DescribeCAEnrollmentPolicyRequestTypeDef,
+    DescribeCAEnrollmentPolicyResultTypeDef,
     DescribeCertificateRequestTypeDef,
     DescribeCertificateResultTypeDef,
     DescribeClientAuthenticationSettingsRequestTypeDef,
@@ -111,11 +113,13 @@ from .type_defs import (
     DescribeTrustsResultTypeDef,
     DescribeUpdateDirectoryRequestTypeDef,
     DescribeUpdateDirectoryResultTypeDef,
+    DisableCAEnrollmentPolicyRequestTypeDef,
     DisableClientAuthenticationRequestTypeDef,
     DisableDirectoryDataAccessRequestTypeDef,
     DisableLDAPSRequestTypeDef,
     DisableRadiusRequestTypeDef,
     DisableSsoRequestTypeDef,
+    EnableCAEnrollmentPolicyRequestTypeDef,
     EnableClientAuthenticationRequestTypeDef,
     EnableDirectoryDataAccessRequestTypeDef,
     EnableLDAPSRequestTypeDef,
@@ -199,7 +203,9 @@ class Exceptions(BaseClientExceptions):
     DirectoryLimitExceededException: Type[BotocoreClientError]
     DirectoryNotSharedException: Type[BotocoreClientError]
     DirectoryUnavailableException: Type[BotocoreClientError]
+    DisableAlreadyInProgressException: Type[BotocoreClientError]
     DomainControllerLimitExceededException: Type[BotocoreClientError]
+    EnableAlreadyInProgressException: Type[BotocoreClientError]
     EntityAlreadyExistsException: Type[BotocoreClientError]
     EntityDoesNotExistException: Type[BotocoreClientError]
     IncompatibleSettingsException: Type[BotocoreClientError]
@@ -502,6 +508,17 @@ class DirectoryServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ds/client/#describe_ad_assessment)
         """
 
+    def describe_ca_enrollment_policy(
+        self, **kwargs: Unpack[DescribeCAEnrollmentPolicyRequestTypeDef]
+    ) -> DescribeCAEnrollmentPolicyResultTypeDef:
+        """
+        Retrieves detailed information about the certificate authority (CA) enrollment
+        policy for the specified directory.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/describe_ca_enrollment_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ds/client/#describe_ca_enrollment_policy)
+        """
+
     def describe_certificate(
         self, **kwargs: Unpack[DescribeCertificateRequestTypeDef]
     ) -> DescribeCertificateResultTypeDef:
@@ -658,6 +675,17 @@ class DirectoryServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ds/client/#describe_update_directory)
         """
 
+    def disable_ca_enrollment_policy(
+        self, **kwargs: Unpack[DisableCAEnrollmentPolicyRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Disables the certificate authority (CA) enrollment policy for the specified
+        directory.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/disable_ca_enrollment_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ds/client/#disable_ca_enrollment_policy)
+        """
+
     def disable_client_authentication(
         self, **kwargs: Unpack[DisableClientAuthenticationRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -702,6 +730,17 @@ class DirectoryServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/disable_sso.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ds/client/#disable_sso)
+        """
+
+    def enable_ca_enrollment_policy(
+        self, **kwargs: Unpack[EnableCAEnrollmentPolicyRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Enables certificate authority (CA) enrollment policy for the specified
+        directory.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/enable_ca_enrollment_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ds/client/#enable_ca_enrollment_policy)
         """
 
     def enable_client_authentication(

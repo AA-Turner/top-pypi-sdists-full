@@ -18,7 +18,7 @@ class HelpCommand(BaseCommand):
     # Command description
     description: str = "Displays usage information, examples, and a list of available commands in the Orionis CLI."
 
-    def handle(self, reactor: IReactor) -> dict:
+    def handle(self, reactor: IReactor, console: Console) -> dict:
         """
         Displays usage information and a list of available commands for the Orionis CLI.
 
@@ -42,9 +42,6 @@ class HelpCommand(BaseCommand):
             # Retrieve the list of available commands from the reactor
             # List of dicts with 'signature' and 'description'
             commands = reactor.info()
-
-            # Initialize the rich console for formatted output
-            console = Console()
 
             # Build the usage and commands help text
             usage = "[bold cyan]Usage:[/]\n  python -B <command> <params/flags>\n\n"

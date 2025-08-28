@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class BatchRenameAction(bpy.types.PropertyGroup):
+class BatchRenameAction(_bpy_types.PropertyGroup):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -22,7 +23,7 @@ class BatchRenameAction(bpy.types.PropertyGroup):
         :rtype: typing.Any
         """
 
-class WM_MT_region_toggle_pie(bpy.types.Menu):
+class WM_MT_region_toggle_pie(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -54,7 +55,7 @@ class WM_MT_region_toggle_pie(bpy.types.Menu):
         :param context:
         """
 
-class WM_MT_splash(bpy.types.Menu):
+class WM_MT_splash(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -79,7 +80,7 @@ class WM_MT_splash(bpy.types.Menu):
         :param context:
         """
 
-class WM_MT_splash_about(bpy.types.Menu):
+class WM_MT_splash_about(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -104,7 +105,7 @@ class WM_MT_splash_about(bpy.types.Menu):
         :param context:
         """
 
-class WM_MT_splash_quick_setup(bpy.types.Menu):
+class WM_MT_splash_quick_setup(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -129,7 +130,7 @@ class WM_MT_splash_quick_setup(bpy.types.Menu):
         :param context:
         """
 
-class WM_OT_batch_rename(bpy.types.Operator):
+class WM_OT_batch_rename(_bpy_types.Operator):
     """Rename multiple items at once"""
 
     bl_idname: typing.Any
@@ -177,7 +178,7 @@ class WM_OT_batch_rename(bpy.types.Operator):
         :param event:
         """
 
-class WM_OT_context_collection_boolean_set(bpy.types.Operator):
+class WM_OT_context_collection_boolean_set(_bpy_types.Operator):
     """Set boolean values for a collection of items"""
 
     bl_idname: typing.Any
@@ -206,7 +207,7 @@ class WM_OT_context_collection_boolean_set(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_cycle_array(bpy.types.Operator):
+class WM_OT_context_cycle_array(_bpy_types.Operator):
     """Set a context array value (useful for cycling the active mesh edit mode)"""
 
     bl_idname: typing.Any
@@ -243,7 +244,7 @@ class WM_OT_context_cycle_array(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_cycle_enum(bpy.types.Operator):
+class WM_OT_context_cycle_enum(_bpy_types.Operator):
     """Toggle a context value"""
 
     bl_idname: typing.Any
@@ -280,7 +281,7 @@ class WM_OT_context_cycle_enum(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_cycle_int(bpy.types.Operator):
+class WM_OT_context_cycle_int(_bpy_types.Operator):
     """Set a context value (useful for cycling active material, shape keys, groups, etc.)"""
 
     bl_idname: typing.Any
@@ -317,7 +318,7 @@ class WM_OT_context_cycle_int(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_menu_enum(bpy.types.Operator):
+class WM_OT_context_menu_enum(_bpy_types.Operator):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -352,7 +353,7 @@ class WM_OT_context_menu_enum(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_modal_mouse(bpy.types.Operator):
+class WM_OT_context_modal_mouse(_bpy_types.Operator):
     """Adjust arbitrary values with mouse input"""
 
     bl_idname: typing.Any
@@ -389,7 +390,7 @@ class WM_OT_context_modal_mouse(bpy.types.Operator):
         :param event:
         """
 
-class WM_OT_context_pie_enum(bpy.types.Operator):
+class WM_OT_context_pie_enum(_bpy_types.Operator):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -425,7 +426,7 @@ class WM_OT_context_pie_enum(bpy.types.Operator):
         :param event:
         """
 
-class WM_OT_context_scale_float(bpy.types.Operator):
+class WM_OT_context_scale_float(_bpy_types.Operator):
     """Scale a float context value"""
 
     bl_idname: typing.Any
@@ -462,7 +463,7 @@ class WM_OT_context_scale_float(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_scale_int(bpy.types.Operator):
+class WM_OT_context_scale_int(_bpy_types.Operator):
     """Scale an int context value"""
 
     bl_idname: typing.Any
@@ -499,7 +500,7 @@ class WM_OT_context_scale_int(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_set_boolean(bpy.types.Operator):
+class WM_OT_context_set_boolean(_bpy_types.Operator):
     """Set a context value"""
 
     bl_idname: typing.Any
@@ -530,7 +531,7 @@ class WM_OT_context_set_boolean(bpy.types.Operator):
         :param props:
         """
 
-class WM_OT_context_set_enum(bpy.types.Operator):
+class WM_OT_context_set_enum(_bpy_types.Operator):
     """Set a context value"""
 
     bl_idname: typing.Any
@@ -561,7 +562,7 @@ class WM_OT_context_set_enum(bpy.types.Operator):
         :param props:
         """
 
-class WM_OT_context_set_float(bpy.types.Operator):
+class WM_OT_context_set_float(_bpy_types.Operator):
     """Set a context value"""
 
     bl_idname: typing.Any
@@ -592,7 +593,7 @@ class WM_OT_context_set_float(bpy.types.Operator):
         :param props:
         """
 
-class WM_OT_context_set_id(bpy.types.Operator):
+class WM_OT_context_set_id(_bpy_types.Operator):
     """Set a context value to an ID data-block"""
 
     bl_idname: typing.Any
@@ -621,7 +622,7 @@ class WM_OT_context_set_id(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_set_int(bpy.types.Operator):
+class WM_OT_context_set_int(_bpy_types.Operator):
     """Set a context value"""
 
     bl_idname: typing.Any
@@ -652,7 +653,7 @@ class WM_OT_context_set_int(bpy.types.Operator):
         :param props:
         """
 
-class WM_OT_context_set_string(bpy.types.Operator):
+class WM_OT_context_set_string(_bpy_types.Operator):
     """Set a context value"""
 
     bl_idname: typing.Any
@@ -683,7 +684,7 @@ class WM_OT_context_set_string(bpy.types.Operator):
         :param props:
         """
 
-class WM_OT_context_set_value(bpy.types.Operator):
+class WM_OT_context_set_value(_bpy_types.Operator):
     """Set a context value"""
 
     bl_idname: typing.Any
@@ -720,7 +721,7 @@ class WM_OT_context_set_value(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_toggle(bpy.types.Operator):
+class WM_OT_context_toggle(_bpy_types.Operator):
     """Toggle a context value"""
 
     bl_idname: typing.Any
@@ -757,7 +758,7 @@ class WM_OT_context_toggle(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_context_toggle_enum(bpy.types.Operator):
+class WM_OT_context_toggle_enum(_bpy_types.Operator):
     """Toggle a context value"""
 
     bl_idname: typing.Any
@@ -794,7 +795,7 @@ class WM_OT_context_toggle_enum(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_doc_view(bpy.types.Operator):
+class WM_OT_doc_view(_bpy_types.Operator):
     """Open online reference docs in a web browser"""
 
     bl_idname: typing.Any
@@ -822,7 +823,7 @@ class WM_OT_doc_view(bpy.types.Operator):
         :param _context:
         """
 
-class WM_OT_doc_view_manual(bpy.types.Operator):
+class WM_OT_doc_view_manual(_bpy_types.Operator):
     """Load online manual"""
 
     bl_idname: typing.Any
@@ -850,7 +851,7 @@ class WM_OT_doc_view_manual(bpy.types.Operator):
         :param _context:
         """
 
-class WM_OT_drop_blend_file(bpy.types.Operator):
+class WM_OT_drop_blend_file(_bpy_types.Operator):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -885,7 +886,7 @@ class WM_OT_drop_blend_file(bpy.types.Operator):
         :param _event:
         """
 
-class WM_OT_operator_cheat_sheet(bpy.types.Operator):
+class WM_OT_operator_cheat_sheet(_bpy_types.Operator):
     """List all the operators in a text-block, useful for scripting"""
 
     bl_idname: typing.Any
@@ -913,7 +914,7 @@ class WM_OT_operator_cheat_sheet(bpy.types.Operator):
         :param _context:
         """
 
-class WM_OT_operator_pie_enum(bpy.types.Operator):
+class WM_OT_operator_pie_enum(_bpy_types.Operator):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -949,7 +950,7 @@ class WM_OT_operator_pie_enum(bpy.types.Operator):
         :param event:
         """
 
-class WM_OT_owner_disable(bpy.types.Operator):
+class WM_OT_owner_disable(_bpy_types.Operator):
     """Disable add-on for workspace"""
 
     bl_idname: typing.Any
@@ -977,7 +978,7 @@ class WM_OT_owner_disable(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_owner_enable(bpy.types.Operator):
+class WM_OT_owner_enable(_bpy_types.Operator):
     """Enable add-on for workspace"""
 
     bl_idname: typing.Any
@@ -1005,7 +1006,7 @@ class WM_OT_owner_enable(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_path_open(bpy.types.Operator):
+class WM_OT_path_open(_bpy_types.Operator):
     """Open a path in a file browser"""
 
     bl_idname: typing.Any
@@ -1034,7 +1035,7 @@ class WM_OT_path_open(bpy.types.Operator):
         :param _context:
         """
 
-class WM_OT_properties_add(bpy.types.Operator):
+class WM_OT_properties_add(_bpy_types.Operator):
     """Add your own property to the data-block"""
 
     bl_idname: typing.Any
@@ -1063,7 +1064,7 @@ class WM_OT_properties_add(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_properties_context_change(bpy.types.Operator):
+class WM_OT_properties_context_change(_bpy_types.Operator):
     """Jump to a different tab inside the properties editor"""
 
     bl_idname: typing.Any
@@ -1092,8 +1093,8 @@ class WM_OT_properties_context_change(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_properties_edit(bpy.types.Operator):
-    """Change a custom property's type, or adjust how it is displayed in the interface"""
+class WM_OT_properties_edit(_bpy_types.Operator):
+    """Change a custom propertys type, or adjust how it is displayed in the interface"""
 
     bl_idname: typing.Any
     bl_label: typing.Any
@@ -1176,7 +1177,7 @@ class WM_OT_properties_edit(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_properties_edit_value(bpy.types.Operator):
+class WM_OT_properties_edit_value(_bpy_types.Operator):
     """Edit the value of a custom property"""
 
     bl_idname: typing.Any
@@ -1218,7 +1219,7 @@ class WM_OT_properties_edit_value(bpy.types.Operator):
         :param _event:
         """
 
-class WM_OT_properties_remove(bpy.types.Operator):
+class WM_OT_properties_remove(_bpy_types.Operator):
     """Internal use (edit a property data_path)"""
 
     bl_idname: typing.Any
@@ -1247,7 +1248,7 @@ class WM_OT_properties_remove(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_sysinfo(bpy.types.Operator):
+class WM_OT_sysinfo(_bpy_types.Operator):
     """Generate system information, saved into a text file"""
 
     bl_idname: typing.Any
@@ -1282,7 +1283,7 @@ class WM_OT_sysinfo(bpy.types.Operator):
         :param _event:
         """
 
-class WM_OT_tool_set_by_brush_type(bpy.types.Operator):
+class WM_OT_tool_set_by_brush_type(_bpy_types.Operator):
     """Look up the most appropriate tool for the given brush type and activate that"""
 
     bl_idname: typing.Any
@@ -1310,7 +1311,7 @@ class WM_OT_tool_set_by_brush_type(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_tool_set_by_id(bpy.types.Operator):
+class WM_OT_tool_set_by_id(_bpy_types.Operator):
     """Set the tool by name (for key-maps)"""
 
     bl_idname: typing.Any
@@ -1346,7 +1347,7 @@ class WM_OT_tool_set_by_id(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_tool_set_by_index(bpy.types.Operator):
+class WM_OT_tool_set_by_index(_bpy_types.Operator):
     """Set the tool by index (for key-maps)"""
 
     bl_idname: typing.Any
@@ -1374,7 +1375,7 @@ class WM_OT_tool_set_by_index(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_toolbar(bpy.types.Operator):
+class WM_OT_toolbar(_bpy_types.Operator):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -1419,7 +1420,7 @@ class WM_OT_toolbar(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_toolbar_fallback_pie(bpy.types.Operator):
+class WM_OT_toolbar_fallback_pie(_bpy_types.Operator):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -1453,7 +1454,7 @@ class WM_OT_toolbar_fallback_pie(bpy.types.Operator):
         :param context:
         """
 
-class WM_OT_toolbar_prompt(bpy.types.Operator):
+class WM_OT_toolbar_prompt(_bpy_types.Operator):
     """Leader key like functionality for accessing tools"""
 
     bl_idname: typing.Any
@@ -1489,7 +1490,7 @@ class WM_OT_toolbar_prompt(bpy.types.Operator):
         :param event:
         """
 
-class WM_OT_url_open(bpy.types.Operator):
+class WM_OT_url_open(_bpy_types.Operator):
     """Open a website in the web browser"""
 
     bl_idname: typing.Any
@@ -1518,7 +1519,7 @@ class WM_OT_url_open(bpy.types.Operator):
         :param _context:
         """
 
-class WM_OT_url_open_preset(bpy.types.Operator):
+class WM_OT_url_open_preset(_bpy_types.Operator):
     """Open a preset website in the web browser"""
 
     bl_idname: typing.Any

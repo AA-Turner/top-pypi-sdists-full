@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-25T21:23:22.203566                                                            #
+# MF version: 2.18.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-28T00:53:38.070163                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,12 +9,12 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.user_decorators.mutable_step
-    import metaflow.datastore.inputs
     import typing
-    import metaflow.user_decorators.user_step_decorator
-    import metaflow.flowspec
     import metaflow.decorators
+    import metaflow.datastore.inputs
+    import metaflow.flowspec
+    import metaflow.user_decorators.mutable_step
+    import metaflow.user_decorators.user_step_decorator
 
 from ..exception import MetaflowException as MetaflowException
 from ..user_configs.config_parameters import resolve_delayed_evaluator as resolve_delayed_evaluator
@@ -164,7 +164,7 @@ class UserStepDecorator(UserStepDecoratorBase, metaclass=UserStepDecoratorMeta):
             take an additional "inputs" argument).
         """
         ...
-    def post_step(self, step_name: str, flow: "metaflow.flowspec.FlowSpec", exception: typing.Optional[Exception] = None):
+    def post_step(self, step_name: str, flow: "metaflow.flowspec.FlowSpec", exception: typing.Optional[Exception] = None) -> typing.Union[Exception, None, typing.Tuple[typing.Optional[Exception], typing.Optional[typing.Dict[str, typing.Any]]]]:
         """
         Implement this method to perform any action after the execution of a step.
         
@@ -184,6 +184,19 @@ class UserStepDecorator(UserStepDecoratorBase, metaclass=UserStepDecoratorMeta):
             The flow object to which the step belongs.
         exception: Optional[Exception]
             The exception raised during the step execution, if any.
+        
+        Returns
+        -------
+        Optional[Union[Optional[Exception], Tuple[Optional[Exception], Optional[Dict[str, Any]]]]]
+            An exception (if None, the step is considered successful)
+            OR
+            A tuple containing:
+              - An exception to be raised (if None, the step is considered successful).
+              - A dictionary with values to pass to `self.next()`. If an empty dictionary
+                is returned, the default arguments to `self.next()` for this step will be
+                used. Return None if you do not want to call `self.next()` at all
+                (this is typically the case as the step will call it itself).
+        Note that returning None will gobble the exception.
         """
         ...
     @property

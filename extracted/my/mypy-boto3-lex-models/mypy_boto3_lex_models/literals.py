@@ -139,6 +139,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -150,8 +151,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -393,8 +396,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -527,16 +528,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "get_bot_aliases",

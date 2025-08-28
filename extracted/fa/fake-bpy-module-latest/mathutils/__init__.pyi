@@ -57,10 +57,10 @@ class Color:
     :type: float
     """
 
-    hsv: Vector | collections.abc.Sequence[float]
+    hsv: tuple[float, float, float]
     """ HSV Values in [0, 1].
 
-    :type: Vector | collections.abc.Sequence[float]
+    :type: tuple[float, float, float]
     """
 
     is_frozen: bool
@@ -419,11 +419,16 @@ class Euler:
         :rtype: typing_extensions.Self
         """
 
-    def make_compatible(self, other) -> None:
+    def make_compatible(
+        self,
+        other: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
+    ) -> None:
         """Make this euler compatible with another,
         so interpolating between them works as intended.
 
-                :param other:
+                :param other: Other euler rotation.
+                :type other: collections.abc.Sequence[float] | typing_extensions.Self
         """
 
     def rotate(
@@ -433,6 +438,7 @@ class Euler:
         | collections.abc.Sequence[collections.abc.Sequence[float]]
         | collections.abc.Sequence[float]
         | typing_extensions.Self,
+        /,
     ) -> None:
         """Rotates the euler by another mathutils value.
 
@@ -440,12 +446,16 @@ class Euler:
         :type other: Matrix | Quaternion | collections.abc.Sequence[collections.abc.Sequence[float]] | collections.abc.Sequence[float] | typing_extensions.Self
         """
 
-    def rotate_axis(self, axis: str, angle: float) -> None:
+    def rotate_axis(
+        self,
+        axis,
+        angle: float,
+        /,
+    ) -> None:
         """Rotates the euler a certain amount and returning a unique euler rotation
         (no 720 degree pitches).
 
-                :param axis: single character in ['X, 'Y', 'Z'].
-                :type axis: str
+                :param axis: An axis string.
                 :param angle: angle in radians.
                 :type angle: float
         """
@@ -611,7 +621,9 @@ class Matrix:
 
     @classmethod
     def Diagonal(
-        cls, vector: Vector | collections.abc.Sequence[float]
+        cls,
+        vector: Vector | collections.abc.Sequence[float],
+        /,
     ) -> typing_extensions.Self:
         """Create a diagonal (scaling) matrix using the values from the vector.
 
@@ -622,7 +634,11 @@ class Matrix:
         """
 
     @classmethod
-    def Identity(cls, size: int) -> typing_extensions.Self:
+    def Identity(
+        cls,
+        size: int,
+        /,
+    ) -> typing_extensions.Self:
         """Create an identity matrix.
 
         :param size: The size of the identity matrix to construct [2, 4].
@@ -642,6 +658,7 @@ class Matrix:
         | collections.abc.Sequence[float]
         | typing_extensions.Self,
         scale: None | Vector | collections.abc.Sequence[float],
+        /,
     ) -> typing_extensions.Self:
         """Create a matrix combining translation, rotation and scale,
         acting as the inverse of the decompose() method.Any of the inputs may be replaced with None if not needed.
@@ -658,14 +675,17 @@ class Matrix:
 
     @classmethod
     def OrthoProjection(
-        cls, axis: Vector | collections.abc.Sequence[float] | str, size: int
+        cls,
+        axis: Vector | collections.abc.Sequence[float],
+        size: int,
+        /,
     ) -> typing_extensions.Self:
         """Create a matrix to represent an orthographic projection.
 
-                :param axis: Can be any of the following: ['X', 'Y', 'XY', 'XZ', 'YZ'],
+                :param axis: An axis string,
         where a single axis is for a 2D matrix.
         Or a vector for an arbitrary axis
-                :type axis: Vector | collections.abc.Sequence[float] | str
+                :type axis: Vector | collections.abc.Sequence[float]
                 :param size: The size of the projection matrix to construct [2, 4].
                 :type size: int
                 :return: A new projection matrix.
@@ -677,7 +697,8 @@ class Matrix:
         cls,
         angle: float,
         size: int,
-        axis: Vector | collections.abc.Sequence[float] | str | None = "",
+        axis: Vector | collections.abc.Sequence[float] | None = [],
+        /,
     ) -> typing_extensions.Self:
         """Create a matrix representing a rotation.
 
@@ -685,9 +706,9 @@ class Matrix:
                 :type angle: float
                 :param size: The size of the rotation matrix to construct [2, 4].
                 :type size: int
-                :param axis: a string in ['X', 'Y', 'Z'] or a 3D Vector Object
+                :param axis: an axis string or a 3D Vector Object
         (optional when size is 2).
-                :type axis: Vector | collections.abc.Sequence[float] | str | None
+                :type axis: Vector | collections.abc.Sequence[float] | None
                 :return: A new rotation matrix.
                 :rtype: typing_extensions.Self
         """
@@ -698,6 +719,7 @@ class Matrix:
         factor: float,
         size: int,
         axis: Vector | collections.abc.Sequence[float] | None = [],
+        /,
     ) -> typing_extensions.Self:
         """Create a matrix representing a scaling.
 
@@ -713,13 +735,16 @@ class Matrix:
 
     @classmethod
     def Shear(
-        cls, plane: str, size: int, factor: collections.abc.Sequence[float] | float
+        cls,
+        plane,
+        size: int,
+        factor: collections.abc.Sequence[float] | float,
+        /,
     ) -> typing_extensions.Self:
-        """Create a matrix to represent an shear transformation.
+        """Create a matrix to represent a shear transformation.
 
-                :param plane: Can be any of the following: ['X', 'Y', 'XY', 'XZ', 'YZ'],
+                :param plane: An axis string,
         where a single axis is for a 2D matrix only.
-                :type plane: str
                 :param size: The size of the shear matrix to construct [2, 4].
                 :type size: int
                 :param factor: The factor of shear to apply. For a 2 size matrix use a single float. For a 3 or 4 size matrix pass a pair of floats corresponding with the plane axis.
@@ -730,7 +755,9 @@ class Matrix:
 
     @classmethod
     def Translation(
-        cls, vector: Vector | collections.abc.Sequence[float]
+        cls,
+        vector: Vector | collections.abc.Sequence[float],
+        /,
     ) -> typing_extensions.Self:
         """Create a matrix representing a translation.
 
@@ -786,6 +813,7 @@ class Matrix:
         fallback: collections.abc.Sequence[collections.abc.Sequence[float]]
         | typing_extensions.Self
         | None = None,
+        /,
     ) -> None:
         """Set the matrix to its inverse.`Inverse matrix <https://en.wikipedia.org/wiki/Inverse_matrix>`__ on Wikipedia.
 
@@ -802,11 +830,13 @@ class Matrix:
         """
 
     def inverted(
-        self, fallback: typing.Any | None = None
+        self,
+        fallback: typing.Any | None = None,
+        /,
     ) -> typing.Any | typing_extensions.Self:
         """Return an inverted copy of the matrix.
 
-                :param fallback: return this when the inverse can't be calculated
+                :param fallback: return this when the inverse cant be calculated
         (instead of raising a `ValueError`).
                 :type fallback: typing.Any | None
                 :return: The inverted matrix or fallback when given.
@@ -827,6 +857,7 @@ class Matrix:
         other: collections.abc.Sequence[collections.abc.Sequence[float]]
         | typing_extensions.Self,
         factor: float,
+        /,
     ) -> typing_extensions.Self:
         """Returns the interpolation of two matrices. Uses polar decomposition, see   "Matrix Animation and Polar Decomposition", Shoemake and Duff, 1992.
 
@@ -858,6 +889,7 @@ class Matrix:
         | collections.abc.Sequence[collections.abc.Sequence[float]]
         | collections.abc.Sequence[float]
         | typing_extensions.Self,
+        /,
     ) -> None:
         """Rotates the matrix by another mathutils value.
 
@@ -888,15 +920,14 @@ class Matrix:
 
     def to_euler(
         self,
-        order: str | None = "",
-        euler_compat: Euler | collections.abc.Sequence[float] | None = [],
+        order="XYZ",
+        euler_compat: Euler | collections.abc.Sequence[float] | None = None,
+        /,
     ) -> Euler:
         """Return an Euler representation of the rotation matrix
         (3x3 or 4x4 matrix only).
 
-                :param order: Optional rotation order argument in
-        ['XYZ', 'XZY', 'YXZ', 'YZX', 'ZXY', 'ZYX'].
-                :type order: str | None
+                :param order: A rotation order string.   :type order: Literal[XYZ, XZY, YXZ, YZX, ZXY, ZYX]
                 :param euler_compat: Optional euler argument the new euler will be made
         compatible with (no axis flipping between them).
         Useful for converting a series of matrices to animation curves.
@@ -1217,7 +1248,9 @@ class Quaternion:
         """
 
     def cross(
-        self, other: collections.abc.Sequence[float] | typing_extensions.Self
+        self,
+        other: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
     ) -> typing_extensions.Self:
         """Return the cross product of this quaternion and another.
 
@@ -1228,7 +1261,9 @@ class Quaternion:
         """
 
     def dot(
-        self, other: collections.abc.Sequence[float] | typing_extensions.Self
+        self,
+        other: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
     ) -> float:
         """Return the dot product of this quaternion and another.
 
@@ -1258,11 +1293,16 @@ class Quaternion:
         :rtype: typing_extensions.Self
         """
 
-    def make_compatible(self, other) -> None:
+    def make_compatible(
+        self,
+        other: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
+    ) -> None:
         """Make this quaternion compatible with another,
         so interpolating between them works as intended.
 
-                :param other:
+                :param other: The other quaternion to make compatible with.
+                :type other: collections.abc.Sequence[float] | typing_extensions.Self
         """
 
     def negate(self) -> None:
@@ -1285,6 +1325,7 @@ class Quaternion:
         | collections.abc.Sequence[collections.abc.Sequence[float]]
         | collections.abc.Sequence[float]
         | typing_extensions.Self,
+        /,
     ) -> None:
         """Rotates the quaternion by another mathutils value.
 
@@ -1293,7 +1334,9 @@ class Quaternion:
         """
 
     def rotation_difference(
-        self, other: collections.abc.Sequence[float] | typing_extensions.Self
+        self,
+        other: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
     ) -> typing_extensions.Self:
         """Returns a quaternion representing the rotational difference.
 
@@ -1307,6 +1350,7 @@ class Quaternion:
         self,
         other: collections.abc.Sequence[float] | typing_extensions.Self,
         factor: float,
+        /,
     ) -> typing_extensions.Self:
         """Returns the interpolation of two quaternions.
 
@@ -1327,14 +1371,13 @@ class Quaternion:
 
     def to_euler(
         self,
-        order: str | None = "",
-        euler_compat: Euler | collections.abc.Sequence[float] | None = [],
+        order="XYZ",
+        euler_compat: Euler | collections.abc.Sequence[float] | None = None,
+        /,
     ) -> Euler:
         """Return Euler representation of the quaternion.
 
-                :param order: Optional rotation order argument in
-        ['XYZ', 'XZY', 'YXZ', 'YZX', 'ZXY', 'ZYX'].
-                :type order: str | None
+                :param order: Rotation order.
                 :param euler_compat: Optional euler argument the new euler will be made
         compatible with (no axis flipping between them).
         Useful for converting a series of matrices to animation curves.
@@ -1357,12 +1400,15 @@ class Quaternion:
         :rtype: Matrix
         """
 
-    def to_swing_twist(self, axis: str) -> tuple[Quaternion, float]:
+    def to_swing_twist(
+        self,
+        axis,
+        /,
+    ) -> tuple[Quaternion, float]:
         """Split the rotation into a swing quaternion with the specified
         axis fixed at zero, and the remaining twist rotation angle.
 
-                :param axis: Twist axis as a string in ['X', 'Y', 'Z'].
-                :type axis: str
+                :param axis: Twist axis as a string.
                 :return: Swing, twist angle.
                 :rtype: tuple[Quaternion, float]
         """
@@ -3628,7 +3674,12 @@ class Vector:
     """
 
     @classmethod
-    def Fill(cls, size: int, fill: float = 0.0) -> None:
+    def Fill(
+        cls,
+        size: int,
+        fill: float = 0.0,
+        /,
+    ) -> None:
         """Create a vector of length size with all values set to fill.
 
         :param size: The length of the vector to be created.
@@ -3638,7 +3689,13 @@ class Vector:
         """
 
     @classmethod
-    def Linspace(cls, start: int, stop: int, size: int) -> None:
+    def Linspace(
+        cls,
+        start: int,
+        stop: int,
+        size: int,
+        /,
+    ) -> None:
         """Create a vector of the specified size which is filled with linearly spaced values between start and stop values.
 
         :param start: The start of the range used to fill the vector.
@@ -3650,7 +3707,13 @@ class Vector:
         """
 
     @classmethod
-    def Range(cls, start: int, stop: int, step: int = 1) -> None:
+    def Range(
+        cls,
+        start: int,
+        stop: int,
+        step: int = 1,
+        /,
+    ) -> None:
         """Create a filled with a range of values.
 
         :param start: The start of the range used to fill the vector.
@@ -3663,7 +3726,10 @@ class Vector:
 
     @classmethod
     def Repeat(
-        cls, vector: collections.abc.Sequence[float] | typing_extensions.Self, size: int
+        cls,
+        vector: collections.abc.Sequence[float] | typing_extensions.Self,
+        size: int,
+        /,
     ) -> None:
         """Create a vector by repeating the values in vector until the required size is reached.
 
@@ -3677,12 +3743,13 @@ class Vector:
         self,
         other: collections.abc.Sequence[float] | typing_extensions.Self,
         fallback: typing.Any | None = None,
+        /,
     ) -> float | typing.Any:
         """Return the angle between two vectors.
 
                 :param other: another vector to compare the angle with
                 :type other: collections.abc.Sequence[float] | typing_extensions.Self
-                :param fallback: return this when the angle can't be calculated (zero length vector),
+                :param fallback: return this when the angle cant be calculated (zero length vector),
         (instead of raising a `ValueError`).
                 :type fallback: typing.Any | None
                 :return: angle in radians or fallback when given
@@ -3693,12 +3760,13 @@ class Vector:
         self,
         other: collections.abc.Sequence[float] | typing_extensions.Self,
         fallback: typing.Any | None = None,
+        /,
     ) -> float | typing.Any:
         """Return the signed angle between two 2D vectors (clockwise is positive).
 
                 :param other: another vector to compare the angle with
                 :type other: collections.abc.Sequence[float] | typing_extensions.Self
-                :param fallback: return this when the angle can't be calculated (zero length vector),
+                :param fallback: return this when the angle cant be calculated (zero length vector),
         (instead of raising a `ValueError`).
                 :type fallback: typing.Any | None
                 :return: angle in radians or fallback when given
@@ -3713,7 +3781,9 @@ class Vector:
         """
 
     def cross(
-        self, other: collections.abc.Sequence[float] | typing_extensions.Self
+        self,
+        other: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
     ) -> float | typing_extensions.Self:
         """Return the cross product of this vector and another.
 
@@ -3724,7 +3794,9 @@ class Vector:
         """
 
     def dot(
-        self, other: collections.abc.Sequence[float] | typing_extensions.Self
+        self,
+        other: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
     ) -> float:
         """Return the dot product of this vector and another.
 
@@ -3745,6 +3817,7 @@ class Vector:
         self,
         other: collections.abc.Sequence[float] | typing_extensions.Self,
         factor: float,
+        /,
     ) -> typing_extensions.Self:
         """Returns the interpolation of two vectors.
 
@@ -3777,7 +3850,9 @@ class Vector:
         """
 
     def project(
-        self, other: collections.abc.Sequence[float] | typing_extensions.Self
+        self,
+        other: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
     ) -> typing_extensions.Self:
         """Return the projection of this vector onto the other.
 
@@ -3788,7 +3863,9 @@ class Vector:
         """
 
     def reflect(
-        self, mirror: collections.abc.Sequence[float] | typing_extensions.Self
+        self,
+        mirror: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
     ) -> typing_extensions.Self:
         """Return the reflection vector from the mirror argument.
 
@@ -3798,7 +3875,11 @@ class Vector:
         :rtype: typing_extensions.Self
         """
 
-    def resize(self, size=3) -> None:
+    def resize(
+        self,
+        size,
+        /,
+    ) -> None:
         """Resize the vector to have size number of elements.
 
         :param size:
@@ -3813,7 +3894,11 @@ class Vector:
     def resize_4d(self) -> None:
         """Resize the vector to 4D (x, y, z, w)."""
 
-    def resized(self, size=3) -> typing_extensions.Self:
+    def resized(
+        self,
+        size,
+        /,
+    ) -> typing_extensions.Self:
         """Return a resized copy of the vector with size number of elements.
 
         :param size:
@@ -3828,6 +3913,7 @@ class Vector:
         | Quaternion
         | collections.abc.Sequence[collections.abc.Sequence[float]]
         | collections.abc.Sequence[float],
+        /,
     ) -> None:
         """Rotate the vector by a rotation value.
 
@@ -3836,7 +3922,9 @@ class Vector:
         """
 
     def rotation_difference(
-        self, other: collections.abc.Sequence[float] | typing_extensions.Self
+        self,
+        other: collections.abc.Sequence[float] | typing_extensions.Self,
+        /,
     ) -> Quaternion:
         """Returns a quaternion representing the rotational difference between this
         vector and another.
@@ -3852,6 +3940,7 @@ class Vector:
         other: collections.abc.Sequence[float] | typing_extensions.Self,
         factor: float,
         fallback: typing.Any | None = None,
+        /,
     ) -> typing_extensions.Self:
         """Returns the interpolation of two non-zero vectors (spherical coordinates).
 
@@ -3859,7 +3948,7 @@ class Vector:
                 :type other: collections.abc.Sequence[float] | typing_extensions.Self
                 :param factor: The interpolation value typically in [0.0, 1.0].
                 :type factor: float
-                :param fallback: return this when the vector can't be calculated (zero length vector or direct opposites),
+                :param fallback: return this when the vector cant be calculated (zero length vector or direct opposites),
         (instead of raising a `ValueError`).
                 :type fallback: typing.Any | None
                 :return: The interpolated vector.
@@ -3887,19 +3976,26 @@ class Vector:
         :rtype: typing_extensions.Self
         """
 
-    def to_track_quat(self, track: str, up: str) -> Quaternion:
+    def to_track_quat(
+        self,
+        track="Z",
+        up="Y",
+        /,
+    ) -> Quaternion:
         """Return a quaternion rotation from the vector and the track and up axis.
 
-        :param track: Track axis in ['X', 'Y', 'Z', '-X', '-Y', '-Z'].
-        :type track: str
-        :param up: Up axis in ['X', 'Y', 'Z'].
-        :type up: str
+        :param track: Track axis string.
+        :param up: Up axis string.
         :return: rotation from the vector and the track and up axis.
         :rtype: Quaternion
         """
 
-    def to_tuple(self, precision: int = -1) -> tuple[float, ...]:
-        """Return this vector as a tuple with.
+    def to_tuple(
+        self,
+        precision: int = -1,
+        /,
+    ) -> tuple[float, ...]:
+        """Return this vector as a tuple with a given precision.
 
         :param precision: The number to round the value to in [-1, 21].
         :type precision: int

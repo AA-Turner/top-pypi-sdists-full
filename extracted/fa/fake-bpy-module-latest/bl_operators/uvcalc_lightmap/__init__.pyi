@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class LightMapPack(bpy.types.Operator):
-    """Pack each face's UVs into the UV bounds"""
+class LightMapPack(_bpy_types.Operator):
+    """Pack each faces UVs into the UV bounds"""
 
     bl_idname: typing.Any
     bl_label: typing.Any

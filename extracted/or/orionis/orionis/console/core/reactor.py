@@ -2,7 +2,7 @@ import argparse
 import os
 from pathlib import Path
 import re
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Type
 from orionis.console.args.argument import CLIArgument
 from orionis.console.base.command import BaseCommand
 from orionis.console.contracts.base_command import IBaseCommand
@@ -154,25 +154,30 @@ class Reactor(IReactor):
 
         # List all .py files in the routes directory and subdirectories
         for current_directory, _, files in os.walk(routes_path):
+
+            # Iterate through each file in the current directory
             for file in files:
 
                 # Only process Python files
                 if file.endswith('.py'):
+
+                    # Construct the full file path
                     file_path = os.path.join(current_directory, file)
 
-                    # Read file content to check for 'Reactor.command'
+                    # Read file content to check for Reactor.command usage
                     try:
 
+                        # Open and read the file content
                         with open(file_path, 'r', encoding='utf-8') as f:
                             content = f.read()
 
-                        # Check if the file contains 'Reactor.command'
-                        if 'Reactor.command' in content:
+                        # Check if the file contains a Reactor.command definition
+                        if 'from orionis.support.facades.reactor import Reactor' in content:
 
                             # Sanitize the module path for import
                             pre_module = current_directory.replace(root_path, '')\
-                                                      .replace(os.sep, '.')\
-                                                      .lstrip('.')
+                                                          .replace(os.sep, '.')\
+                                                          .lstrip('.')
 
                             # Remove virtual environment paths
                             pre_module = re.sub(r'[^.]*\.(?:Lib|lib)\.(?:python[^.]*\.)?site-packages\.?', '', pre_module)
@@ -208,6 +213,7 @@ class Reactor(IReactor):
         # Iterate through all fluent command definitions
         for f_command in self.__fluent_commands:
 
+            # Validate and extract required command attributes
             signature, command_entity = f_command.get()
 
             # Build the arguments dictionary from the CLIArgument instances
@@ -223,9 +229,12 @@ class Reactor(IReactor):
                 exit_on_error=True,
                 prog=signature
             )
+
+            # Iterate through each CLIArgument and add it to the ArgumentParser
             for arg in required_args:
                 arg.addToParser(arg_parser)
 
+            # Register the command in the internal registry with all its metadata
             self.__commands[signature] = Command(
                 obj=command_entity.obj,
                 method=command_entity.method,
@@ -631,7 +640,7 @@ class Reactor(IReactor):
     def command(
         self,
         signature: str,
-        handler: Any
+        handler: List[Any]
     ) -> ICommand:
         """
         Define a new command using a fluent interface.
@@ -647,10 +656,10 @@ class Reactor(IReactor):
             The unique signature identifier for the command. Must follow naming conventions
             (alphanumeric characters, underscores, colons, cannot start/end with underscore
             or colon, cannot start with a number).
-        handler : Any
-            The function or callable that will be executed when the command is invoked.
-            This should be a valid function that accepts parameters matching the command's
-            defined arguments.
+        handler : List[Any]
+            A list containing the class and optionally the method name. The first element
+            should be a class, and the second element (if provided) should be a string
+            representing the method name.
 
         Returns
         -------
@@ -661,13 +670,21 @@ class Reactor(IReactor):
         Raises
         ------
         TypeError
-            If the signature is not a string or if the handler is not callable.
+            If the signature is not a string or if the handler is not a valid list.
         ValueError
             If the signature does not meet the required naming conventions.
         """
 
         # Import the FluentCommand class here to avoid circular imports
         from orionis.console.fluent.command import Command as FluentCommand
+
+        # Validate the handler parameter
+        if len(handler) < 1 or not isinstance(handler, list):
+            raise TypeError("Handler must be a list with at least one element (the callable).")
+
+        # Ensure the first element is a class
+        if not hasattr(handler[0], '__call__') or not hasattr(handler[0], '__name__'):
+            raise TypeError("The first element of handler must be a class.")
 
         # Create a new FluentCommand instance with the provided signature and handler
         f_command = FluentCommand(

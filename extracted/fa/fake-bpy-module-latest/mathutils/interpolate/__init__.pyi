@@ -1,5 +1,5 @@
 """
-The Blender interpolate module
+The Blender interpolate module.
 
 """
 
@@ -9,7 +9,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def poly_3d_calc(
-    veclist: collections.abc.Sequence[collections.abc.Sequence[float]], pt
+    veclist: collections.abc.Sequence[collections.abc.Sequence[float]],
+    pt,
+    /,
 ) -> list[float]:
     """Calculate barycentric weights for a point on a polygon.
 

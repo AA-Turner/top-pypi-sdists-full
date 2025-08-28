@@ -34,6 +34,7 @@ class InfoPropertyRNA:
     collection_type: typing.Any
     default: typing.Any
     default_str: typing.Any
+    deprecated: typing.Any
     description: typing.Any
     enum_items: typing.Any
     enum_pointer: typing.Any
@@ -68,6 +69,7 @@ class InfoPropertyRNA:
         as_arg=False,
         class_fmt="{:s}",
         mathutils_fmt="{:s}",
+        literal_fmt="'{:s}'",
         collection_id="Collection",
         enum_descr_override: None | str | None = None,
     ) -> None:
@@ -77,6 +79,7 @@ class InfoPropertyRNA:
                 :param as_arg:
                 :param class_fmt:
                 :param mathutils_fmt:
+                :param literal_fmt:
                 :param collection_id:
                 :param enum_descr_override: Optionally override items for enum.
         Otherwise expand the literal items.
@@ -121,7 +124,7 @@ def float_as_string(f) -> None: ...
 def get_direct_functions(rna_type) -> None: ...
 def get_direct_properties(rna_type) -> None: ...
 def get_py_class_from_rna(rna_type) -> None:
-    """Gets the Python type for a class which isn't necessarily added to bpy.types."""
+    """Gets the Python type for a class which isnt necessarily added to bpy.types."""
 
 def main() -> None: ...
 def range_str(val) -> None: ...

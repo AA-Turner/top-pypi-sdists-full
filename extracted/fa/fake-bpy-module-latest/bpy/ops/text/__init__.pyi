@@ -4,7 +4,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def autocomplete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Show a list of used text in the open document
 
@@ -42,7 +44,11 @@ def convert_whitespace(
     :type type: typing.Literal['SPACES','TABS'] | None
     """
 
-def copy(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def copy(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Copy selected text to clipboard
 
     :type execution_context: int | str | None
@@ -67,7 +73,11 @@ def cursor_set(
     :type y: int | None
     """
 
-def cut(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def cut(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Cut selected text to clipboard
 
     :type execution_context: int | str | None
@@ -93,7 +103,9 @@ def delete(
     """
 
 def duplicate_line(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Duplicate the current line
 
@@ -101,7 +113,11 @@ def duplicate_line(
     :type undo: bool | None
     """
 
-def find(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def find(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Find specified text
 
     :type execution_context: int | str | None
@@ -109,7 +125,9 @@ def find(execution_context: int | str | None = None, undo: bool | None = None) -
     """
 
 def find_set_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Find specified text and set as selected
 
@@ -118,7 +136,9 @@ def find_set_selected(
     """
 
 def indent(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Indent selected text
 
@@ -127,7 +147,9 @@ def indent(
     """
 
 def indent_or_autocomplete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Indent selected text or autocomplete
 
@@ -187,7 +209,9 @@ def jump_to_file_at_point(
     """
 
 def line_break(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Insert line break at cursor position
 
@@ -196,7 +220,9 @@ def line_break(
     """
 
 def line_number(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """The current line number
 
@@ -205,7 +231,9 @@ def line_number(
     """
 
 def make_internal(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make active text file internal
 
@@ -286,7 +314,11 @@ def move_select(
     :type type: typing.Literal['LINE_BEGIN','LINE_END','FILE_TOP','FILE_BOTTOM','PREVIOUS_CHARACTER','NEXT_CHARACTER','PREVIOUS_WORD','NEXT_WORD','PREVIOUS_LINE','NEXT_LINE','PREVIOUS_PAGE','NEXT_PAGE'] | None
     """
 
-def new(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def new(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Create a new text data-block
 
     :type execution_context: int | str | None
@@ -416,7 +448,9 @@ def open(
     """
 
 def overwrite_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle overwrite while typing
 
@@ -440,7 +474,9 @@ def paste(
     """
 
 def reload(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reload active text data-block from its file
 
@@ -464,7 +500,9 @@ def replace(
     """
 
 def replace_set_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Replace text with specified text and set as selected
 
@@ -489,7 +527,9 @@ def resolve_conflict(
     """
 
 def run_script(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Run active script
 
@@ -497,7 +537,11 @@ def run_script(
     :type undo: bool | None
     """
 
-def save(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def save(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Save active text data-block
 
     :type execution_context: int | str | None
@@ -628,7 +672,9 @@ def scroll_bar(
     """
 
 def select_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all text
 
@@ -637,7 +683,9 @@ def select_all(
     """
 
 def select_line(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select text by line
 
@@ -646,7 +694,9 @@ def select_line(
     """
 
 def select_word(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select word under cursor
 
@@ -655,7 +705,9 @@ def select_word(
     """
 
 def selection_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set text selection
 
@@ -664,7 +716,9 @@ def selection_set(
     """
 
 def start_find(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Start searching text
 
@@ -688,7 +742,9 @@ def to_3d_object(
     """
 
 def unindent(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Unindent selected text
 
@@ -697,7 +753,9 @@ def unindent(
     """
 
 def unlink(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Unlink active text data-block
 
@@ -706,7 +764,9 @@ def unlink(
     """
 
 def update_shader(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Update users of this shader, such as custom cameras and script nodes, with its new sockets and options
 

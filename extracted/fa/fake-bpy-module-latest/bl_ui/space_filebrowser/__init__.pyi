@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import bpy_extras.asset_utils
 
-class ASSETBROWSER_MT_catalog(AssetBrowserMenu, bpy.types.Menu):
+class ASSETBROWSER_MT_catalog(AssetBrowserMenu, _bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -30,7 +31,7 @@ class ASSETBROWSER_MT_catalog(AssetBrowserMenu, bpy.types.Menu):
         :param _context:
         """
 
-class ASSETBROWSER_MT_context_menu(AssetBrowserMenu, bpy.types.Menu):
+class ASSETBROWSER_MT_context_menu(AssetBrowserMenu, _bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -49,7 +50,7 @@ class ASSETBROWSER_MT_context_menu(AssetBrowserMenu, bpy.types.Menu):
         :rtype: typing.Any
         """
 
-class ASSETBROWSER_MT_editor_menus(AssetBrowserMenu, bpy.types.Menu):
+class ASSETBROWSER_MT_editor_menus(AssetBrowserMenu, _bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -69,7 +70,7 @@ class ASSETBROWSER_MT_editor_menus(AssetBrowserMenu, bpy.types.Menu):
         :rtype: typing.Any
         """
 
-class ASSETBROWSER_MT_metadata_preview_menu(bpy.types.Menu):
+class ASSETBROWSER_MT_metadata_preview_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -94,7 +95,7 @@ class ASSETBROWSER_MT_metadata_preview_menu(bpy.types.Menu):
         :param _context:
         """
 
-class ASSETBROWSER_MT_select(AssetBrowserMenu, bpy.types.Menu):
+class ASSETBROWSER_MT_select(AssetBrowserMenu, _bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -119,7 +120,7 @@ class ASSETBROWSER_MT_select(AssetBrowserMenu, bpy.types.Menu):
         :param _context:
         """
 
-class ASSETBROWSER_MT_view(AssetBrowserMenu, bpy.types.Menu):
+class ASSETBROWSER_MT_view(AssetBrowserMenu, _bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -145,7 +146,7 @@ class ASSETBROWSER_MT_view(AssetBrowserMenu, bpy.types.Menu):
         """
 
 class ASSETBROWSER_PT_display(
-    bpy_extras.asset_utils.AssetBrowserPanel, bpy.types.Panel
+    bpy_extras.asset_utils.AssetBrowserPanel, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -174,7 +175,9 @@ class ASSETBROWSER_PT_display(
         :param context:
         """
 
-class ASSETBROWSER_PT_filter(bpy_extras.asset_utils.AssetBrowserPanel, bpy.types.Panel):
+class ASSETBROWSER_PT_filter(
+    bpy_extras.asset_utils.AssetBrowserPanel, _bpy_types.Panel
+):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -203,7 +206,7 @@ class ASSETBROWSER_PT_filter(bpy_extras.asset_utils.AssetBrowserPanel, bpy.types
         """
 
 class ASSETBROWSER_PT_import_settings(
-    bpy_extras.asset_utils.AssetBrowserPanel, bpy.types.Panel
+    bpy_extras.asset_utils.AssetBrowserPanel, _bpy_types.Panel
 ):
     bl_idname: typing.Any
     bl_label: typing.Any
@@ -235,7 +238,7 @@ class ASSETBROWSER_PT_import_settings(
         """
 
 class ASSETBROWSER_PT_metadata(
-    bpy_extras.asset_utils.AssetBrowserPanel, bpy.types.Panel
+    bpy_extras.asset_utils.AssetBrowserPanel, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_options: typing.Any
@@ -275,7 +278,7 @@ class ASSETBROWSER_PT_metadata(
         """
 
 class ASSETBROWSER_PT_metadata_preview(
-    bpy_extras.asset_utils.AssetMetaDataPanel, bpy.types.Panel
+    bpy_extras.asset_utils.AssetMetaDataPanel, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -304,7 +307,7 @@ class ASSETBROWSER_PT_metadata_preview(
         """
 
 class ASSETBROWSER_PT_metadata_tags(
-    bpy_extras.asset_utils.AssetMetaDataPanel, bpy.types.Panel
+    bpy_extras.asset_utils.AssetMetaDataPanel, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -332,7 +335,7 @@ class ASSETBROWSER_PT_metadata_tags(
         :param context:
         """
 
-class ASSETBROWSER_UL_metadata_tags(bpy.types.UIList):
+class ASSETBROWSER_UL_metadata_tags(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -381,7 +384,7 @@ class AssetBrowserMenu:
         :param context:
         """
 
-class FILEBROWSER_HT_header(bpy.types.Header):
+class FILEBROWSER_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
@@ -412,7 +415,7 @@ class FILEBROWSER_HT_header(bpy.types.Header):
         :param context:
         """
 
-class FILEBROWSER_MT_bookmarks_context_menu(bpy.types.Menu):
+class FILEBROWSER_MT_bookmarks_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -437,7 +440,7 @@ class FILEBROWSER_MT_bookmarks_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class FILEBROWSER_MT_bookmarks_recents_specials_menu(bpy.types.Menu):
+class FILEBROWSER_MT_bookmarks_recents_specials_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -462,7 +465,7 @@ class FILEBROWSER_MT_bookmarks_recents_specials_menu(bpy.types.Menu):
         :param _context:
         """
 
-class FILEBROWSER_MT_context_menu(FileBrowserMenu, bpy.types.Menu):
+class FILEBROWSER_MT_context_menu(FileBrowserMenu, _bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -487,7 +490,7 @@ class FILEBROWSER_MT_context_menu(FileBrowserMenu, bpy.types.Menu):
         :param context:
         """
 
-class FILEBROWSER_MT_editor_menus(FileBrowserMenu, bpy.types.Menu):
+class FILEBROWSER_MT_editor_menus(FileBrowserMenu, _bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -513,7 +516,7 @@ class FILEBROWSER_MT_editor_menus(FileBrowserMenu, bpy.types.Menu):
         :param _context:
         """
 
-class FILEBROWSER_MT_select(FileBrowserMenu, bpy.types.Menu):
+class FILEBROWSER_MT_select(FileBrowserMenu, _bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -538,7 +541,7 @@ class FILEBROWSER_MT_select(FileBrowserMenu, bpy.types.Menu):
         :param _context:
         """
 
-class FILEBROWSER_MT_view(FileBrowserMenu, bpy.types.Menu):
+class FILEBROWSER_MT_view(FileBrowserMenu, _bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -563,7 +566,7 @@ class FILEBROWSER_MT_view(FileBrowserMenu, bpy.types.Menu):
         :param context:
         """
 
-class FILEBROWSER_MT_view_pie(bpy.types.Menu):
+class FILEBROWSER_MT_view_pie(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -589,7 +592,7 @@ class FILEBROWSER_MT_view_pie(bpy.types.Menu):
         :param context:
         """
 
-class FILEBROWSER_PT_advanced_filter(bpy.types.Panel):
+class FILEBROWSER_PT_advanced_filter(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -624,7 +627,7 @@ class FILEBROWSER_PT_advanced_filter(bpy.types.Panel):
         :param context:
         """
 
-class FILEBROWSER_PT_bookmarks_favorites(FileBrowserPanel, bpy.types.Panel):
+class FILEBROWSER_PT_bookmarks_favorites(FileBrowserPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -659,7 +662,7 @@ class FILEBROWSER_PT_bookmarks_favorites(FileBrowserPanel, bpy.types.Panel):
         :param context:
         """
 
-class FILEBROWSER_PT_bookmarks_recents(bpy.types.Panel):
+class FILEBROWSER_PT_bookmarks_recents(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -694,7 +697,7 @@ class FILEBROWSER_PT_bookmarks_recents(bpy.types.Panel):
         :param context:
         """
 
-class FILEBROWSER_PT_bookmarks_system(bpy.types.Panel):
+class FILEBROWSER_PT_bookmarks_system(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -729,7 +732,7 @@ class FILEBROWSER_PT_bookmarks_system(bpy.types.Panel):
         :param context:
         """
 
-class FILEBROWSER_PT_bookmarks_volumes(bpy.types.Panel):
+class FILEBROWSER_PT_bookmarks_volumes(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -765,7 +768,7 @@ class FILEBROWSER_PT_bookmarks_volumes(bpy.types.Panel):
         :param context:
         """
 
-class FILEBROWSER_PT_directory_path(bpy.types.Panel):
+class FILEBROWSER_PT_directory_path(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -807,7 +810,7 @@ class FILEBROWSER_PT_directory_path(bpy.types.Panel):
         :param context:
         """
 
-class FILEBROWSER_PT_display(FileBrowserPanel, bpy.types.Panel):
+class FILEBROWSER_PT_display(FileBrowserPanel, _bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -835,7 +838,7 @@ class FILEBROWSER_PT_display(FileBrowserPanel, bpy.types.Panel):
         :param context:
         """
 
-class FILEBROWSER_PT_filter(FileBrowserPanel, bpy.types.Panel):
+class FILEBROWSER_PT_filter(FileBrowserPanel, _bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -863,7 +866,7 @@ class FILEBROWSER_PT_filter(FileBrowserPanel, bpy.types.Panel):
         :param context:
         """
 
-class FILEBROWSER_UL_dir(bpy.types.UIList):
+class FILEBROWSER_UL_dir(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 

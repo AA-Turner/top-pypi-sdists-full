@@ -2,7 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import bpy.types
+import _bpy_types
 
 class ToolActivePanelHelper:
     bl_label: typing.Any
@@ -114,7 +114,7 @@ class ToolSelectPanelHelper:
         :param mode:
         """
 
-class WM_MT_toolsystem_submenu(bpy.types.Menu):
+class WM_MT_toolsystem_submenu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any

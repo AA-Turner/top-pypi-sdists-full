@@ -7,7 +7,9 @@ import bpy.types
 import mathutils
 
 def add_simple_uvs(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add cube map UVs on mesh
 
@@ -72,7 +74,9 @@ def add_texture_paint_slot(
     """
 
 def brush_colors_flip(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Swap primary and secondary brush colors
 
@@ -138,7 +142,9 @@ def face_select_less(
     """
 
 def face_select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select linked faces
 
@@ -494,7 +500,7 @@ def image_paint(
     ERASE
     Erase -- Switch brush to erase mode for duration of stroke.
         :type mode: typing.Literal['NORMAL','INVERT','SMOOTH','ERASE'] | None
-        :param pen_flip: Pen Flip, Whether a tablet's eraser mode is being used
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
         :type pen_flip: bool | None
     """
 
@@ -531,15 +537,15 @@ def mask_box_gesture(
         :param mode: Mode
 
     VALUE
-    Value -- Set mask to the level specified by the 'value' property.
+    Value -- Set mask to the level specified by the value property.
 
     VALUE_INVERSE
-    Value Inverted -- Set mask to the level specified by the inverted 'value' property.
+    Value Inverted -- Set mask to the level specified by the inverted value property.
 
     INVERT
     Invert -- Invert the mask.
         :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
-        :param value: Value, Mask level to use when mode is 'Value'; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
         :type value: float | None
     """
 
@@ -558,15 +564,15 @@ def mask_flood_fill(
         :param mode: Mode
 
     VALUE
-    Value -- Set mask to the level specified by the 'value' property.
+    Value -- Set mask to the level specified by the value property.
 
     VALUE_INVERSE
-    Value Inverted -- Set mask to the level specified by the inverted 'value' property.
+    Value Inverted -- Set mask to the level specified by the inverted value property.
 
     INVERT
     Invert -- Invert the mask.
         :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
-        :param value: Value, Mask level to use when mode is 'Value'; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
         :type value: float | None
     """
 
@@ -600,15 +606,15 @@ def mask_lasso_gesture(
         :param mode: Mode
 
     VALUE
-    Value -- Set mask to the level specified by the 'value' property.
+    Value -- Set mask to the level specified by the value property.
 
     VALUE_INVERSE
-    Value Inverted -- Set mask to the level specified by the inverted 'value' property.
+    Value Inverted -- Set mask to the level specified by the inverted value property.
 
     INVERT
     Invert -- Invert the mask.
         :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
-        :param value: Value, Mask level to use when mode is 'Value'; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
         :type value: float | None
     """
 
@@ -651,15 +657,15 @@ def mask_line_gesture(
         :param mode: Mode
 
     VALUE
-    Value -- Set mask to the level specified by the 'value' property.
+    Value -- Set mask to the level specified by the value property.
 
     VALUE_INVERSE
-    Value Inverted -- Set mask to the level specified by the inverted 'value' property.
+    Value Inverted -- Set mask to the level specified by the inverted value property.
 
     INVERT
     Invert -- Invert the mask.
         :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
-        :param value: Value, Mask level to use when mode is 'Value'; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
         :type value: float | None
     """
 
@@ -684,15 +690,15 @@ def mask_polyline_gesture(
         :param mode: Mode
 
     VALUE
-    Value -- Set mask to the level specified by the 'value' property.
+    Value -- Set mask to the level specified by the value property.
 
     VALUE_INVERSE
-    Value Inverted -- Set mask to the level specified by the inverted 'value' property.
+    Value Inverted -- Set mask to the level specified by the inverted value property.
 
     INVERT
     Invert -- Invert the mask.
         :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
-        :param value: Value, Mask level to use when mode is 'Value'; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
         :type value: float | None
     """
 
@@ -733,7 +739,9 @@ def sample_color(
     """
 
 def texture_paint_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle texture paint mode in 3D view
 
@@ -799,7 +807,9 @@ def vert_select_less(
     """
 
 def vert_select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select linked vertices
 
@@ -894,14 +904,16 @@ def vertex_color_dirt(
     :type clean_angle: float | None
     :param dirt_angle: Dirt Angle, Less than 90 limits the angle used in the tonal range
     :type dirt_angle: float | None
-    :param dirt_only: Dirt Only, Don't calculate cleans for convex areas
+    :param dirt_only: Dirt Only, Dont calculate cleans for convex areas
     :type dirt_only: bool | None
     :param normalize: Normalize, Normalize the colors, increasing the contrast
     :type normalize: bool | None
     """
 
 def vertex_color_from_weight(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Convert active weight into gray scale vertex colors
 
@@ -931,7 +943,9 @@ def vertex_color_hsv(
     """
 
 def vertex_color_invert(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Invert RGB values
 
@@ -973,7 +987,9 @@ def vertex_color_set(
     """
 
 def vertex_color_smooth(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Smooth colors across vertices
 
@@ -1012,14 +1028,16 @@ def vertex_paint(
     ERASE
     Erase -- Switch brush to erase mode for duration of stroke.
         :type mode: typing.Literal['NORMAL','INVERT','SMOOTH','ERASE'] | None
-        :param pen_flip: Pen Flip, Whether a tablet's eraser mode is being used
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
         :type pen_flip: bool | None
-        :param override_location: Override Location, Override the given location array by recalculating object space positions from the provided mouse_event positions
+        :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions
         :type override_location: bool | None
     """
 
 def vertex_paint_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle the vertex paint mode in 3D view
 
@@ -1055,7 +1073,9 @@ def visibility_filter(
     """
 
 def visibility_invert(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Invert the visibility of all vertices
 
@@ -1070,7 +1090,7 @@ def weight_from_bones(
     *,
     type: typing.Literal["AUTOMATIC", "ENVELOPES"] | None = "AUTOMATIC",
 ) -> None:
-    """Set the weights of the groups matching the attached armature's selected bones, using the distance between the vertices and the bones
+    """Set the weights of the groups matching the attached armatures selected bones, using the distance between the vertices and the bones
 
         :type execution_context: int | str | None
         :type undo: bool | None
@@ -1128,7 +1148,7 @@ def weight_paint(
     pen_flip: bool | None = False,
     override_location: bool | None = False,
 ) -> None:
-    """Paint a stroke in the current vertex group's weights
+    """Paint a stroke in the current vertex groups weights
 
         :type execution_context: int | str | None
         :type undo: bool | None
@@ -1148,14 +1168,16 @@ def weight_paint(
     ERASE
     Erase -- Switch brush to erase mode for duration of stroke.
         :type mode: typing.Literal['NORMAL','INVERT','SMOOTH','ERASE'] | None
-        :param pen_flip: Pen Flip, Whether a tablet's eraser mode is being used
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
         :type pen_flip: bool | None
-        :param override_location: Override Location, Override the given location array by recalculating object space positions from the provided mouse_event positions
+        :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions
         :type override_location: bool | None
     """
 
 def weight_paint_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle weight paint mode in 3D view
 
@@ -1164,7 +1186,9 @@ def weight_paint_toggle(
     """
 
 def weight_sample(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Use the mouse to sample a weight in the 3D view
 
@@ -1173,7 +1197,9 @@ def weight_sample(
     """
 
 def weight_sample_group(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select one of the vertex groups available under current mouse position
 
@@ -1182,7 +1208,9 @@ def weight_sample_group(
     """
 
 def weight_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Fill the active vertex group with the current paint weight
 

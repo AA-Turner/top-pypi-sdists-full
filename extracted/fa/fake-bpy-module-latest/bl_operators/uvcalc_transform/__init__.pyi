@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class AlignUVRotation(bpy.types.Operator):
-    """Align the UV island's rotation"""
+class AlignUVRotation(_bpy_types.Operator):
+    """Align the UV islands rotation"""
 
     bl_idname: typing.Any
     bl_label: typing.Any
@@ -46,8 +47,8 @@ class AlignUVRotation(bpy.types.Operator):
         :param context:
         """
 
-class RandomizeUVTransform(bpy.types.Operator):
-    """Randomize the UV island's location, rotation, and scale"""
+class RandomizeUVTransform(_bpy_types.Operator):
+    """Randomize the UV islands location, rotation, and scale"""
 
     bl_idname: typing.Any
     bl_label: typing.Any

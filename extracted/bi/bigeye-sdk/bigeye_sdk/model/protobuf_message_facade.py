@@ -38,7 +38,8 @@ freshness_metrics = [
     SimplePredefinedMetricName.HOURS_SINCE_MAX_DATE,
     SimplePredefinedMetricName.HOURS_SINCE_MAX_TIMESTAMP,
     SimplePredefinedMetricName.FRESHNESS,
-    SimplePredefinedMetricName.FRESHNESS_DATA
+    SimplePredefinedMetricName.FRESHNESS_DATA,
+    SimplePredefinedMetricName.HOURS_SINCE_MAX_STRING
 ]
 
 volume_metrics = [

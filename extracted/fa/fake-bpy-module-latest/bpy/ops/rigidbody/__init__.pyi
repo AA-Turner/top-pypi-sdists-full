@@ -112,7 +112,9 @@ def constraint_add(
     """
 
 def constraint_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove Rigid Body Constraint from Object
 
@@ -134,7 +136,7 @@ def mass_calculate(
     :type undo: bool | None
     :param material: Material Preset, Type of material that objects are made of (determines material density)
     :type material: str | None
-    :param density: Density, Density value (kg/m^3), allows custom value if the 'Custom' preset is used
+    :param density: Density, Density value (kg/m^3), allows custom value if the Custom preset is used
     :type density: float | None
     """
 
@@ -154,7 +156,9 @@ def object_add(
     """
 
 def object_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove Rigid Body settings from Object
 
@@ -163,7 +167,9 @@ def object_remove(
     """
 
 def object_settings_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy Rigid Body settings from active object to selected
 
@@ -187,7 +193,9 @@ def objects_add(
     """
 
 def objects_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected objects from Rigid Body simulation
 
@@ -211,7 +219,9 @@ def shape_change(
     """
 
 def world_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add Rigid Body simulation world to the current scene
 
@@ -220,7 +230,9 @@ def world_add(
     """
 
 def world_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove Rigid Body simulation world from the current scene
 

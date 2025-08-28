@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class CLIP_OT_bundles_to_mesh(bpy.types.Operator):
+class CLIP_OT_bundles_to_mesh(_bpy_types.Operator):
     """Create vertex cloud using coordinates of reconstructed tracks"""
 
     bl_idname: typing.Any
@@ -40,8 +41,8 @@ class CLIP_OT_bundles_to_mesh(bpy.types.Operator):
         :param context:
         """
 
-class CLIP_OT_constraint_to_fcurve(bpy.types.Operator):
-    """Create F-Curves for object which will copy object's movement caused by this constraint"""
+class CLIP_OT_constraint_to_fcurve(_bpy_types.Operator):
+    """Create F-Curves for object which will copy objects movement caused by this constraint"""
 
     bl_idname: typing.Any
     bl_label: typing.Any
@@ -69,7 +70,7 @@ class CLIP_OT_constraint_to_fcurve(bpy.types.Operator):
         :param context:
         """
 
-class CLIP_OT_delete_proxy(bpy.types.Operator):
+class CLIP_OT_delete_proxy(_bpy_types.Operator):
     """Delete movie clip proxy files from the hard drive"""
 
     bl_idname: typing.Any
@@ -112,7 +113,7 @@ class CLIP_OT_delete_proxy(bpy.types.Operator):
         :param context:
         """
 
-class CLIP_OT_filter_tracks(bpy.types.Operator):
+class CLIP_OT_filter_tracks(_bpy_types.Operator):
     """Filter tracks which has weirdly looking spikes in motion curves"""
 
     bl_idname: typing.Any
@@ -148,7 +149,7 @@ class CLIP_OT_filter_tracks(bpy.types.Operator):
         :param context:
         """
 
-class CLIP_OT_set_active_clip(bpy.types.Operator):
+class CLIP_OT_set_active_clip(_bpy_types.Operator):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -181,7 +182,7 @@ class CLIP_OT_set_active_clip(bpy.types.Operator):
         :param context:
         """
 
-class CLIP_OT_set_viewport_background(bpy.types.Operator):
+class CLIP_OT_set_viewport_background(_bpy_types.Operator):
     """Set current movie clip as a camera background in 3D Viewport (works only when a 3D Viewport is visible)"""
 
     bl_idname: typing.Any
@@ -217,7 +218,7 @@ class CLIP_OT_set_viewport_background(bpy.types.Operator):
         :param context:
         """
 
-class CLIP_OT_setup_tracking_scene(bpy.types.Operator):
+class CLIP_OT_setup_tracking_scene(_bpy_types.Operator):
     """Prepare scene for compositing 3D objects into this footage"""
 
     bl_idname: typing.Any
@@ -261,7 +262,7 @@ class CLIP_OT_setup_tracking_scene(bpy.types.Operator):
         :param context:
         """
 
-class CLIP_OT_track_settings_as_default(bpy.types.Operator):
+class CLIP_OT_track_settings_as_default(_bpy_types.Operator):
     """Copy tracking settings from active track to default settings"""
 
     bl_idname: typing.Any
@@ -297,7 +298,7 @@ class CLIP_OT_track_settings_as_default(bpy.types.Operator):
         :param context:
         """
 
-class CLIP_OT_track_settings_to_track(bpy.types.Operator):
+class CLIP_OT_track_settings_to_track(_bpy_types.Operator):
     """Copy tracking settings from active track to selected tracks"""
 
     bl_idname: typing.Any
@@ -333,7 +334,7 @@ class CLIP_OT_track_settings_to_track(bpy.types.Operator):
         :param context:
         """
 
-class CLIP_OT_track_to_empty(bpy.types.Operator):
+class CLIP_OT_track_to_empty(_bpy_types.Operator):
     """Create an Empty object which will be copying movement of active track"""
 
     bl_idname: typing.Any

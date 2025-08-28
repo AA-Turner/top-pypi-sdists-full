@@ -34,12 +34,14 @@ def brush_stroke(
     ERASE
     Erase -- Switch brush to erase mode for duration of stroke.
         :type mode: typing.Literal['NORMAL','INVERT','SMOOTH','ERASE'] | None
-        :param pen_flip: Pen Flip, Whether a tablet's eraser mode is being used
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
         :type pen_flip: bool | None
     """
 
 def min_distance_edit(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Change the minimum distance used by the density brush
 

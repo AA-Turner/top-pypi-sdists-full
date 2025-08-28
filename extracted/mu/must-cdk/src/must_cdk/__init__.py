@@ -1561,19 +1561,19 @@ class EcsCodeDeploy(
         :param containers: Container configurations using native CDK interfaces.
         :param security_groups: Security groups for ECS service (required).
         :param service_name: Base name used for resources like log groups, roles, services, etc.
-        :param task_subnets: Subnets for ECS tasks (required).
+        :param task_subnets: Subnets for ECS tasks (required). IMPORTANT: This controls where your ECS containers run. Use private subnets for security. To limit to specific AZs: { availabilityZones: ['us-east-1a'] } For all private subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
         :param vpc: VPC in which to deploy ECS and ALB resources.
         :param code_deploy_application: CodeDeploy application configuration.
         :param deployment_group: CodeDeploy deployment group configuration.
         :param load_balancer: Load balancer configuration options.
-        :param load_balancer_subnets: Subnets for ALB (optional, defaults to taskSubnets).
+        :param load_balancer_subnets: Subnets for ALB (optional, defaults to taskSubnets). IMPORTANT: This controls where your Load Balancer runs, NOT your containers! - For internet-facing ALBs: Use PUBLIC subnets across multiple AZs - For internal ALBs: Use PRIVATE subnets across multiple AZs - Common mistake: Restricting ALB to single AZ reduces availability Examples: - All public subnets: { subnetType: ec2.SubnetType.PUBLIC } - Specific AZs: { availabilityZones: ['us-east-1a', 'us-east-1b'] } - Default (all subnets): {} or undefined
         :param production_listener: Production listener configuration.
         :param production_target_group: Production target group configuration.
         :param service: Service configuration options.
         :param target_port: The port to expose on the target group (defaults to first container's port).
         :param task_definition: Task definition configuration options.
-        :param test_listener: Test listener configuration.
-        :param test_target_group: Test target group configuration.
+        :param test_listener: Test listener configuration (optional - defaults will be used if not provided).
+        :param test_target_group: Test target group configuration (optional - defaults will be used if not provided).
         :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable supports multiple formats: - Key-value pairs: TAGS=key1=value1,key2=value2 - JSON string: TAGS='{"key1":"value1","key2":"value2"}' - JSON object (dict): TAGS={"Product":"Mufin","Owner":"Platform"}
         '''
         if __debug__:
@@ -3789,19 +3789,19 @@ class EcsCodeDeployProps(TaggableProps):
         :param containers: Container configurations using native CDK interfaces.
         :param security_groups: Security groups for ECS service (required).
         :param service_name: Base name used for resources like log groups, roles, services, etc.
-        :param task_subnets: Subnets for ECS tasks (required).
+        :param task_subnets: Subnets for ECS tasks (required). IMPORTANT: This controls where your ECS containers run. Use private subnets for security. To limit to specific AZs: { availabilityZones: ['us-east-1a'] } For all private subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
         :param vpc: VPC in which to deploy ECS and ALB resources.
         :param code_deploy_application: CodeDeploy application configuration.
         :param deployment_group: CodeDeploy deployment group configuration.
         :param load_balancer: Load balancer configuration options.
-        :param load_balancer_subnets: Subnets for ALB (optional, defaults to taskSubnets).
+        :param load_balancer_subnets: Subnets for ALB (optional, defaults to taskSubnets). IMPORTANT: This controls where your Load Balancer runs, NOT your containers! - For internet-facing ALBs: Use PUBLIC subnets across multiple AZs - For internal ALBs: Use PRIVATE subnets across multiple AZs - Common mistake: Restricting ALB to single AZ reduces availability Examples: - All public subnets: { subnetType: ec2.SubnetType.PUBLIC } - Specific AZs: { availabilityZones: ['us-east-1a', 'us-east-1b'] } - Default (all subnets): {} or undefined
         :param production_listener: Production listener configuration.
         :param production_target_group: Production target group configuration.
         :param service: Service configuration options.
         :param target_port: The port to expose on the target group (defaults to first container's port).
         :param task_definition: Task definition configuration options.
-        :param test_listener: Test listener configuration.
-        :param test_target_group: Test target group configuration.
+        :param test_listener: Test listener configuration (optional - defaults will be used if not provided).
+        :param test_target_group: Test target group configuration (optional - defaults will be used if not provided).
         '''
         if isinstance(task_subnets, dict):
             task_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**task_subnets)
@@ -3921,7 +3921,12 @@ class EcsCodeDeployProps(TaggableProps):
 
     @builtins.property
     def task_subnets(self) -> _aws_cdk_aws_ec2_ceddda9d.SubnetSelection:
-        '''Subnets for ECS tasks (required).'''
+        '''Subnets for ECS tasks (required).
+
+        IMPORTANT: This controls where your ECS containers run. Use private subnets for security.
+        To limit to specific AZs: { availabilityZones: ['us-east-1a'] }
+        For all private subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
+        '''
         result = self._values.get("task_subnets")
         assert result is not None, "Required property 'task_subnets' is missing"
         return typing.cast(_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, result)
@@ -3955,7 +3960,20 @@ class EcsCodeDeployProps(TaggableProps):
     def load_balancer_subnets(
         self,
     ) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
-        '''Subnets for ALB (optional, defaults to taskSubnets).'''
+        '''Subnets for ALB (optional, defaults to taskSubnets).
+
+        IMPORTANT: This controls where your Load Balancer runs, NOT your containers!
+
+        - For internet-facing ALBs: Use PUBLIC subnets across multiple AZs
+        - For internal ALBs: Use PRIVATE subnets across multiple AZs
+        - Common mistake: Restricting ALB to single AZ reduces availability
+
+        Examples:
+
+        - All public subnets: { subnetType: ec2.SubnetType.PUBLIC }
+        - Specific AZs: { availabilityZones: ['us-east-1a', 'us-east-1b'] }
+        - Default (all subnets): {} or undefined
+        '''
         result = self._values.get("load_balancer_subnets")
         return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
 
@@ -3991,13 +4009,13 @@ class EcsCodeDeployProps(TaggableProps):
 
     @builtins.property
     def test_listener(self) -> typing.Optional[ListenerConfig]:
-        '''Test listener configuration.'''
+        '''Test listener configuration (optional - defaults will be used if not provided).'''
         result = self._values.get("test_listener")
         return typing.cast(typing.Optional[ListenerConfig], result)
 
     @builtins.property
     def test_target_group(self) -> typing.Optional[TargetGroupConfig]:
-        '''Test target group configuration.'''
+        '''Test target group configuration (optional - defaults will be used if not provided).'''
         result = self._values.get("test_target_group")
         return typing.cast(typing.Optional[TargetGroupConfig], result)
 

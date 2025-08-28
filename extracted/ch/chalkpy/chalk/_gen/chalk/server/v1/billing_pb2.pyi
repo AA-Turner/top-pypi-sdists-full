@@ -6,6 +6,7 @@ from chalk._gen.chalk.pubsub.v1 import pod_status_pb2 as _pod_status_pb2
 from chalk._gen.chalk.server.v1 import chart_pb2 as _chart_pb2
 from chalk._gen.chalk.server.v1 import pod_request_pb2 as _pod_request_pb2
 from chalk._gen.chalk.usage.v1 import rate_pb2 as _rate_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.type import date_pb2 as _date_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -169,3 +170,45 @@ class CreditBundle(_message.Message):
         expires_on: _Optional[_Union[_date_pb2.Date, _Mapping]] = ...,
         remaining_credits: _Optional[int] = ...,
     ) -> None: ...
+
+class GetInstanceUsageRequest(_message.Message):
+    __slots__ = ("start_ms", "end_ms", "environment_id")
+    START_MS_FIELD_NUMBER: _ClassVar[int]
+    END_MS_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    start_ms: int
+    end_ms: int
+    environment_id: str
+    def __init__(
+        self, start_ms: _Optional[int] = ..., end_ms: _Optional[int] = ..., environment_id: _Optional[str] = ...
+    ) -> None: ...
+
+class InstanceUsage(_message.Message):
+    __slots__ = ("cluster_name", "instance_type", "id", "start_time", "end_time", "hours_used")
+    CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    HOURS_USED_FIELD_NUMBER: _ClassVar[int]
+    cluster_name: str
+    instance_type: str
+    id: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    hours_used: float
+    def __init__(
+        self,
+        cluster_name: _Optional[str] = ...,
+        instance_type: _Optional[str] = ...,
+        id: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        hours_used: _Optional[float] = ...,
+    ) -> None: ...
+
+class GetInstanceUsageResponse(_message.Message):
+    __slots__ = ("instances",)
+    INSTANCES_FIELD_NUMBER: _ClassVar[int]
+    instances: _containers.RepeatedCompositeFieldContainer[InstanceUsage]
+    def __init__(self, instances: _Optional[_Iterable[_Union[InstanceUsage, _Mapping]]] = ...) -> None: ...

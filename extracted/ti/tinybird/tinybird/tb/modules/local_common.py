@@ -24,6 +24,7 @@ from tinybird.tb.modules.telemetry import add_telemetry_event
 TB_IMAGE_NAME = "tinybirdco/tinybird-local:latest"
 TB_CONTAINER_NAME = "tinybird-local"
 TB_LOCAL_PORT = int(os.getenv("TB_LOCAL_PORT", 7181))
+TB_LOCAL_CLICKHOUSE_INTERFACE_PORT = int(os.getenv("TB_LOCAL_CLICKHOUSE_INTERFACE_PORT", 7182))
 TB_LOCAL_HOST = re.sub(r"^https?://", "", os.getenv("TB_LOCAL_HOST", "localhost"))
 TB_LOCAL_ADDRESS = f"http://{TB_LOCAL_HOST}:{TB_LOCAL_PORT}"
 TB_LOCAL_DEFAULT_WORKSPACE_NAME = "Tinybird_Local_Testing"
@@ -269,7 +270,7 @@ def start_tinybird_local(
             TB_IMAGE_NAME,
             name=TB_CONTAINER_NAME,
             detach=True,
-            ports={"7181/tcp": TB_LOCAL_PORT},
+            ports={"7181/tcp": TB_LOCAL_PORT, "7182/tcp": TB_LOCAL_CLICKHOUSE_INTERFACE_PORT},
             remove=False,
             platform="linux/amd64",
             environment=environment,

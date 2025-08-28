@@ -1,7 +1,8 @@
 import datetime
 from datetime import timedelta
 
-from sqlalchemy import desc
+from sqlalchemy import and_, desc, func
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import NoResultFound
 
 from flexget import options
@@ -68,43 +69,90 @@ def do_cli_summary(manager, options):
     table = TerminalTable(*header, table_type=options.table_type)
 
     with Session() as session:
-        for task in session.query(db.StatusTask).all():
-            ok = (
-                session.query(db.TaskExecution)
-                .filter(db.TaskExecution.task_id == task.id)
-                .filter(db.TaskExecution.succeeded)
-                .filter(db.TaskExecution.produced > 0)
-                .order_by(db.TaskExecution.start.desc())
-                .first()
-            )
+        # Create aliases for different execution queries
+        LastExecution = aliased(db.TaskExecution)  # noqa: N806
+        LastSuccess = aliased(db.TaskExecution)  # noqa: N806
 
-            if ok is None:
+        # Subquery to find the last execution time for each task
+        last_execution_subq = (
+            session.query(LastExecution.task_id, func.max(LastExecution.start).label('last_start'))
+            .group_by(LastExecution.task_id)
+            .subquery()
+        )
+
+        # Subquery to find the last successful execution with produced > 0 for each task
+        last_success_subq = (
+            session.query(
+                LastSuccess.task_id, func.max(LastSuccess.start).label('last_success_start')
+            )
+            .filter(and_(LastSuccess.succeeded, LastSuccess.produced > 0))
+            .group_by(LastSuccess.task_id)
+            .subquery()
+        )
+
+        # Main query with left joins to get all required data in a single query
+        query = (
+            session.query(
+                db.StatusTask,
+                last_execution_subq.c.last_start,
+                LastSuccess.start,
+                LastSuccess.end,
+                LastSuccess.produced,
+                LastSuccess.accepted,
+                LastSuccess.rejected,
+                LastSuccess.failed,
+            )
+            .outerjoin(last_execution_subq, db.StatusTask.id == last_execution_subq.c.task_id)
+            .outerjoin(last_success_subq, db.StatusTask.id == last_success_subq.c.task_id)
+            .outerjoin(
+                LastSuccess,
+                and_(
+                    LastSuccess.task_id == db.StatusTask.id,
+                    LastSuccess.start == last_success_subq.c.last_success_start,
+                    LastSuccess.succeeded,
+                    LastSuccess.produced > 0,
+                ),
+            )
+        )
+
+        for row in query.all():
+            (
+                task,
+                last_exec_time,
+                success_start,
+                success_end,
+                produced,
+                accepted,
+                rejected,
+                failed,
+            ) = row
+
+            # Process last execution time
+            # Fix weird issue that a task registers StatusTask but without an execution. GH #2022
+            last_exec = last_exec_time.strftime('%Y-%m-%d %H:%M') if last_exec_time else '-'
+
+            # Process last success data
+            if success_start is None:
                 duration = None
                 last_success = '-'
             else:
-                duration = ok.end - ok.start
-                last_success = ok.start.strftime('%Y-%m-%d %H:%M')
+                duration = success_end - success_start if success_end else None
+                last_success = success_start.strftime('%Y-%m-%d %H:%M')
 
-                age = datetime.datetime.utcnow() - ok.start
+                age = datetime.datetime.utcnow() - success_start
                 if age > timedelta(days=7):
                     last_success = colorize('red', last_success)
                 elif age < timedelta(minutes=10):
                     last_success = colorize('green', last_success)
-            # Fix weird issue that a task registers StatusTask but without an execution. GH #2022
-            last_exec = (
-                task.last_execution_time.strftime('%Y-%m-%d %H:%M')
-                if task.last_execution_time
-                else '-'
-            )
 
             table.add_row(
                 task.name,
                 last_exec,
                 last_success,
-                str(ok.produced) if ok is not None else '-',
-                str(ok.accepted) if ok is not None else '-',
-                str(ok.rejected) if ok is not None else '-',
-                str(ok.failed) if ok is not None else '-',
+                str(produced) if produced is not None else '-',
+                str(accepted) if accepted is not None else '-',
+                str(rejected) if rejected is not None else '-',
+                str(failed) if failed is not None else '-',
                 f'{duration.total_seconds():1.0f}s' if duration is not None else '-',
             )
 

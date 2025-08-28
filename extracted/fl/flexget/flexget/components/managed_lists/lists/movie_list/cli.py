@@ -103,18 +103,32 @@ def movie_list_list(options):
         except NoResultFound:
             console(f'Could not find movie list with name {options.list_name}')
             return
-    header = ['#', 'Movie Name', 'Movie year']
-    header += db.MovieListBase().supported_ids
+
     movies = db.get_movies_by_list_id(
         movie_list.id, order_by='added', descending=True, session=session
     )
+
+    # Find which identifiers are actually used by any movie
+    used_identifiers = set()
+    for movie in movies:
+        used_identifiers.update(movie.identifiers.keys())
+
+    # Only include identifier columns that are actually used
+    relevant_identifiers = [
+        identifier
+        for identifier in db.MovieListBase().supported_ids
+        if identifier in used_identifiers
+    ]
+
+    header = ['#', 'Movie Name', 'Movie year']
+    header += relevant_identifiers
+
     title = f'{len(movies)} Movies in movie list: `{options.list_name}`'
     table = TerminalTable(*header, table_type=options.table_type, title=title)
     for movie in movies:
-        movie_row = [str(movie.id), movie.title, str(movie.year) or '']
+        movie_row = [str(movie.id), movie.title, str(movie.year) if movie.year else '']
         movie_row.extend([
-            str(movie.identifiers.get(identifier, ''))
-            for identifier in db.MovieListBase().supported_ids
+            str(movie.identifiers.get(identifier, '')) for identifier in relevant_identifiers
         ])
         table.add_row(*movie_row)
     console(table)

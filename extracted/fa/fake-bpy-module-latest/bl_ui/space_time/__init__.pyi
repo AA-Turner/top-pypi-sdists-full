@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class TIME_MT_editor_menus(bpy.types.Menu):
+class TIME_MT_editor_menus(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -30,7 +31,7 @@ class TIME_MT_editor_menus(bpy.types.Menu):
         :param context:
         """
 
-class TIME_MT_marker(bpy.types.Menu):
+class TIME_MT_marker(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -55,7 +56,7 @@ class TIME_MT_marker(bpy.types.Menu):
         :param context:
         """
 
-class TIME_MT_view(bpy.types.Menu):
+class TIME_MT_view(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -80,7 +81,7 @@ class TIME_MT_view(bpy.types.Menu):
         :param context:
         """
 
-class TIME_PT_auto_keyframing(TimelinePanelButtons, bpy.types.Panel):
+class TIME_PT_auto_keyframing(TimelinePanelButtons, _bpy_types.Panel):
     bl_label: typing.Any
     bl_options: typing.Any
     bl_region_type: typing.Any
@@ -109,7 +110,7 @@ class TIME_PT_auto_keyframing(TimelinePanelButtons, bpy.types.Panel):
         :param context:
         """
 
-class TIME_PT_keyframing_settings(TimelinePanelButtons, bpy.types.Panel):
+class TIME_PT_keyframing_settings(TimelinePanelButtons, _bpy_types.Panel):
     bl_label: typing.Any
     bl_options: typing.Any
     bl_region_type: typing.Any
@@ -137,7 +138,7 @@ class TIME_PT_keyframing_settings(TimelinePanelButtons, bpy.types.Panel):
         :param context:
         """
 
-class TIME_PT_playback(TimelinePanelButtons, bpy.types.Panel):
+class TIME_PT_playback(TimelinePanelButtons, _bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any

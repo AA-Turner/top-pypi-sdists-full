@@ -28,7 +28,7 @@ class _JujuContext:
     """_JujuContext collects information from environment variables named 'JUJU_*'.
 
     Source: https://documentation.ubuntu.com/juju/3.6/reference/hook/#hook-execution.
-    The HookVars function: https://github.com/juju/juju/blob/3.6/worker/uniter/runner/context/context.go#L1398.
+    The HookVars function: https://github.com/juju/juju/blob/be9dce813b631a469eb8ca8b5c6bc3c0fe82b954/internal/worker/uniter/runner/context/context.go#L1398
     Only a subset of the above source, because these are what are used in ops.
     """
 
@@ -61,7 +61,7 @@ class _JujuContext:
     If true, write logs to stderr as well as to juju-log (from JUJU_DEBUG).
     """
 
-    debug_at: set[str] = dataclasses.field(default_factory=set)
+    debug_at: set[str] = dataclasses.field(default_factory=set[str])
     """Where you want to stop when debugging.
 
     For example 'all' (from JUJU_DEBUG_AT).

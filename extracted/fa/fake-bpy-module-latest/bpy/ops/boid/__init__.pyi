@@ -20,7 +20,9 @@ def rule_add(
     """
 
 def rule_del(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete current boid rule
 
@@ -29,7 +31,9 @@ def rule_del(
     """
 
 def rule_move_down(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move boid rule down in the list
 
@@ -38,7 +42,9 @@ def rule_move_down(
     """
 
 def rule_move_up(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move boid rule up in the list
 
@@ -47,7 +53,9 @@ def rule_move_up(
     """
 
 def state_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a boid state to the particle system
 
@@ -56,7 +64,9 @@ def state_add(
     """
 
 def state_del(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete current boid state
 
@@ -65,7 +75,9 @@ def state_del(
     """
 
 def state_move_down(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move boid state down in the list
 
@@ -74,7 +86,9 @@ def state_move_down(
     """
 
 def state_move_up(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move boid state up in the list
 

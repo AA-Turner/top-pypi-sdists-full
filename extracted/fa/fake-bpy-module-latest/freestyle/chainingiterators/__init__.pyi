@@ -52,9 +52,9 @@ class ChainPredicateIterator:
                 :type restrict_to_unvisited: bool
                 :param begin: The ViewEdge from where to start the iteration.
                 :type begin: None | freestyle.types.ViewEdge | None
-                :param orientation: If true, we'll look for the next ViewEdge among
+                :param orientation: If true, well look for the next ViewEdge among
         the ViewEdges that surround the ending ViewVertex of begin. If
-        false, we'll search over the ViewEdges surrounding the ending
+        false, well search over the ViewEdges surrounding the ending
         ViewVertex of begin.
                 :type orientation: bool
         """
@@ -93,9 +93,9 @@ class ChainSilhouetteIterator:
                 :type restrict_to_selection: bool
                 :param begin: The ViewEdge from where to start the iteration.
                 :type begin: None | freestyle.types.ViewEdge | None
-                :param orientation: If true, we'll look for the next ViewEdge among
+                :param orientation: If true, well look for the next ViewEdge among
         the ViewEdges that surround the ending ViewVertex of begin. If
-        false, we'll search over the ViewEdges surrounding the ending
+        false, well search over the ViewEdges surrounding the ending
         ViewVertex of begin.
                 :type orientation: bool
         """
@@ -247,7 +247,7 @@ class pyNoIdChainSilhouetteIterator:
     """Natural chaining iterator that follows the edges of the same nature
     following the topology of objects, with decreasing priority for
     silhouettes, then borders, then suggestive contours, then all other edge
-    types.  It won't chain the same ViewEdge twice.
+    types.  It wont chain the same ViewEdge twice.
     """
 
     def __init__(self, stayInSelection: bool = True) -> None:

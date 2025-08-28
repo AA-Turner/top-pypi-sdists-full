@@ -2790,6 +2790,11 @@ class BackupProperty(Property):
     arg_types = {"this": True}
 
 
+# https://doris.apache.org/docs/sql-manual/sql-statements/table-and-view/async-materialized-view/CREATE-ASYNC-MATERIALIZED-VIEW/
+class BuildProperty(Property):
+    arg_types = {"this": True}
+
+
 class BlockCompressionProperty(Property):
     arg_types = {
         "autotemp": False,
@@ -3029,6 +3034,27 @@ class PartitionByRangeProperty(Property):
 # https://docs.starrocks.io/docs/table_design/data_distribution/#range-partitioning
 class PartitionByRangePropertyDynamic(Expression):
     arg_types = {"this": False, "start": True, "end": True, "every": True}
+
+
+# https://doris.apache.org/docs/table-design/data-partitioning/manual-partitioning
+class PartitionByListProperty(Property):
+    arg_types = {"partition_expressions": True, "create_expressions": True}
+
+
+# https://doris.apache.org/docs/table-design/data-partitioning/manual-partitioning
+class PartitionList(Expression):
+    arg_types = {"this": True, "expressions": True}
+
+
+# https://doris.apache.org/docs/sql-manual/sql-statements/table-and-view/async-materialized-view/CREATE-ASYNC-MATERIALIZED-VIEW
+class RefreshTriggerProperty(Property):
+    arg_types = {
+        "method": True,
+        "kind": False,
+        "every": False,
+        "unit": False,
+        "starts": False,
+    }
 
 
 # https://docs.starrocks.io/docs/sql-reference/sql-statements/table_bucket_part_index/CREATE_TABLE/
@@ -4304,7 +4330,14 @@ class Select(Query):
 
     @property
     def named_selects(self) -> t.List[str]:
-        return [e.output_name for e in self.expressions if e.alias_or_name]
+        selects = []
+
+        for e in self.expressions:
+            if e.alias_or_name:
+                selects.append(e.output_name)
+            elif isinstance(e, Aliases):
+                selects.extend([a.name for a in e.aliases])
+        return selects
 
     @property
     def is_star(self) -> bool:
@@ -4876,6 +4909,7 @@ class Alter(Expression):
         "options": False,
         "cluster": False,
         "not_valid": False,
+        "check": False,
     }
 
     @property
@@ -5429,6 +5463,11 @@ class ByteLength(Func):
     pass
 
 
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/json_functions#bool_for_json
+class JSONBool(Func):
+    pass
+
+
 class ArrayRemove(Func):
     arg_types = {"this": True, "expression": True}
 
@@ -5455,8 +5494,26 @@ class ApproxTopK(AggFunc):
     arg_types = {"this": True, "expression": False, "counters": False}
 
 
+class ApproxTopSum(AggFunc):
+    arg_types = {"this": True, "expression": True, "count": True}
+
+
+class ApproxQuantiles(AggFunc):
+    arg_types = {"this": True, "expression": False}
+
+
+class FarmFingerprint(Func):
+    arg_types = {"expressions": True}
+    is_var_len_args = True
+    _sql_names = ["FARM_FINGERPRINT", "FARMFINGERPRINT64"]
+
+
 class Flatten(Func):
     pass
+
+
+class Float64(Func):
+    arg_types = {"this": True, "expression": False}
 
 
 # https://spark.apache.org/docs/latest/api/sql/index.html#transform
@@ -5548,6 +5605,10 @@ class ToChar(Func):
     }
 
 
+class ToCodePoints(Func):
+    pass
+
+
 # https://docs.snowflake.com/en/sql-reference/functions/to_decimal
 # https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/TO_NUMBER.html
 class ToNumber(Func):
@@ -5566,6 +5627,10 @@ class ToDouble(Func):
         "this": True,
         "format": False,
     }
+
+
+class CodePointsToBytes(Func):
+    pass
 
 
 class Columns(Func):
@@ -6193,12 +6258,16 @@ class Floor(Func):
     arg_types = {"this": True, "decimals": False, "to": False}
 
 
+class FromBase32(Func):
+    pass
+
+
 class FromBase64(Func):
     pass
 
 
-class FeaturesAtTime(Func):
-    arg_types = {"this": True, "time": False, "num_rows": False, "ignore_feature_nulls": False}
+class ToBase32(Func):
+    pass
 
 
 class ToBase64(Func):
@@ -6553,7 +6622,16 @@ class JSONFormat(Func):
 
 # https://dev.mysql.com/doc/refman/8.0/en/json-search-functions.html#operator_member-of
 class JSONArrayContains(Binary, Predicate, Func):
+    arg_types = {"this": True, "expression": True, "json_type": False}
     _sql_names = ["JSON_ARRAY_CONTAINS"]
+
+
+class ParseBignumeric(Func):
+    pass
+
+
+class ParseNumeric(Func):
+    pass
 
 
 class ParseJSON(Func):
@@ -6726,6 +6804,29 @@ class Predict(Func):
     arg_types = {"this": True, "expression": True, "params_struct": False}
 
 
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-feature-time
+class FeaturesAtTime(Func):
+    arg_types = {"this": True, "time": False, "num_rows": False, "ignore_feature_nulls": False}
+
+
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-generate-embedding
+class GenerateEmbedding(Func):
+    arg_types = {"this": True, "expression": True, "params_struct": False}
+
+
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/search_functions#vector_search
+class VectorSearch(Func):
+    arg_types = {
+        "this": True,
+        "column_to_search": True,
+        "query_table": True,
+        "query_column_to_search": False,
+        "top_k": False,
+        "distance_type": False,
+        "options": False,
+    }
+
+
 class Pow(Binary, Func):
     _sql_names = ["POWER", "POW"]
 
@@ -6743,7 +6844,13 @@ class Quantile(AggFunc):
 
 
 class ApproxQuantile(Quantile):
-    arg_types = {"this": True, "quantile": True, "accuracy": False, "weight": False}
+    arg_types = {
+        "this": True,
+        "quantile": True,
+        "accuracy": False,
+        "weight": False,
+        "error_tolerance": False,
+    }
 
 
 class Quarter(Func):
@@ -6843,6 +6950,10 @@ class RowNumber(Func):
 
 class SafeDivide(Func):
     arg_types = {"this": True, "expression": True}
+
+
+class SafeConvertBytesToString(Func):
+    pass
 
 
 class SHA(Func):

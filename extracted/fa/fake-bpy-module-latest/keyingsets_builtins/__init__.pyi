@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class BUILTIN_KSI_Available(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_Available(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the already existing F-Curves"""
 
     bl_idname: typing.Any
@@ -32,7 +33,7 @@ class BUILTIN_KSI_Available(bpy.types.KeyingSetInfo):
         :param context:
         """
 
-class BUILTIN_KSI_BendyBones(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_BendyBones(_bpy_types.KeyingSetInfo):
     """Insert a keyframe for each of the BBone shape properties"""
 
     bl_label: typing.Any
@@ -53,7 +54,7 @@ class BUILTIN_KSI_BendyBones(bpy.types.KeyingSetInfo):
         :rtype: typing.Any
         """
 
-class BUILTIN_KSI_DeltaLocation(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_DeltaLocation(_bpy_types.KeyingSetInfo):
     """Insert keyframes for additional location offset"""
 
     bl_label: typing.Any
@@ -82,7 +83,7 @@ class BUILTIN_KSI_DeltaLocation(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_DeltaRotation(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_DeltaRotation(_bpy_types.KeyingSetInfo):
     """Insert keyframes for additional rotation offset"""
 
     bl_label: typing.Any
@@ -111,7 +112,7 @@ class BUILTIN_KSI_DeltaRotation(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_DeltaScale(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_DeltaScale(_bpy_types.KeyingSetInfo):
     """Insert keyframes for additional scale factor"""
 
     bl_label: typing.Any
@@ -140,7 +141,7 @@ class BUILTIN_KSI_DeltaScale(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_LocRot(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_LocRot(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the location and rotation channels"""
 
     bl_label: typing.Any
@@ -169,7 +170,7 @@ class BUILTIN_KSI_LocRot(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_LocRotScale(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_LocRotScale(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the location, rotation, and scale channels"""
 
     bl_idname: typing.Any
@@ -199,7 +200,7 @@ class BUILTIN_KSI_LocRotScale(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_LocRotScaleCProp(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_LocRotScaleCProp(_bpy_types.KeyingSetInfo):
     """Key location/rotation/scale as well as custom properties"""
 
     bl_idname: typing.Any
@@ -229,7 +230,7 @@ class BUILTIN_KSI_LocRotScaleCProp(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_LocScale(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_LocScale(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the location and scale channels"""
 
     bl_label: typing.Any
@@ -258,7 +259,7 @@ class BUILTIN_KSI_LocScale(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_Location(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_Location(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the location channels"""
 
     bl_idname: typing.Any
@@ -280,7 +281,7 @@ class BUILTIN_KSI_Location(bpy.types.KeyingSetInfo):
         :rtype: typing.Any
         """
 
-class BUILTIN_KSI_RotScale(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_RotScale(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the rotation and scale channels"""
 
     bl_label: typing.Any
@@ -309,7 +310,7 @@ class BUILTIN_KSI_RotScale(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_Rotation(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_Rotation(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the rotation channels"""
 
     bl_idname: typing.Any
@@ -331,7 +332,7 @@ class BUILTIN_KSI_Rotation(bpy.types.KeyingSetInfo):
         :rtype: typing.Any
         """
 
-class BUILTIN_KSI_Scaling(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_Scaling(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the scale channels"""
 
     bl_idname: typing.Any
@@ -353,7 +354,7 @@ class BUILTIN_KSI_Scaling(bpy.types.KeyingSetInfo):
         :rtype: typing.Any
         """
 
-class BUILTIN_KSI_VisualLoc(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_VisualLoc(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the location channels, taking into account effects of constraints and relationships"""
 
     bl_label: typing.Any
@@ -375,7 +376,7 @@ class BUILTIN_KSI_VisualLoc(bpy.types.KeyingSetInfo):
         :rtype: typing.Any
         """
 
-class BUILTIN_KSI_VisualLocRot(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_VisualLocRot(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the location and rotation channels, taking into account effects of constraints and relationships"""
 
     bl_label: typing.Any
@@ -405,7 +406,7 @@ class BUILTIN_KSI_VisualLocRot(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_VisualLocRotScale(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_VisualLocRotScale(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the location, rotation and scale channels, taking into account effects of constraints and relationships"""
 
     bl_label: typing.Any
@@ -435,7 +436,7 @@ class BUILTIN_KSI_VisualLocRotScale(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_VisualLocScale(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_VisualLocScale(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the location and scale channels, taking into account effects of constraints and relationships"""
 
     bl_label: typing.Any
@@ -465,7 +466,7 @@ class BUILTIN_KSI_VisualLocScale(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_VisualRot(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_VisualRot(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the rotation channels, taking into account effects of constraints and relationships"""
 
     bl_label: typing.Any
@@ -487,7 +488,7 @@ class BUILTIN_KSI_VisualRot(bpy.types.KeyingSetInfo):
         :rtype: typing.Any
         """
 
-class BUILTIN_KSI_VisualRotScale(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_VisualRotScale(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the rotation and scale channels, taking into account effects of constraints and relationships"""
 
     bl_label: typing.Any
@@ -517,7 +518,7 @@ class BUILTIN_KSI_VisualRotScale(bpy.types.KeyingSetInfo):
         :param data:
         """
 
-class BUILTIN_KSI_VisualScaling(bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_VisualScaling(_bpy_types.KeyingSetInfo):
     """Insert a keyframe on each of the scale channels, taking into account effects of constraints and relationships"""
 
     bl_label: typing.Any
@@ -539,7 +540,7 @@ class BUILTIN_KSI_VisualScaling(bpy.types.KeyingSetInfo):
         :rtype: typing.Any
         """
 
-class BUILTIN_KSI_WholeCharacter(WholeCharacterMixin, bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_WholeCharacter(WholeCharacterMixin, _bpy_types.KeyingSetInfo):
     """Insert a keyframe for all properties that are likely to get animated in a character rig (useful when blocking out a shot)"""
 
     badBonePrefixes: typing.Any
@@ -562,7 +563,7 @@ class BUILTIN_KSI_WholeCharacter(WholeCharacterMixin, bpy.types.KeyingSetInfo):
         :rtype: typing.Any
         """
 
-class BUILTIN_KSI_WholeCharacterSelected(WholeCharacterMixin, bpy.types.KeyingSetInfo):
+class BUILTIN_KSI_WholeCharacterSelected(WholeCharacterMixin, _bpy_types.KeyingSetInfo):
     """Insert a keyframe for all properties that are likely to get animated in a character rig (only selected bones)"""
 
     badBonePrefixes: typing.Any

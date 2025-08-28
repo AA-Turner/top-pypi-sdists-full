@@ -3,7 +3,13 @@ import subprocess
 import click
 from pydantic_ai import RunContext
 
-from tinybird.tb.modules.agent.utils import AgentRunCancelled, TinybirdAgentContext, show_confirmation, show_input
+from tinybird.tb.modules.agent.utils import (
+    AgentRunCancelled,
+    SubAgentRunCancelled,
+    TinybirdAgentContext,
+    show_confirmation,
+    show_input,
+)
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 
@@ -24,7 +30,7 @@ def run_command(ctx: RunContext[TinybirdAgentContext], command: str):
         if confirmation == "review":
             feedback = show_input(ctx.deps.workspace_name)
             ctx.deps.thinking_animation.start()
-            return f"User did not confirm the command and gave the following feedback: {feedback}"
+            raise SubAgentRunCancelled(f"""User did not confirm the command `{command}`. Reason: {feedback}.""")
 
         click.echo(FeedbackManager.highlight(message=f"» Running command: {command}"))
         command = command.replace("tb", "tb --no-version-warning")
@@ -32,7 +38,7 @@ def run_command(ctx: RunContext[TinybirdAgentContext], command: str):
         click.echo(result.stdout)
         ctx.deps.thinking_animation.start()
         return result.stdout
-    except AgentRunCancelled as e:
+    except (AgentRunCancelled, SubAgentRunCancelled) as e:
         raise e
     except Exception as e:
         click.echo(FeedbackManager.error(message=f"Error running command: {e}"))

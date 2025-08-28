@@ -8,6 +8,7 @@ from matrice.deploy.aggregator.synchronizer import ResultsSynchronizer
 from matrice.deploy.aggregator.aggregator import ResultsAggregator
 from matrice.deploy.aggregator.publisher import ResultsPublisher
 from matrice.deploy.aggregator.analytics import AnalyticsSummarizer
+from matrice.deploy.aggregator.latency import LatencyTracker
 from matrice.deployment.inference_pipeline import InferencePipeline
 
 
@@ -73,6 +74,7 @@ class ResultsAggregationPipeline:
         self.results_aggregator = None
         self.results_publisher = None
         self.analytics_summarizer = None
+        self.latency_tracker = None
 
         # Initialize the final results queue
         self.final_results_queue = Queue()
@@ -89,6 +91,8 @@ class ResultsAggregationPipeline:
                 "ingestor": "not_initialized",
                 "synchronizer": "not_initialized",
                 "aggregator": "not_initialized",
+                "analytics_summarizer": "not_initialized",
+                "latency_tracker": "not_initialized",
                 "publisher": "not_initialized"
             }
         }
@@ -181,14 +185,38 @@ class ResultsAggregationPipeline:
             )
             self.stats["component_status"]["aggregator"] = "initialized"
             
-            # Initialize analytics summarizer (5-minute window)
-            # logging.info("Initializing analytics summarizer...")
-            # self.analytics_summarizer = AnalyticsSummarizer(
-            #     session=self.session,
-            #     inference_pipeline_id=self.inference_pipeline_id,
-            #     flush_interval_seconds=300,
-            # )
-            # self.stats["component_status"]["analytics_summarizer"] = "initialized"
+            # Initialize analytics summarizer (5-minute window) - optional component
+            logging.info("Initializing analytics summarizer...")
+            try:
+                self.analytics_summarizer = AnalyticsSummarizer(
+                    session=self.session,
+                    inference_pipeline_id=self.inference_pipeline_id,
+                    flush_interval_seconds=300,
+                )
+                self.stats["component_status"]["analytics_summarizer"] = "initialized"
+                logging.info("Analytics summarizer initialized successfully")
+            except Exception as exc:
+                logging.error(f"Failed to initialize analytics summarizer (non-critical): {exc}", exc_info=True)
+                self.analytics_summarizer = None
+                self.stats["component_status"]["analytics_summarizer"] = "disabled"
+                logging.warning("Pipeline will continue without analytics summarizer")
+
+            # Initialize latency tracker (1-minute flush) - optional component
+            logging.info("Initializing latency tracker...")
+            try:
+                self.latency_tracker = LatencyTracker(
+                    session=self.session,
+                    inference_pipeline_id=self.inference_pipeline_id,
+                    flush_interval_seconds=60,
+                    max_samples=1000,
+                )
+                self.stats["component_status"]["latency_tracker"] = "initialized"
+                logging.info("Latency tracker initialized successfully")
+            except Exception as exc:
+                logging.error(f"Failed to initialize latency tracker (non-critical): {exc}", exc_info=True)
+                self.latency_tracker = None
+                self.stats["component_status"]["latency_tracker"] = "disabled"
+                logging.warning("Pipeline will continue without latency tracker")
 
             # Initialize the results publisher
             logging.info("Initializing results publisher...")
@@ -196,7 +224,8 @@ class ResultsAggregationPipeline:
                 inference_pipeline_id=self.inference_pipeline_id,
                 session=self.session,
                 final_results_queue=self.results_aggregator.aggregated_results_queue,
-                analytics_summarizer=self.analytics_summarizer
+                analytics_summarizer=self.analytics_summarizer,
+                latency_tracker=self.latency_tracker
             )
             self.stats["component_status"]["publisher"] = "initialized"
             
@@ -251,12 +280,39 @@ class ResultsAggregationPipeline:
                 return False
             self.stats["component_status"]["aggregator"] = "running"
             
-            # Start analytics summarizer
-            logging.info("Starting analytics summarizer...")
-            # if not self.analytics_summarizer.start(): # TODO: Uncomment this when analytics summarizer is ready
-            #     self._record_error("Failed to start analytics summarizer")
-            #     return False
-            self.stats["component_status"]["analytics_summarizer"] = "running"
+            # Start analytics summarizer (if available)
+            if self.analytics_summarizer is not None:
+                logging.info("Starting analytics summarizer...")
+                try:
+                    if not self.analytics_summarizer.start():
+                        logging.warning("Analytics summarizer failed to start (non-critical)")
+                        self.stats["component_status"]["analytics_summarizer"] = "failed"
+                    else:
+                        self.stats["component_status"]["analytics_summarizer"] = "running"
+                        logging.info("Analytics summarizer started successfully")
+                except Exception as exc:
+                    logging.warning(f"Failed to start analytics summarizer (non-critical): {exc}")
+                    self.stats["component_status"]["analytics_summarizer"] = "failed"
+            else:
+                logging.info("Analytics summarizer is disabled, skipping startup")
+                self.stats["component_status"]["analytics_summarizer"] = "disabled"
+
+            # Start latency tracker (if available)
+            if self.latency_tracker is not None:
+                logging.info("Starting latency tracker...")
+                try:
+                    if not self.latency_tracker.start():
+                        logging.warning("Latency tracker failed to start (non-critical)")
+                        self.stats["component_status"]["latency_tracker"] = "failed"
+                    else:
+                        self.stats["component_status"]["latency_tracker"] = "running"
+                        logging.info("Latency tracker started successfully")
+                except Exception as exc:
+                    logging.warning(f"Failed to start latency tracker (non-critical): {exc}")
+                    self.stats["component_status"]["latency_tracker"] = "failed"
+            else:
+                logging.info("Latency tracker is disabled, skipping startup")
+                self.stats["component_status"]["latency_tracker"] = "disabled"
 
             # Start results publishing
             logging.info("Starting results publishing...")
@@ -416,9 +472,24 @@ class ResultsAggregationPipeline:
             
             if "analytics_summarizer" in components:
                 sum_stats = components["analytics_summarizer"]
-                logging.info(f"   🧮 Summaries Published: {sum_stats.get('summaries_published', 0)}")
-                if sum_stats.get("errors", 0) > 0:
-                    logging.warning(f"      └─ Summarizer Errors: {sum_stats['errors']} (last: {sum_stats.get('last_error', 'N/A')})")
+                if isinstance(sum_stats, dict) and sum_stats.get("summaries_published") is not None:
+                    logging.info(f"   🧮 Summaries Published: {sum_stats.get('summaries_published', 0)}")
+                    logging.info(f"   📍 Location Summaries: {sum_stats.get('location_summaries_published', 0)}")
+                    logging.info(f"   🚨 Incidents Published: {sum_stats.get('incidents_published', 0)}")
+                    if sum_stats.get("errors", 0) > 0:
+                        logging.warning(f"      └─ Summarizer Errors: {sum_stats['errors']} (last: {sum_stats.get('last_error', 'N/A')})")
+                else:
+                    logging.info("   🧮 Analytics: Disabled")
+            
+            if "latency_tracker" in components:
+                lat_stats = components["latency_tracker"]
+                if isinstance(lat_stats, dict) and lat_stats.get("latency_reports_published") is not None:
+                    logging.info(f"   📊 Latency Reports: {lat_stats.get('latency_reports_published', 0)}")
+                    logging.info(f"   ⚡ Alerts Triggered: {lat_stats.get('alerts_triggered', 0)}")
+                    if lat_stats.get("errors", 0) > 0:
+                        logging.warning(f"      └─ Latency Tracker Errors: {lat_stats['errors']} (last: {lat_stats.get('last_error', 'N/A')})")
+                else:
+                    logging.info("   📊 Latency Tracking: Disabled")
             
             if "results_publisher" in components:
                 pub_stats = components["results_publisher"]
@@ -480,13 +551,21 @@ class ResultsAggregationPipeline:
             except Exception as exc:
                 logging.error(f"Error stopping results publisher: {exc}")
 
-        if self.analytics_summarizer:
+        if self.analytics_summarizer is not None:
             try:
                 logging.info("Stopping analytics summarizer...")
                 self.analytics_summarizer.stop()
                 self.stats["component_status"]["analytics_summarizer"] = "stopped"
             except Exception as exc:
                 logging.error(f"Error stopping analytics summarizer: {exc}")
+
+        if self.latency_tracker:
+            try:
+                logging.info("Stopping latency tracker...")
+                self.latency_tracker.stop()
+                self.stats["component_status"]["latency_tracker"] = "stopped"
+            except Exception as exc:
+                logging.error(f"Error stopping latency tracker: {exc}")
 
         if self.results_aggregator:
             try:
@@ -539,8 +618,11 @@ class ResultsAggregationPipeline:
         if self.results_aggregator:
             stats["components"]["results_aggregator"] = self.results_aggregator.get_stats()
         
-        if self.analytics_summarizer:
+        if self.analytics_summarizer is not None:
             stats["components"]["analytics_summarizer"] = self.analytics_summarizer.get_stats()
+        
+        if self.latency_tracker is not None:
+            stats["components"]["latency_tracker"] = self.latency_tracker.get_stats()
         
         if self.results_publisher:
             stats["components"]["results_publisher"] = self.results_publisher.get_stats()
@@ -656,20 +738,43 @@ class ResultsAggregationPipeline:
                 health["issues"].append("Results aggregator not initialized")
                 logging.error("Results aggregator not initialized")
             
-            # if self.analytics_summarizer:
-            #     sum_health = self.analytics_summarizer.get_health_status()
-            #     health["components"]["analytics_summarizer"] = sum_health
-            #     if sum_health.get("status") != "healthy":
-            #         issue_detail = f"Analytics summarizer is {sum_health.get('status', 'unknown')}"
-            #         if "reason" in sum_health:
-            #             issue_detail += f": {sum_health['reason']}"
-            #         if sum_health.get("errors", 0) > 0:
-            #             issue_detail += f" ({sum_health['errors']} errors)"
-            #         health["issues"].append(issue_detail)
-            #         logging.warning(f"Summarizer health issue: {issue_detail}")
-            # else:
-            #     health["issues"].append("Analytics summarizer not initialized")
-            #     logging.error("Analytics summarizer not initialized")
+            if self.analytics_summarizer is not None:
+                sum_health = self.analytics_summarizer.get_health_status()
+                health["components"]["analytics_summarizer"] = sum_health
+                if sum_health.get("status") != "healthy":
+                    issue_detail = f"Analytics summarizer is {sum_health.get('status', 'unknown')}"
+                    if "reason" in sum_health:
+                        issue_detail += f": {sum_health['reason']}"
+                    if sum_health.get("errors", 0) > 0:
+                        issue_detail += f" ({sum_health['errors']} errors)"
+                    health["issues"].append(issue_detail)
+                    logging.warning(f"Summarizer health issue: {issue_detail}")
+            else:
+                # Analytics summarizer is disabled - this is not an error
+                health["components"]["analytics_summarizer"] = {
+                    "status": "disabled",
+                    "reason": "Analytics summarizer is disabled due to initialization failure"
+                }
+                logging.debug("Analytics summarizer is disabled")
+            
+            if self.latency_tracker is not None:
+                lat_health = self.latency_tracker.get_health_status()
+                health["components"]["latency_tracker"] = lat_health
+                if lat_health.get("status") != "healthy":
+                    issue_detail = f"Latency tracker is {lat_health.get('status', 'unknown')}"
+                    if "reason" in lat_health:
+                        issue_detail += f": {lat_health['reason']}"
+                    if lat_health.get("errors", 0) > 0:
+                        issue_detail += f" ({lat_health['errors']} errors)"
+                    health["issues"].append(issue_detail)
+                    logging.warning(f"Latency tracker health issue: {issue_detail}")
+            else:
+                # Latency tracker is disabled - this is not an error
+                health["components"]["latency_tracker"] = {
+                    "status": "disabled",
+                    "reason": "Latency tracker is disabled due to initialization failure"
+                }
+                logging.debug("Latency tracker is disabled")
             
             if self.results_publisher:
                 pub_health = self.results_publisher.get_health_status()
@@ -819,11 +924,17 @@ class ResultsAggregationPipeline:
             except Exception as exc:
                 logging.error(f"Error cleaning up aggregator: {exc}")
 
-        if self.analytics_summarizer:
+        if self.analytics_summarizer is not None:
             try:
                 self.analytics_summarizer.cleanup()
             except Exception as exc:
                 logging.error(f"Error cleaning up analytics summarizer: {exc}")
+
+        if self.latency_tracker:
+            try:
+                self.latency_tracker.cleanup()
+            except Exception as exc:
+                logging.error(f"Error cleaning up latency tracker: {exc}")
         
         if self.results_synchronizer:
             try:

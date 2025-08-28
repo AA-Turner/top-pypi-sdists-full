@@ -66,7 +66,7 @@ from .leaf import LeafConfig, LeafUseCase
 from .smoker_detection import SmokerDetectionConfig, SmokerDetectionUseCase
 from .road_traffic_density import RoadTrafficConfig, RoadTrafficUseCase
 from .road_view_segmentation import RoadViewSegmentationConfig, RoadViewSegmentationUseCase
-from .face_recognition import FaceRecognitionConfig, FaceRecognitionUseCase
+# from .face_recognition import FaceRecognitionConfig, FaceRecognitionUseCase
 from .drowsy_driver_detection import DrowsyDriverUseCase, DrowsyDriverUseCase
 from .waterbody_segmentation import WaterBodyConfig, WaterBodyUseCase
 from .litter_monitoring import LitterDetectionConfig,LitterDetectionUseCase
@@ -78,6 +78,7 @@ from .human_activity_recognition import HumanActivityConfig, HumanActivityUseCas
 from .gas_leak_detection import GasLeakDetectionConfig, GasLeakDetectionUseCase
 from .license_plate_monitoring import LicensePlateMonitorConfig,LicensePlateMonitorUseCase
 from .dwell_detection import DwellConfig,DwellUseCase
+from .age_gender_detection import AgeGenderConfig,AgeGenderUseCase
 
 #Put all IMAGE based usecases here
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -87,8 +88,11 @@ from .cardiomegaly_classification import CardiomegalyConfig, CardiomegalyUseCase
 from .Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig,HistopathologicalCancerDetectionUseCase
 from .cell_microscopy_segmentation import CellMicroscopyConfig, CellMicroscopyUseCase
 
+from ..face_reg.face_recognition import FaceRecognitionEmbeddingUseCase, FaceRecognitionEmbeddingConfig
 
 __all__ = [
+    'FaceRecognitionEmbeddingUseCase',
+    'FaceRecognitionEmbeddingConfig',
     'PeopleCountingUseCase',
     'IntrusionUseCase',
     'ProximityUseCase',
@@ -143,7 +147,7 @@ __all__ = [
     'SmokerDetectionUseCase',
     'RoadTrafficUseCase',
     'RoadViewSegmentationUseCase',
-    'FaceRecognitionUseCase',
+    # 'FaceRecognitionUseCase',
     'DrowsyDriverUseCase',
     'WaterBodyUseCase',
     'LitterDetectionUseCase',
@@ -153,6 +157,7 @@ __all__ = [
     'GasLeakDetectionUseCase',
     'LicensePlateMonitorUseCase',
     'DwellUseCase',
+    'AgeGenderUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
@@ -217,12 +222,13 @@ __all__ = [
     'SmokerDetectionConfig',
     'RoadTrafficConfig',
     'RoadViewSegmentationConfig',
-    'FaceRecognitionConfig',
+    # 'FaceRecognitionConfig',
     'DrowsyDriverUseCase',
     'WaterBodyConfig',
     'LitterDetectionConfig',
     'AbandonedObjectConfig',
     'DwellConfig',
+    'AgeGenderConfig',
 
     'LeakDetectionConfig',
     'HumanActivityConfig',

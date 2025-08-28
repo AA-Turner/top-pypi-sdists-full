@@ -20,7 +20,9 @@ def delete_metaelems(
     """
 
 def duplicate_metaelems(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Duplicate selected metaball element(s)
 

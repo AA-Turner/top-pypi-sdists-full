@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-coxeter3
-Version: 10.6.9
+Version: 10.6.10
 Summary: passagemath: Coxeter groups, Bruhat ordering, Kazhdan-Lusztig polynomials with coxeter3
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -70,14 +70,11 @@ It was created in October 2024 with the following goals:
    serverless deployment with Javascript,
 -  developing a native Windows port.
 
-`Full documentation <https://doc.sagemath.org/html/en/index.html>`__ is
+`Full documentation <https://passagemath.org/docs/latest/html/en/index.html>`__ is
 available online.
 
 passagemath attempts to support and provides binary wheels suitable for
 all major Linux distributions and recent versions of macOS.
-
-For the Linux aarch64 (ARM) platform, some third-party packages are still missing
-wheels; see the `instructions for building them from source <https://github.com/passagemath/passagemath?tab=readme-ov-file#full-installation-of-passagemath-from-binary-wheels-on-pypi>`__.
 
 Binary wheels for native Windows (x86_64) are are available for a subset of
 the passagemath distributions. Use of the full functionality of passagemath

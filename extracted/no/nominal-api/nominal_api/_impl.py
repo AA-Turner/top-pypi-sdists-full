@@ -64056,6 +64056,22 @@ scout_dataexport_api_AllTimestampsForwardFillStrategy.__qualname__ = "AllTimesta
 scout_dataexport_api_AllTimestampsForwardFillStrategy.__module__ = "nominal_api.scout_dataexport_api"
 
 
+class scout_dataexport_api_Arrow(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_dataexport_api_Arrow.__name__ = "Arrow"
+scout_dataexport_api_Arrow.__qualname__ = "Arrow"
+scout_dataexport_api_Arrow.__module__ = "nominal_api.scout_dataexport_api"
+
+
 class scout_dataexport_api_CompressionFormat(ConjureEnumType):
 
     GZIP = 'GZIP'
@@ -64251,41 +64267,58 @@ scout_dataexport_api_ExportDataRequest.__module__ = "nominal_api.scout_dataexpor
 
 class scout_dataexport_api_ExportFormat(ConjureUnionType):
     _csv: Optional["scout_dataexport_api_Csv"] = None
+    _arrow: Optional["scout_dataexport_api_Arrow"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'csv': ConjureFieldDefinition('csv', scout_dataexport_api_Csv)
+            'csv': ConjureFieldDefinition('csv', scout_dataexport_api_Csv),
+            'arrow': ConjureFieldDefinition('arrow', scout_dataexport_api_Arrow)
         }
 
     def __init__(
             self,
             csv: Optional["scout_dataexport_api_Csv"] = None,
+            arrow: Optional["scout_dataexport_api_Arrow"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (csv is not None) != 1:
+            if (csv is not None) + (arrow is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if csv is not None:
                 self._csv = csv
                 self._type = 'csv'
+            if arrow is not None:
+                self._arrow = arrow
+                self._type = 'arrow'
 
         elif type_of_union == 'csv':
             if csv is None:
                 raise ValueError('a union value must not be None')
             self._csv = csv
             self._type = 'csv'
+        elif type_of_union == 'arrow':
+            if arrow is None:
+                raise ValueError('a union value must not be None')
+            self._arrow = arrow
+            self._type = 'arrow'
 
     @builtins.property
     def csv(self) -> Optional["scout_dataexport_api_Csv"]:
         return self._csv
+
+    @builtins.property
+    def arrow(self) -> Optional["scout_dataexport_api_Arrow"]:
+        return self._arrow
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_dataexport_api_ExportFormatVisitor):
             raise ValueError('{} is not an instance of scout_dataexport_api_ExportFormatVisitor'.format(visitor.__class__.__name__))
         if self._type == 'csv' and self.csv is not None:
             return visitor._csv(self.csv)
+        if self._type == 'arrow' and self.arrow is not None:
+            return visitor._arrow(self.arrow)
 
 
 scout_dataexport_api_ExportFormat.__name__ = "ExportFormat"
@@ -64297,6 +64330,10 @@ class scout_dataexport_api_ExportFormatVisitor:
 
     @abstractmethod
     def _csv(self, csv: "scout_dataexport_api_Csv") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow(self, arrow: "scout_dataexport_api_Arrow") -> Any:
         pass
 
 
@@ -78830,6 +78867,8 @@ class scout_run_api_SortField(ConjureEnumType):
 
     NAME = 'NAME'
     '''NAME'''
+    ID = 'ID'
+    '''ID'''
     CREATED_AT = 'CREATED_AT'
     '''CREATED_AT'''
     START_TIME = 'START_TIME'
@@ -94179,6 +94218,47 @@ Frees storage used by previously uploaded parts and prevents further uploads to 
 upload_api_UploadService.__name__ = "UploadService"
 upload_api_UploadService.__qualname__ = "UploadService"
 upload_api_UploadService.__module__ = "nominal_api.upload_api"
+
+
+class usercreation_api_InternalUserCreationService(Service):
+    """Internal service responsible for handling creation of new users.
+    """
+
+    def ensure_database_user_exists(self, auth_header: str) -> None:
+        """Ensures that the user corresponding to the auth header provided exists in the database.
+Will do nothing if the user already exists.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = None
+
+        _path = '/user-creation/v1/database'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'PUT',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
+
+usercreation_api_InternalUserCreationService.__name__ = "InternalUserCreationService"
+usercreation_api_InternalUserCreationService.__qualname__ = "InternalUserCreationService"
+usercreation_api_InternalUserCreationService.__module__ = "nominal_api.usercreation_api"
 
 
 api_ColumnName = str

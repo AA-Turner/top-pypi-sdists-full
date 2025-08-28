@@ -94,11 +94,12 @@ from .usecases import (
     SmokerDetectionUseCase,
     RoadTrafficUseCase,
     RoadViewSegmentationUseCase,
-    FaceRecognitionUseCase,
+    # FaceRecognitionUseCase,
     DrowsyDriverUseCase,
     WaterBodyUseCase,
     LicensePlateMonitorUseCase,
     DwellUseCase,
+    AgeGenderUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -110,6 +111,9 @@ from .usecases import (
 
 
 )
+
+# Face recognition with embeddings (from face_reg module)
+from .face_reg.face_recognition import FaceRecognitionEmbeddingUseCase
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +237,8 @@ class PostProcessor:
         registry.register_use_case("general", "smoker_detection", SmokerDetectionUseCase)
         registry.register_use_case("automobile", "road_traffic_density", RoadTrafficUseCase)
         registry.register_use_case("automobile", "road_view_segmentation", RoadViewSegmentationUseCase)
-        registry.register_use_case("security", "face_recognition", FaceRecognitionUseCase)
+        # registry.register_use_case("security", "face_recognition", FaceRecognitionUseCase)
+        registry.register_use_case("security", "face_recognition", FaceRecognitionEmbeddingUseCase)
         registry.register_use_case("automobile", "drowsy_driver_detection", DrowsyDriverUseCase)
         registry.register_use_case("agriculture", "waterbody_segmentation", WaterBodyUseCase)
         registry.register_use_case("litter_detection", "litter_detection", LitterDetectionUseCase)
@@ -242,6 +247,7 @@ class PostProcessor:
         registry.register_use_case("oil_gas", "gas_leak_detection", GasLeakDetectionUseCase)
         registry.register_use_case("license_plate_monitor", "license_plate_monitor", LicensePlateMonitorUseCase)
         registry.register_use_case("general", "dwell", DwellUseCase)
+        registry.register_use_case("age_gender_detection", "age_gender_detection", AgeGenderUseCase)
 
         #Put all IMAGE based usecases here
         registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
@@ -422,8 +428,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, RoadViewSegmentationUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
-            elif isinstance(use_case, FaceRecognitionUseCase):
-                result = use_case.process(data, parsed_config, context, stream_info)
+            # elif isinstance(use_case, FaceRecognitionUseCase):
+            #     result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, DrowsyDriverUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, WaterBodyUseCase):
@@ -440,6 +446,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, input_bytes,context, stream_info)
             elif isinstance(use_case, DwellUseCase):
                 result = use_case.process(data, parsed_config,context, stream_info)
+            elif isinstance(use_case, AgeGenderUseCase):
+                result = use_case.process(data, parsed_config, input_bytes,context, stream_info)
             
             #Put all IMAGE based usecases here
             elif isinstance(use_case, BloodCancerDetectionUseCase):
@@ -454,7 +462,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, CellMicroscopyUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
-
+            elif isinstance(use_case, FaceRecognitionEmbeddingUseCase):
+                result = await use_case.process(data, parsed_config, input_bytes, context, stream_info)
             else:
                 result = use_case.process(data, parsed_config, context, stream_info)
 

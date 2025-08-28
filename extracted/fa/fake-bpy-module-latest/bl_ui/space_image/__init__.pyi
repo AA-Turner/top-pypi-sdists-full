@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.properties_grease_pencil_common
 import bl_ui.properties_mask_common
 import bl_ui.properties_paint_common
@@ -19,7 +20,7 @@ class BrushButtonsPanel(bl_ui.properties_paint_common.UnifiedPaintPanel):
         :param context:
         """
 
-class IMAGE_AST_brush_paint(ImageAssetShelf, bpy.types.AssetShelf):
+class IMAGE_AST_brush_paint(ImageAssetShelf, _bpy_types.AssetShelf):
     bl_activate_operator: typing.Any
     bl_default_preview_size: typing.Any
     bl_options: typing.Any
@@ -50,7 +51,7 @@ class IMAGE_AST_brush_paint(ImageAssetShelf, bpy.types.AssetShelf):
         :param context:
         """
 
-class IMAGE_HT_header(bpy.types.Header):
+class IMAGE_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
@@ -83,7 +84,7 @@ class IMAGE_HT_header(bpy.types.Header):
         :param context:
         """
 
-class IMAGE_HT_tool_header(bpy.types.Header):
+class IMAGE_HT_tool_header(_bpy_types.Header):
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any
@@ -121,7 +122,7 @@ class IMAGE_HT_tool_header(bpy.types.Header):
         :param context:
         """
 
-class IMAGE_MT_editor_menus(bpy.types.Menu):
+class IMAGE_MT_editor_menus(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -147,7 +148,7 @@ class IMAGE_MT_editor_menus(bpy.types.Menu):
         :param context:
         """
 
-class IMAGE_MT_image(bpy.types.Menu):
+class IMAGE_MT_image(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -172,7 +173,7 @@ class IMAGE_MT_image(bpy.types.Menu):
         :param context:
         """
 
-class IMAGE_MT_image_invert(bpy.types.Menu):
+class IMAGE_MT_image_invert(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -197,7 +198,7 @@ class IMAGE_MT_image_invert(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_image_transform(bpy.types.Menu):
+class IMAGE_MT_image_transform(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -222,7 +223,7 @@ class IMAGE_MT_image_transform(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_mask_context_menu(bpy.types.Menu):
+class IMAGE_MT_mask_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -254,7 +255,7 @@ class IMAGE_MT_mask_context_menu(bpy.types.Menu):
         :param context:
         """
 
-class IMAGE_MT_pivot_pie(bpy.types.Menu):
+class IMAGE_MT_pivot_pie(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -279,7 +280,7 @@ class IMAGE_MT_pivot_pie(bpy.types.Menu):
         :param context:
         """
 
-class IMAGE_MT_select(bpy.types.Menu):
+class IMAGE_MT_select(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -304,7 +305,7 @@ class IMAGE_MT_select(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_select_linked(bpy.types.Menu):
+class IMAGE_MT_select_linked(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -329,7 +330,7 @@ class IMAGE_MT_select_linked(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_uvs(bpy.types.Menu):
+class IMAGE_MT_uvs(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -348,7 +349,7 @@ class IMAGE_MT_uvs(bpy.types.Menu):
         :rtype: typing.Any
         """
 
-class IMAGE_MT_uvs_align(bpy.types.Menu):
+class IMAGE_MT_uvs_align(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -373,7 +374,7 @@ class IMAGE_MT_uvs_align(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_uvs_context_menu(bpy.types.Menu):
+class IMAGE_MT_uvs_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -398,7 +399,7 @@ class IMAGE_MT_uvs_context_menu(bpy.types.Menu):
         :param context:
         """
 
-class IMAGE_MT_uvs_merge(bpy.types.Menu):
+class IMAGE_MT_uvs_merge(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -423,9 +424,10 @@ class IMAGE_MT_uvs_merge(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_uvs_mirror(bpy.types.Menu):
+class IMAGE_MT_uvs_mirror(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
+    bl_translation_context: typing.Any
     id_data: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
@@ -448,7 +450,7 @@ class IMAGE_MT_uvs_mirror(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_uvs_select_mode(bpy.types.Menu):
+class IMAGE_MT_uvs_select_mode(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -473,7 +475,7 @@ class IMAGE_MT_uvs_select_mode(bpy.types.Menu):
         :param context:
         """
 
-class IMAGE_MT_uvs_showhide(bpy.types.Menu):
+class IMAGE_MT_uvs_showhide(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -498,7 +500,7 @@ class IMAGE_MT_uvs_showhide(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_uvs_snap(bpy.types.Menu):
+class IMAGE_MT_uvs_snap(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -523,7 +525,7 @@ class IMAGE_MT_uvs_snap(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_uvs_snap_pie(bpy.types.Menu):
+class IMAGE_MT_uvs_snap_pie(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -548,7 +550,7 @@ class IMAGE_MT_uvs_snap_pie(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_uvs_split(bpy.types.Menu):
+class IMAGE_MT_uvs_split(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -573,7 +575,7 @@ class IMAGE_MT_uvs_split(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_uvs_transform(bpy.types.Menu):
+class IMAGE_MT_uvs_transform(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -598,7 +600,7 @@ class IMAGE_MT_uvs_transform(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_uvs_unwrap(bpy.types.Menu):
+class IMAGE_MT_uvs_unwrap(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -623,7 +625,7 @@ class IMAGE_MT_uvs_unwrap(bpy.types.Menu):
         :param _context:
         """
 
-class IMAGE_MT_view(bpy.types.Menu):
+class IMAGE_MT_view(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -648,7 +650,7 @@ class IMAGE_MT_view(bpy.types.Menu):
         :param context:
         """
 
-class IMAGE_MT_view_pie(bpy.types.Menu):
+class IMAGE_MT_view_pie(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -673,7 +675,7 @@ class IMAGE_MT_view_pie(bpy.types.Menu):
         :param context:
         """
 
-class IMAGE_MT_view_zoom(bpy.types.Menu):
+class IMAGE_MT_view_zoom(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -699,7 +701,7 @@ class IMAGE_MT_view_zoom(bpy.types.Menu):
         """
 
 class IMAGE_PT_active_mask_point(
-    bl_ui.properties_mask_common.MASK_PT_point, bpy.types.Panel
+    bl_ui.properties_mask_common.MASK_PT_point, _bpy_types.Panel
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -723,7 +725,7 @@ class IMAGE_PT_active_mask_point(
         """
 
 class IMAGE_PT_active_mask_spline(
-    bl_ui.properties_mask_common.MASK_PT_spline, bpy.types.Panel
+    bl_ui.properties_mask_common.MASK_PT_spline, _bpy_types.Panel
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -747,7 +749,7 @@ class IMAGE_PT_active_mask_spline(
         """
 
 class IMAGE_PT_active_tool(
-    bpy.types.Panel, bl_ui.space_toolsystem_common.ToolActivePanelHelper
+    _bpy_types.Panel, bl_ui.space_toolsystem_common.ToolActivePanelHelper
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -771,7 +773,7 @@ class IMAGE_PT_active_tool(
         """
 
 class IMAGE_PT_annotation(
-    bl_ui.properties_grease_pencil_common.AnnotationDataPanel, bpy.types.Panel
+    bl_ui.properties_grease_pencil_common.AnnotationDataPanel, _bpy_types.Panel
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -795,7 +797,7 @@ class IMAGE_PT_annotation(
         :rtype: typing.Any
         """
 
-class IMAGE_PT_gizmo_display(bpy.types.Panel):
+class IMAGE_PT_gizmo_display(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -823,7 +825,7 @@ class IMAGE_PT_gizmo_display(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_image_properties(bpy.types.Panel):
+class IMAGE_PT_image_properties(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -858,7 +860,7 @@ class IMAGE_PT_image_properties(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_mask(bl_ui.properties_mask_common.MASK_PT_mask, bpy.types.Panel):
+class IMAGE_PT_mask(bl_ui.properties_mask_common.MASK_PT_mask, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -882,7 +884,7 @@ class IMAGE_PT_mask(bl_ui.properties_mask_common.MASK_PT_mask, bpy.types.Panel):
         """
 
 class IMAGE_PT_mask_animation(
-    bl_ui.properties_mask_common.MASK_PT_animation, bpy.types.Panel
+    bl_ui.properties_mask_common.MASK_PT_animation, _bpy_types.Panel
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -907,7 +909,7 @@ class IMAGE_PT_mask_animation(
         """
 
 class IMAGE_PT_mask_display(
-    bl_ui.properties_mask_common.MASK_PT_display, bpy.types.Panel
+    bl_ui.properties_mask_common.MASK_PT_display, _bpy_types.Panel
 ):
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -930,7 +932,7 @@ class IMAGE_PT_mask_display(
         """
 
 class IMAGE_PT_mask_layers(
-    bl_ui.properties_mask_common.MASK_PT_layers, bpy.types.Panel
+    bl_ui.properties_mask_common.MASK_PT_layers, _bpy_types.Panel
 ):
     bl_category: typing.Any
     bl_label: typing.Any
@@ -953,7 +955,7 @@ class IMAGE_PT_mask_layers(
         :rtype: typing.Any
         """
 
-class IMAGE_PT_overlay(bpy.types.Panel):
+class IMAGE_PT_overlay(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -981,7 +983,7 @@ class IMAGE_PT_overlay(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_overlay_guides(bpy.types.Panel):
+class IMAGE_PT_overlay_guides(_bpy_types.Panel):
     bl_label: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
@@ -1016,7 +1018,7 @@ class IMAGE_PT_overlay_guides(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_overlay_image(bpy.types.Panel):
+class IMAGE_PT_overlay_image(_bpy_types.Panel):
     bl_label: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
@@ -1044,42 +1046,7 @@ class IMAGE_PT_overlay_image(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_overlay_render_guides(bpy.types.Panel):
-    bl_label: typing.Any
-    bl_parent_id: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-    @classmethod
-    def poll(cls, context) -> None:
-        """
-
-        :param context:
-        """
-
-class IMAGE_PT_overlay_uv_display(bpy.types.Panel):
+class IMAGE_PT_overlay_render_guides(_bpy_types.Panel):
     bl_label: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
@@ -1114,7 +1081,7 @@ class IMAGE_PT_overlay_uv_display(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_overlay_uv_edit_geometry(bpy.types.Panel):
+class IMAGE_PT_overlay_uv_display(_bpy_types.Panel):
     bl_label: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
@@ -1149,7 +1116,42 @@ class IMAGE_PT_overlay_uv_edit_geometry(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_overlay_uv_stretch(bpy.types.Panel):
+class IMAGE_PT_overlay_uv_edit_geometry(_bpy_types.Panel):
+    bl_label: typing.Any
+    bl_parent_id: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
+class IMAGE_PT_overlay_uv_stretch(_bpy_types.Panel):
     bl_label: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
@@ -1185,7 +1187,7 @@ class IMAGE_PT_overlay_uv_stretch(bpy.types.Panel):
         """
 
 class IMAGE_PT_paint_clone(
-    ImagePaintPanel, bpy.types.Panel, bl_ui.properties_paint_common.ClonePanel
+    ImagePaintPanel, _bpy_types.Panel, bl_ui.properties_paint_common.ClonePanel
 ):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -1211,12 +1213,12 @@ class IMAGE_PT_paint_clone(
         :rtype: typing.Any
         """
 
-class ImagePaintPanel:
+class ImagePaintPanel(bl_ui.properties_paint_common.UnifiedPaintPanel):
     bl_region_type: typing.Any
     bl_space_type: typing.Any
 
 class IMAGE_PT_paint_curve(
-    bpy.types.Panel, BrushButtonsPanel, bl_ui.properties_paint_common.FalloffPanel
+    _bpy_types.Panel, BrushButtonsPanel, bl_ui.properties_paint_common.FalloffPanel
 ):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -1243,7 +1245,7 @@ class IMAGE_PT_paint_curve(
         """
 
 class IMAGE_PT_paint_select(
-    ImagePaintPanel, bpy.types.Panel, bl_ui.properties_paint_common.BrushSelectPanel
+    ImagePaintPanel, _bpy_types.Panel, bl_ui.properties_paint_common.BrushSelectPanel
 ):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -1268,7 +1270,7 @@ class IMAGE_PT_paint_select(
         """
 
 class IMAGE_PT_paint_stroke(
-    bpy.types.Panel, BrushButtonsPanel, bl_ui.properties_paint_common.StrokePanel
+    _bpy_types.Panel, BrushButtonsPanel, bl_ui.properties_paint_common.StrokePanel
 ):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -1296,7 +1298,7 @@ class IMAGE_PT_paint_stroke(
         """
 
 class IMAGE_PT_paint_stroke_smooth_stroke(
-    BrushButtonsPanel, bpy.types.Panel, bl_ui.properties_paint_common.SmoothStrokePanel
+    BrushButtonsPanel, _bpy_types.Panel, bl_ui.properties_paint_common.SmoothStrokePanel
 ):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -1323,7 +1325,7 @@ class IMAGE_PT_paint_stroke_smooth_stroke(
         """
 
 class IMAGE_PT_paint_swatches(
-    ImagePaintPanel, bpy.types.Panel, bl_ui.properties_paint_common.ColorPalettePanel
+    ImagePaintPanel, _bpy_types.Panel, bl_ui.properties_paint_common.ColorPalettePanel
 ):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -1349,7 +1351,7 @@ class IMAGE_PT_paint_swatches(
         :rtype: typing.Any
         """
 
-class IMAGE_PT_proportional_edit(bpy.types.Panel):
+class IMAGE_PT_proportional_edit(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -1377,7 +1379,7 @@ class IMAGE_PT_proportional_edit(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_render_slots(bpy.types.Panel):
+class IMAGE_PT_render_slots(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1412,7 +1414,7 @@ class IMAGE_PT_render_slots(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_sample_line(ImageScopesPanel, bpy.types.Panel):
+class IMAGE_PT_sample_line(ImageScopesPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1440,7 +1442,7 @@ class IMAGE_PT_sample_line(ImageScopesPanel, bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_scope_sample(ImageScopesPanel, bpy.types.Panel):
+class IMAGE_PT_scope_sample(ImageScopesPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -1469,7 +1471,7 @@ class IMAGE_PT_scope_sample(ImageScopesPanel, bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_snapping(bpy.types.Panel):
+class IMAGE_PT_snapping(_bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -1497,7 +1499,7 @@ class IMAGE_PT_snapping(bpy.types.Panel):
         """
 
 class IMAGE_PT_tools_brush_display(
-    BrushButtonsPanel, bpy.types.Panel, bl_ui.properties_paint_common.DisplayPanel
+    BrushButtonsPanel, _bpy_types.Panel, bl_ui.properties_paint_common.DisplayPanel
 ):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -1524,7 +1526,7 @@ class IMAGE_PT_tools_brush_display(
         :rtype: typing.Any
         """
 
-class IMAGE_PT_tools_brush_texture(BrushButtonsPanel, bpy.types.Panel):
+class IMAGE_PT_tools_brush_texture(BrushButtonsPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1555,7 +1557,7 @@ class IMAGE_PT_tools_brush_texture(BrushButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_tools_imagepaint_symmetry(BrushButtonsPanel, bpy.types.Panel):
+class IMAGE_PT_tools_imagepaint_symmetry(BrushButtonsPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1586,7 +1588,7 @@ class IMAGE_PT_tools_imagepaint_symmetry(BrushButtonsPanel, bpy.types.Panel):
         """
 
 class IMAGE_PT_tools_mask_texture(
-    BrushButtonsPanel, bpy.types.Panel, bl_ui.properties_paint_common.TextureMaskPanel
+    BrushButtonsPanel, _bpy_types.Panel, bl_ui.properties_paint_common.TextureMaskPanel
 ):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -1613,7 +1615,7 @@ class IMAGE_PT_tools_mask_texture(
         :rtype: typing.Any
         """
 
-class IMAGE_PT_udim_tiles(bpy.types.Panel):
+class IMAGE_PT_udim_tiles(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1648,7 +1650,7 @@ class IMAGE_PT_udim_tiles(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_uv_cursor(bpy.types.Panel):
+class IMAGE_PT_uv_cursor(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1683,7 +1685,7 @@ class IMAGE_PT_uv_cursor(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_uv_sculpt_curve(bpy.types.Panel):
+class IMAGE_PT_uv_sculpt_curve(_bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1711,7 +1713,7 @@ class IMAGE_PT_uv_sculpt_curve(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_uv_sculpt_options(bpy.types.Panel):
+class IMAGE_PT_uv_sculpt_options(_bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1739,7 +1741,7 @@ class IMAGE_PT_uv_sculpt_options(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_view_display(bpy.types.Panel):
+class IMAGE_PT_view_display(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1774,7 +1776,7 @@ class IMAGE_PT_view_display(bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_view_histogram(ImageScopesPanel, bpy.types.Panel):
+class IMAGE_PT_view_histogram(ImageScopesPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1802,7 +1804,7 @@ class IMAGE_PT_view_histogram(ImageScopesPanel, bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_view_vectorscope(ImageScopesPanel, bpy.types.Panel):
+class IMAGE_PT_view_vectorscope(ImageScopesPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1830,7 +1832,7 @@ class IMAGE_PT_view_vectorscope(ImageScopesPanel, bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_PT_view_waveform(ImageScopesPanel, bpy.types.Panel):
+class IMAGE_PT_view_waveform(ImageScopesPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -1858,7 +1860,7 @@ class IMAGE_PT_view_waveform(ImageScopesPanel, bpy.types.Panel):
         :param context:
         """
 
-class IMAGE_UL_render_slots(bpy.types.UIList):
+class IMAGE_UL_render_slots(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -1899,7 +1901,7 @@ class IMAGE_UL_render_slots(bpy.types.UIList):
         :param _index:
         """
 
-class IMAGE_UL_udim_tiles(bpy.types.UIList):
+class IMAGE_UL_udim_tiles(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -1975,7 +1977,7 @@ class _draw_tool_settings_context_mode:
         :param tool:
         """
 
-class IMAGE_PT_paint_color(bpy.types.Panel, ImagePaintPanel):
+class IMAGE_PT_paint_color(_bpy_types.Panel, ImagePaintPanel):
     bl_category: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2012,7 +2014,7 @@ class IMAGE_PT_paint_color(bpy.types.Panel, ImagePaintPanel):
         :param context:
         """
 
-class IMAGE_PT_paint_settings(bpy.types.Panel, ImagePaintPanel):
+class IMAGE_PT_paint_settings(_bpy_types.Panel, ImagePaintPanel):
     bl_category: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2041,7 +2043,14 @@ class IMAGE_PT_paint_settings(bpy.types.Panel, ImagePaintPanel):
         :param context:
         """
 
-class IMAGE_PT_paint_settings_advanced(bpy.types.Panel, ImagePaintPanel):
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
+class IMAGE_PT_paint_settings_advanced(_bpy_types.Panel, ImagePaintPanel):
     bl_category: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2067,6 +2076,13 @@ class IMAGE_PT_paint_settings_advanced(bpy.types.Panel, ImagePaintPanel):
         """
 
     def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
         """
 
         :param context:

@@ -1,5 +1,4 @@
 """Module for Session class handling project sessions."""
-
 import os
 from datetime import datetime
 from matrice.projects import Projects
@@ -32,18 +31,21 @@ class Session:
         project_id=None,
         project_name=None,
     ):
-        access_key = access_key or os.environ.get("MATRICE_ACCESS_KEY_ID")
-        secret_key = secret_key or os.environ.get("MATRICE_SECRET_ACCESS_KEY")
+        if access_key is None:
+            access_key = os.environ.get("MATRICE_ACCESS_KEY_ID")
+        else:
+            os.environ["MATRICE_ACCESS_KEY_ID"] = access_key
+
+        if secret_key is None:
+            secret_key = os.environ.get("MATRICE_SECRET_ACCESS_KEY")
+        else:
+            os.environ["MATRICE_SECRET_ACCESS_KEY"] = secret_key
 
         if not access_key or not secret_key:
             raise ValueError(
                 "Access key and Secret key are required. "
                 "Set them as environment variables MATRICE_ACCESS_KEY_ID and MATRICE_SECRET_ACCESS_KEY or pass them explicitly."
             )
-
-
-        os.environ["MATRICE_ACCESS_KEY_ID"] = access_key
-        os.environ["MATRICE_SECRET_ACCESS_KEY"] = secret_key
 
         self.access_key = access_key
         self.secret_key = secret_key
@@ -61,7 +63,6 @@ class Session:
         if self.project_name and not self.project_id:
             self.project_id = self._get_project_id_by_name()
             self.refresh()
-
 
     def _get_project_id_by_name(self):
         path = f"/v1/accounting/get_project_by_name?name={self.project_name}"

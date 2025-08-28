@@ -624,7 +624,14 @@ impl BuildContext {
                 }
             }
             // FreeBSD
-            (Os::FreeBsd, _)
+            | (Os::FreeBsd, _) => {
+                format!(
+                    "{}_{}_{}",
+                    target.target_os().to_string().to_ascii_lowercase(),
+                    target.get_platform_release()?.to_ascii_lowercase(),
+                    target.target_arch().machine(),
+                )
+            }
             // NetBSD
             | (Os::NetBsd, _)
             // OpenBSD
@@ -724,7 +731,7 @@ impl BuildContext {
             &self.out,
             &self.project_layout.project_root,
             &self.metadata24,
-            &[tag.clone()],
+            std::slice::from_ref(&tag),
             self.excludes(Format::Wheel)?,
             self.compression,
         )?;
@@ -803,7 +810,7 @@ impl BuildContext {
             &self.out,
             &self.project_layout.project_root,
             &self.metadata24,
-            &[tag.clone()],
+            std::slice::from_ref(&tag),
             self.excludes(Format::Wheel)?,
             self.compression,
         )?;

@@ -5,7 +5,9 @@ import numpy.typing as npt
 import bpy.types
 
 def package_disable(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Turn off this extension
 
@@ -117,7 +119,9 @@ def package_mark_clear(
     """
 
 def package_mark_clear_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -144,7 +148,9 @@ def package_mark_set(
     """
 
 def package_mark_set_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -153,7 +159,9 @@ def package_mark_set_all(
     """
 
 def package_obsolete_marked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Zeroes package versions, useful for development - to test upgrading
 
@@ -273,7 +281,9 @@ def package_uninstall(
     """
 
 def package_uninstall_marked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -282,7 +292,9 @@ def package_uninstall_marked(
     """
 
 def package_uninstall_system(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -321,7 +333,9 @@ def repo_enable_from_drop(
     """
 
 def repo_lock_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Lock repositories - to test locking
 
@@ -378,7 +392,9 @@ def repo_sync_all(
     """
 
 def repo_unlock(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the repository file-system lock
 
@@ -387,7 +403,9 @@ def repo_unlock(
     """
 
 def repo_unlock_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Unlock repositories - to test unlocking
 
@@ -396,7 +414,9 @@ def repo_unlock_all(
     """
 
 def status_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -405,7 +425,9 @@ def status_clear(
     """
 
 def status_clear_errors(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -414,7 +436,9 @@ def status_clear_errors(
     """
 
 def userpref_allow_online(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality
 
@@ -423,7 +447,9 @@ def userpref_allow_online(
     """
 
 def userpref_allow_online_popup(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality
 
@@ -432,7 +458,9 @@ def userpref_allow_online_popup(
     """
 
 def userpref_show_for_update(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Open extensions preferences
 
@@ -441,7 +469,9 @@ def userpref_show_for_update(
     """
 
 def userpref_show_online(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Show system preferences "Network" panel to allow online access
 

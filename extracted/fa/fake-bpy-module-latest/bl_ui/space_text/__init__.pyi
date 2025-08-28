@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class TEXT_HT_footer(bpy.types.Header):
+class TEXT_HT_footer(_bpy_types.Header):
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any
@@ -30,7 +31,7 @@ class TEXT_HT_footer(bpy.types.Header):
         :param context:
         """
 
-class TEXT_HT_header(bpy.types.Header):
+class TEXT_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
@@ -55,7 +56,7 @@ class TEXT_HT_header(bpy.types.Header):
         :param context:
         """
 
-class TEXT_MT_context_menu(bpy.types.Menu):
+class TEXT_MT_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -80,7 +81,7 @@ class TEXT_MT_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class TEXT_MT_edit(bpy.types.Menu):
+class TEXT_MT_edit(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -112,7 +113,7 @@ class TEXT_MT_edit(bpy.types.Menu):
         :param context:
         """
 
-class TEXT_MT_edit_to3d(bpy.types.Menu):
+class TEXT_MT_edit_to3d(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -137,7 +138,7 @@ class TEXT_MT_edit_to3d(bpy.types.Menu):
         :param _context:
         """
 
-class TEXT_MT_editor_menus(bpy.types.Menu):
+class TEXT_MT_editor_menus(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -163,7 +164,7 @@ class TEXT_MT_editor_menus(bpy.types.Menu):
         :param context:
         """
 
-class TEXT_MT_format(bpy.types.Menu):
+class TEXT_MT_format(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -188,7 +189,7 @@ class TEXT_MT_format(bpy.types.Menu):
         :param _context:
         """
 
-class TEXT_MT_select(bpy.types.Menu):
+class TEXT_MT_select(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -213,7 +214,7 @@ class TEXT_MT_select(bpy.types.Menu):
         :param _context:
         """
 
-class TEXT_MT_templates(bpy.types.Menu):
+class TEXT_MT_templates(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -238,7 +239,7 @@ class TEXT_MT_templates(bpy.types.Menu):
         :param _context:
         """
 
-class TEXT_MT_templates_osl(bpy.types.Menu):
+class TEXT_MT_templates_osl(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -263,7 +264,7 @@ class TEXT_MT_templates_osl(bpy.types.Menu):
         :param _context:
         """
 
-class TEXT_MT_templates_py(bpy.types.Menu):
+class TEXT_MT_templates_py(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -288,7 +289,7 @@ class TEXT_MT_templates_py(bpy.types.Menu):
         :param _context:
         """
 
-class TEXT_MT_text(bpy.types.Menu):
+class TEXT_MT_text(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -313,7 +314,7 @@ class TEXT_MT_text(bpy.types.Menu):
         :param context:
         """
 
-class TEXT_MT_view(bpy.types.Menu):
+class TEXT_MT_view(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -338,7 +339,7 @@ class TEXT_MT_view(bpy.types.Menu):
         :param context:
         """
 
-class TEXT_MT_view_navigation(bpy.types.Menu):
+class TEXT_MT_view_navigation(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -363,7 +364,7 @@ class TEXT_MT_view_navigation(bpy.types.Menu):
         :param _context:
         """
 
-class TEXT_PT_find(bpy.types.Panel):
+class TEXT_PT_find(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -391,7 +392,7 @@ class TEXT_PT_find(bpy.types.Panel):
         :param context:
         """
 
-class TEXT_PT_properties(bpy.types.Panel):
+class TEXT_PT_properties(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any

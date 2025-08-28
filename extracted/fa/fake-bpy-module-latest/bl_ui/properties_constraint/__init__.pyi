@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
 class BONE_PT_bActionConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -36,7 +37,7 @@ class BONE_PT_bActionConstraint(
         """
 
 class BONE_PT_bActionConstraint_action(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -67,7 +68,7 @@ class BONE_PT_bActionConstraint_action(
         """
 
 class BONE_PT_bActionConstraint_target(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -98,7 +99,7 @@ class BONE_PT_bActionConstraint_target(
         """
 
 class BONE_PT_bArmatureConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -129,7 +130,7 @@ class BONE_PT_bArmatureConstraint(
         """
 
 class BONE_PT_bArmatureConstraint_bones(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -160,7 +161,7 @@ class BONE_PT_bArmatureConstraint_bones(
         """
 
 class BONE_PT_bCameraSolverConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -191,7 +192,7 @@ class BONE_PT_bCameraSolverConstraint(
         """
 
 class BONE_PT_bChildOfConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -222,7 +223,7 @@ class BONE_PT_bChildOfConstraint(
         """
 
 class BONE_PT_bClampToConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -253,7 +254,7 @@ class BONE_PT_bClampToConstraint(
         """
 
 class BONE_PT_bDampTrackConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -284,7 +285,7 @@ class BONE_PT_bDampTrackConstraint(
         """
 
 class BONE_PT_bDistLimitConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -315,7 +316,7 @@ class BONE_PT_bDistLimitConstraint(
         """
 
 class BONE_PT_bFollowPathConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -346,7 +347,7 @@ class BONE_PT_bFollowPathConstraint(
         """
 
 class BONE_PT_bFollowTrackConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -377,7 +378,7 @@ class BONE_PT_bFollowTrackConstraint(
         """
 
 class BONE_PT_bKinematicConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -408,7 +409,7 @@ class BONE_PT_bKinematicConstraint(
         """
 
 class BONE_PT_bLocLimitConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -439,7 +440,7 @@ class BONE_PT_bLocLimitConstraint(
         """
 
 class BONE_PT_bLocateLikeConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -470,7 +471,7 @@ class BONE_PT_bLocateLikeConstraint(
         """
 
 class BONE_PT_bLockTrackConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -501,7 +502,7 @@ class BONE_PT_bLockTrackConstraint(
         """
 
 class BONE_PT_bMinMaxConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -532,7 +533,7 @@ class BONE_PT_bMinMaxConstraint(
         """
 
 class BONE_PT_bObjectSolverConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -563,7 +564,7 @@ class BONE_PT_bObjectSolverConstraint(
         """
 
 class BONE_PT_bPivotConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -594,7 +595,7 @@ class BONE_PT_bPivotConstraint(
         """
 
 class BONE_PT_bRotLimitConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -625,7 +626,7 @@ class BONE_PT_bRotLimitConstraint(
         """
 
 class BONE_PT_bRotateLikeConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -656,7 +657,7 @@ class BONE_PT_bRotateLikeConstraint(
         """
 
 class BONE_PT_bSameVolumeConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -687,7 +688,7 @@ class BONE_PT_bSameVolumeConstraint(
         """
 
 class BONE_PT_bShrinkwrapConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -718,7 +719,7 @@ class BONE_PT_bShrinkwrapConstraint(
         """
 
 class BONE_PT_bSizeLikeConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -749,7 +750,7 @@ class BONE_PT_bSizeLikeConstraint(
         """
 
 class BONE_PT_bSizeLimitConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -780,7 +781,7 @@ class BONE_PT_bSizeLimitConstraint(
         """
 
 class BONE_PT_bSplineIKConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -811,7 +812,7 @@ class BONE_PT_bSplineIKConstraint(
         """
 
 class BONE_PT_bSplineIKConstraint_chain_scaling(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -842,7 +843,7 @@ class BONE_PT_bSplineIKConstraint_chain_scaling(
         """
 
 class BONE_PT_bSplineIKConstraint_fitting(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -873,7 +874,7 @@ class BONE_PT_bSplineIKConstraint_fitting(
         """
 
 class BONE_PT_bStretchToConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -904,7 +905,7 @@ class BONE_PT_bStretchToConstraint(
         """
 
 class BONE_PT_bTrackToConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -935,7 +936,7 @@ class BONE_PT_bTrackToConstraint(
         """
 
 class BONE_PT_bTransLikeConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -966,7 +967,7 @@ class BONE_PT_bTransLikeConstraint(
         """
 
 class BONE_PT_bTransformCacheConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -997,7 +998,7 @@ class BONE_PT_bTransformCacheConstraint(
         """
 
 class BONE_PT_bTransformCacheConstraint_layers(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1028,7 +1029,7 @@ class BONE_PT_bTransformCacheConstraint_layers(
         """
 
 class BONE_PT_bTransformCacheConstraint_procedural(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1059,7 +1060,7 @@ class BONE_PT_bTransformCacheConstraint_procedural(
         """
 
 class BONE_PT_bTransformCacheConstraint_time(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1090,7 +1091,7 @@ class BONE_PT_bTransformCacheConstraint_time(
         """
 
 class BONE_PT_bTransformCacheConstraint_velocity(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1121,7 +1122,7 @@ class BONE_PT_bTransformCacheConstraint_velocity(
         """
 
 class BONE_PT_bTransformConstraint(
-    ConstraintButtonsPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1152,7 +1153,7 @@ class BONE_PT_bTransformConstraint(
         """
 
 class BONE_PT_bTransformConstraint_from(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1183,7 +1184,7 @@ class BONE_PT_bTransformConstraint_from(
         """
 
 class BONE_PT_bTransformConstraint_to(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1213,7 +1214,7 @@ class BONE_PT_bTransformConstraint_to(
         :param context:
         """
 
-class BONE_PT_constraints(BoneConstraintPanel, bpy.types.Panel):
+class BONE_PT_constraints(BoneConstraintPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -1551,7 +1552,7 @@ class ConstraintButtonsSubPanel:
         """
 
 class OBJECT_PT_bActionConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1582,7 +1583,7 @@ class OBJECT_PT_bActionConstraint(
         """
 
 class OBJECT_PT_bActionConstraint_action(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1613,7 +1614,7 @@ class OBJECT_PT_bActionConstraint_action(
         """
 
 class OBJECT_PT_bActionConstraint_target(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1644,7 +1645,7 @@ class OBJECT_PT_bActionConstraint_target(
         """
 
 class OBJECT_PT_bArmatureConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1675,7 +1676,7 @@ class OBJECT_PT_bArmatureConstraint(
         """
 
 class OBJECT_PT_bArmatureConstraint_bones(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1706,7 +1707,7 @@ class OBJECT_PT_bArmatureConstraint_bones(
         """
 
 class OBJECT_PT_bCameraSolverConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1737,7 +1738,7 @@ class OBJECT_PT_bCameraSolverConstraint(
         """
 
 class OBJECT_PT_bChildOfConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1768,7 +1769,7 @@ class OBJECT_PT_bChildOfConstraint(
         """
 
 class OBJECT_PT_bClampToConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1799,7 +1800,7 @@ class OBJECT_PT_bClampToConstraint(
         """
 
 class OBJECT_PT_bDampTrackConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1830,7 +1831,7 @@ class OBJECT_PT_bDampTrackConstraint(
         """
 
 class OBJECT_PT_bDistLimitConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1861,7 +1862,7 @@ class OBJECT_PT_bDistLimitConstraint(
         """
 
 class OBJECT_PT_bFollowPathConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1892,7 +1893,7 @@ class OBJECT_PT_bFollowPathConstraint(
         """
 
 class OBJECT_PT_bFollowTrackConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1923,7 +1924,7 @@ class OBJECT_PT_bFollowTrackConstraint(
         """
 
 class OBJECT_PT_bKinematicConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1954,7 +1955,7 @@ class OBJECT_PT_bKinematicConstraint(
         """
 
 class OBJECT_PT_bLocLimitConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1985,7 +1986,7 @@ class OBJECT_PT_bLocLimitConstraint(
         """
 
 class OBJECT_PT_bLocateLikeConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2016,7 +2017,7 @@ class OBJECT_PT_bLocateLikeConstraint(
         """
 
 class OBJECT_PT_bLockTrackConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2047,7 +2048,7 @@ class OBJECT_PT_bLockTrackConstraint(
         """
 
 class OBJECT_PT_bMinMaxConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2078,7 +2079,7 @@ class OBJECT_PT_bMinMaxConstraint(
         """
 
 class OBJECT_PT_bObjectSolverConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2109,7 +2110,7 @@ class OBJECT_PT_bObjectSolverConstraint(
         """
 
 class OBJECT_PT_bPivotConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2140,7 +2141,7 @@ class OBJECT_PT_bPivotConstraint(
         """
 
 class OBJECT_PT_bRotLimitConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2171,7 +2172,7 @@ class OBJECT_PT_bRotLimitConstraint(
         """
 
 class OBJECT_PT_bRotateLikeConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2202,7 +2203,7 @@ class OBJECT_PT_bRotateLikeConstraint(
         """
 
 class OBJECT_PT_bSameVolumeConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2233,7 +2234,7 @@ class OBJECT_PT_bSameVolumeConstraint(
         """
 
 class OBJECT_PT_bShrinkwrapConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2264,7 +2265,7 @@ class OBJECT_PT_bShrinkwrapConstraint(
         """
 
 class OBJECT_PT_bSizeLikeConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2295,7 +2296,7 @@ class OBJECT_PT_bSizeLikeConstraint(
         """
 
 class OBJECT_PT_bSizeLimitConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2326,7 +2327,7 @@ class OBJECT_PT_bSizeLimitConstraint(
         """
 
 class OBJECT_PT_bStretchToConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2357,7 +2358,7 @@ class OBJECT_PT_bStretchToConstraint(
         """
 
 class OBJECT_PT_bTrackToConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2388,7 +2389,7 @@ class OBJECT_PT_bTrackToConstraint(
         """
 
 class OBJECT_PT_bTransLikeConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2419,7 +2420,7 @@ class OBJECT_PT_bTransLikeConstraint(
         """
 
 class OBJECT_PT_bTransformCacheConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2450,7 +2451,7 @@ class OBJECT_PT_bTransformCacheConstraint(
         """
 
 class OBJECT_PT_bTransformCacheConstraint_layers(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2481,7 +2482,7 @@ class OBJECT_PT_bTransformCacheConstraint_layers(
         """
 
 class OBJECT_PT_bTransformCacheConstraint_procedural(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2512,7 +2513,7 @@ class OBJECT_PT_bTransformCacheConstraint_procedural(
         """
 
 class OBJECT_PT_bTransformCacheConstraint_time(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2543,7 +2544,7 @@ class OBJECT_PT_bTransformCacheConstraint_time(
         """
 
 class OBJECT_PT_bTransformCacheConstraint_velocity(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2574,7 +2575,7 @@ class OBJECT_PT_bTransformCacheConstraint_velocity(
         """
 
 class OBJECT_PT_bTransformConstraint(
-    ConstraintButtonsPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2605,7 +2606,7 @@ class OBJECT_PT_bTransformConstraint(
         """
 
 class OBJECT_PT_bTransformConstraint_destination(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2636,7 +2637,7 @@ class OBJECT_PT_bTransformConstraint_destination(
         """
 
 class OBJECT_PT_bTransformConstraint_source(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, bpy.types.Panel
+    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -2666,7 +2667,7 @@ class OBJECT_PT_bTransformConstraint_source(
         :param context:
         """
 
-class OBJECT_PT_constraints(ObjectConstraintPanel, bpy.types.Panel):
+class OBJECT_PT_constraints(ObjectConstraintPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any

@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class PROPERTIES_HT_header(bpy.types.Header):
+class PROPERTIES_HT_header(_bpy_types.Header):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
@@ -29,7 +30,7 @@ class PROPERTIES_HT_header(bpy.types.Header):
         :param context:
         """
 
-class PROPERTIES_PT_navigation_bar(bpy.types.Panel):
+class PROPERTIES_PT_navigation_bar(_bpy_types.Panel):
     bl_label: typing.Any
     bl_options: typing.Any
     bl_region_type: typing.Any
@@ -57,7 +58,7 @@ class PROPERTIES_PT_navigation_bar(bpy.types.Panel):
         :param context:
         """
 
-class PROPERTIES_PT_options(bpy.types.Panel):
+class PROPERTIES_PT_options(_bpy_types.Panel):
     """Show options for the properties editor"""
 
     bl_label: typing.Any
@@ -87,7 +88,7 @@ class PROPERTIES_PT_options(bpy.types.Panel):
         """
 
 class PropertiesAnimationMixin:
-    """Mix-in class for Animation panels.This class can be used to show a generic 'Animation' panel for IDs shown in
+    """Mix-in class for Animation panels.This class can be used to show a generic Animation panel for IDs shown in
     the properties editor. Specific ID types need specific subclasses.For an example, see DATA_PT_camera_animation in properties_data_camera.py
     """
 

@@ -4,7 +4,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def report_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy selected reports to clipboard
 
@@ -13,7 +15,9 @@ def report_copy(
     """
 
 def report_delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete selected reports
 
@@ -22,7 +26,9 @@ def report_delete(
     """
 
 def report_replay(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Replay selected reports
 
@@ -31,7 +37,9 @@ def report_replay(
     """
 
 def reports_display_update(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Update the display of reports in Blender UI (internal use)
 

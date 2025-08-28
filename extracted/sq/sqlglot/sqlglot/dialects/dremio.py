@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import typing as t
-
 from sqlglot import expressions as exp
 from sqlglot import parser, generator, tokens
 from sqlglot.dialects.dialect import (
     Dialect,
     build_timetostr_or_tochar,
     build_formatted_time,
+    build_date_delta,
     rename_func,
-    unit_to_var,
 )
 from sqlglot.helper import seq_get
+from sqlglot.tokens import TokenType
 
 if t.TYPE_CHECKING:
     from sqlglot.dialects.dialect import DialectType
@@ -21,20 +21,17 @@ DATE_DELTA = t.Union[exp.DateAdd, exp.DateSub]
 
 def _date_delta_sql(name: str) -> t.Callable[[Dremio.Generator, DATE_DELTA], str]:
     def _delta_sql(self: Dremio.Generator, expression: DATE_DELTA) -> str:
-        unit = expression.text("unit")
+        unit = expression.text("unit").upper()
 
-        if not unit or unit.upper() == "DAY":
+        # Fallback to default behavior if unit is missing or 'DAY'
+        if not unit or unit == "DAY":
             return self.func(name, expression.this, expression.expression)
 
-        # to support units we need to use TIMESTAMPADD function
-        increment = expression.expression
-        if isinstance(expression, exp.DateSub):
-            if isinstance(increment, exp.Literal):
-                value = increment.to_py() if increment.is_number else int(increment.name)
-                increment = exp.Literal.number(value * -1)
-            else:
-                increment *= exp.Literal.number(-1)
-        return self.func("TIMESTAMPADD", unit_to_var(expression), increment, expression.this)
+        this_sql = self.sql(expression, "this")
+        expr_sql = self.sql(expression, "expression")
+
+        interval_sql = f"CAST({expr_sql} AS INTERVAL {unit})"
+        return f"{name}({this_sql}, {interval_sql})"
 
     return _delta_sql
 
@@ -48,6 +45,33 @@ def to_char_is_numeric_handler(args: t.List, dialect: DialectType) -> exp.TimeTo
         expression.set("is_numeric", True)
 
     return expression
+
+
+def build_date_delta_with_cast_interval(
+    expression_class: t.Type[DATE_DELTA],
+) -> t.Callable[[t.List[exp.Expression]], exp.Expression]:
+    fallback_builder = build_date_delta(expression_class)
+
+    def _builder(args):
+        if len(args) == 2:
+            date_arg, interval_arg = args
+
+            if (
+                isinstance(interval_arg, exp.Cast)
+                and isinstance(interval_arg.to, exp.DataType)
+                and isinstance(interval_arg.to.this, exp.Interval)
+            ):
+                return expression_class(
+                    this=date_arg,
+                    expression=interval_arg.this,
+                    unit=interval_arg.to.this.unit,
+                )
+
+            return expression_class(this=date_arg, expression=interval_arg)
+
+        return fallback_builder(args)
+
+    return _builder
 
 
 class Dremio(Dialect):
@@ -108,15 +132,38 @@ class Dremio(Dialect):
         "tzo": "%z",  # numeric offset (+0200)
     }
 
+    class Tokenizer(tokens.Tokenizer):
+        COMMENTS = ["--", "//", ("/*", "*/")]
+
     class Parser(parser.Parser):
         LOG_DEFAULTS_TO_LN = True
+
+        NO_PAREN_FUNCTION_PARSERS = {
+            **parser.Parser.NO_PAREN_FUNCTION_PARSERS,
+            "CURRENT_DATE_UTC": lambda self: self._parse_current_date_utc(),
+        }
 
         FUNCTIONS = {
             **parser.Parser.FUNCTIONS,
             "TO_CHAR": to_char_is_numeric_handler,
             "DATE_FORMAT": build_formatted_time(exp.TimeToStr, "dremio"),
             "TO_DATE": build_formatted_time(exp.TsOrDsToDate, "dremio"),
+            "DATE_ADD": build_date_delta_with_cast_interval(exp.DateAdd),
+            "DATE_SUB": build_date_delta_with_cast_interval(exp.DateSub),
+            "ARRAY_GENERATE_RANGE": exp.GenerateSeries.from_arg_list,
         }
+
+        def _parse_current_date_utc(self) -> exp.Cast:
+            if self._match(TokenType.L_PAREN):
+                self._match_r_paren()
+
+            return exp.Cast(
+                this=exp.AtTimeZone(
+                    this=exp.CurrentTimestamp(),
+                    zone=exp.Literal.string("UTC"),
+                ),
+                to=exp.DataType.build("DATE"),
+            )
 
     class Generator(generator.Generator):
         NVL2_SUPPORTED = False
@@ -148,6 +195,7 @@ class Dremio(Dialect):
             exp.TimeToStr: lambda self, e: self.func("TO_CHAR", e.this, self.format_time(e)),
             exp.DateAdd: _date_delta_sql("DATE_ADD"),
             exp.DateSub: _date_delta_sql("DATE_SUB"),
+            exp.GenerateSeries: rename_func("ARRAY_GENERATE_RANGE"),
         }
 
         def datatype_sql(self, expression: exp.DataType) -> str:
@@ -162,5 +210,17 @@ class Dremio(Dialect):
 
             return super().datatype_sql(expression)
 
-    class Tokenizer(tokens.Tokenizer):
-        COMMENTS = ["--", "//", ("/*", "*/")]
+        def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
+            # Match: CAST(CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS DATE)
+            if expression.is_type(exp.DataType.Type.DATE):
+                at_time_zone = expression.this
+
+                if (
+                    isinstance(at_time_zone, exp.AtTimeZone)
+                    and isinstance(at_time_zone.this, exp.CurrentTimestamp)
+                    and isinstance(at_time_zone.args["zone"], exp.Literal)
+                    and at_time_zone.text("zone").upper() == "UTC"
+                ):
+                    return "CURRENT_DATE_UTC"
+
+            return super().cast_sql(expression, safe_prefix)

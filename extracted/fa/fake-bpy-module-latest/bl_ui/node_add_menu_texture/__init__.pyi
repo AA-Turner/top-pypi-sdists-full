@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class NODE_MT_category_texture_color(bpy.types.Menu):
+class NODE_MT_category_texture_color(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -30,7 +31,7 @@ class NODE_MT_category_texture_color(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_texture_converter(bpy.types.Menu):
+class NODE_MT_category_texture_converter(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -56,7 +57,7 @@ class NODE_MT_category_texture_converter(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_texture_distort(bpy.types.Menu):
+class NODE_MT_category_texture_distort(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -82,7 +83,7 @@ class NODE_MT_category_texture_distort(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_texture_group(bpy.types.Menu):
+class NODE_MT_category_texture_group(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -108,7 +109,7 @@ class NODE_MT_category_texture_group(bpy.types.Menu):
         :param context:
         """
 
-class NODE_MT_category_texture_input(bpy.types.Menu):
+class NODE_MT_category_texture_input(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -134,7 +135,7 @@ class NODE_MT_category_texture_input(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_texture_output(bpy.types.Menu):
+class NODE_MT_category_texture_output(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -160,7 +161,7 @@ class NODE_MT_category_texture_output(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_texture_pattern(bpy.types.Menu):
+class NODE_MT_category_texture_pattern(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -187,7 +188,7 @@ class NODE_MT_category_texture_pattern(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_texture_texture(bpy.types.Menu):
+class NODE_MT_category_texture_texture(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -213,7 +214,7 @@ class NODE_MT_category_texture_texture(bpy.types.Menu):
         :param _context:
         """
 
-class NODE_MT_texture_node_add_all(bpy.types.Menu):
+class NODE_MT_texture_node_add_all(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any

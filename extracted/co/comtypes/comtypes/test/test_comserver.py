@@ -22,7 +22,7 @@ except ImportError:
 def setUpModule():
     try:
         register(comtypes.test.TestComServer.TestComServer)
-    except WindowsError as e:
+    except OSError as e:
         if e.winerror != 5:  # [Error 5] Access is denied
             raise e
         raise unittest.SkipTest(
@@ -35,7 +35,7 @@ def tearDownModule():
     unregister(comtypes.test.TestComServer.TestComServer)
 
 
-class BaseServerTest(object):
+class BaseServerTest:
     def create_object(self) -> Any: ...
 
     def _find_memleak(self, func):
@@ -115,6 +115,11 @@ class TestInproc(BaseServerTest, unittest.TestCase):
         return CreateObject(
             "TestComServerLib.TestComServer", clsctx=comtypes.CLSCTX_INPROC_SERVER
         )
+
+    @unittest.skip("Fails occasionally with a memory leak on INPROC.")
+    def test_eval(self):
+        # This test sometimes leaks memory when run as an in-process server.
+        pass
 
 
 class TestLocalServer(BaseServerTest, unittest.TestCase):

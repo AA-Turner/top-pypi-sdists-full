@@ -83,7 +83,9 @@ def addon_install(
     """
 
 def addon_refresh(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Scan add-on directories for new modules
 
@@ -254,7 +256,9 @@ def asset_library_remove(
     """
 
 def associate_blend(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Use this installation for .blend files and to display thumbnails
 
@@ -263,7 +267,9 @@ def associate_blend(
     """
 
 def autoexec_path_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add path to exclude from auto-execution
 
@@ -287,7 +293,9 @@ def autoexec_path_remove(
     """
 
 def copy_prev(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy settings from previous version
 
@@ -323,7 +331,7 @@ def extension_repo_add(
         :type access_token: str
         :param use_sync_on_startup: Check for Updates on Startup, Allow Blender to check for updates upon launch
         :type use_sync_on_startup: bool | None
-        :param use_custom_directory: Custom Directory, Manually set the path for extensions to be stored. When disabled a user's extensions directory is created.
+        :param use_custom_directory: Custom Directory, Manually set the path for extensions to be stored. When disabled a users extensions directory is created.
         :type use_custom_directory: bool | None
         :param custom_directory: Custom Directory, The local directory containing extensions
         :type custom_directory: str
@@ -440,7 +448,9 @@ def keyconfig_import(
     """
 
 def keyconfig_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove key config
 
@@ -449,7 +459,9 @@ def keyconfig_remove(
     """
 
 def keyconfig_test(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Test key configuration for conflicts
 
@@ -458,7 +470,9 @@ def keyconfig_test(
     """
 
 def keyitem_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add key map item
 
@@ -512,7 +526,9 @@ def keymap_restore(
     """
 
 def reset_default_theme(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset to the default theme colors
 
@@ -660,9 +676,11 @@ def theme_install(
     """
 
 def unassociate_blend(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Remove this installation's associations with .blend files
+    """Remove this installations associations with .blend files
 
     :type execution_context: int | str | None
     :type undo: bool | None

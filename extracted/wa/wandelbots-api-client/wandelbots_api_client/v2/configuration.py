@@ -524,7 +524,7 @@ conf = wandelbots_api_client.v2.Configuration(
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 2.0.0 beta\n"\
-               "SDK Package Version: 25.7.0".\
+               "SDK Package Version: 25.7.1".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self) -> List[HostSetting]:

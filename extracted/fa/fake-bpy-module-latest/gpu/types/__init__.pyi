@@ -78,18 +78,19 @@ class GPUBatch:
 
 class GPUFrameBuffer:
     """This object gives access to framebuffer functionalities.
-    When a 'layer' is specified in a argument, a single layer of a 3D or array texture is attached to the frame-buffer.
+    When a layer is specified in a argument, a single layer of a 3D or array texture is attached to the frame-buffer.
     For cube map textures, layer is translated into a cube map face.
     """
 
     is_bound: typing.Any
-    """ Checks if this is the active framebuffer in the context."""
+    """ Checks if this is the active frame-buffer in the context."""
 
     def bind(self) -> None:
         """Context manager to ensure balanced bind calls, even in the case of an error."""
 
     def clear(
         self,
+        *,
         color: collections.abc.Sequence[float] | None = None,
         depth: float | None = None,
         stencil: int | None = None,
@@ -114,6 +115,7 @@ class GPUFrameBuffer:
         channels: int,
         slot: int,
         format: str,
+        *,
         data: Buffer = data,
     ) -> Buffer:
         """Read a block of pixels from the frame buffer.
@@ -128,7 +130,7 @@ class GPUFrameBuffer:
                 :param slot: The framebuffer slot to read data from.
                 :type slot: int
                 :param format: The format that describes the content of a single channel.
-        Possible values are FLOAT, INT, UINT, UBYTE, UINT_24_8 and 10_11_11_REV.
+        Possible values are FLOAT, INT, UINT, UBYTE, UINT_24_8 & 10_11_11_REV.
         UINT_24_8 is deprecated, use FLOAT instead.
                 :type format: str
                 :param data: Optional Buffer object to fill with the pixels values.
@@ -137,7 +139,9 @@ class GPUFrameBuffer:
                 :rtype: Buffer
         """
 
-    def read_depth(self, x: int, y, xsize: int, ysize, data: Buffer = data) -> Buffer:
+    def read_depth(
+        self, x: int, y, xsize: int, ysize, *, data: Buffer = data
+    ) -> Buffer:
         """Read a pixel depth block from the frame buffer.
 
         :param x: Lower left corner of a rectangular block of pixels.
@@ -204,6 +208,7 @@ class GPUOffScreen:
         | mathutils.Matrix,
         projection_matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
         | mathutils.Matrix,
+        *,
         do_color_management: bool = False,
         draw_background: bool = True,
     ) -> None:
@@ -233,7 +238,7 @@ class GPUOffScreen:
 
         """
 
-    def unbind(self, restore: bool = True) -> None:
+    def unbind(self, *, restore: bool = True) -> None:
         """Unbind the offscreen object.
 
         :param restore: Restore the OpenGL state, can only be used when the state has been saved before.
@@ -423,7 +428,7 @@ class GPUShaderCreateInfo:
         could still be performed while allowing the early depth test to operate.This function alters the behavior of the optimization to allow those operations
         to be performed.
 
-                :param value: Depth write value. It can be 'UNCHANGED' (default), 'ANY', 'GREATER' or 'LESS'.
+                :param value: Depth write value. It can be UNCHANGED (default), ANY, GREATER or LESS.
         :UNCHANGED: disables depth write in a fragment shader and execution of thefragments can be optimized away.
         :ANY: enables depth write in a fragment shader for any fragments
         :GREATER: enables depth write in a fragment shader for depth values thatare greater than the depth value in the output buffer.
@@ -431,7 +436,7 @@ class GPUShaderCreateInfo:
         """
 
     def fragment_out(
-        self, slot: int, type: str, name: str, blend: str = "NONE"
+        self, slot: int, type: str, name: str, *, blend: str = "NONE"
     ) -> None:
         """Specify a fragment output corresponding to a framebuffer target slot.
 
@@ -471,7 +476,7 @@ class GPUShaderCreateInfo:
                 :type type: str
                 :param name: Name of the attribute.
                 :type name: str
-                :param blend: Dual Source Blending Index. It can be 'NONE', 'SRC_0' or 'SRC_1'.
+                :param blend: Dual Source Blending Index. It can be NONE, SRC_0 or SRC_1.
                 :type blend: str
         """
 
@@ -483,7 +488,13 @@ class GPUShaderCreateInfo:
         """
 
     def image(
-        self, slot: int, format: str, type: str, name: str, qualifiers={"NO_RESTRICT"}
+        self,
+        slot: int,
+        format: str,
+        type: str,
+        name: str,
+        *,
+        qualifiers={"NO_RESTRICT"},
     ) -> None:
         """Specify an image resource used for arbitrary load and store operations.
 
@@ -653,14 +664,14 @@ class GPUShaderCreateInfo:
         - WRITE
         """
 
-    def local_group_size(self, x: int, y: int = -1, z: int = -1) -> None:
+    def local_group_size(self, x: int, y: int = 1, z: int = 1) -> None:
         """Specify the local group size for compute shaders.
 
         :param x: The local group size in the x dimension.
         :type x: int
-        :param y: The local group size in the y dimension. Optional. Defaults to -1.
+        :param y: The local group size in the y dimension. Optional. Defaults to 1.
         :type y: int
-        :param z: The local group size in the z dimension. Optional. Defaults to -1.
+        :param z: The local group size in the z dimension. Optional. Defaults to 1.
         :type z: int
         """
 
@@ -1008,7 +1019,7 @@ class GPUTexture:
         """Fill texture with specific value.
 
                 :param format: The format that describes the content of a single item.
-        Possible values are FLOAT, INT, UINT, UBYTE, UINT_24_8 and 10_11_11_REV.
+        Possible values are FLOAT, INT, UINT, UBYTE, UINT_24_8 & 10_11_11_REV.
         UINT_24_8 is deprecated, use FLOAT instead.
                 :type format: str
                 :param value: Sequence each representing the value to fill. Sizes 1..4 are supported.
@@ -1056,7 +1067,7 @@ class GPUVertFormat:
                 :param id: Name the attribute. Often position, normal, ...
                 :type id: str
                 :param comp_type: The data type that will be used store the value in memory.
-        Possible values are I8, U8, I16, U16, I32, U32, F32 and I10.
+        Possible values are I8, U8, I16, U16, I32, U32, F32 & I10.
                 :type comp_type: str
                 :param len: How many individual values the attribute consists of
         (e.g. 2 for uv coordinates).

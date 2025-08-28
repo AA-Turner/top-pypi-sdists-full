@@ -23,6 +23,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import mathutils
 
@@ -32,7 +33,7 @@ class BMDeformVert:
 
     def get(self, key: int, default: typing.Any | None = None) -> None:
         """Returns the deform weight matching the key or default
-        when not found (matches Python's dictionary function of the same name).
+        when not found (matches Pythons dictionary function of the same name).
 
                 :param key: The key associated with deform weight.
                 :type key: int
@@ -43,7 +44,7 @@ class BMDeformVert:
 
     def items(self) -> list[tuple[int, float]]:
         """Return (group, weight) pairs for this vertex
-        (matching Python's dict.items() functionality).
+        (matching Pythons dict.items() functionality).
 
                 :return: (key, value) pairs for each deform weight of this vertex.
                 :rtype: list[tuple[int, float]]
@@ -51,7 +52,7 @@ class BMDeformVert:
 
     def keys(self) -> list[int]:
         """Return the group indices used by this vertex
-        (matching Python's dict.keys() functionality).
+        (matching Pythons dict.keys() functionality).
 
                 :return: the deform group this vertex uses
                 :rtype: list[int]
@@ -59,7 +60,7 @@ class BMDeformVert:
 
     def values(self) -> list[float]:
         """Return the weights of the deform vertex
-        (matching Python's dict.values() functionality).
+        (matching Pythons dict.values() functionality).
 
                 :return: The weights that influence this vertex
                 :rtype: list[float]
@@ -105,7 +106,7 @@ class BMEdge:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed).
+    """ True when this element is valid (hasnt been removed).
 
     :type: bool
     """
@@ -161,7 +162,7 @@ class BMEdge:
     def calc_face_angle(self, fallback: typing.Any | None = None) -> float:
         """
 
-                :param fallback: return this when the edge doesn't have 2 faces
+                :param fallback: return this when the edge doesnt have 2 faces
         (instead of raising a `ValueError`).
                 :type fallback: typing.Any | None
                 :return: The angle between 2 connected faces in radians.
@@ -171,7 +172,7 @@ class BMEdge:
     def calc_face_angle_signed(self, fallback: typing.Any | None = None) -> float:
         """
 
-                :param fallback: return this when the edge doesn't have 2 faces
+                :param fallback: return this when the edge doesnt have 2 faces
         (instead of raising a `ValueError`).
                 :type fallback: typing.Any | None
                 :return: The angle between 2 connected faces in radians (negative for concave join).
@@ -304,6 +305,7 @@ class BMEdgeSeq:
 
     def sort(
         self,
+        *,
         key: None
         | collections.abc.Callable[[BMVert | BMEdge | BMFace], int]
         | None = None,
@@ -371,7 +373,7 @@ class BMEditSelSeq:
         """Empties the selection history."""
 
     def discard(self, element) -> None:
-        """Discard an element from the selection history.Like remove but doesn't raise an error when the elements not in the selection list.
+        """Discard an element from the selection history.Like remove but doesnt raise an error when the elements not in the selection list.
 
         :param element:
         """
@@ -450,7 +452,7 @@ class BMFace:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed).
+    """ True when this element is valid (hasnt been removed).
 
     :type: bool
     """
@@ -462,7 +464,7 @@ class BMFace:
     """
 
     material_index: int
-    """ The face's material index.
+    """ The faces material index.
 
     :type: int
     """
@@ -560,7 +562,7 @@ class BMFace:
         :rtype: mathutils.Vector
         """
 
-    def copy(self, verts: bool = True, edges: bool = True) -> typing_extensions.Self:
+    def copy(self, *, verts: bool = True, edges: bool = True) -> typing_extensions.Self:
         """Make a copy of this face.
 
         :param verts: When set, the faces verts will be duplicated too.
@@ -694,6 +696,7 @@ class BMFaceSeq:
 
     def sort(
         self,
+        *,
         key: None
         | collections.abc.Callable[[BMVert | BMEdge | BMFace], int]
         | None = None,
@@ -794,12 +797,6 @@ class BMLayerAccessEdge:
     :type: BMLayerCollection[mathutils.Vector]
     """
 
-    freestyle: BMLayerCollection
-    """ Accessor for Freestyle edge layer.
-
-    :type: BMLayerCollection
-    """
-
     int: BMLayerCollection[int]
     """ Generic int custom-data layer.
 
@@ -843,12 +840,6 @@ class BMLayerAccessFace:
     """ Generic 3D vector with float precision custom-data layer.
 
     :type: BMLayerCollection[mathutils.Vector]
-    """
-
-    freestyle: BMLayerCollection
-    """ Accessor for Freestyle face layer.
-
-    :type: BMLayerCollection
     """
 
     int: BMLayerCollection[int]
@@ -960,7 +951,7 @@ class BMLayerAccessVert:
     """
 
     shape: BMLayerCollection[mathutils.Vector]
-    """ Vertex shapekey absolute location (as a 3D Vector).
+    """ Vertex shape-key absolute location (as a 3D Vector).
 
     :type: BMLayerCollection[mathutils.Vector]
     """
@@ -993,7 +984,7 @@ class BMLayerCollection[_GenericType1]:
         self, key: str, default: _GenericType2 = None
     ) -> BMLayerItem[_GenericType1] | _GenericType2:
         """Returns the value of the layer matching the key or default
-        when not found (matches Python's dictionary function of the same name).
+        when not found (matches Pythons dictionary function of the same name).
 
                 :param key: The key associated with the layer.
                 :type key: str
@@ -1006,7 +997,7 @@ class BMLayerCollection[_GenericType1]:
 
     def items(self) -> list[str, BMLayerItem[_GenericType1]]:
         """Return the identifiers of collection members
-        (matching Python's dict.items() functionality).
+        (matching Pythons dict.items() functionality).
 
                 :return: (key, value) pairs for each member of this collection.
                 :rtype: list[str, BMLayerItem[_GenericType1]]
@@ -1014,7 +1005,7 @@ class BMLayerCollection[_GenericType1]:
 
     def keys(self) -> list[str]:
         """Return the identifiers of collection members
-        (matching Python's dict.keys() functionality).
+        (matching Pythons dict.keys() functionality).
 
                 :return: the identifiers for each member of this collection.
                 :rtype: list[str]
@@ -1038,7 +1029,7 @@ class BMLayerCollection[_GenericType1]:
 
     def values(self) -> list[BMLayerItem[_GenericType1]]:
         """Return the values of collection
-        (matching Python's dict.values() functionality).
+        (matching Pythons dict.values() functionality).
 
                 :return: the members of this collection.
                 :rtype: list[BMLayerItem[_GenericType1]]
@@ -1071,7 +1062,7 @@ class BMLoop:
     """This is normally accessed from `BMFace.loops` where each face loop represents a corner of the face."""
 
     edge: BMEdge
-    """ The loop's edge (between this loop and the next), (read-only).
+    """ The loops edge (between this loop and the next), (read-only).
 
     :type: BMEdge
     """
@@ -1095,7 +1086,7 @@ class BMLoop:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed).
+    """ True when this element is valid (hasnt been removed).
 
     :type: bool
     """
@@ -1137,7 +1128,7 @@ class BMLoop:
     """
 
     vert: BMVert
-    """ The loop's vertex (read-only).
+    """ The loops vertex (read-only).
 
     :type: BMVert
     """
@@ -1315,7 +1306,7 @@ class BMVert:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed).
+    """ True when this element is valid (hasnt been removed).
 
     :type: bool
     """
@@ -1363,9 +1354,9 @@ class BMVert:
     """
 
     def calc_edge_angle(self, fallback: typing.Any | None = None) -> float:
-        """Return the angle between this vert's two connected edges.
+        """Return the angle between this verts two connected edges.
 
-                :param fallback: return this when the vert doesn't have 2 edges
+                :param fallback: return this when the vert doesnt have 2 edges
         (instead of raising a `ValueError`).
                 :type fallback: typing.Any | None
                 :return: Angle between edges in radians.
@@ -1494,6 +1485,7 @@ class BMVertSeq:
 
     def sort(
         self,
+        *,
         key: None
         | collections.abc.Callable[[BMVert | BMEdge | BMFace], int]
         | None = None,
@@ -1558,7 +1550,7 @@ class BMesh:
     """
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed).
+    """ True when this element is valid (hasnt been removed).
 
     :type: bool
     """
@@ -1582,7 +1574,7 @@ class BMesh:
     """
 
     select_mode: set
-    """ The selection mode, values can be {'VERT', 'EDGE', 'FACE'}, can't be assigned an empty set.
+    """ The selection mode, values can be {VERT, EDGE, FACE}, cannot be assigned an empty set.
 
     :type: set
     """
@@ -1600,7 +1592,7 @@ class BMesh:
         :rtype: list[tuple[BMLoop, BMLoop, BMLoop]]
         """
 
-    def calc_volume(self, signed: bool = False) -> float:
+    def calc_volume(self, *, signed: bool = False) -> float:
         """Calculate mesh volume based on face normals.
 
         :param signed: when signed is true, negative values may be returned.
@@ -1624,16 +1616,17 @@ class BMesh:
 
     def from_mesh(
         self,
-        mesh: bpy.types.Mesh,
+        mesh: _bpy_types.Mesh,
+        *,
         face_normals: bool = True,
         vertex_normals: bool = True,
         use_shape_key: bool = False,
         shape_key_index: int = 0,
     ) -> None:
-        """Initialize this bmesh from existing mesh datablock.
+        """Initialize this bmesh from existing mesh data-block.
 
         :param mesh: The mesh data to load.
-        :type mesh: bpy.types.Mesh
+        :type mesh: _bpy_types.Mesh
         :param face_normals:
         :type face_normals: bool
         :param vertex_normals:
@@ -1646,8 +1639,9 @@ class BMesh:
 
     def from_object(
         self,
-        object: bpy.types.Object,
+        object: _bpy_types.Object,
         depsgraph: bpy.types.Depsgraph,
+        *,
         cage: bool = False,
         face_normals: bool = True,
         vertex_normals: bool = True,
@@ -1655,7 +1649,7 @@ class BMesh:
         """Initialize this bmesh from existing object data-block (only meshes are currently supported).
 
         :param object: The object data to load.
-        :type object: bpy.types.Object
+        :type object: _bpy_types.Object
         :param depsgraph:
         :type depsgraph: bpy.types.Depsgraph
         :param cage: Get the mesh as a deformed cage.
@@ -1679,22 +1673,23 @@ class BMesh:
     def select_flush_mode(self) -> None:
         """flush selection based on the current mode current `BMesh.select_mode`."""
 
-    def to_mesh(self, mesh: bpy.types.Mesh) -> None:
-        """Writes this BMesh data into an existing Mesh datablock.
+    def to_mesh(self, mesh: _bpy_types.Mesh) -> None:
+        """Writes this BMesh data into an existing Mesh data-block.
 
         :param mesh: The mesh data to write into.
-        :type mesh: bpy.types.Mesh
+        :type mesh: _bpy_types.Mesh
         """
 
     def transform(
         self,
         matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
         | mathutils.Matrix,
+        *,
         filter=None,
     ) -> None:
         """Transform the mesh (optionally filtering flagged data only).
 
         :param matrix: 4x4x transform matrix.
         :type matrix: collections.abc.Sequence[collections.abc.Sequence[float]] | mathutils.Matrix
-        :param filter: set of values in ('SELECT', 'HIDE', 'SEAM', 'SMOOTH', 'TAG').
+        :param filter: set of values in (SELECT, HIDE, SEAM, SMOOTH, TAG).
         """

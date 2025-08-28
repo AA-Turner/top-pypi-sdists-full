@@ -282,11 +282,15 @@ class TestConfig:
         assert "--master-url option is deprecated" in record.message
         assert record.levelno == logging.WARNING
         caplog.clear()
-        config = make_config([
-            "devpi-server", "--primary-url=http://foo:pass@localhost", "--role=replica",
-            "--serverdir", str(tmpdir)])
-        with pytest.deprecated_call():
-            assert config.master_auth == ('foo', 'pass')
+        config = make_config(
+            [
+                "devpi-server",
+                "--primary-url=http://localhost",
+                "--role=replica",
+                "--serverdir",
+                str(tmpdir),
+            ]
+        )
         with pytest.deprecated_call():
             assert config.master_url.url == "http://localhost"
         assert caplog.getrecords('--master-url') == []
@@ -391,7 +395,7 @@ class TestConfig:
         except Exception as e:
             if not isinstance(e, expected.__class__):
                 raise
-            assert e.args == expected.args
+            assert e.args == expected.args  # noqa: PT017
         else:
             assert result == expected
 
@@ -495,3 +499,19 @@ class TestConfigFile:
         xom = makexom(plugins=(plugin,), opts=options)
         assert xom.config.storage_info["name"] == "foo"
         assert plugin.settings == {"bar": "ham"}
+
+
+@pytest.mark.parametrize(
+    ("nodeinfo", "expected"),
+    [
+        ({}, (None, None)),
+        ({"uuid": "123", "role": "primary"}, ("123", "123")),
+        ({"uuid": "123", "role": "replica"}, ("123", "")),
+        ({"uuid": "123", "primary-uuid": "456", "role": "replica"}, ("123", "456")),
+    ],
+)
+def test_make_uuid_headers(nodeinfo, expected):
+    from devpi_server.config import NodeInfo
+
+    output = NodeInfo(nodeinfo).make_uuid_headers()
+    assert output == expected

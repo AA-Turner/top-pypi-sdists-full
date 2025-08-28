@@ -53,9 +53,10 @@ def append_file(
                     return "Append operation cancelled by user."
 
         cloud_or_local = "Cloud" if cloud else "Local"
+        active_plan = ctx.deps.get_plan() is not None and not cloud
         confirmation = show_confirmation(
             title=f"Append fixture {fixture_pathname} to datasource '{datasource_name}' in Tinybird {cloud_or_local}?",
-            skip_confirmation=ctx.deps.dangerously_skip_permissions,
+            skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,
         )
 
         if confirmation == "review":
@@ -112,9 +113,10 @@ def append_url(
                     return "Append operation cancelled by user."
 
         cloud_or_local = "Cloud" if cloud else "Local"
+        active_plan = ctx.deps.get_plan() is not None and not cloud
         confirmation = show_confirmation(
             title=f"Append URL {fixture_url} to datasource '{datasource_name}' in Tinybird {cloud_or_local}?",
-            skip_confirmation=ctx.deps.dangerously_skip_permissions,
+            skip_confirmation=ctx.deps.dangerously_skip_permissions or active_plan,
         )
 
         if confirmation == "review":

@@ -135,7 +135,9 @@ def attribute_set(
     """
 
 def convert_from_particle_system(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a new curves object based on the current state of the particle system
 
@@ -144,7 +146,9 @@ def convert_from_particle_system(
     """
 
 def convert_to_particle_system(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a new or update an existing hair particle system on the surface object
 
@@ -171,7 +175,9 @@ def curve_type_set(
     """
 
 def cyclic_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Make active curve closed/opened loop
 
@@ -180,7 +186,9 @@ def cyclic_toggle(
     """
 
 def delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected control points or curves
 
@@ -226,7 +234,9 @@ def draw(
     """
 
 def duplicate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy selected points or curves
 
@@ -253,7 +263,9 @@ def duplicate_move(
     """
 
 def extrude(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Extrude selected control point(s)
 
@@ -295,7 +307,9 @@ def handle_type_set(
     """
 
 def sculptmode_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Enter/Exit sculpt mode for curves
 
@@ -349,7 +363,9 @@ def select_ends(
     """
 
 def select_less(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Shrink the selection by one point
 
@@ -358,7 +374,9 @@ def select_less(
     """
 
 def select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all points in curves with any point selection
 
@@ -382,7 +400,9 @@ def select_linked_pick(
     """
 
 def select_more(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Grow the selection by one point
 
@@ -409,7 +429,9 @@ def select_random(
     """
 
 def separate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Separate selected geometry into a new object
 
@@ -453,7 +475,11 @@ def snap_curves_to_surface(
         :type attach_mode: typing.Literal['NEAREST','DEFORM'] | None
     """
 
-def split(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def split(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Split selected points
 
     :type execution_context: int | str | None
@@ -476,7 +502,9 @@ def subdivide(
     """
 
 def surface_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Use the active object as surface for selected curves objects and set it as the parent
 
@@ -485,7 +513,9 @@ def surface_set(
     """
 
 def switch_direction(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reverse the direction of the selected curves
 
@@ -494,7 +524,9 @@ def switch_direction(
     """
 
 def tilt_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the tilt of selected control points
 

@@ -16,12 +16,18 @@ from code_loader.contract.visualizer_classes import LeapImage, LeapImageMask, Le
     LeapHorizontalBar, LeapImageWithBBox, LeapImageWithHeatmap
 from code_loader.inner_leap_binder.leapbinder import mapping_runtime_mode_env_var_mame
 
-
+import inspect
+import functools
 
 _called_from_inside_tl_decorator = 0
 
+
 def _add_mapping_connection(user_unique_name, connection_destinations, arg_names, name, node_mapping_type):
+    connection_destinations = [connection_destination for connection_destination in connection_destinations
+                               if not isinstance(connection_destination, SamplePreprocessResponse)]
+
     main_node_mapping = NodeMapping(name, node_mapping_type, user_unique_name, arg_names=arg_names)
+
     node_inputs = {}
     for arg_name, destination in zip(arg_names, connection_destinations):
         node_inputs[arg_name] = destination.node_mapping
@@ -34,11 +40,9 @@ def _add_mapping_connections(connects_to, arg_names, node_mapping_type, name):
         _add_mapping_connection(user_unique_name, connection_destinations, arg_names, name, node_mapping_type)
 
 
-
 def integration_test():
     def decorating_function(integration_test_function: Callable):
         leap_binder.integration_test_func = integration_test_function
-
 
         def inner(*args, **kwargs):
             ret = integration_test_function(*args, **kwargs)
@@ -53,15 +57,9 @@ def integration_test():
                 if mapping_runtime_mode_env_var_mame in os.environ:
                     del os.environ[mapping_runtime_mode_env_var_mame]
 
-
         return inner
 
     return decorating_function
-
-
-
-
-
 
 
 def tensorleap_load_model(prediction_types: Optional[List[PredictionTypeHandler]] = None):
@@ -76,7 +74,8 @@ def tensorleap_load_model(prediction_types: Optional[List[PredictionTypeHandler]
             class ModelPlaceholder:
                 def __init__(self):
                     self.model = load_model_func()
-                #keras interface
+
+                # keras interface
                 def __call__(self, arg):
                     ret = self.model(arg)
                     return ret.numpy()
@@ -85,9 +84,7 @@ def tensorleap_load_model(prediction_types: Optional[List[PredictionTypeHandler]
                 def run(self, output_names, input_dict):
                     return self.model.run(output_names, input_dict)
 
-
             return ModelPlaceholder()
-
 
         def mapping_inner():
             class ModelOutputPlaceholder:
@@ -103,7 +100,7 @@ def tensorleap_load_model(prediction_types: Optional[List[PredictionTypeHandler]
                     return ret
 
             class ModelPlaceholder:
-                #keras interface
+                # keras interface
                 def __call__(self, arg):
                     if isinstance(arg, list):
                         for i, elem in enumerate(arg):
@@ -125,9 +122,6 @@ def tensorleap_load_model(prediction_types: Optional[List[PredictionTypeHandler]
 
             return ModelPlaceholder()
 
-
-
-
         def final_inner():
             if os.environ.get(mapping_runtime_mode_env_var_mame):
                 return mapping_inner()
@@ -139,14 +133,13 @@ def tensorleap_load_model(prediction_types: Optional[List[PredictionTypeHandler]
     return decorating_function
 
 
-
 def tensorleap_custom_metric(name: str,
                              direction: Union[MetricDirection, Dict[str, MetricDirection]] = MetricDirection.Downward,
                              compute_insights: Optional[Union[bool, Dict[str, bool]]] = None,
                              connects_to=None):
     def decorating_function(user_function: Union[CustomCallableInterfaceMultiArgs,
-            CustomMultipleReturnCallableInterfaceMultiArgs,
-            ConfusionMatrixCallableInterfaceMultiArgs]):
+    CustomMultipleReturnCallableInterfaceMultiArgs,
+    ConfusionMatrixCallableInterfaceMultiArgs]):
         for metric_handler in leap_binder.setup_container.metrics:
             if metric_handler.metric_handler_data.name == name:
                 raise Exception(f'Metric with name {name} already exists. '
@@ -185,7 +178,8 @@ def tensorleap_custom_metric(name: str,
                             f'{supported_types_message}Got List[List[{type(single_metric_result[0][0])}]].'
                     else:
                         assert isinstance(single_metric_result[0], (
-                            float, int, type(None))), f'{supported_types_message}Got List[{type(single_metric_result[0])}].'
+                            float, int,
+                            type(None))), f'{supported_types_message}Got List[{type(single_metric_result[0])}].'
                 else:
                     assert isinstance(single_metric_result,
                                       np.ndarray), f'{supported_types_message}Got {type(single_metric_result)}.'
@@ -227,6 +221,7 @@ def tensorleap_custom_metric(name: str,
                         (f'tensorleap_custom_metric validation failed: '
                          f'compute_insights should be boolean. Got {type(compute_insights)}.')
 
+        @functools.wraps(user_function)
         def inner_without_validate(*args, **kwargs):
             global _called_from_inside_tl_decorator
             _called_from_inside_tl_decorator += 1
@@ -237,6 +232,11 @@ def tensorleap_custom_metric(name: str,
                 _called_from_inside_tl_decorator -= 1
 
             return result
+
+        try:
+            inner_without_validate.__signature__ = inspect.signature(user_function)
+        except (TypeError, ValueError):
+            pass
 
         leap_binder.add_custom_metric(inner_without_validate, name, direction, compute_insights)
 
@@ -260,7 +260,7 @@ def tensorleap_custom_metric(name: str,
             ordered_connections = [kwargs[n] for n in mapping_inner.arg_names if n in kwargs]
             ordered_connections = list(args) + ordered_connections
             _add_mapping_connection(user_unique_name, ordered_connections, mapping_inner.arg_names,
-                                    mapping_inner.name,  NodeMappingType.Metric)
+                                    mapping_inner.name, NodeMappingType.Metric)
 
             return None
 
@@ -272,8 +272,6 @@ def tensorleap_custom_metric(name: str,
                 return mapping_inner(*args, **kwargs)
             else:
                 return inner(*args, **kwargs)
-
-
 
         return final_inner
 
@@ -323,7 +321,7 @@ def tensorleap_custom_visualizer(name: str, visualizer_type: LeapDataType,
                 (f'tensorleap_custom_visualizer validation failed: '
                  f'The return type should be {result_type_map[visualizer_type]}. Got {type(result)}.')
 
-
+        @functools.wraps(user_function)
         def inner_without_validate(*args, **kwargs):
             global _called_from_inside_tl_decorator
             _called_from_inside_tl_decorator += 1
@@ -334,6 +332,11 @@ def tensorleap_custom_visualizer(name: str, visualizer_type: LeapDataType,
                 _called_from_inside_tl_decorator -= 1
 
             return result
+
+        try:
+            inner_without_validate.__signature__ = inspect.signature(user_function)
+        except (TypeError, ValueError):
+            pass
 
         leap_binder.set_visualizer(inner_without_validate, name, visualizer_type, heatmap_function)
 
@@ -348,7 +351,6 @@ def tensorleap_custom_visualizer(name: str, visualizer_type: LeapDataType,
 
             _validate_result(result)
             return result
-
 
         def mapping_inner(*args, **kwargs):
             user_unique_name = mapping_inner.name
@@ -423,7 +425,6 @@ def tensorleap_metadata(
 
             return result
 
-
         leap_binder.set_metadata(inner_without_validate, name, metadata_type)
 
         def inner(sample_id, preprocess_response):
@@ -477,7 +478,9 @@ def tensorleap_preprocess():
 
     return decorating_function
 
-def tensorleap_element_instance_preprocess(instance_mask_encoder: Callable[[str, PreprocessResponse], List[ElementInstance]]):
+
+def tensorleap_element_instance_preprocess(
+        instance_mask_encoder: Callable[[str, PreprocessResponse], List[ElementInstance]]):
     def decorating_function(user_function: Callable[[], List[PreprocessResponse]]):
         def user_function_instance() -> List[PreprocessResponse]:
             result = user_function()
@@ -505,6 +508,7 @@ def tensorleap_element_instance_preprocess(instance_mask_encoder: Callable[[str,
 
         def builtin_instance_metadata(idx: str, preprocess: PreprocessResponse) -> Dict[str, str]:
             return {'is_instance': '0', 'original_sample_id': idx, 'instance_name': 'none'}
+
         leap_binder.set_preprocess(user_function_instance)
         leap_binder.set_metadata(builtin_instance_metadata, "builtin_instance_metadata")
 
@@ -524,7 +528,6 @@ def tensorleap_element_instance_preprocess(instance_mask_encoder: Callable[[str,
             assert len(set(result)) == len(result), \
                 (f'tensorleap_element_instance_preprocess validation failed: '
                  f'The return list should not contain duplicate PreprocessResponse objects.')
-
 
         def inner(*args, **kwargs):
             if os.environ.get(mapping_runtime_mode_env_var_mame):
@@ -598,7 +601,6 @@ def tensorleap_instances_masks_encoder(name: str):
 
         leap_binder.set_instance_masks(inner_without_validate, name)
 
-
         def inner(sample_id, preprocess_response):
             if os.environ.get(mapping_runtime_mode_env_var_mame):
                 return None
@@ -611,7 +613,6 @@ def tensorleap_instances_masks_encoder(name: str):
             return result
 
         return inner
-
 
     return decorating_function
 
@@ -663,10 +664,10 @@ def tensorleap_input_encoder(name: str, channel_dim=-1, model_input_index=None):
             node_mapping_type = NodeMappingType(f'Input{str(model_input_index)}')
         inner.node_mapping = NodeMapping(name, node_mapping_type)
 
-
         def mapping_inner(sample_id, preprocess_response):
             class TempMapping:
                 pass
+
             ret = TempMapping()
             ret.node_mapping = mapping_inner.node_mapping
 
@@ -730,6 +731,7 @@ def tensorleap_gt_encoder(name: str):
         def mapping_inner(sample_id, preprocess_response):
             class TempMapping:
                 pass
+
             ret = TempMapping()
             ret.node_mapping = mapping_inner.node_mapping
 
@@ -756,7 +758,6 @@ def tensorleap_custom_loss(name: str, connects_to=None):
             if loss_handler.custom_loss_handler_data.name == name:
                 raise Exception(f'Custom loss with name {name} already exists. '
                                 f'Please choose another')
-
 
         valid_types = (np.ndarray, SamplePreprocessResponse)
         try:
@@ -789,6 +790,7 @@ def tensorleap_custom_loss(name: str, connects_to=None):
                 (f'tensorleap_custom_loss validation failed: '
                  f'The return type should be a numpy array. Got {type(result)}.')
 
+        @functools.wraps(user_function)
         def inner_without_validate(*args, **kwargs):
             global _called_from_inside_tl_decorator
             _called_from_inside_tl_decorator += 1
@@ -799,6 +801,11 @@ def tensorleap_custom_loss(name: str, connects_to=None):
                 _called_from_inside_tl_decorator -= 1
 
             return result
+
+        try:
+            inner_without_validate.__signature__ = inspect.signature(user_function)
+        except (TypeError, ValueError):
+            pass
 
         leap_binder.add_custom_loss(inner_without_validate, name)
 
@@ -826,7 +833,8 @@ def tensorleap_custom_loss(name: str, connects_to=None):
 
             return None
 
-        mapping_inner.arg_names = leap_binder.setup_container.custom_loss_handlers[-1].custom_loss_handler_data.arg_names
+        mapping_inner.arg_names = leap_binder.setup_container.custom_loss_handlers[
+            -1].custom_loss_handler_data.arg_names
         mapping_inner.name = name
 
         def final_inner(*args, **kwargs):
@@ -837,7 +845,6 @@ def tensorleap_custom_loss(name: str, connects_to=None):
 
         final_inner.arg_names = leap_binder.setup_container.custom_loss_handlers[-1].custom_loss_handler_data.arg_names
         final_inner.name = name
-
 
         return final_inner
 

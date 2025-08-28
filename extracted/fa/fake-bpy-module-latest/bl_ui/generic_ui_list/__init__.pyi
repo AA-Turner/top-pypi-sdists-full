@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
 class GenericUIListOperator:
@@ -30,7 +31,7 @@ class GenericUIListOperator:
         :param index:
         """
 
-class UILIST_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
+class UILIST_OT_entry_add(GenericUIListOperator, _bpy_types.Operator):
     """Add an entry to the list after the current active item"""
 
     bl_idname: typing.Any
@@ -59,7 +60,7 @@ class UILIST_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
         :param context:
         """
 
-class UILIST_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
+class UILIST_OT_entry_move(GenericUIListOperator, _bpy_types.Operator):
     """Move an entry in the list up or down"""
 
     bl_idname: typing.Any
@@ -88,7 +89,7 @@ class UILIST_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
         :param context:
         """
 
-class UILIST_OT_entry_remove(GenericUIListOperator, bpy.types.Operator):
+class UILIST_OT_entry_remove(GenericUIListOperator, _bpy_types.Operator):
     """Remove the selected entry from the list"""
 
     bl_idname: typing.Any
@@ -119,7 +120,7 @@ class UILIST_OT_entry_remove(GenericUIListOperator, bpy.types.Operator):
 
 def draw_ui_list(
     layout: bpy.types.UILayout,
-    context: bpy.types.Context,
+    context: _bpy_types.Context,
     class_name: str = "UI_UL_list",
     *,
     unique_id: str,
@@ -135,7 +136,7 @@ def draw_ui_list(
         :param layout: UILayout to draw the list in.
         :type layout: bpy.types.UILayout
         :param context: Blender context to get the list data from.
-        :type context: bpy.types.Context
+        :type context: _bpy_types.Context
         :param class_name: Name of the UIList class to draw. The default is the UIList class that ships with Blender.
         :type class_name: str
         :param unique_id: Unique identifier to differentiate this from other UI lists.

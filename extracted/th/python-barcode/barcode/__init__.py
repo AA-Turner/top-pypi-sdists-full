@@ -3,11 +3,12 @@ It needs no external packages to be installed, the barcodes are
 created as SVG objects. If Pillow is installed, the barcodes can also be
 rendered as images (all formats supported by Pillow).
 """
+from __future__ import annotations
+
 import os
+from typing import TYPE_CHECKING
 from typing import BinaryIO
-from typing import Dict
-from typing import Optional
-from typing import Union
+from typing import overload
 
 from barcode.codabar import CODABAR
 from barcode.codex import PZN
@@ -28,41 +29,62 @@ from barcode.itf import ITF
 from barcode.upc import UPCA
 from barcode.version import version  # noqa: F401
 
-__BARCODE_MAP = {
-    "ean8": EAN8,
-    "ean8-guard": EAN8_GUARD,
+if TYPE_CHECKING:
+    from barcode.base import Barcode
+    from barcode.writer import BaseWriter
+
+__BARCODE_MAP: dict[str, type[Barcode]] = {
+    "codabar": CODABAR,
+    "code128": Code128,
+    "code39": Code39,
+    "ean": EAN13,
     "ean13": EAN13,
     "ean13-guard": EAN13_GUARD,
-    "ean": EAN13,
-    "gtin": EAN14,
     "ean14": EAN14,
+    "ean8": EAN8,
+    "ean8-guard": EAN8_GUARD,
+    "gs1": ISBN13,
+    "gs1_128": Gs1_128,
+    "gtin": EAN14,
+    "isbn": ISBN13,
+    "isbn10": ISBN10,
+    "isbn13": ISBN13,
+    "issn": ISSN,
+    "itf": ITF,
     "jan": JAN,
+    "nw-7": CODABAR,
+    "pzn": PZN,
     "upc": UPCA,
     "upca": UPCA,
-    "isbn": ISBN13,
-    "isbn13": ISBN13,
-    "gs1": ISBN13,
-    "isbn10": ISBN10,
-    "issn": ISSN,
-    "code39": Code39,
-    "pzn": PZN,
-    "code128": Code128,
-    "itf": ITF,
-    "gs1_128": Gs1_128,
-    "codabar": CODABAR,
-    "nw-7": CODABAR,
 }
 
 PROVIDED_BARCODES = list(__BARCODE_MAP)
 PROVIDED_BARCODES.sort()
 
 
+@overload
+def get(
+    name: str, code: str, writer: BaseWriter | None = None, options: dict | None = None
+) -> Barcode:
+    ...
+
+
+@overload
 def get(
     name: str,
-    code: Optional[str] = None,
-    writer=None,
-    options: Optional[dict] = None,
-):
+    code: None = None,
+    writer: BaseWriter | None = None,
+    options: dict | None = None,
+) -> type[Barcode]:
+    ...
+
+
+def get(
+    name: str,
+    code: str | None = None,
+    writer: BaseWriter | None = None,
+    options: dict | None = None,
+) -> Barcode | type[Barcode]:
     """Helper method for getting a generator or even a generated code.
 
     :param name: The name of the type of barcode desired.
@@ -75,6 +97,7 @@ def get(
         generating.
     """
     options = options or {}
+    barcode: type[Barcode]
     try:
         barcode = __BARCODE_MAP[name.lower()]
     except KeyError as e:
@@ -85,18 +108,18 @@ def get(
     return barcode
 
 
-def get_class(name):
+def get_class(name: str) -> type[Barcode]:
     return get_barcode(name)
 
 
 def generate(
     name: str,
     code: str,
-    writer=None,
-    output: Union[str, os.PathLike, BinaryIO, None] = None,
-    writer_options: Union[Dict, None] = None,
-    text: Union[str, None] = None,
-):
+    writer: BaseWriter | None = None,
+    output: str | os.PathLike | BinaryIO | None = None,
+    writer_options: dict | None = None,
+    text: str | None = None,
+) -> str | None:
     """Shortcut to generate a barcode in one line.
 
     :param name: Name of the type of barcode to use.
@@ -109,6 +132,9 @@ def generate(
     """
     from barcode.base import Barcode
 
+    if output is None:
+        raise TypeError("'output' cannot be None")
+
     writer = writer or Barcode.default_writer()
     writer.set_options(writer_options or {})
 
@@ -116,11 +142,12 @@ def generate(
 
     if isinstance(output, str):
         return barcode.save(output, writer_options, text)
-    if output:
-        barcode.write(output, writer_options, text)
+    if isinstance(output, os.PathLike):
+        with open(output, "wb") as fp:
+            barcode.write(fp, writer_options, text)
         return None
-
-    raise TypeError("'output' cannot be None")
+    barcode.write(output, writer_options, text)
+    return None
 
 
 get_barcode = get

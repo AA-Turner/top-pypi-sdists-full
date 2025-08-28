@@ -34,13 +34,13 @@ def load_image(
         :param convert_callback: a function that takes an existing path and returns
     a new one. Use this when loading image formats blender may not support,
     the CONVERT_CALLBACK can take the path for a GIF (for example),
-    convert it to a PNG and return the PNG's path.
+    convert it to a PNG and return the PNGs path.
     For formats blender can read, simply return the path that is given.
         :type convert_callback: typing.Any | None
         :param relpath: If not None, make the file relative to this path.
         :type relpath: None | str | None
         :param check_existing: If true,
-    returns already loaded image datablock if possible
+    returns already loaded image data-block if possible
     (based on file path).
         :type check_existing: bool
         :param force_reload: If true,

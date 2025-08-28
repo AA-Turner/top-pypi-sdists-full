@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: neptune-api
-Version: 0.20.0
+Version: 0.21.0
 Summary: A client library for accessing Neptune API
 License: Apache-2.0
 Keywords: MLOps,ML Experiment Tracking,ML Model Registry,ML Model Store,ML Metadata Store
@@ -29,7 +29,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: PyJWT (>=2.0.0,<3.0.0)
 Requires-Dist: attrs (>=21.3.0)
 Requires-Dist: httpx[http2] (>=0.15.4,<0.28.2)
-Requires-Dist: protobuf (>=3.19.6,<6)
+Requires-Dist: protobuf (>=3.19.6,<7)
 Requires-Dist: python-dateutil (>=2.8.0,<3.0.0)
 Project-URL: Documentation, https://docs.neptune.ai/
 Project-URL: Repository, https://github.com/neptune-ai/neptune-api

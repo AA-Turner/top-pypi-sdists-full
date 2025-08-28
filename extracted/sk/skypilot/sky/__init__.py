@@ -4,8 +4,10 @@ import subprocess
 from typing import Optional
 import urllib.request
 
+from sky.utils import directory_utils
+
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = 'feb007203ab867a23eea218137f427d4bc3f0b36'
+_SKYPILOT_COMMIT_SHA = 'fc35b369a1dc5ff7d00cd42d7e768b8c3df4ba0c'
 
 
 def _get_git_commit():
@@ -35,8 +37,8 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '0.10.1.post1'
-__root_dir__ = os.path.dirname(os.path.abspath(__file__))
+__version__ = '0.10.2'
+__root_dir__ = directory_utils.get_sky_dir()
 
 
 # ---------------------- Proxy Configuration ---------------------- #
@@ -98,6 +100,7 @@ from sky.client.sdk import cancel
 from sky.client.sdk import cost_report
 from sky.client.sdk import down
 from sky.client.sdk import download_logs
+from sky.client.sdk import endpoints
 from sky.client.sdk import exec  # pylint: disable=redefined-builtin
 from sky.client.sdk import get
 from sky.client.sdk import job_status
@@ -194,6 +197,7 @@ __all__ = [
     'down',
     'autostop',
     'cost_report',
+    'endpoints',
     # core APIs Job Management
     'queue',
     'cancel',

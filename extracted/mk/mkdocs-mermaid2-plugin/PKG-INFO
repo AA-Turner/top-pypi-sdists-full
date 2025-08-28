@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mkdocs-mermaid2-plugin
-Version: 1.2.1
+Version: 1.2.2
 Summary: A MkDocs plugin for including mermaid graphs in markdown sources
 Author: Laurent Franceschetti
 License: MIT
@@ -29,6 +29,7 @@ Requires-Dist: mkdocs-macros-test; extra == "test"
 Requires-Dist: mkdocs-material; extra == "test"
 Requires-Dist: packaging; extra == "test"
 Requires-Dist: requests-html; extra == "test"
+Dynamic: license-file
 
 <div align="center">
 

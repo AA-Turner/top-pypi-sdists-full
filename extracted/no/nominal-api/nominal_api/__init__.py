@@ -76,9 +76,10 @@ __all__ = [
     'timeseries_seriescache',
     'timeseries_seriescache_api',
     'upload_api',
+    'usercreation_api',
 ]
 
 __conjure_generator_version__ = "4.17.0"
 
-__version__ = "0.859.0"
+__version__ = "0.862.0"
 

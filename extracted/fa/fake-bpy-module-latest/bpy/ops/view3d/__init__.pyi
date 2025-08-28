@@ -68,7 +68,9 @@ def camera_background_image_remove(
     """
 
 def camera_to_view(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set camera view to active view
 
@@ -77,7 +79,9 @@ def camera_to_view(
     """
 
 def camera_to_view_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move the camera so selected objects are framed
 
@@ -86,7 +90,9 @@ def camera_to_view_selected(
     """
 
 def clear_render_border(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the boundaries of the border render and disable border render
 
@@ -122,7 +128,9 @@ def clip_border(
     """
 
 def copybuffer(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the selected objects to the internal clipboard
 
@@ -203,7 +211,9 @@ def drop_world(
     """
 
 def edit_mesh_extrude_individual_move(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Extrude each individual face separately along local normals
 
@@ -212,7 +222,9 @@ def edit_mesh_extrude_individual_move(
     """
 
 def edit_mesh_extrude_manifold_normal(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Extrude manifold region along normals
 
@@ -236,7 +248,9 @@ def edit_mesh_extrude_move_normal(
     """
 
 def edit_mesh_extrude_move_shrink_fatten(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Extrude region together along local normals
 
@@ -244,7 +258,11 @@ def edit_mesh_extrude_move_shrink_fatten(
     :type undo: bool | None
     """
 
-def fly(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def fly(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Interactively fly around the scene
 
     :type execution_context: int | str | None
@@ -324,7 +342,9 @@ def localview(
     """
 
 def localview_remove_from(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move selected objects out of local view
 
@@ -348,7 +368,9 @@ def move(
     """
 
 def navigate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Interactively navigate around the scene (uses the mode (walk/fly) preference)
 
@@ -357,7 +379,9 @@ def navigate(
     """
 
 def ndof_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Pan and rotate the view with the 3D mouse
 
@@ -366,7 +390,9 @@ def ndof_all(
     """
 
 def ndof_orbit(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Orbit the view using the 3D mouse
 
@@ -375,7 +401,9 @@ def ndof_orbit(
     """
 
 def ndof_orbit_zoom(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Orbit and zoom the view using the 3D mouse
 
@@ -384,7 +412,9 @@ def ndof_orbit_zoom(
     """
 
 def ndof_pan(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Pan the view with the 3D mouse
 
@@ -393,7 +423,9 @@ def ndof_pan(
     """
 
 def object_as_camera(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set the active object as the active camera for this view or scene
 
@@ -402,7 +434,9 @@ def object_as_camera(
     """
 
 def object_mode_pie_or_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -471,7 +505,9 @@ def rotate(
     """
 
 def ruler_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add ruler
 
@@ -480,7 +516,9 @@ def ruler_add(
     """
 
 def ruler_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -675,7 +713,9 @@ def select_menu(
     """
 
 def smoothview(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -684,7 +724,9 @@ def smoothview(
     """
 
 def snap_cursor_to_active(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Snap 3D cursor to the active item
 
@@ -693,7 +735,9 @@ def snap_cursor_to_active(
     """
 
 def snap_cursor_to_center(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Snap 3D cursor to the world origin
 
@@ -702,7 +746,9 @@ def snap_cursor_to_center(
     """
 
 def snap_cursor_to_grid(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Snap 3D cursor to the nearest grid division
 
@@ -711,7 +757,9 @@ def snap_cursor_to_grid(
     """
 
 def snap_cursor_to_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Snap 3D cursor to the middle of the selected item(s)
 
@@ -720,7 +768,9 @@ def snap_cursor_to_selected(
     """
 
 def snap_selected_to_active(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Snap selected item(s) to the active item
 
@@ -747,7 +797,9 @@ def snap_selected_to_cursor(
     """
 
 def snap_selected_to_grid(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Snap selected item(s) to their nearest grid division
 
@@ -756,7 +808,9 @@ def snap_selected_to_grid(
     """
 
 def toggle_matcap_flip(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Flip MatCap
 
@@ -793,7 +847,9 @@ def toggle_shading(
     """
 
 def toggle_xray(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Transparent scene display. Allow selecting through items
 
@@ -871,14 +927,16 @@ def view_axis(
     BACK
     Back -- View from the back.
         :type type: typing.Literal['LEFT','RIGHT','BOTTOM','TOP','FRONT','BACK'] | None
-        :param align_active: Align Active, Align to the active object's axis
+        :param align_active: Align Active, Align to the active objects axis
         :type align_active: bool | None
         :param relative: Relative, Rotate relative to the current orientation
         :type relative: bool | None
     """
 
 def view_camera(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle the camera view
 
@@ -887,7 +945,9 @@ def view_camera(
     """
 
 def view_center_camera(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Center the camera view, resizing the view to fit its bounds
 
@@ -896,7 +956,9 @@ def view_center_camera(
     """
 
 def view_center_cursor(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Center the view so that the cursor is in the middle of the view
 
@@ -905,7 +967,9 @@ def view_center_cursor(
     """
 
 def view_center_lock(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Center the view lock offset
 
@@ -914,7 +978,9 @@ def view_center_lock(
     """
 
 def view_center_pick(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Center the view to the Z-depth position under the mouse cursor
 
@@ -923,7 +989,9 @@ def view_center_pick(
     """
 
 def view_lock_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear all view locking
 
@@ -932,7 +1000,9 @@ def view_lock_clear(
     """
 
 def view_lock_to_active(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Lock the view to the active object/bone
 
@@ -999,7 +1069,9 @@ def view_pan(
     """
 
 def view_persportho(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Switch the current view from perspective/orthographic projection
 
@@ -1049,7 +1121,11 @@ def view_selected(
     :type use_all_regions: bool | None
     """
 
-def walk(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def walk(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Interactively walk around the scene
 
     :type execution_context: int | str | None
@@ -1111,7 +1187,9 @@ def zoom_border(
     """
 
 def zoom_camera_1_to_1(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Match the camera to 1:1 to the render output
 

@@ -144,7 +144,7 @@ def format_where_for_mutation_command(where_clause: str) -> str:
     return f"DELETE WHERE {quoted_condition[1:-1]}"
 
 
-@lru_cache(maxsize=2**13)
+@lru_cache(maxsize=2**15)
 def sql_get_used_tables_cached(
     sql: str,
     raising: bool = False,
@@ -301,7 +301,7 @@ def replacements_to_tuples(replacements: dict) -> dict:
     return parsed_replacements
 
 
-@lru_cache(maxsize=2**13)
+@lru_cache(maxsize=2**15)
 def replace_tables_chquery_cached(
     sql: str,
     sorted_replacements: Optional[tuple] = None,

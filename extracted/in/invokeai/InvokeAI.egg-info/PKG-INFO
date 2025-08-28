@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: InvokeAI
-Version: 6.4.0
+Version: 6.5.0
 Summary: An implementation of Stable Diffusion which provides various new features and options to aid the image generation process
 Author-email: Invoke <support@invoke.ai>
 License:                                  Apache License
@@ -214,7 +214,6 @@ Requires-Dist: bitsandbytes; sys_platform != "darwin"
 Requires-Dist: compel==2.1.1
 Requires-Dist: diffusers[torch]==0.33.0
 Requires-Dist: gguf
-Requires-Dist: invisible-watermark==0.2.0
 Requires-Dist: mediapipe==0.10.14
 Requires-Dist: numpy<2.0.0
 Requires-Dist: onnx==1.16.1
@@ -246,6 +245,7 @@ Requires-Dist: pypatchmatch
 Requires-Dist: python-multipart
 Requires-Dist: requests
 Requires-Dist: semver~=3.0.1
+Requires-Dist: PyWavelets
 Provides-Extra: xformers
 Requires-Dist: xformers>=0.0.28.post1; sys_platform != "darwin" and extra == "xformers"
 Provides-Extra: cpu

@@ -2,12 +2,13 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import bpy_extras.io_utils
 import bpy_extras.object_utils
 
 class IMAGE_OT_convert_to_mesh_plane(
-    TextureProperties_MixIn, MaterialProperties_MixIn, bpy.types.Operator
+    TextureProperties_MixIn, MaterialProperties_MixIn, _bpy_types.Operator
 ):
     """Convert selected reference images to textured mesh plane"""
 
@@ -62,7 +63,7 @@ class IMAGE_OT_import_as_mesh_planes(
     bpy_extras.io_utils.ImportHelper,
     bpy_extras.object_utils.AddObjectHelper,
     MaterialProperties_MixIn,
-    bpy.types.Operator,
+    _bpy_types.Operator,
 ):
     """Create mesh plane(s) from image files with the appropriate aspect ratio"""
 

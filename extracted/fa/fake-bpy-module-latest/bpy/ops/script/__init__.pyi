@@ -37,7 +37,9 @@ def python_file_run(
     """
 
 def reload(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reload scripts
 

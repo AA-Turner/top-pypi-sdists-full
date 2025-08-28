@@ -117,6 +117,140 @@ class RPC:
 
         return response_data
 
+    @log_errors(default_return=None, raise_exception=True, log_error=True)
+    async def async_send_request(
+        self,
+        method,
+        path,
+        headers=None,
+        payload=None,
+        files=None,
+        data=None,
+        timeout=60,
+        raise_exception=True,
+    ):
+        import aiohttp
+        """Send an async HTTP request to the specified endpoint."""
+        self.refresh_token()
+        request_url = f"{self.BASE_URL}{path}"
+        request_url = self.add_project_id(request_url)
+
+        if headers is None:
+            headers = {}
+        if payload is None:
+            payload = {}
+
+        headers["sdk_version"] = self.sdk_version
+        
+        # Set up authorization header like the sync version
+        # First call the auth token to ensure bearer_token is set
+        self.AUTH_TOKEN.set_bearer_token()
+        headers["Authorization"] = self.AUTH_TOKEN.bearer_token
+        
+        response = None
+        response_data = {"success": False, "data": None, "error": None}
+        error_text = None
+        
+        try:
+            timeout_config = aiohttp.ClientTimeout(total=timeout)
+            async with aiohttp.ClientSession(timeout=timeout_config) as session:
+                kwargs = {
+                    'method': method,
+                    'url': request_url,
+                    'headers': headers,
+                    'allow_redirects': True,
+                }
+                
+                if files:
+                    # For file uploads, use data with FormData
+                    form_data = aiohttp.FormData()
+                    for key, value in files.items():
+                        form_data.add_field(key, value)
+                    if payload:
+                        for key, value in payload.items():
+                            form_data.add_field(key, str(value))
+                    kwargs['data'] = form_data
+                elif data:
+                    kwargs['data'] = data
+                elif payload:
+                    kwargs['json'] = payload
+                
+                async with session.request(**kwargs) as response:
+                    response.raise_for_status()
+                    response_data = await response.json()
+                    
+        except Exception as e:
+            try:
+                response_text = await response.text() if response else "No response"
+            except Exception:
+                response_text = "No response"
+
+            try:
+                response_status_code = response.status if response else "failed to get status code"
+            except Exception:
+                response_status_code = "failed to get status code"
+
+            error_text = f"""
+                Error in api call
+                request:{payload}
+                url:{request_url}
+                response:{response_text}
+                status_code:{response_status_code}
+                exception:{str(e)}
+                """
+            if raise_exception:
+                raise Exception(error_text)
+
+        return response_data
+
+    async def get_async(self, path, params=None, timeout=60, raise_exception=True):
+        """Send an async GET request to the specified endpoint."""
+        return await self.async_send_request("GET", path, payload=params or {}, timeout=timeout, raise_exception=raise_exception)
+
+    async def post_async(
+        self,
+        path,
+        payload=None,
+        headers=None,
+        files=None,
+        data=None,
+        timeout=60,
+        raise_exception=True,
+    ):
+        """Send an async POST request to the specified endpoint."""
+        return await self.async_send_request(
+            "POST",
+            path,
+            headers=headers or {},
+            payload=payload or {},
+            files=files,
+            data=data,
+            timeout=timeout,
+            raise_exception=raise_exception,
+        )
+
+    async def put_async(self, path, payload=None, headers=None, timeout=60, raise_exception=True):
+        """Send an async PUT request to the specified endpoint."""
+        return await self.async_send_request(
+            "PUT",
+            path,
+            headers=headers or {},
+            payload=payload or {},
+            timeout=timeout,
+            raise_exception=raise_exception,
+        )
+
+    async def delete_async(self, path, payload=None, headers=None, timeout=60, raise_exception=True):
+        """Send an async DELETE request to the specified endpoint."""
+        return await self.async_send_request(
+            "DELETE",
+            path,
+            headers=headers or {},
+            payload=payload or {},
+            timeout=timeout,
+            raise_exception=raise_exception,
+        )
+
     def get(self, path, params=None, timeout=60, raise_exception=True):
         """Send a GET request to the specified endpoint."""
         return self.send_request("GET", path, payload=params or {}, timeout=timeout, raise_exception=raise_exception)

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 class ResponseTool(BaseTool):
     """
     Protocol for handling responses within environments.
-    
+
     This abstract tool defines the interface for response handling in environments.
     Subclasses should implement the __call__ method to handle responses according
     to their specific needs.
@@ -36,18 +36,22 @@ class ResponseTool(BaseTool):
                 return blocks
     """
 
-    def __init__(self, name: str, title: str, description: str):
+    name: str = "response"
+    title: str = "Response Tool"
+    description: str = "Send a text response or list of messages to the environment"
+
+    def __init__(
+        self, name: str | None = None, title: str | None = None, description: str | None = None
+    ) -> None:
         super().__init__(
-            name=name or "response",
-            title=title or "Response Tool",
-            description=description or "Send a text response or list of messages to the environment",
+            name=name or self.name,
+            title=title or self.title,
+            description=description or self.description,
         )
 
     @abstractmethod
     async def __call__(
-        self,
-        response: str | None = None,
-        messages: list[ContentBlock] | None = None
+        self, response: str | None = None, messages: list[ContentBlock] | None = None
     ) -> list[ContentBlock]:
         """Handle response or messages and return as ContentBlocks.
 

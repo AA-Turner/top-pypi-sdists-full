@@ -23,7 +23,9 @@ def add_marker(
     """
 
 def add_marker_at_click(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Place new marker at the desired (clicked) position
 
@@ -98,7 +100,9 @@ def average_tracks(
     """
 
 def bundles_to_mesh(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create vertex cloud using coordinates of reconstructed tracks
 
@@ -177,7 +181,9 @@ def clean_tracks(
     """
 
 def clear_solution(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear all calculated data
 
@@ -213,16 +219,20 @@ def clear_track_path(
     """
 
 def constraint_to_fcurve(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Create F-Curves for object which will copy object's movement caused by this constraint
+    """Create F-Curves for object which will copy objects movement caused by this constraint
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
 def copy_tracks(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the selected tracks to the internal clipboard
 
@@ -231,7 +241,9 @@ def copy_tracks(
     """
 
 def create_plane_track(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create new plane track out of selected point tracks
 
@@ -270,7 +282,9 @@ def delete_marker(
     """
 
 def delete_proxy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete movie clip proxy files from the hard drive
 
@@ -370,7 +384,9 @@ def dopesheet_select_channel(
     """
 
 def dopesheet_view_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset viewable area to show full keyframe range
 
@@ -422,7 +438,9 @@ def frame_jump(
     """
 
 def graph_center_current_frame(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Scroll view so current frame would be centered
 
@@ -446,7 +464,9 @@ def graph_delete_curve(
     """
 
 def graph_delete_knot(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete curve knots
 
@@ -557,7 +577,9 @@ def graph_select_box(
     """
 
 def graph_view_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """View all curves in editor
 
@@ -581,7 +603,9 @@ def hide_tracks(
     """
 
 def hide_tracks_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear hide selected tracks
 
@@ -590,7 +614,9 @@ def hide_tracks_clear(
     """
 
 def join_tracks(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Join selected tracks
 
@@ -599,7 +625,9 @@ def join_tracks(
     """
 
 def keyframe_delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete a keyframe from selected tracks at current frame
 
@@ -608,7 +636,9 @@ def keyframe_delete(
     """
 
 def keyframe_insert(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Insert a keyframe to selected tracks at current frame
 
@@ -617,7 +647,9 @@ def keyframe_insert(
     """
 
 def lock_selection_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle Lock Selection option of the current clip editor
 
@@ -665,7 +697,9 @@ def mode_set(
     """
 
 def new_image_from_plane_marker(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create new image from the content of the plane marker
 
@@ -806,7 +840,9 @@ def open(
     """
 
 def paste_tracks(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Paste tracks from the internal clipboard
 
@@ -815,7 +851,9 @@ def paste_tracks(
     """
 
 def prefetch(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Prefetch frames from disk for faster playback/tracking
 
@@ -824,7 +862,9 @@ def prefetch(
     """
 
 def rebuild_proxy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Rebuild all selected proxies and timecode indices in the background
 
@@ -839,7 +879,7 @@ def refine_markers(
     *,
     backwards: bool | None = False,
 ) -> None:
-    """Refine selected markers positions by running the tracker from track's reference to current frame
+    """Refine selected markers positions by running the tracker from tracks reference to current frame
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -848,7 +888,9 @@ def refine_markers(
     """
 
 def reload(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reload clip
 
@@ -1055,7 +1097,9 @@ def select_lasso(
     """
 
 def set_active_clip(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Undocumented, consider contributing.
 
@@ -1136,9 +1180,11 @@ def set_scale(
     """
 
 def set_scene_frames(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Set scene's start and end frame to match clip's start frame and length
+    """Set scenes start and end frame to match clips start frame and length
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -1175,7 +1221,9 @@ def set_solver_keyframe(
     """
 
 def set_viewport_background(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set current movie clip as a camera background in 3D Viewport (works only when a 3D Viewport is visible)
 
@@ -1184,7 +1232,9 @@ def set_viewport_background(
     """
 
 def setup_tracking_scene(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Prepare scene for compositing 3D objects into this footage
 
@@ -1208,7 +1258,9 @@ def slide_marker(
     """
 
 def slide_plane_marker(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Slide plane marker areas
 
@@ -1217,7 +1269,9 @@ def slide_plane_marker(
     """
 
 def solve_camera(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Solve camera motion from tracks
 
@@ -1226,7 +1280,9 @@ def solve_camera(
     """
 
 def stabilize_2d_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add selected tracks to 2D translation stabilization
 
@@ -1235,7 +1291,9 @@ def stabilize_2d_add(
     """
 
 def stabilize_2d_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected track from translation stabilization
 
@@ -1244,7 +1302,9 @@ def stabilize_2d_remove(
     """
 
 def stabilize_2d_rotation_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add selected tracks to 2D rotation stabilization
 
@@ -1253,7 +1313,9 @@ def stabilize_2d_rotation_add(
     """
 
 def stabilize_2d_rotation_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected track from rotation stabilization
 
@@ -1262,7 +1324,9 @@ def stabilize_2d_rotation_remove(
     """
 
 def stabilize_2d_rotation_select(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select tracks which are used for rotation stabilization
 
@@ -1271,7 +1335,9 @@ def stabilize_2d_rotation_select(
     """
 
 def stabilize_2d_select(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select tracks which are used for translation stabilization
 
@@ -1301,7 +1367,9 @@ def track_color_preset_add(
     """
 
 def track_copy_color(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy color to all selected tracks
 
@@ -1328,7 +1396,9 @@ def track_markers(
     """
 
 def track_settings_as_default(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy tracking settings from active track to default settings
 
@@ -1337,7 +1407,9 @@ def track_settings_as_default(
     """
 
 def track_settings_to_track(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy tracking settings from active track to selected tracks
 
@@ -1346,7 +1418,9 @@ def track_settings_to_track(
     """
 
 def track_to_empty(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create an Empty object which will be copying movement of active track
 
@@ -1355,7 +1429,9 @@ def track_to_empty(
     """
 
 def tracking_object_new(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add new object for tracking
 
@@ -1364,7 +1440,9 @@ def tracking_object_new(
     """
 
 def tracking_object_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove object for tracking
 
@@ -1394,7 +1472,9 @@ def tracking_settings_preset_add(
     """
 
 def update_image_from_plane_marker(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Update current image used by plane marker from the content of the plane marker
 
@@ -1418,7 +1498,9 @@ def view_all(
     """
 
 def view_center_cursor(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Center the view so that the cursor is in the middle of the view
 
@@ -1427,7 +1509,9 @@ def view_center_cursor(
     """
 
 def view_ndof(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Use a 3D mouse device to pan/zoom the view
 
@@ -1451,7 +1535,9 @@ def view_pan(
     """
 
 def view_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """View all selected elements
 

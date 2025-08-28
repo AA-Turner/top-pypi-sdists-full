@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 import sqlglot
-from more_itertools import partition
 from prettytable import PrettyTable
 from sqlglot import Dialect, maybe_parse
 from sqlglot import expressions as exp
@@ -543,22 +542,15 @@ class BaseDataFrame(t.Generic[SESSION, WRITER, NA, STAT, GROUP_DATA]):
         return expression
 
     @classmethod
-    def _get_outer_select_expressions(
-        cls, item: exp.Expression
-    ) -> t.List[t.Union[exp.Column, exp.Alias]]:
-        outer_select = item.find(exp.Select)
-        if outer_select:
-            return outer_select.expressions
-        return []
-
-    @classmethod
     def _get_outer_select_columns(cls, item: exp.Expression) -> t.List[Column]:
         from sqlframe.base.session import _BaseSession
 
         col = get_func_from_session("col", _BaseSession())
 
-        outer_expressions = cls._get_outer_select_expressions(item)
-        return [col(quote_preserving_alias_or_name(x)) for x in outer_expressions]
+        outer_select = item.find(exp.Select)
+        if outer_select:
+            return [col(quote_preserving_alias_or_name(x)) for x in outer_select.expressions]
+        return []
 
     def _create_hash_from_expression(self, expression: exp.Expression) -> str:
         from sqlframe.base.session import _BaseSession
@@ -1512,23 +1504,20 @@ class BaseDataFrame(t.Generic[SESSION, WRITER, NA, STAT, GROUP_DATA]):
         """
         return func(self, *args, **kwargs)  # type: ignore
 
-    @operation(Operation.SELECT_CONSTRAINED)
+    @operation(Operation.SELECT)
     def withColumn(self, colName: str, col: Column) -> Self:
         return self.withColumns.__wrapped__(self, {colName: col})  # type: ignore
 
-    @operation(Operation.SELECT_CONSTRAINED)
+    @operation(Operation.SELECT)
     def withColumnRenamed(self, existing: str, new: str) -> Self:
-        col_func = get_func_from_session("col", self.session)
         expression = self.expression.copy()
         existing = self.session._normalize_string(existing)
-        outer_expressions = self._get_outer_select_expressions(expression)
+        columns = self._get_outer_select_columns(expression)
         results = []
         found_match = False
-        for expr in outer_expressions:
-            column = col_func(expr.copy())
-            if existing == quote_preserving_alias_or_name(expr):
-                if isinstance(column.expression, exp.Alias):
-                    column.expression.set("alias", exp.to_identifier(new))
+        for column in columns:
+            if column.alias_or_name == existing:
+                column = column.alias(new)
                 self._update_display_name_mapping([column], [new])
                 found_match = True
             results.append(column)
@@ -1536,7 +1525,7 @@ class BaseDataFrame(t.Generic[SESSION, WRITER, NA, STAT, GROUP_DATA]):
             raise ValueError("Tried to rename a column that doesn't exist")
         return self.select.__wrapped__(self, *results, skip_update_display_name_mapping=True)  # type: ignore
 
-    @operation(Operation.SELECT_CONSTRAINED)
+    @operation(Operation.SELECT)
     def withColumnsRenamed(self, colsMap: t.Dict[str, str]) -> Self:
         """
         Returns a new :class:`DataFrame` by renaming multiple columns. If a non-existing column is
@@ -1582,7 +1571,7 @@ class BaseDataFrame(t.Generic[SESSION, WRITER, NA, STAT, GROUP_DATA]):
 
         return self.select.__wrapped__(self, *results, skip_update_display_name_mapping=True)  # type: ignore
 
-    @operation(Operation.SELECT_CONSTRAINED)
+    @operation(Operation.SELECT)
     def withColumns(self, *colsMap: t.Dict[str, Column]) -> Self:
         """
         Returns a new :class:`DataFrame` by adding multiple columns or replacing the
@@ -1620,14 +1609,13 @@ class BaseDataFrame(t.Generic[SESSION, WRITER, NA, STAT, GROUP_DATA]):
         """
         if len(colsMap) != 1:
             raise ValueError("Only a single map is supported")
-        col_func = get_func_from_session("col")
         col_map = {
             self._ensure_and_normalize_col(k): (self._ensure_and_normalize_col(v), k)
             for k, v in colsMap[0].items()
         }
-        existing_expr = self._get_outer_select_expressions(self.expression)
-        existing_col_names = [x.alias_or_name for x in existing_expr]
-        select_columns = [col_func(x) for x in existing_expr]
+        existing_cols = self._get_outer_select_columns(self.expression)
+        existing_col_names = [x.alias_or_name for x in existing_cols]
+        select_columns = existing_cols
         for col, (col_value, display_name) in col_map.items():
             column_name = col.alias_or_name
             existing_col_index = (
@@ -1644,7 +1632,7 @@ class BaseDataFrame(t.Generic[SESSION, WRITER, NA, STAT, GROUP_DATA]):
         )
         return self.select.__wrapped__(self, *select_columns, skip_update_display_name_mapping=True)  # type: ignore
 
-    @operation(Operation.SELECT_CONSTRAINED)
+    @operation(Operation.SELECT)
     def drop(self, *cols: t.Union[str, Column]) -> Self:
         # Separate string column names from Column objects for different handling
         column_objs, column_names = partition_to(lambda x: isinstance(x, str), cols, list, set)

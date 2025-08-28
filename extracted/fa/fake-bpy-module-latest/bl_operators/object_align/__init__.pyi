@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class AlignObjects(bpy.types.Operator):
+class AlignObjects(_bpy_types.Operator):
     """Align objects"""
 
     bl_idname: typing.Any

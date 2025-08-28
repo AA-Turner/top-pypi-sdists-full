@@ -1,16 +1,25 @@
 """Plugin main implementation logic."""
 from collections.abc import Iterable
 from contextlib import ExitStack, contextmanager
+from itertools import count
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 import pytest
 
-from pytest_durations.helpers import _get_fixture_key, _get_test_key, _is_shared_fixture
+from pytest_durations.helpers import (
+    get_fixture_grouping_func,
+    get_fixture_key,
+    get_grouped_measurements,
+    get_test_grouping_func,
+    get_test_key,
+    is_shared_fixture,
+)
 from pytest_durations.measure import MeasureDuration
 from pytest_durations.options import DEFAULT_RESULT_LOG
 from pytest_durations.reporting import get_report_max_widths, get_report_rows
 from pytest_durations.ticker import get_current_ticks
+from pytest_durations.types import Category
 
 if TYPE_CHECKING:
     from _pytest.config import Config, ExitCode
@@ -18,56 +27,38 @@ if TYPE_CHECKING:
     from _pytest.nodes import Item
     from _pytest.terminal import TerminalReporter
 
-    from pytest_durations.types import MeasurementsT
-
-
-class Category:
-    """Measurement category constants."""
-
-    __slots__ = ()
-    FIXTURE_SETUP = "fixture"
-    TEST_CALL = "test"
-    TEST_SETUP = "setup"
-    TEST_TEARDOWN = "teardown"
-
-    @classmethod
-    def report_items(cls) -> Iterable[tuple[str, str]]:
-        """Return report section titles."""
-        yield cls.FIXTURE_SETUP, "fixture"
-        yield cls.TEST_CALL, "test call"
-        yield cls.TEST_SETUP, "test setup"
-        yield cls.TEST_TEARDOWN, "test teardown"
+    from pytest_durations.typing import CategoryMeasurementsT, FunctionKeyT
 
 
 class PytestDurationPlugin:
     """Main plugin implementation to measure test and fixture function durations."""
 
-    measurements: "MeasurementsT"
+    measurements: "CategoryMeasurementsT"
     shared_fixture_duration: float
     last_fixture_teardown_start: float
 
     def __init__(self):
         super().__init__()
-        self.measurements = {category: {} for category, _ in Category.report_items()}
+        self.measurements = {category: {} for category in Category}
         self.shared_fixture_duration = 0.0
         self.last_fixture_teardown_start = 0.0
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_fixture_setup(self, fixturedef: "FixtureDef", request: "SubRequest") -> Optional[Any]:
         """Measure fixture setup execution duration."""
-        fixture_key = _get_fixture_key(fixturedef)
+        fixture_key = get_fixture_key(fixturedef=fixturedef, item=request.node)
 
         with self._measure(Category.FIXTURE_SETUP, fixture_key) as measurement:
             yield
 
-        if _is_shared_fixture(fixturedef):
+        if is_shared_fixture(fixturedef):
             # for shared fixtures, store their last setup duration
             self.shared_fixture_duration += measurement.duration
 
     def pytest_fixture_post_finalizer(self, fixturedef: "FixtureDef", request: "SubRequest") -> None:
         """Calculate fixture teardown execution duration."""
         teardown_end = get_current_ticks()
-        if _is_shared_fixture(fixturedef):
+        if is_shared_fixture(fixturedef):
             # for shared scope fixture teardowns, store their last duration
             duration = teardown_end - self.last_fixture_teardown_start
             self.shared_fixture_duration += duration
@@ -77,7 +68,7 @@ class PytestDurationPlugin:
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_call(self, item: "Item") -> None:
         """Measure test execution duration."""
-        with self._measure(Category.TEST_CALL, _get_test_key(item)):
+        with self._measure(Category.TEST_CALL, get_test_key(item)):
             yield
 
     @pytest.hookimpl(hookwrapper=True)
@@ -86,7 +77,7 @@ class PytestDurationPlugin:
 
         Excludes time taken by setting up of shared fixtures.
         """
-        with self._measure(Category.TEST_SETUP, _get_test_key(item)) as measurement:
+        with self._measure(Category.TEST_SETUP, get_test_key(item)) as measurement:
             yield
             # subtract time taken by shared fixture initializations (if any)
             measurement.duration -= self.shared_fixture_duration
@@ -98,7 +89,7 @@ class PytestDurationPlugin:
 
         Excludes time taken by tearing down of shared fixtures.
         """
-        with self._measure(Category.TEST_TEARDOWN, _get_test_key(item)) as measurement:
+        with self._measure(Category.TEST_TEARDOWN, get_test_key(item)) as measurement:
             self.last_fixture_teardown_start = get_current_ticks()
             yield
             # subtract time taken by shared fixture finalizations (if any)
@@ -112,7 +103,7 @@ class PytestDurationPlugin:
         config: "Config",
     ) -> None:
         """Write the measured time to a terminal reporter or to a file."""
-        result_log = config.getoption("--pytest-resultlog")
+        result_log = config.getoption("--pytest-durations-log")
         with ExitStack() as stack:
             if result_log != DEFAULT_RESULT_LOG:
                 result_log_fp = stack.enter_context(Path(result_log).open(mode="a"))
@@ -126,23 +117,34 @@ class PytestDurationPlugin:
         durations_min = config.getoption("--pytest-durations-min")
         reports = []
         widths = [0] * 5
-        for category, name in Category.report_items():
-            category_report_rows = get_report_rows(
+        group_by = config.getoption("--pytest-durations-group-by")
+        test_grouping_func = get_test_grouping_func(group_by=group_by)
+        fixture_grouping_func = get_fixture_grouping_func(group_by=group_by)
+        for category in Category:
+            grouping_func = test_grouping_func if category is not Category.FIXTURE_SETUP else fixture_grouping_func
+            category_measurements = get_grouped_measurements(
+                grouping_func=grouping_func,
                 measurements=self.measurements[category],
+            )
+            category_report_rows = get_report_rows(
+                measurements=category_measurements,
                 duration_min=durations_min,
                 durations=durations,
             )
-            reports.append((f"{name} duration top", category_report_rows))
+            reports.append((f"{category} duration top", category_report_rows))
             widths = [max(*a) for a in zip(widths, get_report_max_widths(category_report_rows))]
         fullwidth = max(fullwidth, sum(widths) + len(widths) - 1)
         for section_name, category_report_rows in reports:
             terminalreporter.write_sep(sep="=", title=section_name, fullwidth=fullwidth)
             for idx, row in enumerate(category_report_rows):
-                content = " ".join(f"{col: {'>' if idx else '<'}{width}}" for col, width in zip(row, widths))
+                content = " ".join(
+                    f"{col:{'>' if idx and c else '<'}{width}}"  # align columns right except test name column
+                    for col, width, c in zip(row, widths, count(-1))
+                )
                 terminalreporter.line(content)
 
     @contextmanager
-    def _measure(self, category: str, key: str) -> Iterable["MeasureDuration"]:
+    def _measure(self, category: "Category", key: "FunctionKeyT") -> Iterable["MeasureDuration"]:
         """Measure wrapping block exeution time and put it into a dict."""
         measurements = self.measurements[category]
 

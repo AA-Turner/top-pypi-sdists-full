@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class PHYSICS_PT_rigid_body(PHYSICS_PT_rigidbody_panel, bpy.types.Panel):
+class PHYSICS_PT_rigid_body(PHYSICS_PT_rigidbody_panel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -40,7 +41,7 @@ class PHYSICS_PT_rigid_body(PHYSICS_PT_rigidbody_panel, bpy.types.Panel):
         :param context:
         """
 
-class PHYSICS_PT_rigid_body_collisions(PHYSICS_PT_rigidbody_panel, bpy.types.Panel):
+class PHYSICS_PT_rigid_body_collisions(PHYSICS_PT_rigidbody_panel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -78,7 +79,7 @@ class PHYSICS_PT_rigid_body_collisions(PHYSICS_PT_rigidbody_panel, bpy.types.Pan
         """
 
 class PHYSICS_PT_rigid_body_collisions_collections(
-    PHYSICS_PT_rigidbody_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -118,7 +119,7 @@ class PHYSICS_PT_rigid_body_collisions_collections(
         """
 
 class PHYSICS_PT_rigid_body_collisions_sensitivity(
-    PHYSICS_PT_rigidbody_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -158,7 +159,7 @@ class PHYSICS_PT_rigid_body_collisions_sensitivity(
         """
 
 class PHYSICS_PT_rigid_body_collisions_surface(
-    PHYSICS_PT_rigidbody_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -197,7 +198,7 @@ class PHYSICS_PT_rigid_body_collisions_surface(
         :param context:
         """
 
-class PHYSICS_PT_rigid_body_dynamics(PHYSICS_PT_rigidbody_panel, bpy.types.Panel):
+class PHYSICS_PT_rigid_body_dynamics(PHYSICS_PT_rigidbody_panel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -236,7 +237,7 @@ class PHYSICS_PT_rigid_body_dynamics(PHYSICS_PT_rigidbody_panel, bpy.types.Panel
         """
 
 class PHYSICS_PT_rigid_body_dynamics_deactivation(
-    PHYSICS_PT_rigidbody_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -281,7 +282,7 @@ class PHYSICS_PT_rigid_body_dynamics_deactivation(
         :param context:
         """
 
-class PHYSICS_PT_rigid_body_settings(PHYSICS_PT_rigidbody_panel, bpy.types.Panel):
+class PHYSICS_PT_rigid_body_settings(PHYSICS_PT_rigidbody_panel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any

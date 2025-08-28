@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     GetDataPlaneJobQueueRequest,
     GetDataPlaneJobQueueResponse,
+    GetJobQueueAuxiliaryResourcesRequest,
+    GetJobQueueAuxiliaryResourcesResponse,
     ListDataPlaneJobQueueRequest,
     ListDataPlaneJobQueueResponse,
 )
@@ -30,6 +32,10 @@ class DataPlaneJobQueueServiceStub:
         ListDataPlaneJobQueueRequest,
         ListDataPlaneJobQueueResponse,
     ]
+    GetJobQueueAuxiliaryResources: UnaryUnaryMultiCallable[
+        GetJobQueueAuxiliaryResourcesRequest,
+        GetJobQueueAuxiliaryResourcesResponse,
+    ]
 
 class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,6 +50,12 @@ class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
         request: ListDataPlaneJobQueueRequest,
         context: ServicerContext,
     ) -> ListDataPlaneJobQueueResponse: ...
+    @abstractmethod
+    def GetJobQueueAuxiliaryResources(
+        self,
+        request: GetJobQueueAuxiliaryResourcesRequest,
+        context: ServicerContext,
+    ) -> GetJobQueueAuxiliaryResourcesResponse: ...
 
 def add_DataPlaneJobQueueServiceServicer_to_server(
     servicer: DataPlaneJobQueueServiceServicer, server: Server

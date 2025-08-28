@@ -125,6 +125,12 @@ class TestBigQuery(Validator):
         self.validate_identity("""CREATE TABLE x (a STRUCT<b STRING OPTIONS (description='b')>)""")
         self.validate_identity("CAST(x AS TIMESTAMP)")
         self.validate_identity("BEGIN DECLARE y INT64", check_command_warning=True)
+        self.validate_identity("LOOP SET x = x + 1", check_command_warning=True)
+        self.validate_identity("REPEAT SET x = x + 1", check_command_warning=True)
+        self.validate_identity(
+            "WHILE i < ARRAY_LENGTH(batches) DO SET x = batches[OFFSET(i)]",
+            check_command_warning=True,
+        )
         self.validate_identity("BEGIN TRANSACTION")
         self.validate_identity("COMMIT TRANSACTION")
         self.validate_identity("ROLLBACK TRANSACTION")
@@ -1719,11 +1725,6 @@ WHERE
         )
 
         self.validate_identity(
-            "SELECT * FROM ML.FEATURES_AT_TIME(TABLE mydataset.feature_table, time => '2022-06-11 10:00:00+00', num_rows => 1, ignore_feature_nulls => TRUE)"
-        )
-        self.validate_identity("SELECT * FROM ML.FEATURES_AT_TIME((SELECT 1), num_rows => 1)")
-
-        self.validate_identity(
             "EXPORT DATA OPTIONS (URI='gs://path*.csv.gz', FORMAT='CSV') AS SELECT * FROM all_rows"
         )
         self.validate_identity(
@@ -1782,6 +1783,18 @@ WHERE
         self.validate_identity("BYTE_LENGTH('foo')")
         self.validate_identity("BYTE_LENGTH(b'foo')")
         self.validate_identity("CODE_POINTS_TO_STRING([65, 255])")
+        self.validate_identity("APPROX_TOP_COUNT(col, 2)")
+        self.validate_identity("ARPOX_TOP_SUM(col, 1.5, 2)")
+        self.validate_identity("SAFE_CONVERT_BYTES_TO_STRING(b'\xc2')")
+        self.validate_identity("FROM_HEX('foo')")
+        self.validate_identity("TO_CODE_POINTS('foo')")
+        self.validate_identity("CODE_POINTS_TO_BYTES([65, 98])")
+        self.validate_identity("PARSE_BIGNUMERIC('1.2')")
+        self.validate_identity("PARSE_NUMERIC('1.2')")
+        self.validate_identity("BOOL(PARSE_JSON('true'))")
+        self.validate_identity("FLOAT64(PARSE_JSON('9.8'))")
+        self.validate_identity("FLOAT64(PARSE_JSON('9.8'), wide_number_mode => 'round')")
+        self.validate_identity("FLOAT64(PARSE_JSON('9.8'), wide_number_mode => 'exact')")
 
     def test_errors(self):
         with self.assertRaises(ParseError):
@@ -1991,24 +2004,6 @@ WHERE
 
     def test_models(self):
         self.validate_identity(
-            "SELECT * FROM ML.PREDICT(MODEL mydataset.mymodel, (SELECT label, column1, column2 FROM mydataset.mytable))"
-        )
-        self.validate_identity(
-            "SELECT label, predicted_label1, predicted_label AS predicted_label2 FROM ML.PREDICT(MODEL mydataset.mymodel2, (SELECT * EXCEPT (predicted_label), predicted_label AS predicted_label1 FROM ML.PREDICT(MODEL mydataset.mymodel1, TABLE mydataset.mytable)))"
-        )
-        self.validate_identity(
-            "SELECT * FROM ML.PREDICT(MODEL mydataset.mymodel, (SELECT custom_label, column1, column2 FROM mydataset.mytable), STRUCT(0.55 AS threshold))"
-        )
-        self.validate_identity(
-            "SELECT * FROM ML.PREDICT(MODEL `my_project`.my_dataset.my_model, (SELECT * FROM input_data))"
-        )
-        self.validate_identity(
-            "SELECT * FROM ML.PREDICT(MODEL my_dataset.vision_model, (SELECT uri, ML.RESIZE_IMAGE(ML.DECODE_IMAGE(data), 480, 480, FALSE) AS input FROM my_dataset.object_table))"
-        )
-        self.validate_identity(
-            "SELECT * FROM ML.PREDICT(MODEL my_dataset.vision_model, (SELECT uri, ML.CONVERT_COLOR_SPACE(ML.RESIZE_IMAGE(ML.DECODE_IMAGE(data), 224, 280, TRUE), 'YIQ') AS input FROM my_dataset.object_table WHERE content_type = 'image/jpeg'))"
-        )
-        self.validate_identity(
             "CREATE OR REPLACE MODEL foo OPTIONS (model_type='linear_reg') AS SELECT bla FROM foo WHERE cond"
         )
         self.validate_identity(
@@ -2044,6 +2039,56 @@ OPTIONS (
   ENDPOINT='https://us-central1-aiplatform.googleapis.com/v1/projects/myproject/locations/us-central1/endpoints/1234'
 )""",
             pretty=True,
+        )
+
+    def test_ml_functions(self):
+        ast = self.validate_identity(
+            "SELECT * FROM ML.PREDICT(MODEL mydataset.mymodel, (SELECT label, column1, column2 FROM mydataset.mytable))"
+        )
+        assert ast.find(exp.Predict)
+
+        self.validate_identity(
+            "SELECT label, predicted_label1, predicted_label AS predicted_label2 FROM ML.PREDICT(MODEL mydataset.mymodel2, (SELECT * EXCEPT (predicted_label), predicted_label AS predicted_label1 FROM ML.PREDICT(MODEL mydataset.mymodel1, TABLE mydataset.mytable)))"
+        )
+        self.validate_identity(
+            "SELECT * FROM ML.PREDICT(MODEL mydataset.mymodel, (SELECT custom_label, column1, column2 FROM mydataset.mytable), STRUCT(0.55 AS threshold))"
+        )
+        self.validate_identity(
+            "SELECT * FROM ML.PREDICT(MODEL `my_project`.my_dataset.my_model, (SELECT * FROM input_data))"
+        )
+        self.validate_identity(
+            "SELECT * FROM ML.PREDICT(MODEL my_dataset.vision_model, (SELECT uri, ML.RESIZE_IMAGE(ML.DECODE_IMAGE(data), 480, 480, FALSE) AS input FROM my_dataset.object_table))"
+        )
+        self.validate_identity(
+            "SELECT * FROM ML.PREDICT(MODEL my_dataset.vision_model, (SELECT uri, ML.CONVERT_COLOR_SPACE(ML.RESIZE_IMAGE(ML.DECODE_IMAGE(data), 224, 280, TRUE), 'YIQ') AS input FROM my_dataset.object_table WHERE content_type = 'image/jpeg'))"
+        )
+
+        ast = self.validate_identity(
+            "SELECT * FROM ML.GENERATE_EMBEDDING(MODEL mydataset.mymodel, (SELECT label, column1, column2 FROM mydataset.mytable))"
+        )
+        assert ast.find(exp.GenerateEmbedding)
+        self.validate_identity(
+            "SELECT * FROM ML.GENERATE_EMBEDDING(MODEL mydataset.mymodel, TABLE mydataset.mytable, STRUCT(TRUE AS flatten_json_output))"
+        )
+
+        ast = self.validate_identity("SELECT * FROM ML.FEATURES_AT_TIME((SELECT 1), num_rows => 1)")
+        assert ast.find(exp.FeaturesAtTime)
+        self.validate_identity(
+            "SELECT * FROM ML.FEATURES_AT_TIME(TABLE mydataset.feature_table, time => '2022-06-11 10:00:00+00', num_rows => 1, ignore_feature_nulls => TRUE)"
+        )
+
+        ast = self.validate_identity(
+            "SELECT * FROM VECTOR_SEARCH(TABLE mydataset.base_table, 'column_to_search', TABLE mydataset.query_table, 'query_column_to_search', top_k => 2, distance_type => 'cosine', options => '{\"fraction_lists_to_search\":0.15}')"
+        )
+        assert ast.find(exp.VectorSearch)
+        self.validate_identity(
+            "SELECT * FROM VECTOR_SEARCH(TABLE mydataset.base_table, 'column_to_search', TABLE mydataset.query_table, query_column_to_search => 'query_column_to_search', top_k => 2, distance_type => 'cosine', options => '{\"fraction_lists_to_search\":0.15}')"
+        )
+        self.validate_identity(
+            "SELECT * FROM VECTOR_SEARCH((SELECT * FROM mydataset.base_table), 'column_to_search', (SELECT * FROM mydataset.query_table), 'query_column_to_search')"
+        )
+        self.validate_identity(
+            "SELECT * FROM VECTOR_SEARCH(TABLE mydataset.base_table, 'column_to_search', TABLE mydataset.query_table)"
         )
 
     def test_merge(self):
@@ -2760,3 +2805,8 @@ OPTIONS (
             "EXTRACT(WEEK(THURSDAY) FROM DATE '2013-12-25')",
             "EXTRACT(WEEK(THURSDAY) FROM CAST('2013-12-25' AS DATE))",
         )
+
+    def test_approx_qunatiles(self):
+        self.validate_identity("APPROX_QUANTILES(foo, 2)")
+        self.validate_identity("APPROX_QUANTILES(DISTINCT foo, 2 RESPECT NULLS)")
+        self.validate_identity("APPROX_QUANTILES(DISTINCT foo, 2 IGNORE NULLS)")

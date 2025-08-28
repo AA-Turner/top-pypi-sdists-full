@@ -52,7 +52,7 @@ def align_rotation(
     axis: typing.Literal["X", "Y", "Z"] | None = "X",
     correct_aspect: bool | None = False,
 ) -> None:
-    """Align the UV island's rotation
+    """Align the UV islands rotation
 
         :type execution_context: int | str | None
         :type undo: bool | None
@@ -100,7 +100,11 @@ def average_islands_scale(
     :type shear: bool | None
     """
 
-def copy(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def copy(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Copy selected UV vertices
 
     :type execution_context: int | str | None
@@ -308,7 +312,7 @@ def lightmap_pack(
     PREF_BOX_DIV: int | None = 12,
     PREF_MARGIN_DIV: float | None = 0.1,
 ) -> None:
-    """Pack each face's UVs into the UV bounds
+    """Pack each faces UVs into the UV bounds
 
         :type execution_context: int | str | None
         :type undo: bool | None
@@ -438,15 +442,15 @@ def pack_islands(
         :type margin_method: typing.Literal['SCALED','ADD','FRACTION'] | None
         :param margin: Margin, Space between islands
         :type margin: float | None
-        :param pin: Lock Pinned Islands, Constrain islands containing any pinned UV's
+        :param pin: Lock Pinned Islands, Constrain islands containing any pinned UVs
         :type pin: bool | None
         :param pin_method: Pin Method
 
     SCALE
-    Scale -- Pinned islands won't rescale.
+    Scale -- Pinned islands wont rescale.
 
     ROTATION
-    Rotation -- Pinned islands won't rotate.
+    Rotation -- Pinned islands wont rotate.
 
     ROTATION_SCALE
     Rotation and Scale -- Pinned islands will translate only.
@@ -467,7 +471,11 @@ def pack_islands(
         :type shape_method: typing.Literal['CONCAVE','CONVEX','AABB'] | None
     """
 
-def paste(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def paste(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Paste selected UV vertices
 
     :type execution_context: int | str | None
@@ -533,7 +541,7 @@ def randomize_uv_transform(
     scale_even: bool | None = False,
     scale: collections.abc.Iterable[float] | None = (1.0, 1.0),
 ) -> None:
-    """Randomize the UV island's location, rotation, and scale
+    """Randomize the UV islands location, rotation, and scale
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -576,7 +584,11 @@ def remove_doubles(
     :type use_shared_vertex: bool | None
     """
 
-def reset(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def reset(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Reset UV projection
 
     :type execution_context: int | str | None
@@ -848,7 +860,9 @@ def select_lasso(
     """
 
 def select_less(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Deselect UV vertices at the boundary of each selection region
 
@@ -857,7 +871,9 @@ def select_less(
     """
 
 def select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all UV vertices linked to the active UV map
 
@@ -920,7 +936,9 @@ def select_mode(
     """
 
 def select_more(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select more UV vertices connected to initial selection
 
@@ -944,7 +962,9 @@ def select_overlap(
     """
 
 def select_pinned(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all pinned UV vertices
 
@@ -986,7 +1006,9 @@ def select_similar(
     """
 
 def select_split(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select only entirely selected faces
 
@@ -1102,7 +1124,7 @@ def smart_project(
         :type rotate_method: typing.Literal['AXIS_ALIGNED','AXIS_ALIGNED_X','AXIS_ALIGNED_Y'] | None
         :param island_margin: Island Margin, Margin to reduce bleed from adjacent islands
         :type island_margin: float | None
-        :param area_weight: Area Weight, Weight projection's vector by faces with larger areas
+        :param area_weight: Area Weight, Weight projections vector by faces with larger areas
         :type area_weight: float | None
         :param correct_aspect: Correct Aspect, Map UVs taking aspect ratio of the image associated with the material into account
         :type correct_aspect: bool | None
@@ -1284,7 +1306,7 @@ def unwrap(
         :type margin_method: typing.Literal['SCALED','ADD','FRACTION'] | None
         :param margin: Margin, Space between islands
         :type margin: float | None
-        :param no_flip: No Flip, Prevent flipping UV's, flipping may lower distortion depending on the position of pins
+        :param no_flip: No Flip, Prevent flipping UVs, flipping may lower distortion depending on the position of pins
         :type no_flip: bool | None
         :param iterations: Iterations, Number of iterations when "Minimum Stretch" method is used
         :type iterations: int | None
@@ -1296,7 +1318,11 @@ def unwrap(
         :type weight_factor: float | None
     """
 
-def weld(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def weld(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Weld selected UV vertices together
 
     :type execution_context: int | str | None

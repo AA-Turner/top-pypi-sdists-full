@@ -345,6 +345,7 @@ class ClickHouse(Dialect):
             "LEVENSHTEINDISTANCE": exp.Levenshtein.from_arg_list,
         }
         FUNCTIONS.pop("TRANSFORM")
+        FUNCTIONS.pop("APPROX_TOP_SUM")
 
         AGG_FUNCTIONS = {
             "count",
@@ -379,6 +380,7 @@ class ClickHouse(Dialect):
             "argMax",
             "avgWeighted",
             "topK",
+            "approx_top_sum",
             "topKWeighted",
             "deltaSum",
             "deltaSumTimestamp",
@@ -977,6 +979,14 @@ class ClickHouse(Dialect):
 
             return value
 
+        def _parse_partitioned_by(self) -> exp.PartitionedByProperty:
+            # ClickHouse allows custom expressions as partition key
+            # https://clickhouse.com/docs/engines/table-engines/mergetree-family/custom-partitioning-key
+            return self.expression(
+                exp.PartitionedByProperty,
+                this=self._parse_assignment(),
+            )
+
     class Generator(generator.Generator):
         QUERY_HINTS = False
         STRUCT_DELIMITER = ("(", ")")
@@ -1094,6 +1104,7 @@ class ClickHouse(Dialect):
             exp.DateStrToDate: rename_func("toDate"),
             exp.DateSub: _datetime_delta_sql("DATE_SUB"),
             exp.Explode: rename_func("arrayJoin"),
+            exp.FarmFingerprint: rename_func("farmFingerprint64"),
             exp.Final: lambda self, e: f"{self.sql(e, 'this')} FINAL",
             exp.IsNan: rename_func("isNaN"),
             exp.JSONCast: lambda self, e: f"{self.sql(e, 'this')}.:{self.sql(e, 'to')}",

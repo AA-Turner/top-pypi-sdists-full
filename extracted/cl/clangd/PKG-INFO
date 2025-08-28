@@ -1,18 +1,27 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: clangd
-Version: 20.1.8
+Version: 21.1.0
 Summary: binaries for clangd, a clang-based C++ language server (LSP)
-Author: Dan Ilan
-License: Apache 2.0
+Keywords: clangd,llvm,clang,lsp,cpp,c
+Author: LLVM team, Dan Ilan
+Maintainer: Dan Ilan
+License-Expression: Apache-2.0 WITH LLVM-exception
 Classifier: Environment :: No Input/Output (Daemon)
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
 Classifier: Programming Language :: C++
 Classifier: Topic :: Software Development
 Project-URL: Documentation, https://clangd.llvm.org/
 Project-URL: Source, https://github.com/jmpfar/clangd-wheel
+Provides-Extra: test
+Requires-Dist: pytest==8.4.1; extra == "test"
+Requires-Dist: pytest-sugar==1.1.1; extra == "test"
+Requires-Dist: pytest-timeout==2.4.0; extra == "test"
+Requires-Dist: pylspclient==0.1.2; extra == "test"
+Provides-Extra: dev
+Requires-Dist: clangd[test]; extra == "dev"
+Requires-Dist: ruff==0.12.10; extra == "dev"
 Description-Content-Type: text/markdown
 
 # Clangd python wheel
@@ -51,7 +60,7 @@ clangd
 | Ubuntu   | 24.04   | x86_64       | [musllinux](https://musl.libc.org/) |
 | Ubuntu   | 24.04   | arm64        | manylinux                           |
 | Ubuntu   | 24.04   | arm64        | [musllinux](https://musl.libc.org/) |         
-| macOS    | 15      | arm64        |                                     |
 | macOS    | 13      | x86_64       |                                     |
+| macOS    | 15      | arm64        |                                     |
 | Windows  | 2025    | x86_64       |                                     |
 | Windows  | 11      | arm64        |                                     |

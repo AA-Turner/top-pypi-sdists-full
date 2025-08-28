@@ -2,11 +2,12 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_operators.node_editor.node_functions
 import bpy.types
 
 class NODE_OT_connect_to_output(
-    bpy.types.Operator, bl_operators.node_editor.node_functions.NodeEditorBase
+    _bpy_types.Operator, bl_operators.node_editor.node_functions.NodeEditorBase
 ):
     bl_description: typing.Any
     bl_idname: typing.Any

@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.utils
 import bpy.types
 
@@ -34,7 +35,7 @@ class AddPresetBase:
         :param _event:
         """
 
-class AddPresetCamera(AddPresetBase, bpy.types.Operator):
+class AddPresetCamera(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Camera Preset"""
 
     bl_idname: typing.Any
@@ -61,7 +62,7 @@ class AddPresetCamera(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetCameraSafeAreas(AddPresetBase, bpy.types.Operator):
+class AddPresetCameraSafeAreas(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Safe Areas Preset"""
 
     bl_idname: typing.Any
@@ -88,7 +89,7 @@ class AddPresetCameraSafeAreas(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetCloth(AddPresetBase, bpy.types.Operator):
+class AddPresetCloth(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Cloth Preset"""
 
     bl_idname: typing.Any
@@ -115,7 +116,7 @@ class AddPresetCloth(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetColorManagementWhiteBalance(AddPresetBase, bpy.types.Operator):
+class AddPresetColorManagementWhiteBalance(AddPresetBase, _bpy_types.Operator):
     """Add or remove a white balance preset"""
 
     bl_idname: typing.Any
@@ -142,7 +143,7 @@ class AddPresetColorManagementWhiteBalance(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetEEVEERaytracing(AddPresetBase, bpy.types.Operator):
+class AddPresetEEVEERaytracing(AddPresetBase, _bpy_types.Operator):
     """Add or remove an EEVEE ray-tracing preset"""
 
     bl_idname: typing.Any
@@ -169,7 +170,7 @@ class AddPresetEEVEERaytracing(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetFluid(AddPresetBase, bpy.types.Operator):
+class AddPresetFluid(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Fluid Preset"""
 
     bl_idname: typing.Any
@@ -196,7 +197,7 @@ class AddPresetFluid(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetGpencilBrush(AddPresetBase, bpy.types.Operator):
+class AddPresetGpencilBrush(AddPresetBase, _bpy_types.Operator):
     """Add or remove grease pencil brush preset"""
 
     bl_idname: typing.Any
@@ -223,7 +224,7 @@ class AddPresetGpencilBrush(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetGpencilMaterial(AddPresetBase, bpy.types.Operator):
+class AddPresetGpencilMaterial(AddPresetBase, _bpy_types.Operator):
     """Add or remove Grease Pencil material preset"""
 
     bl_idname: typing.Any
@@ -250,7 +251,7 @@ class AddPresetGpencilMaterial(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetHairDynamics(AddPresetBase, bpy.types.Operator):
+class AddPresetHairDynamics(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Hair Dynamics Preset"""
 
     bl_idname: typing.Any
@@ -277,7 +278,7 @@ class AddPresetHairDynamics(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetInterfaceTheme(AddPresetBase, bpy.types.Operator):
+class AddPresetInterfaceTheme(AddPresetBase, _bpy_types.Operator):
     """Add a custom theme to the preset list"""
 
     bl_idname: typing.Any
@@ -309,7 +310,7 @@ class AddPresetInterfaceTheme(AddPresetBase, bpy.types.Operator):
         :param filepath:
         """
 
-class AddPresetKeyconfig(AddPresetBase, bpy.types.Operator):
+class AddPresetKeyconfig(AddPresetBase, _bpy_types.Operator):
     """Add a custom keymap configuration to the preset list"""
 
     bl_idname: typing.Any
@@ -341,7 +342,7 @@ class AddPresetKeyconfig(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetNodeColor(AddPresetBase, bpy.types.Operator):
+class AddPresetNodeColor(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Node Color Preset"""
 
     bl_idname: typing.Any
@@ -368,7 +369,7 @@ class AddPresetNodeColor(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetOperator(AddPresetBase, bpy.types.Operator):
+class AddPresetOperator(AddPresetBase, _bpy_types.Operator):
     """Add or remove an Operator Preset"""
 
     bl_idname: typing.Any
@@ -402,7 +403,7 @@ class AddPresetOperator(AddPresetBase, bpy.types.Operator):
         :param operator:
         """
 
-class AddPresetRender(AddPresetBase, bpy.types.Operator):
+class AddPresetRender(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Render Preset"""
 
     bl_idname: typing.Any
@@ -429,7 +430,7 @@ class AddPresetRender(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetTextEditor(AddPresetBase, bpy.types.Operator):
+class AddPresetTextEditor(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Text Editor Preset"""
 
     bl_idname: typing.Any
@@ -456,7 +457,7 @@ class AddPresetTextEditor(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetTrackingCamera(AddPresetBase, bpy.types.Operator):
+class AddPresetTrackingCamera(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Tracking Camera Intrinsics Preset"""
 
     bl_idname: typing.Any
@@ -483,7 +484,7 @@ class AddPresetTrackingCamera(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetTrackingSettings(AddPresetBase, bpy.types.Operator):
+class AddPresetTrackingSettings(AddPresetBase, _bpy_types.Operator):
     """Add or remove a motion tracking settings preset"""
 
     bl_idname: typing.Any
@@ -510,7 +511,7 @@ class AddPresetTrackingSettings(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class AddPresetTrackingTrackColor(AddPresetBase, bpy.types.Operator):
+class AddPresetTrackingTrackColor(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Clip Track Color Preset"""
 
     bl_idname: typing.Any
@@ -537,7 +538,7 @@ class AddPresetTrackingTrackColor(AddPresetBase, bpy.types.Operator):
         :rtype: typing.Any
         """
 
-class ExecutePreset(bpy.types.Operator):
+class ExecutePreset(_bpy_types.Operator):
     """Load a preset"""
 
     bl_idname: typing.Any
@@ -565,7 +566,7 @@ class ExecutePreset(bpy.types.Operator):
         :param context:
         """
 
-class RemovePresetInterfaceTheme(AddPresetBase, bpy.types.Operator):
+class RemovePresetInterfaceTheme(AddPresetBase, _bpy_types.Operator):
     """Remove a custom theme from the preset list"""
 
     bl_idname: typing.Any
@@ -604,7 +605,7 @@ class RemovePresetInterfaceTheme(AddPresetBase, bpy.types.Operator):
         :param _filepath:
         """
 
-class RemovePresetKeyconfig(AddPresetBase, bpy.types.Operator):
+class RemovePresetKeyconfig(AddPresetBase, _bpy_types.Operator):
     """Remove a custom keymap configuration from the preset list"""
 
     bl_idname: typing.Any
@@ -649,7 +650,7 @@ class RemovePresetKeyconfig(AddPresetBase, bpy.types.Operator):
         :param context:
         """
 
-class SavePresetInterfaceTheme(AddPresetBase, bpy.types.Operator):
+class SavePresetInterfaceTheme(AddPresetBase, _bpy_types.Operator):
     """Save a custom theme in the preset list"""
 
     bl_idname: typing.Any
@@ -687,7 +688,7 @@ class SavePresetInterfaceTheme(AddPresetBase, bpy.types.Operator):
         :param event:
         """
 
-class WM_MT_operator_presets(bpy.types.Menu):
+class WM_MT_operator_presets(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -714,7 +715,7 @@ class WM_MT_operator_presets(bpy.types.Menu):
         :param context:
         """
 
-class WM_OT_operator_presets_cleanup(bpy.types.Operator):
+class WM_OT_operator_presets_cleanup(_bpy_types.Operator):
     """Remove outdated operator properties from presets that may cause problems"""
 
     bl_idname: typing.Any
@@ -742,7 +743,7 @@ class WM_OT_operator_presets_cleanup(bpy.types.Operator):
         :param context:
         """
 
-class WM_PT_operator_presets(bl_ui.utils.PresetPanel, bpy.types.Panel):
+class WM_PT_operator_presets(bl_ui.utils.PresetPanel, _bpy_types.Panel):
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any

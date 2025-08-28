@@ -27,7 +27,7 @@ def Dispatch(obj):
     if isinstance(obj, ctypes.POINTER(automation.IDispatch)):
         try:
             tinfo = obj.GetTypeInfo(0)
-        except (COMError, WindowsError):
+        except (OSError, COMError):
             return _Dispatch(obj)
         return lazybind.Dispatch(obj, tinfo)
     return obj
@@ -59,7 +59,7 @@ class MethodCaller:
             )
 
 
-class _Dispatch(object):
+class _Dispatch:
     """Expose methods and properties via fully dynamic dispatch."""
 
     _comobj: automation.IDispatch
@@ -160,7 +160,7 @@ class _Dispatch(object):
     #     )
 
 
-class _Collection(object):
+class _Collection:
     def __init__(self, enum: automation.IEnumVARIANT):
         self.enum = enum
 

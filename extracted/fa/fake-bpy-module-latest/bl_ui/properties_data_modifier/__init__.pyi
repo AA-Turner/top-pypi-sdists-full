@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class AddModifierMenu(bpy.types.Operator):
+class AddModifierMenu(_bpy_types.Operator):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -38,7 +39,7 @@ class AddModifierMenu(bpy.types.Operator):
         :param context:
         """
 
-class DATA_PT_modifiers(ModifierButtonsPanel, bpy.types.Panel):
+class DATA_PT_modifiers(ModifierButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -93,7 +94,7 @@ class ModifierButtonsPanel:
     bl_region_type: typing.Any
     bl_space_type: typing.Any
 
-class OBJECT_MT_modifier_add(ModifierAddMenu, bpy.types.Menu):
+class OBJECT_MT_modifier_add(ModifierAddMenu, _bpy_types.Menu):
     MODIFIER_TYPES_I18N_CONTEXT: typing.Any
     MODIFIER_TYPES_TO_ICONS: typing.Any
     MODIFIER_TYPES_TO_LABELS: typing.Any
@@ -122,7 +123,7 @@ class OBJECT_MT_modifier_add(ModifierAddMenu, bpy.types.Menu):
         :param context:
         """
 
-class OBJECT_MT_modifier_add_color(ModifierAddMenu, bpy.types.Menu):
+class OBJECT_MT_modifier_add_color(ModifierAddMenu, _bpy_types.Menu):
     MODIFIER_TYPES_I18N_CONTEXT: typing.Any
     MODIFIER_TYPES_TO_ICONS: typing.Any
     MODIFIER_TYPES_TO_LABELS: typing.Any
@@ -151,7 +152,7 @@ class OBJECT_MT_modifier_add_color(ModifierAddMenu, bpy.types.Menu):
         :param context:
         """
 
-class OBJECT_MT_modifier_add_deform(ModifierAddMenu, bpy.types.Menu):
+class OBJECT_MT_modifier_add_deform(ModifierAddMenu, _bpy_types.Menu):
     MODIFIER_TYPES_I18N_CONTEXT: typing.Any
     MODIFIER_TYPES_TO_ICONS: typing.Any
     MODIFIER_TYPES_TO_LABELS: typing.Any
@@ -180,7 +181,7 @@ class OBJECT_MT_modifier_add_deform(ModifierAddMenu, bpy.types.Menu):
         :param context:
         """
 
-class OBJECT_MT_modifier_add_edit(ModifierAddMenu, bpy.types.Menu):
+class OBJECT_MT_modifier_add_edit(ModifierAddMenu, _bpy_types.Menu):
     MODIFIER_TYPES_I18N_CONTEXT: typing.Any
     MODIFIER_TYPES_TO_ICONS: typing.Any
     MODIFIER_TYPES_TO_LABELS: typing.Any
@@ -209,7 +210,7 @@ class OBJECT_MT_modifier_add_edit(ModifierAddMenu, bpy.types.Menu):
         :param context:
         """
 
-class OBJECT_MT_modifier_add_generate(ModifierAddMenu, bpy.types.Menu):
+class OBJECT_MT_modifier_add_generate(ModifierAddMenu, _bpy_types.Menu):
     MODIFIER_TYPES_I18N_CONTEXT: typing.Any
     MODIFIER_TYPES_TO_ICONS: typing.Any
     MODIFIER_TYPES_TO_LABELS: typing.Any
@@ -238,7 +239,7 @@ class OBJECT_MT_modifier_add_generate(ModifierAddMenu, bpy.types.Menu):
         :param context:
         """
 
-class OBJECT_MT_modifier_add_normals(ModifierAddMenu, bpy.types.Menu):
+class OBJECT_MT_modifier_add_normals(ModifierAddMenu, _bpy_types.Menu):
     MODIFIER_TYPES_I18N_CONTEXT: typing.Any
     MODIFIER_TYPES_TO_ICONS: typing.Any
     MODIFIER_TYPES_TO_LABELS: typing.Any
@@ -267,7 +268,7 @@ class OBJECT_MT_modifier_add_normals(ModifierAddMenu, bpy.types.Menu):
         :param context:
         """
 
-class OBJECT_MT_modifier_add_physics(ModifierAddMenu, bpy.types.Menu):
+class OBJECT_MT_modifier_add_physics(ModifierAddMenu, _bpy_types.Menu):
     MODIFIER_TYPES_I18N_CONTEXT: typing.Any
     MODIFIER_TYPES_TO_ICONS: typing.Any
     MODIFIER_TYPES_TO_LABELS: typing.Any

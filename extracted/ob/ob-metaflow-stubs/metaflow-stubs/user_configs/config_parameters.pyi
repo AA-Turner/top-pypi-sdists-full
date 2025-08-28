@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-25T21:23:22.202121                                                            #
+# MF version: 2.18.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-28T00:53:38.068694                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
+import collections
+import metaflow
 import abc
 import typing
-import metaflow
-import collections
 if typing.TYPE_CHECKING:
-    import abc
-    import typing
-    import metaflow.parameters
     import collections.abc
+    import typing
+    import abc
     import metaflow.user_configs.config_parameters
+    import metaflow.parameters
 
 from ..exception import MetaflowException as MetaflowException
 from ..parameters import Parameter as Parameter
@@ -146,6 +146,8 @@ class ConfigValue(collections.abc.Mapping, dict, metaclass=abc.ABCMeta):
         Any
             Keys of this configuration object.
         """
+        ...
+    def __reduce__(self):
         ...
     ...
 

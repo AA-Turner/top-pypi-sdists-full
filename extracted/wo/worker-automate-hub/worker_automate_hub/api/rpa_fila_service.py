@@ -9,12 +9,10 @@ console = Console()
 
 async def burn_queue(id_fila: str):
     env_config, _ = load_env_config()
-    try:
+    headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
+    timeout = aiohttp.ClientTimeout(total=600) 
 
-        headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
-        timeout = aiohttp.ClientTimeout(total=600) 
-
-        async with aiohttp.ClientSession(
+    async with aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(verify_ssl=True),  timeout=timeout
         ) as session:
             async with session.delete(
@@ -29,15 +27,7 @@ async def burn_queue(id_fila: str):
                     console.print(
                         f"Erro ao excluir a fila: {response.content}", style="bold red"
                     )
-
-    except Exception as e:
-        err_msg = f"Erro remover registro da fila: {e}"
-        logger.error(err_msg)
-        console.print(
-            f"{err_msg}\n",
-            style="bold red",
-        )
-        return None
+    return None
 
 
 async def unlock_queue(id: str):

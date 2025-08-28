@@ -43,9 +43,11 @@ def merge_images(
     """
 
 def use_shading_nodes(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Enable nodes on a material, world or light
+    """Enable nodes on a material or light
 
     :type execution_context: int | str | None
     :type undo: bool | None

@@ -2,11 +2,12 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.space_properties
 import bpy.types
 import rna_prop_ui
 
-class EEVEE_WORLD_PT_lightprobe(WorldButtonsPanel, bpy.types.Panel):
+class EEVEE_WORLD_PT_lightprobe(WorldButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -36,7 +37,7 @@ class EEVEE_WORLD_PT_lightprobe(WorldButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class EEVEE_WORLD_PT_mist(WorldButtonsPanel, bpy.types.Panel):
+class EEVEE_WORLD_PT_mist(WorldButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -73,7 +74,7 @@ class EEVEE_WORLD_PT_mist(WorldButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class EEVEE_WORLD_PT_settings(WorldButtonsPanel, bpy.types.Panel):
+class EEVEE_WORLD_PT_settings(WorldButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -110,7 +111,7 @@ class EEVEE_WORLD_PT_settings(WorldButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class EEVEE_WORLD_PT_sun(WorldButtonsPanel, bpy.types.Panel):
+class EEVEE_WORLD_PT_sun(WorldButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -140,7 +141,7 @@ class EEVEE_WORLD_PT_sun(WorldButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class EEVEE_WORLD_PT_sun_shadow(WorldButtonsPanel, bpy.types.Panel):
+class EEVEE_WORLD_PT_sun_shadow(WorldButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -177,7 +178,7 @@ class EEVEE_WORLD_PT_sun_shadow(WorldButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class EEVEE_WORLD_PT_surface(WorldButtonsPanel, bpy.types.Panel):
+class EEVEE_WORLD_PT_surface(WorldButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -213,7 +214,7 @@ class EEVEE_WORLD_PT_surface(WorldButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class EEVEE_WORLD_PT_volume(WorldButtonsPanel, bpy.types.Panel):
+class EEVEE_WORLD_PT_volume(WorldButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -255,9 +256,9 @@ class WORLD_PT_animation(
     rna_prop_ui.PropertyPanel,
     WorldButtonsPanel,
     bl_ui.space_properties.PropertiesAnimationMixin,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
-    """Mix-in class for Animation panels.This class can be used to show a generic 'Animation' panel for IDs shown in
+    """Mix-in class for Animation panels.This class can be used to show a generic Animation panel for IDs shown in
     the properties editor. Specific ID types need specific subclasses.For an example, see DATA_PT_camera_animation in properties_data_camera.py
     """
 
@@ -291,7 +292,7 @@ class WORLD_PT_animation(
         :param context:
         """
 
-class WORLD_PT_context_world(WorldButtonsPanel, bpy.types.Panel):
+class WORLD_PT_context_world(WorldButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -329,10 +330,10 @@ class WORLD_PT_context_world(WorldButtonsPanel, bpy.types.Panel):
         """
 
 class WORLD_PT_custom_props(
-    rna_prop_ui.PropertyPanel, WorldButtonsPanel, bpy.types.Panel
+    rna_prop_ui.PropertyPanel, WorldButtonsPanel, _bpy_types.Panel
 ):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     COMPAT_ENGINES: typing.Any
@@ -359,7 +360,7 @@ class WORLD_PT_custom_props(
         :rtype: typing.Any
         """
 
-class WORLD_PT_viewport_display(WorldButtonsPanel, bpy.types.Panel):
+class WORLD_PT_viewport_display(WorldButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any

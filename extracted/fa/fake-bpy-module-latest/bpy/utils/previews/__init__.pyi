@@ -20,7 +20,7 @@ import numpy.typing as npt
 import bpy.types
 
 class ImagePreviewCollection(dict[str, bpy.types.ImagePreview]):
-    """Dictionary-like class of previews.This is a subclass of Python's built-in dict type,
+    """Dictionary-like class of previews.This is a subclass of Pythons built-in dict type,
     used to store multiple image previews.
     """
 
@@ -43,7 +43,7 @@ class ImagePreviewCollection(dict[str, bpy.types.ImagePreview]):
         :type name: str | None
         :param filepath: The file path to generate the preview from.
         :type filepath: bytes | str | None
-        :param filetype: The type of file, needed to generate the preview in ['IMAGE', 'MOVIE', 'BLEND', 'FONT'].
+        :param filetype: The type of file, needed to generate the preview in [IMAGE, MOVIE, BLEND, FONT].
         :type filetype: str | None
         :param force_reload: If True, force running thumbnail manager even if preview already exists in cache.
         :type force_reload: bool | None

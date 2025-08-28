@@ -7,7 +7,7 @@ import pytest
 import xarray as xr
 
 from xclim.core.calendar import doy_to_days_since, select_time
-from xclim.indices import generic
+from xclim.indices import generic, run_length
 from xclim.testing.helpers import assert_lazy
 
 K2C = 273.15
@@ -82,13 +82,16 @@ class TestDomainCount:
 
 
 class TestFlowGeneric:
-    def test_doyminmax(self, q_series):
+    @pytest.mark.parametrize("use_dask", [True, False])
+    def test_doyminmax(self, q_series, use_dask):
         a = np.ones(365)
         a[9] = 2
         a[19] = -2
         a[39] = 4
         a[49] = -4
         q = q_series(a)
+        if use_dask:
+            q = q.chunk({"time": 200})
         dmx = generic.doymax(q)
         dmn = generic.doymin(q)
         assert dmx.values == [40]
@@ -728,6 +731,21 @@ class TestSpellMask:
             generic.spell_mask(data, 3, "mean", "<=", 2, weights=[1, 2])
 
 
+def test_spell_length_statistics_quantified(tasmin_series):
+    tn = tasmin_series(np.arange(365) + K2C, start="2001-01-01").expand_dims(site=[0, 1])
+    thresh = xr.DataArray([330, 360], dims=("site",), coords={"site": tn.site}, attrs={"units": "°C"})
+    out = generic.spell_length_statistics(
+        tn,
+        thresh,
+        window=1,
+        win_reducer="min",
+        op=">",
+        spell_reducer="sum",
+        freq="YS",
+    )
+    np.testing.assert_allclose(out, [[34], [4]])
+
+
 def test_spell_length_statistics_multi(tasmin_series, tasmax_series):
     tn = tasmin_series(
         np.zeros(
@@ -865,3 +883,16 @@ class TestThresholdedEvents:
                 dtype="datetime64[ns]",
             ),
         )
+
+
+def test_season_length_from_boundaries(tas_series):
+    a = np.zeros(365 * 4)
+    a[180:200] = 1
+    tas = tas_series(a) == 1
+    start = tas.resample(time="YS-APR").map(run_length.season_start, window=1)
+    end = tas.resample(time="YS-MAY").map(run_length.season_end, window=1)
+    # this gives a season length for each year (of `start`), choose the first
+    length = generic.season_length_from_boundaries(start, end)[0]
+    # this gives a single season length
+    length2 = run_length.season_length(tas, window=1)
+    np.testing.assert_array_equal(length, length2)

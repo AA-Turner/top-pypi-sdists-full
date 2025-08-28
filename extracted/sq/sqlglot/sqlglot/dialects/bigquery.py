@@ -295,6 +295,22 @@ def _annotate_math_functions(self: TypeAnnotator, expression: E) -> E:
     return expression
 
 
+def _annotate_by_args_approx_top(self: TypeAnnotator, expression: exp.ApproxTopK) -> exp.ApproxTopK:
+    self._annotate_args(expression)
+
+    struct_type = exp.DataType(
+        this=exp.DataType.Type.STRUCT,
+        expressions=[expression.this.type, exp.DataType(this=exp.DataType.Type.BIGINT)],
+        nested=True,
+    )
+    self._set_type(
+        expression,
+        exp.DataType(this=exp.DataType.Type.ARRAY, expressions=[struct_type], nested=True),
+    )
+
+    return expression
+
+
 @unsupported_args("ins_cost", "del_cost", "sub_cost")
 def _levenshtein_sql(self: BigQuery.Generator, expression: exp.Levenshtein) -> str:
     max_dist = expression.args.get("max_dist")
@@ -473,17 +489,24 @@ class BigQuery(Dialect):
                 exp.Substring,
             )
         },
+        exp.ApproxTopSum: lambda self, e: _annotate_by_args_approx_top(self, e),
+        exp.ApproxTopK: lambda self, e: _annotate_by_args_approx_top(self, e),
+        exp.ApproxQuantiles: lambda self, e: self._annotate_by_args(e, "this", array=True),
         exp.ArgMax: lambda self, e: self._annotate_by_args(e, "this"),
         exp.ArgMin: lambda self, e: self._annotate_by_args(e, "this"),
         exp.Array: _annotate_array,
         exp.ArrayConcat: lambda self, e: self._annotate_by_args(e, "this", "expressions"),
         exp.Ascii: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
+        exp.JSONBool: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BOOLEAN),
         exp.BitwiseAndAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
         exp.BitwiseOrAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
         exp.BitwiseXorAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
         exp.BitwiseCountAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
         exp.ByteLength: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
         exp.ByteString: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
+        exp.CodePointsToBytes: lambda self, e: self._annotate_with_type(
+            e, exp.DataType.Type.BINARY
+        ),
         exp.CodePointsToString: lambda self, e: self._annotate_with_type(
             e, exp.DataType.Type.VARCHAR
         ),
@@ -493,6 +516,9 @@ class BigQuery(Dialect):
         exp.CovarSamp: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
         exp.DateFromUnixDate: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DATE),
         exp.DateTrunc: lambda self, e: self._annotate_by_args(e, "this"),
+        exp.FarmFingerprint: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
+        exp.Unhex: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
+        exp.Float64: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
         exp.GenerateTimestampArray: lambda self, e: self._annotate_with_type(
             e, exp.DataType.build("ARRAY<TIMESTAMP>", dialect="bigquery")
         ),
@@ -506,12 +532,20 @@ class BigQuery(Dialect):
         ),
         exp.JSONType: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.VARCHAR),
         exp.Lag: lambda self, e: self._annotate_by_args(e, "this", "default"),
+        exp.LowerHex: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.VARCHAR),
         exp.MD5Digest: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
         exp.ParseTime: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TIME),
         exp.ParseDatetime: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DATETIME),
+        exp.ParseBignumeric: lambda self, e: self._annotate_with_type(
+            e, exp.DataType.Type.BIGDECIMAL
+        ),
+        exp.ParseNumeric: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DECIMAL),
         exp.RegexpExtractAll: lambda self, e: self._annotate_by_args(e, "this", array=True),
         exp.Replace: lambda self, e: self._annotate_by_args(e, "this"),
         exp.Reverse: lambda self, e: self._annotate_by_args(e, "this"),
+        exp.SafeConvertBytesToString: lambda self, e: self._annotate_with_type(
+            e, exp.DataType.Type.VARCHAR
+        ),
         exp.Soundex: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.VARCHAR),
         exp.SHA: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
         exp.SHA2: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
@@ -522,8 +556,11 @@ class BigQuery(Dialect):
         ),
         exp.TimestampTrunc: lambda self, e: self._annotate_by_args(e, "this"),
         exp.TimeFromParts: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TIME),
-        exp.TsOrDsToTime: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TIME),
         exp.TimeTrunc: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TIME),
+        exp.ToCodePoints: lambda self, e: self._annotate_with_type(
+            e, exp.DataType.build("ARRAY<BIGINT>", dialect="bigquery")
+        ),
+        exp.TsOrDsToTime: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TIME),
         exp.Translate: lambda self, e: self._annotate_by_args(e, "this"),
         exp.Unicode: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
     }
@@ -596,10 +633,13 @@ class BigQuery(Dialect):
             "EXPORT": TokenType.EXPORT,
             "FLOAT64": TokenType.DOUBLE,
             "FOR SYSTEM_TIME": TokenType.TIMESTAMP_SNAPSHOT,
+            "LOOP": TokenType.COMMAND,
             "MODEL": TokenType.MODEL,
             "NOT DETERMINISTIC": TokenType.VOLATILE,
             "RECORD": TokenType.STRUCT,
+            "REPEAT": TokenType.COMMAND,
             "TIMESTAMP": TokenType.TIMESTAMPTZ,
+            "WHILE": TokenType.COMMAND,
         }
         KEYWORDS.pop("DIV")
         KEYWORDS.pop("VALUES")
@@ -623,6 +663,8 @@ class BigQuery(Dialect):
 
         FUNCTIONS = {
             **parser.Parser.FUNCTIONS,
+            "APPROX_TOP_COUNT": exp.ApproxTopK.from_arg_list,
+            "BOOL": exp.JSONBool.from_arg_list,
             "CONTAINS_SUBSTR": _build_contains_substring,
             "DATE": _build_date,
             "DATE_ADD": build_date_delta_with_interval(exp.DateAdd),
@@ -689,6 +731,7 @@ class BigQuery(Dialect):
             "FORMAT_DATETIME": _build_format_time(exp.TsOrDsToDatetime),
             "FORMAT_TIMESTAMP": _build_format_time(exp.TsOrDsToTimestamp),
             "FORMAT_TIME": _build_format_time(exp.TsOrDsToTime),
+            "FROM_HEX": exp.Unhex.from_arg_list,
             "WEEK": lambda args: exp.WeekStart(this=exp.var(seq_get(args, 0))),
         }
 
@@ -699,7 +742,10 @@ class BigQuery(Dialect):
                 exp.JSONArray, expressions=self._parse_csv(self._parse_bitwise)
             ),
             "MAKE_INTERVAL": lambda self: self._parse_make_interval(),
+            "PREDICT": lambda self: self._parse_predict(),
             "FEATURES_AT_TIME": lambda self: self._parse_features_at_time(),
+            "GENERATE_EMBEDDING": lambda self: self._parse_generate_embedding(),
+            "VECTOR_SEARCH": lambda self: self._parse_vector_search(),
         }
         FUNCTION_PARSERS.pop("TRIM")
 
@@ -979,12 +1025,39 @@ class BigQuery(Dialect):
 
             return expr
 
-        def _parse_features_at_time(self) -> exp.FeaturesAtTime:
-            expr = self.expression(
-                exp.FeaturesAtTime,
-                this=(self._match(TokenType.TABLE) and self._parse_table())
-                or self._parse_select(nested=True),
+        def _parse_predict(self) -> exp.Predict:
+            self._match_text_seq("MODEL")
+            this = self._parse_table()
+
+            self._match(TokenType.COMMA)
+            self._match_text_seq("TABLE")
+
+            return self.expression(
+                exp.Predict,
+                this=this,
+                expression=self._parse_table(),
+                params_struct=self._match(TokenType.COMMA) and self._parse_bitwise(),
             )
+
+        def _parse_generate_embedding(self) -> exp.GenerateEmbedding:
+            self._match_text_seq("MODEL")
+            this = self._parse_table()
+
+            self._match(TokenType.COMMA)
+            self._match_text_seq("TABLE")
+
+            return self.expression(
+                exp.GenerateEmbedding,
+                this=this,
+                expression=self._parse_table(),
+                params_struct=self._match(TokenType.COMMA) and self._parse_bitwise(),
+            )
+
+        def _parse_features_at_time(self) -> exp.FeaturesAtTime:
+            self._match(TokenType.TABLE)
+            this = self._parse_table()
+
+            expr = self.expression(exp.FeaturesAtTime, this=this)
 
             while self._match(TokenType.COMMA):
                 arg = self._parse_lambda()
@@ -993,6 +1066,37 @@ class BigQuery(Dialect):
                 # "num_rows => 1" sets the expr's `num_rows` arg
                 if arg:
                     expr.set(arg.this.name, arg)
+
+            return expr
+
+        def _parse_vector_search(self) -> exp.VectorSearch:
+            self._match(TokenType.TABLE)
+            base_table = self._parse_table()
+
+            self._match(TokenType.COMMA)
+
+            column_to_search = self._parse_bitwise()
+            self._match(TokenType.COMMA)
+
+            self._match(TokenType.TABLE)
+            query_table = self._parse_table()
+
+            expr = self.expression(
+                exp.VectorSearch,
+                this=base_table,
+                column_to_search=column_to_search,
+                query_table=query_table,
+            )
+
+            while self._match(TokenType.COMMA):
+                # query_column_to_search can be named argument or positional
+                if self._match(TokenType.STRING, advance=False):
+                    query_column = self._parse_string()
+                    expr.set("query_column_to_search", query_column)
+                else:
+                    arg = self._parse_lambda()
+                    if arg:
+                        expr.set(arg.this.name, arg)
 
             return expr
 
@@ -1043,6 +1147,7 @@ class BigQuery(Dialect):
 
         TRANSFORMS = {
             **generator.Generator.TRANSFORMS,
+            exp.ApproxTopK: rename_func("APPROX_TOP_COUNT"),
             exp.ApproxDistinct: rename_func("APPROX_COUNT_DISTINCT"),
             exp.ArgMax: arg_max_or_min_no_count("MAX_BY"),
             exp.ArgMin: arg_max_or_min_no_count("MIN_BY"),
@@ -1083,6 +1188,7 @@ class BigQuery(Dialect):
             exp.ILike: no_ilike_sql,
             exp.IntDiv: rename_func("DIV"),
             exp.Int64: rename_func("INT64"),
+            exp.JSONBool: rename_func("BOOL"),
             exp.JSONExtract: _json_extract_sql,
             exp.JSONExtractArray: _json_extract_sql,
             exp.JSONExtractScalar: _json_extract_sql,

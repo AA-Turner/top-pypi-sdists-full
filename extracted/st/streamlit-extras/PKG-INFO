@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-extras
-Version: 0.7.6
+Version: 0.7.7
 Summary: A library to discover, try, install and share Streamlit extras
 Project-URL: Homepage, https://github.com/arnaudmiribel/streamlit-extras
 Project-URL: Bug Tracker, https://github.com/arnaudmiribel/streamlit-extras/issues
@@ -16,7 +16,7 @@ Requires-Dist: markdownlit>=0.0.7
 Requires-Dist: plotly>=5.23.0
 Requires-Dist: prometheus-client>=0.20.0
 Requires-Dist: protobuf>=5.27.3
-Requires-Dist: snowflake-snowpark-python[pandas]>=1.30.0
+Requires-Dist: snowflake-snowpark-python[pandas]>=1.30.0; sys_platform != 'emscripten'
 Requires-Dist: st-annotated-text>=4.0.1
 Requires-Dist: st-theme>=1.2.3
 Requires-Dist: streamlit-avatar>=0.1.3

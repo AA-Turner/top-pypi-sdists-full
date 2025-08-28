@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class GREASE_PENCIL_OT_relative_layer_mask_add(bpy.types.Operator):
+class GREASE_PENCIL_OT_relative_layer_mask_add(_bpy_types.Operator):
     """Mask active layer with layer above or below"""
 
     bl_idname: typing.Any

@@ -1,6 +1,6 @@
 [project]
 name = "runwayml"
-version = "3.10.1"
+version = "3.10.2"
 description = "The official Python library for the runwayml API"
 dynamic = ["readme"]
 license = "Apache-2.0"
@@ -148,6 +148,7 @@ exclude = [
     "_dev",
     ".venv",
     ".nox",
+    ".git",
 ]
 
 reportImplicitOverride = true

@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class POSE_OT_selection_set_add(_PoseModeOnlyMixin, bpy.types.Operator):
+class POSE_OT_selection_set_add(_PoseModeOnlyMixin, _bpy_types.Operator):
     """Operator only available for objects of type armature in pose mode."""
 
     bl_description: typing.Any
@@ -34,7 +35,7 @@ class POSE_OT_selection_set_add(_PoseModeOnlyMixin, bpy.types.Operator):
         :param context:
         """
 
-class POSE_OT_selection_set_add_and_assign(_PoseModeOnlyMixin, bpy.types.Operator):
+class POSE_OT_selection_set_add_and_assign(_PoseModeOnlyMixin, _bpy_types.Operator):
     """Operator only available for objects of type armature in pose mode."""
 
     bl_description: typing.Any
@@ -64,7 +65,7 @@ class POSE_OT_selection_set_add_and_assign(_PoseModeOnlyMixin, bpy.types.Operato
         :param context:
         """
 
-class POSE_OT_selection_set_assign(_PoseModeOnlyMixin, bpy.types.Operator):
+class POSE_OT_selection_set_assign(_PoseModeOnlyMixin, _bpy_types.Operator):
     """Operator only available for objects of type armature in pose mode."""
 
     bl_description: typing.Any
@@ -101,7 +102,7 @@ class POSE_OT_selection_set_assign(_PoseModeOnlyMixin, bpy.types.Operator):
         :param _event:
         """
 
-class POSE_OT_selection_set_copy(_NeedSelSetMixin, bpy.types.Operator):
+class POSE_OT_selection_set_copy(_NeedSelSetMixin, _bpy_types.Operator):
     """Operator only available if the armature has a selected selection set."""
 
     bl_description: typing.Any
@@ -131,7 +132,7 @@ class POSE_OT_selection_set_copy(_NeedSelSetMixin, bpy.types.Operator):
         :param context:
         """
 
-class POSE_OT_selection_set_delete_all(_PoseModeOnlyMixin, bpy.types.Operator):
+class POSE_OT_selection_set_delete_all(_PoseModeOnlyMixin, _bpy_types.Operator):
     """Operator only available for objects of type armature in pose mode."""
 
     bl_description: typing.Any
@@ -161,7 +162,7 @@ class POSE_OT_selection_set_delete_all(_PoseModeOnlyMixin, bpy.types.Operator):
         :param context:
         """
 
-class POSE_OT_selection_set_deselect(_NeedSelSetMixin, bpy.types.Operator):
+class POSE_OT_selection_set_deselect(_NeedSelSetMixin, _bpy_types.Operator):
     """Operator only available if the armature has a selected selection set."""
 
     bl_description: typing.Any
@@ -191,7 +192,7 @@ class POSE_OT_selection_set_deselect(_NeedSelSetMixin, bpy.types.Operator):
         :param context:
         """
 
-class POSE_OT_selection_set_move(_NeedSelSetMixin, bpy.types.Operator):
+class POSE_OT_selection_set_move(_NeedSelSetMixin, _bpy_types.Operator):
     """Operator only available if the armature has a selected selection set."""
 
     bl_description: typing.Any
@@ -228,7 +229,7 @@ class POSE_OT_selection_set_move(_NeedSelSetMixin, bpy.types.Operator):
         :param context:
         """
 
-class POSE_OT_selection_set_paste(_PoseModeOnlyMixin, bpy.types.Operator):
+class POSE_OT_selection_set_paste(_PoseModeOnlyMixin, _bpy_types.Operator):
     """Operator only available for objects of type armature in pose mode."""
 
     bl_description: typing.Any
@@ -258,7 +259,7 @@ class POSE_OT_selection_set_paste(_PoseModeOnlyMixin, bpy.types.Operator):
         :param context:
         """
 
-class POSE_OT_selection_set_remove(_NeedSelSetMixin, bpy.types.Operator):
+class POSE_OT_selection_set_remove(_NeedSelSetMixin, _bpy_types.Operator):
     """Operator only available if the armature has a selected selection set."""
 
     bl_description: typing.Any
@@ -288,7 +289,7 @@ class POSE_OT_selection_set_remove(_NeedSelSetMixin, bpy.types.Operator):
         :param context:
         """
 
-class POSE_OT_selection_set_remove_bones(_PoseModeOnlyMixin, bpy.types.Operator):
+class POSE_OT_selection_set_remove_bones(_PoseModeOnlyMixin, _bpy_types.Operator):
     """Operator only available for objects of type armature in pose mode."""
 
     bl_description: typing.Any
@@ -318,7 +319,7 @@ class POSE_OT_selection_set_remove_bones(_PoseModeOnlyMixin, bpy.types.Operator)
         :param context:
         """
 
-class POSE_OT_selection_set_select(_NeedSelSetMixin, bpy.types.Operator):
+class POSE_OT_selection_set_select(_NeedSelSetMixin, _bpy_types.Operator):
     """Operator only available if the armature has a selected selection set."""
 
     bl_description: typing.Any
@@ -348,7 +349,7 @@ class POSE_OT_selection_set_select(_NeedSelSetMixin, bpy.types.Operator):
         :param context:
         """
 
-class POSE_OT_selection_set_unassign(_NeedSelSetMixin, bpy.types.Operator):
+class POSE_OT_selection_set_unassign(_NeedSelSetMixin, _bpy_types.Operator):
     """Operator only available if the armature has a selected selection set."""
 
     bl_description: typing.Any
@@ -378,7 +379,7 @@ class POSE_OT_selection_set_unassign(_NeedSelSetMixin, bpy.types.Operator):
         :param context:
         """
 
-class SelectionEntry(bpy.types.PropertyGroup):
+class SelectionEntry(_bpy_types.PropertyGroup):
     bl_rna: typing.Any
     id_data: typing.Any
 
@@ -396,7 +397,7 @@ class SelectionEntry(bpy.types.PropertyGroup):
         :rtype: typing.Any
         """
 
-class SelectionSet(bpy.types.PropertyGroup):
+class SelectionSet(_bpy_types.PropertyGroup):
     bl_rna: typing.Any
     id_data: typing.Any
 

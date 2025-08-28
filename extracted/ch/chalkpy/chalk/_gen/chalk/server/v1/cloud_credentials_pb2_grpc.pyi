@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.cloud_credentials_pb2 import (
     CreateCloudCredentialsResponse,
     DeleteCloudCredentialsRequest,
     DeleteCloudCredentialsResponse,
+    GetCloudCredentialsRequest,
+    GetCloudCredentialsResponse,
     ListCloudCredentialsRequest,
     ListCloudCredentialsResponse,
 )
@@ -27,6 +29,10 @@ class CloudAccountCredentialsServiceStub:
     ListCloudCredentials: UnaryUnaryMultiCallable[
         ListCloudCredentialsRequest,
         ListCloudCredentialsResponse,
+    ]
+    GetCloudCredentials: UnaryUnaryMultiCallable[
+        GetCloudCredentialsRequest,
+        GetCloudCredentialsResponse,
     ]
     CreateCloudCredentials: UnaryUnaryMultiCallable[
         CreateCloudCredentialsRequest,
@@ -44,6 +50,12 @@ class CloudAccountCredentialsServiceServicer(metaclass=ABCMeta):
         request: ListCloudCredentialsRequest,
         context: ServicerContext,
     ) -> ListCloudCredentialsResponse: ...
+    @abstractmethod
+    def GetCloudCredentials(
+        self,
+        request: GetCloudCredentialsRequest,
+        context: ServicerContext,
+    ) -> GetCloudCredentialsResponse: ...
     @abstractmethod
     def CreateCloudCredentials(
         self,

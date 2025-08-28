@@ -148,7 +148,7 @@ def opengl(
     :type animation: bool | None
     :param render_keyed_only: Render Keyframes Only, Render only those frames where selected objects have a key in their animation data. Only used when rendering animation
     :type render_keyed_only: bool | None
-    :param sequencer: Sequencer, Render using the sequencer's OpenGL display
+    :param sequencer: Sequencer, Render using the sequencers OpenGL display
     :type sequencer: bool | None
     :param write_still: Write Image, Save the rendered image to the output path (used only when animation is disabled)
     :type write_still: bool | None
@@ -157,7 +157,9 @@ def opengl(
     """
 
 def play_rendered_anim(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Play back rendered frames/movies using an external player
 
@@ -230,7 +232,9 @@ def shutter_curve_preset(
     """
 
 def view_cancel(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Cancel show render view
 
@@ -239,7 +243,9 @@ def view_cancel(
     """
 
 def view_show(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle show render view
 

@@ -173,6 +173,10 @@ def testWRatioUnicode():
     assert fuzz.WRatio("new york mets", "new york mets") == 100
 
 
+def test_issue452():
+    assert pytest.approx(fuzz.WRatio("hello", "hello" + "abcde"*7)) == 90
+
+
 def testQRatioUnicode():
     assert fuzz.WRatio("new york mets", "new york mets") == 100
 
@@ -258,9 +262,8 @@ def test_invalid_input(scorer):
 
 def unicodeArray(text):
     if sys.version_info >= (3, 13, 0):
-        return array("w", [c for c in text])
-    else:
-        return array("u", text)
+        return array("w", list(text))
+    return array("u", text)
 
 
 @pytest.mark.parametrize("scorer", scorers)

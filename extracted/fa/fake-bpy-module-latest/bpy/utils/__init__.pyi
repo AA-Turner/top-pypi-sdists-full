@@ -28,7 +28,7 @@ def app_template_paths(*, path: str | None = None) -> None:
     """
 
 def blend_paths(
-    absolute: bool = False, packed: bool = False, local: bool = False
+    *, absolute: bool = False, packed: bool = False, local: bool = False
 ) -> list[str]:
     """Returns a list of paths to external files referenced by the loaded .blend file.
 
@@ -81,7 +81,7 @@ def extension_path_user(package: str, *, path: str = "", create: bool = False) -
     :rtype: str
     """
 
-def flip_name(name: str, strip_digits: bool = False) -> str:
+def flip_name(name: str, *, strip_digits: bool = False) -> str:
     """Flip a name between left/right sides, useful for
     mirroring bone names.
 
@@ -144,12 +144,12 @@ def make_rna_paths(
 
         :param struct_name: Name of a RNA struct (like e.g. "Scene").
         :type struct_name: str
-        :param prop_name: Name of a RNA struct's property.
+        :param prop_name: Name of a RNA structs property.
         :type prop_name: str
         :param enum_name: Name of a RNA enum identifier.
         :type enum_name: str
         :return: A triple of three "RNA paths"
-    (most_complete_path, "struct.prop", "struct.prop:'enum'").
+    (most_complete_path, "struct.prop", "struct.prop:enum").
     If no enum_name is given, the third element will always be void.
         :rtype: tuple[str, str, str]
     """
@@ -232,7 +232,7 @@ def register_cli_command(id: str, execute: collections.abc.Callable) -> None:
         :type execute: collections.abc.Callable
         :return: The command handle which can be passed to `unregister_cli_command`.
 
-    This uses Python's capsule type however the result should be considered an opaque handle only used for unregistering.
+    This uses Pythons capsule type however the result should be considered an opaque handle only used for unregistering.
     """
 
 def register_manual_map(manual_hook) -> None: ...
@@ -287,11 +287,11 @@ def register_tool(
     """
 
 def resource_path(
-    type: str, major: int = bpy.app.version[0], minor: str = bpy.app.version[1]
+    type: str, *, major: int = bpy.app.version[0], minor: str = bpy.app.version[1]
 ) -> str:
     """Return the base path for storing system files.
 
-    :param type: string in ['USER', 'LOCAL', 'SYSTEM'].
+    :param type: string in [USER, LOCAL, SYSTEM].
     :type type: str
     :param major: major version, defaults to current.
     :type major: int
@@ -430,7 +430,7 @@ def unregister_tool(tool_cls) -> None: ...
 def user_resource(resource_type: str, *, path: str = "", create: bool = False) -> str:
     """Return a user resource path (normally from the users home directory).
 
-    :param resource_type: Resource type in ['DATAFILES', 'CONFIG', 'SCRIPTS', 'EXTENSIONS'].
+    :param resource_type: Resource type in [DATAFILES, CONFIG, SCRIPTS, EXTENSIONS].
     :type resource_type: str
     :param path: Optional subdirectory.
     :type path: str

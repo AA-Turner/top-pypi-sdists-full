@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_ds.literals import CertificateStateType
+    from types_boto3_ds.literals import CaEnrollmentPolicyStatusType
 
-    data: CertificateStateType = "Deregistered"
+    data: CaEnrollmentPolicyStatusType = "Disabled"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "CaEnrollmentPolicyStatusType",
     "CertificateStateType",
     "CertificateTypeType",
     "ClientAuthenticationStatusType",
@@ -81,6 +82,9 @@ __all__ = (
 )
 
 
+CaEnrollmentPolicyStatusType = Literal[
+    "Disabled", "Disabling", "Failed", "Impaired", "InProgress", "Success"
+]
 CertificateStateType = Literal[
     "DeregisterFailed",
     "Deregistered",
@@ -473,8 +477,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -607,16 +609,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_client_authentication_settings",

@@ -186,11 +186,15 @@ class KafkaProducerWorker:
                         )
                     except Exception:
                         pass
-                    
+                    # Measure output construction time
+                    construct_start_time = asyncio.get_event_loop().time()
                     output_message = self._construct_output_stream(message)
+                    construct_time = asyncio.get_event_loop().time() - construct_start_time
                     
                     # Attempt to produce message with error handling for event loop issues
                     try:
+                        # Measure Kafka produce time
+                        produce_start_time = asyncio.get_event_loop().time()
                         await asyncio.wait_for(
                             self.kafka_deployment.async_produce_message(
                                 output_message,
@@ -198,12 +202,19 @@ class KafkaProducerWorker:
                             ),
                             timeout=self.produce_timeout
                         )
+                        produce_time = asyncio.get_event_loop().time() - produce_start_time
+                        # Update the output message with final produce timing
+                        if "latency_stats" in output_message:
+                            output_message["latency_stats"]["last_output_sec"] = produce_time
+                            output_message["latency_stats"]["server_processing_breakdown"]["kafka_produce_time_sec"] = produce_time
+                            output_message["latency_stats"]["server_processing_breakdown"]["output_construct_time_sec"] = construct_time
+                        
                         self.messages_consumed += 1
                         self.messages_produced += 1
                         self.last_produce_time = datetime.now(timezone.utc)
                         try:
                             self.logger.debug(
-                                f"Produced key={message.get('message_key')} topic={self.kafka_deployment.producing_topic}"
+                                f"Produced key={message.get('message_key')} topic={self.kafka_deployment.producing_topic} produce_ms={int(produce_time*1000)} construct_ms={int(construct_time*1000)}"
                             )
                         except Exception:
                             pass
@@ -264,6 +275,7 @@ class KafkaProducerWorker:
         post_processing_result = message.get("post_processing_result", {})
         camera_info = message.get("camera_info", {})
         input_stream = message.get("input_stream", {})
+        server_timing = message.get("server_timing", {})
         
         # Extract aggregation summary from post-processing result
         agg_summary = {}
@@ -280,6 +292,34 @@ class KafkaProducerWorker:
                 "stream_time": self._get_high_precision_timestamp(),
             },
         }
+        
+        # Calculate end-to-end timing
+        consumer_timestamp = server_timing.get("consumer_timestamp")
+        produce_timestamp = datetime.now(timezone.utc)
+        
+        # Calculate e2e latency if we have consumer timestamp
+        app_e2e_sec = 0.0
+        if consumer_timestamp:
+            if isinstance(consumer_timestamp, str):
+                try:
+                    consumer_dt = datetime.fromisoformat(consumer_timestamp.replace('Z', '+00:00'))
+                    app_e2e_sec = (produce_timestamp - consumer_dt).total_seconds()
+                except Exception:
+                    pass
+            elif isinstance(consumer_timestamp, datetime):
+                app_e2e_sec = (produce_timestamp - consumer_timestamp).total_seconds()
+        
+        # Extract timing data with defaults
+        model_latency_sec = server_timing.get("model_inference_time_sec", 0.0)
+        post_processing_time_sec = server_timing.get("post_processing_time_sec", 0.0)
+        inference_total_time_sec = server_timing.get("inference_total_time_sec", 0.0)
+        total_worker_time_sec = server_timing.get("total_worker_time_sec", 0.0)
+        kafka_consume_time = server_timing.get("kafka_consume_time_sec", 0.0)
+        
+        # Extract client latency stats from input_stream if available
+        client_read_time = input_stream.get("last_read_time_sec", 0.0)
+        client_write_time = input_stream.get("last_write_time_sec", 0.0)
+        client_process_time = input_stream.get("last_process_time_sec", 0.0)
         
         # Construct the application result structure
         app_result = {
@@ -305,19 +345,34 @@ class KafkaProducerWorker:
                             }
                         ],
                         "latency_stats": {
-                            "model_latency_sec": "TODO",
-                            "last_read_time_sec": "TODO",
-                            "last_write_time_sec": "TODO",
-                            "last_process_time_sec": "TODO",
+                            "model_latency_sec": model_latency_sec,
+                            "post_processing_latency_sec": post_processing_time_sec,
+                            "inference_total_latency_sec": inference_total_time_sec,
+                            "last_read_time_sec": client_read_time,
+                            "last_write_time_sec": client_write_time,
+                            "last_process_time_sec": client_process_time,
                         },
                     },
                 }
             ],
             "agg_summary": agg_summary or {},
             "latency_stats": {
-                "app_e2e_sec": "TODO",
-                "last_input_feed_sec": "TODO",
-                "last_output_sec": "TODO",
+                "app_e2e_sec": app_e2e_sec,
+                "last_input_feed_sec": kafka_consume_time,
+                "last_output_sec": 0.0,  # Will be updated after produce
+                "server_processing_breakdown": {
+                    "kafka_consume_time_sec": kafka_consume_time,
+                    "model_inference_time_sec": model_latency_sec,
+                    "post_processing_time_sec": post_processing_time_sec,
+                    "inference_total_time_sec": inference_total_time_sec,
+                    "total_worker_time_sec": total_worker_time_sec,
+                    "video_chunk_inference_time_sec": server_timing.get("video_chunk_inference_time_sec"),
+                },
+                "client_timing_breakdown": {
+                    "last_read_time_sec": client_read_time,
+                    "last_write_time_sec": client_write_time,
+                    "last_process_time_sec": client_process_time,
+                },
             },
             # Add processing metadata
             "processing_metadata": {

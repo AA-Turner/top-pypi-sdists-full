@@ -34,6 +34,8 @@ def fbx(
     primary_bone_axis: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] | None = "Y",
     secondary_bone_axis: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] | None = "X",
     use_prepost_rot: bool | None = True,
+    mtl_name_collision_mode: typing.Literal["MAKE_UNIQUE", "REFERENCE_EXISTING"]
+    | None = "MAKE_UNIQUE",
     axis_forward: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] | None = "-Z",
     axis_up: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] | None = "Y",
 ) -> None:
@@ -61,7 +63,7 @@ def fbx(
         :type use_manual_orientation: bool | None
         :param global_scale: Scale
         :type global_scale: float | None
-        :param bake_space_transform: Apply Transform, Bake space transform into object data, avoids getting unwanted rotations to objects when target space is not aligned with Blender's space (WARNING! experimental option, use at own risk, known to be broken with armatures/animations)
+        :param bake_space_transform: Apply Transform, Bake space transform into object data, avoids getting unwanted rotations to objects when target space is not aligned with Blenders space (WARNING! experimental option, use at own risk, known to be broken with armatures/animations)
         :type bake_space_transform: bool | None
         :param use_custom_normals: Custom Normals, Import custom normals, if available (otherwise Blender will recompute them)
         :type use_custom_normals: bool | None
@@ -104,6 +106,14 @@ def fbx(
         :type secondary_bone_axis: typing.Literal['X','Y','Z','-X','-Y','-Z'] | None
         :param use_prepost_rot: Use Pre/Post Rotation, Use pre/post rotation from FBX transform (you may have to disable that in some cases)
         :type use_prepost_rot: bool | None
+        :param mtl_name_collision_mode: Material Name Collision, Behavior when the name of an imported material conflicts with an existing material
+
+    MAKE_UNIQUE
+    Make Unique -- Import each FBX material as a unique Blender material.
+
+    REFERENCE_EXISTING
+    Reference Existing -- If a material with the same name already exists, reference that instead of importing.
+        :type mtl_name_collision_mode: typing.Literal['MAKE_UNIQUE','REFERENCE_EXISTING'] | None
         :param axis_forward: Forward
         :type axis_forward: typing.Literal['X','Y','Z','-X','-Y','-Z'] | None
         :param axis_up: Up
@@ -119,6 +129,7 @@ def gltf(
     export_import_convert_lighting_mode: typing.Literal["SPEC", "COMPAT", "RAW"]
     | None = "SPEC",
     filter_glob: str = "*.glb;*.gltf",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     loglevel: int | None = 0,
@@ -156,6 +167,8 @@ def gltf(
         :type export_import_convert_lighting_mode: typing.Literal['SPEC','COMPAT','RAW'] | None
         :param filter_glob: filter_glob
         :type filter_glob: str
+        :param directory: directory
+        :type directory: str
         :param files: File Path
         :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param loglevel: Log Level, Log Level
@@ -175,7 +188,7 @@ def gltf(
     Temperance (average) -- Decent all-around strategy. A bone with one child has its tip placed on the local axis closest to its child.
 
     FORTUNE
-    Fortune (may look better, less accurate) -- Might look better than Temperance, but also might have errors. A bone with one child has its tip placed at its child's root. Non-uniform scalings may get messed up though, so beware.
+    Fortune (may look better, less accurate) -- Might look better than Temperance, but also might have errors. A bone with one child has its tip placed at its childs root. Non-uniform scalings may get messed up though, so beware.
         :type bone_heuristic: typing.Literal['BLENDER','TEMPERANCE','FORTUNE'] | None
         :param disable_bone_shape: Disable Bone Shape, Do not create bone shapes
         :type disable_bone_shape: bool | None

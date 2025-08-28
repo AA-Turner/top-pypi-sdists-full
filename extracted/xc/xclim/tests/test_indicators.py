@@ -516,12 +516,9 @@ def test_all_parameters_understood(official_indicators):
         for name, param in indinst.parameters.items():
             if param.kind == InputKind.OTHER_PARAMETER:
                 problems.add((identifier, name))
-    # We can deal with 'lat' for the moment.
-    if problems - {
-        ("COOL_NIGHT_INDEX", "lat"),
-        ("DRYNESS_INDEX", "lat"),
-    }:
-        raise ValueError(f"The following indicator/parameter couple {problems} use types not listed in InputKind.")
+    # lat is present in many indicators, but is exceptionally allowed.
+    if problems - {("INDICE", "test_param")}:
+        raise ValueError(f"The following indicator/parameter couple(s) {problems} use types not listed in InputKind.")
 
 
 def test_signature():
@@ -540,8 +537,9 @@ def test_signature():
     assert sig.parameters["thresh"].kind == sig.parameters["thresh"].KEYWORD_ONLY
     assert sig.return_annotation == xr.DataArray
 
-    sig = signature(xclim.atmos.wind_speed_from_vector)
-    assert sig.return_annotation == tuple[xr.DataArray, xr.DataArray]
+    for indicator in ["wind_speed_from_vector", "wind_vector_from_speed"]:
+        sig = signature(getattr(xclim.convert, indicator))
+        assert sig.return_annotation == tuple[xr.DataArray, xr.DataArray]
 
 
 def test_doc():
@@ -588,11 +586,11 @@ def test_parse_doc():
     assert "references" not in doc
     assert doc["long_name"] == "The mean daily temperature at the given time frequency."
 
-    doc = parse_doc(xclim.indices.saturation_vapor_pressure.__doc__)
-    assert (
-        doc["parameters"]["ice_thresh"]["description"]
-        == "Threshold temperature under which to switch to equations in reference to ice instead of water. "
-        "If None (default) everything is computed with reference to water."
+    doc = parse_doc(xclim.indices.converters.saturation_vapor_pressure.__doc__)
+    assert doc["parameters"]["ice_thresh"]["description"] == (
+        "Threshold temperature under which to switch to equations in reference to ice instead of water. "
+        "If None (default) everything is computed with reference to water. "
+        "If given, see `interp_power` for more options."
     )
     assert "goff_low-pressure_1946" in doc["references"]
 

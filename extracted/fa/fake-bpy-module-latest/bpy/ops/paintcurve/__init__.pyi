@@ -37,7 +37,9 @@ def add_point_slide(
     """
 
 def cursor(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Place cursor
 
@@ -46,7 +48,9 @@ def cursor(
     """
 
 def delete_point(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove Paint Curve Point
 
@@ -54,14 +58,22 @@ def delete_point(
     :type undo: bool | None
     """
 
-def draw(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def draw(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Draw curve
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
-def new(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def new(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Add new paint curve
 
     :type execution_context: int | str | None

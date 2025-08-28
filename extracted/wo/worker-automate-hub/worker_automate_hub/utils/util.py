@@ -2754,7 +2754,183 @@ async def itens_not_found_supplier(xml: str) -> RpaRetornoProcessoDTO:
                 else:
                     break
 
-                await worker_sleep(3)
+                await worker_sleep(7)
+
+                window_title = main_window.window_text()
+
+                if "Confirm" in window_title or "Seleciona Itens Fornecedor" in window_title:
+                            console.print("Itens nao localizados para o fornecedor...\n")
+                            if main_window.exists():
+                                main_window.type_keys("%n")
+                                await worker_sleep(10)
+
+                                console.print(
+                                    "Verificando a existencia de tela de selecionar Itens...\n"
+                                )
+                                itens_fornecedor = await is_window_open_by_class(
+                                    "TFrmSelecionaItensFornecedor", "TFrmSelecionaItensFornecedor"
+                                )
+
+                                if itens_fornecedor["IsOpened"] == True:
+                                    return RpaRetornoProcessoDTO(
+                                        sucesso=True,
+                                        retorno="Tela de Itens fornecedor - Multiplas referencias",
+                                        status=RpaHistoricoStatusEnum.Sucesso,
+                                    )
+                                else:
+                                    console.print(
+                                        "Não possui a existencia de tela de selecionar Itens Fornecedor...\n"
+                                    )
+
+                                await worker_sleep(10)
+                                console.print("Verificando a existe da tela dos itens com erro...\n")
+
+                                max_attempts = 60
+                                i = 0
+                                while i < max_attempts:
+                                    logs_erro = await is_window_open_by_class(
+                                        "TFrmExibeLogErroImportacaoNfe", "TFrmExibeLogErroImportacaoNfe"
+                                    )
+                                    if logs_erro["IsOpened"] == True:
+                                        break
+                                    else:
+                                        console.print(
+                                            "Aguardando confirmação de tela de erro importação NFe...\n"
+                                        )
+                                        try:
+                                            app = Application().connect(class_name="TFrmAguarde")
+                                            main_window = app["TMessageForm"]
+                                            console.print("Janela 'Information' encontrada!")
+                                            window_title = main_window.window_text()
+                                            if "Information" in window_title:
+                                                main_window.type_keys("%n")
+                                            else:
+                                                console.print(
+                                                    "Não possui a existencia de 'Information'...\n"
+                                                )
+                                        except:
+                                            console.print(
+                                                "Não possui a existencia de tela de Information...\n"
+                                            )
+                                        await worker_sleep(5)
+                                        i += 1
+
+                                await worker_sleep(5)
+                                logs_erro = await is_window_open_by_class(
+                                    "TFrmExibeLogErroImportacaoNfe", "TFrmExibeLogErroImportacaoNfe"
+                                )
+                                if logs_erro["IsOpened"] == True:
+                                    app = Application().connect(
+                                        class_name="TFrmExibeLogErroImportacaoNfe"
+                                    )
+                                    main_window = app["TFrmExibeLogErroImportacaoNfe"]
+                                    console.print(
+                                        "Tela com itens com erro existe, salvando os itens...\n"
+                                    )
+
+                                    btn_save = main_window.child_window(
+                                        title="Salvar", class_name="TBitBtn"
+                                    )
+
+                                    if btn_save.exists():
+                                        max_attempts = 3
+                                        i = 0
+                                        while i < max_attempts:
+                                            console.print("Clicando no botão de salvar...\n")
+                                            try:
+                                                btn_save.click()
+                                            except:
+                                                console.print(
+                                                    "Não foi possivel clicar no Botão OK... \n"
+                                                )
+                                            await worker_sleep(3)
+
+                                            console.print(
+                                                "Verificando a existencia da tela 'Salvar'...\n"
+                                            )
+                                            try:
+                                                app = Application().connect(title="Salvar")
+                                                main_window = app["Salvar"]
+                                                console.print("Tela 'Salvar' encontrada!")
+                                                break
+                                            except Exception as e:
+                                                console.print(
+                                                    f"Tela 'Salvar' não encontrada. Tentativa {i + 1}/{max_attempts}."
+                                                )
+                                            i += 1
+
+                                        if i == max_attempts:
+                                            return RpaRetornoProcessoDTO(
+                                                sucesso=False,
+                                                retorno="Número máximo de tentativas ao tentar conectar à tela 'Salvar'.",
+                                                status=RpaHistoricoStatusEnum.Falha,
+                                                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                                            )
+
+                                        await worker_sleep(4)
+                                        console.print("Interagindo com a tela 'Salvar'...\n")
+                                        path_to_txt = (
+                                            f"C:\\Users\\{username}\\Downloads\\erro_itens{xml}.txt"
+                                        )
+
+                                        main_window.type_keys("%n")
+                                        pyautogui.write(path_to_txt)
+                                        await worker_sleep(1)
+                                        main_window.type_keys("%l")
+                                        console.print("Arquivo salvo com sucesso...\n")
+
+                                        await worker_sleep(3)
+                                        with open(
+                                            path_to_txt, "r", encoding="latin1", errors="replace"
+                                        ) as arquivo:
+                                            conteudo = arquivo.read()
+                                            console.print(
+                                                f"Arquivo salvo com sucesso, itens com erro {conteudo}...\n"
+                                            )
+
+                                        os.remove(path_to_txt)
+                                        console.print("Removendo o arquivo...\n")
+
+                                        return RpaRetornoProcessoDTO(
+                                            sucesso=False,
+                                            retorno=f"Itens nao localizados p/ fornecedor. Mensagem: {conteudo}",
+                                            status=RpaHistoricoStatusEnum.Falha,
+                                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+                                        )
+                                    else:
+                                        return RpaRetornoProcessoDTO(
+                                            sucesso=False,
+                                            retorno="Botao Salvar - Não foi encontrado",
+                                            status=RpaHistoricoStatusEnum.Falha,
+                                            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                                        )
+
+                                else:
+                                    return RpaRetornoProcessoDTO(
+                                        sucesso=False,
+                                        retorno="Tela 'TFrmExibeLogErroImportacaoNfe' não encontrada, tentar novamente...",
+                                        status=RpaHistoricoStatusEnum.Falha,
+                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                                    )
+                            else:
+                                return RpaRetornoProcessoDTO(
+                                    sucesso=False,
+                                    retorno="Erro não mapeado, pop-up Confirm não encontrado...",
+                                    status=RpaHistoricoStatusEnum.Falha,
+                                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                                )
+
+                elif "Information" in window_title:
+                            console.print("Tela de NCM para o fornecedor...\n")
+                            if main_window.exists():
+                                console.print("Tela de NCM, clicando em NO para prosseguir...\n")
+                                main_window.type_keys("%n")
+                                return RpaRetornoProcessoDTO(
+                                    sucesso=True,
+                                    retorno="Tela de NCM - clicado em NO para andamento do processo",
+                                    status=RpaHistoricoStatusEnum.Sucesso,
+                                )
+            
             except Exception as e:
                 console.print(f"Erro ao tentar acessar TMessageForm: {e}")
                 janela_aguarde = await is_window_open_by_class(
@@ -2780,180 +2956,7 @@ async def itens_not_found_supplier(xml: str) -> RpaRetornoProcessoDTO:
             await worker_sleep(3)
             i += 1
 
-        window_title = main_window.window_text()
-
-        if "Confirm" in window_title or "Seleciona Itens Fornecedor" in window_title:
-            console.print("Itens nao localizados para o fornecedor...\n")
-            if main_window.exists():
-                main_window.type_keys("%n")
-                await worker_sleep(10)
-
-                console.print(
-                    "Verificando a existencia de tela de selecionar Itens...\n"
-                )
-                itens_fornecedor = await is_window_open_by_class(
-                    "TFrmSelecionaItensFornecedor", "TFrmSelecionaItensFornecedor"
-                )
-
-                if itens_fornecedor["IsOpened"] == True:
-                    return RpaRetornoProcessoDTO(
-                        sucesso=True,
-                        retorno="Tela de Itens fornecedor - Multiplas referencias",
-                        status=RpaHistoricoStatusEnum.Sucesso,
-                    )
-                else:
-                    console.print(
-                        "Não possui a existencia de tela de selecionar Itens Fornecedor...\n"
-                    )
-
-                await worker_sleep(10)
-                console.print("Verificando a existe da tela dos itens com erro...\n")
-
-                max_attempts = 60
-                i = 0
-                while i < max_attempts:
-                    logs_erro = await is_window_open_by_class(
-                        "TFrmExibeLogErroImportacaoNfe", "TFrmExibeLogErroImportacaoNfe"
-                    )
-                    if logs_erro["IsOpened"] == True:
-                        break
-                    else:
-                        console.print(
-                            "Aguardando confirmação de tela de erro importação NFe...\n"
-                        )
-                        try:
-                            app = Application().connect(class_name="TFrmAguarde")
-                            main_window = app["TMessageForm"]
-                            console.print("Janela 'Information' encontrada!")
-                            window_title = main_window.window_text()
-                            if "Information" in window_title:
-                                main_window.type_keys("%n")
-                            else:
-                                console.print(
-                                    "Não possui a existencia de 'Information'...\n"
-                                )
-                        except:
-                            console.print(
-                                "Não possui a existencia de tela de Information...\n"
-                            )
-                        await worker_sleep(5)
-                        i += 1
-
-                await worker_sleep(5)
-                logs_erro = await is_window_open_by_class(
-                    "TFrmExibeLogErroImportacaoNfe", "TFrmExibeLogErroImportacaoNfe"
-                )
-                if logs_erro["IsOpened"] == True:
-                    app = Application().connect(
-                        class_name="TFrmExibeLogErroImportacaoNfe"
-                    )
-                    main_window = app["TFrmExibeLogErroImportacaoNfe"]
-                    console.print(
-                        "Tela com itens com erro existe, salvando os itens...\n"
-                    )
-
-                    btn_save = main_window.child_window(
-                        title="Salvar", class_name="TBitBtn"
-                    )
-
-                    if btn_save.exists():
-                        max_attempts = 3
-                        i = 0
-                        while i < max_attempts:
-                            console.print("Clicando no botão de salvar...\n")
-                            try:
-                                btn_save.click()
-                            except:
-                                console.print(
-                                    "Não foi possivel clicar no Botão OK... \n"
-                                )
-                            await worker_sleep(3)
-
-                            console.print(
-                                "Verificando a existencia da tela 'Salvar'...\n"
-                            )
-                            try:
-                                app = Application().connect(title="Salvar")
-                                main_window = app["Salvar"]
-                                console.print("Tela 'Salvar' encontrada!")
-                                break
-                            except Exception as e:
-                                console.print(
-                                    f"Tela 'Salvar' não encontrada. Tentativa {i + 1}/{max_attempts}."
-                                )
-                            i += 1
-
-                        if i == max_attempts:
-                            return RpaRetornoProcessoDTO(
-                                sucesso=False,
-                                retorno="Número máximo de tentativas ao tentar conectar à tela 'Salvar'.",
-                                status=RpaHistoricoStatusEnum.Falha,
-                                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                            )
-
-                        await worker_sleep(4)
-                        console.print("Interagindo com a tela 'Salvar'...\n")
-                        path_to_txt = (
-                            f"C:\\Users\\{username}\\Downloads\\erro_itens{xml}.txt"
-                        )
-
-                        main_window.type_keys("%n")
-                        pyautogui.write(path_to_txt)
-                        await worker_sleep(1)
-                        main_window.type_keys("%l")
-                        console.print("Arquivo salvo com sucesso...\n")
-
-                        await worker_sleep(3)
-                        with open(
-                            path_to_txt, "r", encoding="latin1", errors="replace"
-                        ) as arquivo:
-                            conteudo = arquivo.read()
-                            console.print(
-                                f"Arquivo salvo com sucesso, itens com erro {conteudo}...\n"
-                            )
-
-                        os.remove(path_to_txt)
-                        console.print("Removendo o arquivo...\n")
-
-                        return RpaRetornoProcessoDTO(
-                            sucesso=False,
-                            retorno=f"Itens nao localizados p/ fornecedor. Mensagem: {conteudo}",
-                            status=RpaHistoricoStatusEnum.Falha,
-                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
-                        )
-                    else:
-                        return RpaRetornoProcessoDTO(
-                            sucesso=False,
-                            retorno="Botao Salvar - Não foi encontrado",
-                            status=RpaHistoricoStatusEnum.Falha,
-                            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                        )
-
-                else:
-                    return RpaRetornoProcessoDTO(
-                        sucesso=False,
-                        retorno="Tela 'TFrmExibeLogErroImportacaoNfe' não encontrada, tentar novamente...",
-                        status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                    )
-            else:
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno="Erro não mapeado, pop-up Confirm não encontrado...",
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                )
-
-        elif "Information" in window_title:
-            console.print("Tela de NCM para o fornecedor...\n")
-            if main_window.exists():
-                console.print("Tela de NCM, clicando em NO para prosseguir...\n")
-                main_window.type_keys("%n")
-                return RpaRetornoProcessoDTO(
-                    sucesso=True,
-                    retorno="Tela de NCM - clicado em NO para andamento do processo",
-                    status=RpaHistoricoStatusEnum.Sucesso,
-                )
+        
 
         return RpaRetornoProcessoDTO(
             sucesso=True,
@@ -3503,20 +3506,23 @@ async def check_nota_importada(xml_nota: str) -> RpaRetornoProcessoDTO:
 
                 if btn_ok.exists():
                     btn_ok.click()
-                    status_nf_emsys = await get_status_nf_emsys(int(xml_nota))
-                    if status_nf_emsys.get("status") == "Lançada":
-                        return RpaRetornoProcessoDTO(
-                            sucesso=True,
-                            retorno=f"Nota incluida com sucesso",
-                            status=RpaHistoricoStatusEnum.Sucesso,
-                        )
-                    else:
-                        return RpaRetornoProcessoDTO(
-                            sucesso=False,
-                            retorno="Erro ao lançar nota",
-                            status=RpaHistoricoStatusEnum.Falha,
-                            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                        )
+                    try:
+                        status_nf_emsys = await get_status_nf_emsys(int(xml_nota))
+                        if status_nf_emsys.get("status") == "Lançada":
+                            return RpaRetornoProcessoDTO(
+                                sucesso=True,
+                                retorno=f"Nota incluida com sucesso",
+                                status=RpaHistoricoStatusEnum.Sucesso,
+                            )
+                        else:
+                            return RpaRetornoProcessoDTO(
+                                sucesso=False,
+                                retorno="Erro ao lançar nota",
+                                status=RpaHistoricoStatusEnum.Falha,
+                                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                            )
+                    except:
+                        pass
             else:
                 return RpaRetornoProcessoDTO(
                     sucesso=True,

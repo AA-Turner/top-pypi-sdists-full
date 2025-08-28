@@ -22,7 +22,7 @@ def batch_for_shader(
 
         :param shader: shader for which a compatible format will be computed.
         :type shader: gpu.types.GPUShader
-        :param type: "'POINTS', 'LINES', 'TRIS' or 'LINES_ADJ'".
+        :param type: "POINTS, LINES, TRIS or LINES_ADJ".
         :type type: str
         :param content: Maps the name of the shader attribute with the data to fill the vertex buffer.
     For the dictionary values see documentation for `gpu.types.GPUVertBuf.attr_fill` data argument.

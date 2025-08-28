@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chonkie
-Version: 1.1.2
+Version: 1.2.0
 Summary: 🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library
 Author-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
 Maintainer-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
@@ -77,17 +77,6 @@ Requires-Dist: tiktoken>=0.5.0; extra == "openai"
 Requires-Dist: openai>=1.0.0; extra == "openai"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "openai"
 Requires-Dist: pydantic>=2.0.0; extra == "openai"
-Provides-Extra: voyageai
-Requires-Dist: tokenizers>=0.16.0; extra == "voyageai"
-Requires-Dist: voyageai>=0.3.2; extra == "voyageai"
-Requires-Dist: numpy<3.0,>=2.0.0; extra == "voyageai"
-Provides-Extra: cohere
-Requires-Dist: tokenizers>=0.16.0; extra == "cohere"
-Requires-Dist: cohere>=5.13.0; extra == "cohere"
-Requires-Dist: numpy<3.0,>=2.0.0; extra == "cohere"
-Provides-Extra: jina
-Requires-Dist: tokenizers>=0.16.0; extra == "jina"
-Requires-Dist: numpy<3.0,>=2.0.0; extra == "jina"
 Provides-Extra: semantic
 Requires-Dist: tokenizers>=0.16.0; extra == "semantic"
 Requires-Dist: model2vec>=0.3.0; extra == "semantic"
@@ -101,6 +90,17 @@ Requires-Dist: tiktoken>=0.5.0; extra == "azure-openai"
 Requires-Dist: openai>=1.0.0; extra == "azure-openai"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "azure-openai"
 Requires-Dist: pydantic>=2.0.0; extra == "azure-openai"
+Provides-Extra: voyageai
+Requires-Dist: tokenizers>=0.16.0; extra == "voyageai"
+Requires-Dist: voyageai>=0.3.2; extra == "voyageai"
+Requires-Dist: numpy<3.0,>=2.0.0; extra == "voyageai"
+Provides-Extra: cohere
+Requires-Dist: tokenizers>=0.16.0; extra == "cohere"
+Requires-Dist: cohere>=5.13.0; extra == "cohere"
+Requires-Dist: numpy<3.0,>=2.0.0; extra == "cohere"
+Provides-Extra: jina
+Requires-Dist: tokenizers>=0.16.0; extra == "jina"
+Requires-Dist: numpy<3.0,>=2.0.0; extra == "jina"
 Provides-Extra: chroma
 Requires-Dist: chromadb>=1.0.0; extra == "chroma"
 Provides-Extra: qdrant
@@ -109,8 +109,14 @@ Provides-Extra: tpuf
 Requires-Dist: turbopuffer[fast]>=0.2.0; extra == "tpuf"
 Provides-Extra: pgvector
 Requires-Dist: vecs>=0.4.0; extra == "pgvector"
+Provides-Extra: weaviate
+Requires-Dist: weaviate-client>=4.16.7; extra == "weaviate"
 Provides-Extra: datasets
 Requires-Dist: datasets>=4.0.0; extra == "datasets"
+Provides-Extra: pinecone
+Requires-Dist: pinecone; extra == "pinecone"
+Provides-Extra: mongodb
+Requires-Dist: pymongo; extra == "mongodb"
 Provides-Extra: genie
 Requires-Dist: pydantic>=2.0.0; extra == "genie"
 Requires-Dist: google-genai>=1.0.0; extra == "genie"
@@ -136,7 +142,11 @@ Requires-Dist: torch<3.0,>=2.0.0; extra == "all"
 Requires-Dist: chromadb>=1.0.0; extra == "all"
 Requires-Dist: qdrant-client>=1.0.0; extra == "all"
 Requires-Dist: turbopuffer[fast]>=0.2.0; extra == "all"
+Requires-Dist: weaviate-client>=4.16.7; extra == "all"
 Requires-Dist: azure-identity>=1.23.0; extra == "all"
+Requires-Dist: pinecone; extra == "all"
+Requires-Dist: pymongo; extra == "all"
+Requires-Dist: voyageai>=0.3.2; extra == "all"
 Provides-Extra: dev
 Requires-Dist: datasets>=1.14.0; extra == "dev"
 Requires-Dist: transformers>=4.0.0; extra == "dev"
@@ -152,7 +162,7 @@ Dynamic: license-file
 
 <div align='center'>
 
-![Chonkie Logo](./assets/chonkie_logo_br_transparent_bg.png)
+![Chonkie Logo](https://github.com/chonkie-inc/chonkie/blob/main/assets/chonkie_logo_br_transparent_bg.png?raw=true)
 
 # 🦛 Chonkie ✨
 
@@ -258,7 +268,6 @@ Chonkie provides several chunkers to help you split your text efficiently for RA
 | `SentenceChunker`| `sentence` | Splits text into chunks based on sentences.                                                                |
 | `RecursiveChunker`| `recursive`| Splits text hierarchically using customizable rules to create semantically meaningful chunks.              |
 | `SemanticChunker`| `semantic` | Splits text into chunks based on semantic similarity. Inspired by the work of [Greg Kamradt](https://github.com/gkamradt).                                                        |
-| `SDPMChunker`    | `sdpm`     | Splits text using a Semantic Double-Pass Merge approach.                                                   |
 | `LateChunker`    | `late`     | Embeds text and then splits it to have better chunk embeddings.                                            |
 | `CodeChunker`    | `code`     | Splits code into structurally meaningful chunks.                                                           |
 | `NeuralChunker`  | `neural`   | Splits text using a neural model.                                                                          |
@@ -268,7 +277,7 @@ More on these methods and the approaches taken inside the [docs](https://docs.ch
 
 ## Integrations
 
-Chonkie boasts 19+ integrations across tokenizers, embedding providers, LLMs, porters, and vector databases, ensuring it fits seamlessly into your existing workflow.
+Chonkie boasts 24+ integrations across tokenizers, embedding providers, LLMs, refineries, porters, vector databases, and utilities, ensuring it fits seamlessly into your existing workflow.
 
 <details>
 <summary><strong>🪓 Slice 'n' Dice! Chonkie supports 5+ ways to tokenize! </strong></summary>
@@ -279,9 +288,9 @@ Choose from supported tokenizers or provide your own custom token counting funct
 |----------------|----------------------------------------------------------------|--------------------|
 | `character`    | Basic character-level tokenizer. **Default tokenizer.**       | `default`          |
 | `word`         | Basic word-level tokenizer.                                    | `default`          |
-| `tokenizers`   | Load any tokenizer from the Hugging Face `tokenizers` library. | `default`          |
+| `tokenizers`   | Load any tokenizer from the Hugging Face `tokenizers` library. | `chonkie[tokenizers]`          |
 | `tiktoken`     | Use OpenAI's `tiktoken` library (e.g., for `gpt-4`).           | `chonkie[tiktoken]`|
-| `transformers` | Load tokenizers via `AutoTokenizer` from HF `transformers`.    | `chonkie[transformers]`|
+| `transformers` | Load tokenizers via `AutoTokenizer` from HF `transformers`.    | `chonkie[neural]`  |
 
 `default` indicates that the feature is available with the default `pip install chonkie`.
 
@@ -299,31 +308,33 @@ You can use this to extend Chonkie to support any tokenization scheme you want!
 </details>
 
 <details>
-<summary><strong>🧠 Embed like a boss! Chonkie links up with 7+ embedding pals!</strong></summary>
+<summary><strong>🧠 Embed like a boss! Chonkie links up with 8+ embedding pals!</strong></summary>
 
 Seamlessly works with various embedding model providers. Bring your favorite embeddings to the CHONK party! Use `AutoEmbeddings` to load models easily.
 
-| Provider / Alias        | Class                           | Description                                  | Optional Install  |
-|-------------------------|---------------------------------|----------------------------------------------|-------------------|
+| Provider / Alias        | Class                           | Description                                  | Optional Install     |
+|-------------------------|---------------------------------|----------------------------------------------|----------------------|
 | `model2vec`             | `Model2VecEmbeddings`           | Use `Model2Vec` models.                      | `chonkie[model2vec]` |
-| `sentence-transformers` | `SentenceTransformerEmbeddings` | Use any `sentence-transformers` model.       | `chonkie[st]`       |
-| `openai`                | `OpenAIEmbeddings`              | Use OpenAI's embedding API.                  | `chonkie[openai]`   |
-| `cohere`                | `CohereEmbeddings`              | Use Cohere's embedding API.                  | `chonkie[cohere]`   |
-| `gemini`                | `GeminiEmbeddings`              | Use Google's Gemini embedding API.           | `chonkie[gemini]`   |
-| `jina`                  | `JinaEmbeddings`                | Use Jina AI's embedding API.                 | `chonkie[jina]`     |
-| `voyageai`              | `VoyageAIEmbeddings`            | Use Voyage AI's embedding API.               | `chonkie[voyageai]` |
+| `sentence-transformers` | `SentenceTransformerEmbeddings` | Use any `sentence-transformers` model.       | `chonkie[st]`        |
+| `openai`                | `OpenAIEmbeddings`              | Use OpenAI's embedding API.                  | `chonkie[openai]`    |
+| `azure-openai`          | `AzureOpenAIEmbeddings`         | Use Azure OpenAI embedding service.          | `chonkie[azure-openai]` |
+| `cohere`                | `CohereEmbeddings`              | Use Cohere's embedding API.                  | `chonkie[cohere]`    |
+| `gemini`                | `GeminiEmbeddings`              | Use Google's Gemini embedding API.           | `chonkie[gemini]`    |
+| `jina`                  | `JinaEmbeddings`                | Use Jina AI's embedding API.                 | `chonkie[jina]`      |
+| `voyageai`              | `VoyageAIEmbeddings`            | Use Voyage AI's embedding API.               | `chonkie[voyageai]`  |
 
 </details>
 
 <details>
-<summary><strong>🧞‍♂️ Power Up with Genies! Chonkie supports 2+ LLM providers!</strong></summary>
+<summary><strong>🧞‍♂️ Power Up with Genies! Chonkie supports 3+ LLM providers!</strong></summary>
 
 Genies provide interfaces to interact with Large Language Models (LLMs) for advanced chunking strategies or other tasks within the pipeline.
 
-| Genie Name   | Class         | Description                      | Optional Install     |
-|--------------|---------------|----------------------------------|----------------------|
-| `gemini`     | `GeminiGenie` | Interact with Google Gemini APIs. | `chonkie[gemini]`    |
-| `openai`     | `OpenAIGenie` | Interact with OpenAI APIs.       | `chonkie[openai]`    |
+| Genie Name     | Class              | Description                      | Optional Install        |
+|----------------|--------------------|----------------------------------|-------------------------|
+| `gemini`       | `GeminiGenie`      | Interact with Google Gemini APIs. | `chonkie[gemini]`       |
+| `openai`       | `OpenAIGenie`      | Interact with OpenAI APIs.       | `chonkie[openai]`       |
+| `azure-openai` | `AzureOpenAIGenie` | Interact with Azure OpenAI APIs. | `chonkie[azure-openai]` |
 
 You can also use the `OpenAIGenie` to interact with any LLM provider that supports the OpenAI API format, by simply changing the `model`, `base_url`, and `api_key` parameters. For example, here's how to use the `OpenAIGenie` to interact with the `Llama-4-Maverick` model via OpenRouter:
 
@@ -338,13 +349,26 @@ genie = OpenAIGenie(model="meta-llama/llama-4-maverick",
 </details>
 
 <details>
-<summary><strong>🐴 Exporting CHONKs! Chonkie supports 1+ Porter!</strong></summary>
+<summary><strong>🏭 Refine your CHONKs! Chonkie supports 2+ refineries!</strong></summary>
+
+Refineries help you post-process and enhance your chunks after initial chunking.
+
+| Refinery Name | Class                | Description                                    | Optional Install |
+|---------------|----------------------|------------------------------------------------|------------------|
+| `overlap`     | `OverlapRefinery`    | Merge overlapping chunks based on similarity.  | `default`        |
+| `embeddings`  | `EmbeddingsRefinery` | Add embeddings to chunks using any provider.   | `chonkie[semantic]` |
+
+</details>
+
+<details>
+<summary><strong>🐴 Exporting CHONKs! Chonkie supports 2+ Porters!</strong></summary>
 
 Porters help you save your chunks easily.
 
-| Porter Name | Class        | Description                 | Optional Install |
-|-------------|--------------|-----------------------------|-----------------|
-| `json`      | `JSONPorter` | Export chunks to a JSON file. | `default`        |
+| Porter Name | Class           | Description                              | Optional Install    |
+|-------------|-----------------|------------------------------------------|---------------------|
+| `json`      | `JSONPorter`    | Export chunks to a JSON file.            | `default`           |
+| `datasets`  | `DatasetsPorter`| Export chunks to HuggingFace datasets.   | `chonkie[datasets]` |
 
 </details>
 
@@ -358,11 +382,33 @@ Handshakes provide a unified interface to ingest chunks directly into your favor
 | `chroma`       | `ChromaHandshake`     | Ingest chunks into ChromaDB.            | `chonkie[chroma]`         |
 | `qdrant`       | `QdrantHandshake`     | Ingest chunks into Qdrant.              | `chonkie[qdrant]`         |
 | `pgvector`     | `PgvectorHandshake`   | Ingest chunks into PostgreSQL with pgvector. | `chonkie[pgvector]`   |
-| `turbopuffer`  | `TurbopufferHandshake`| Ingest chunks into Turbopuffer.         | `chonkie[turbopuffer]`    |
+| `turbopuffer`  | `TurbopufferHandshake`| Ingest chunks into Turbopuffer.         | `chonkie[tpuf]`           |
 
 </details>
 
+<details>
+<summary><strong>🛠️ Utilities & Helpers! Chonkie includes handy tools!</strong></summary>
 
+Additional utilities to enhance your chunking workflow.
+
+| Utility Name | Class        | Description                                    | Optional Install |
+|--------------|--------------|------------------------------------------------|------------------|
+| `hub`        | `Hubbie`     | Simple wrapper for HuggingFace Hub operations. | `chonkie[hub]`   |
+| `viz`        | `Visualizer` | Rich console visualizations for chunks.        | `chonkie[viz]`   |
+
+</details>
+
+<details>
+<summary><strong>👨‍🍳 Chefs & 📁 Fetchers! Text preprocessing and data loading!</strong></summary>
+
+Chefs handle text preprocessing, while Fetchers load data from various sources.
+
+| Component | Class        | Description                              | Optional Install |
+|-----------|--------------|------------------------------------------|------------------|
+| `chef`    | `TextChef`   | Text preprocessing and cleaning.          | `default`        |
+| `fetcher` | `FileFetcher`| Load text from files and directories.    | `default`        |
+
+</details>
 
 With Chonkie's wide range of integrations, you can easily plug it into your existing infrastructure and start CHONKING!
 

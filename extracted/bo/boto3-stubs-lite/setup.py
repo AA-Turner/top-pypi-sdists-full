@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs-lite",
-    version="1.40.18",
+    version="1.40.19",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Lite type annotations for boto3 1.40.18 generated with mypy-boto3-builder 8.11.0",
+    description="Lite type annotations for boto3 1.40.19 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["boto3-stubs-full>=1.40.0, <1.41.0"],
-        "boto3": ["boto3==1.40.18"],
+        "boto3": ["boto3==1.40.19"],
         "all": [
             "mypy-boto3-accessanalyzer>=1.40.0, <1.41.0",
             "mypy-boto3-account>=1.40.0, <1.41.0",
@@ -340,8 +340,6 @@ setup(
             "mypy-boto3-omics>=1.40.0, <1.41.0",
             "mypy-boto3-opensearch>=1.40.0, <1.41.0",
             "mypy-boto3-opensearchserverless>=1.40.0, <1.41.0",
-            "mypy-boto3-opsworks>=1.40.0, <1.41.0",
-            "mypy-boto3-opsworkscm>=1.40.0, <1.41.0",
             "mypy-boto3-organizations>=1.40.0, <1.41.0",
             "mypy-boto3-osis>=1.40.0, <1.41.0",
             "mypy-boto3-outposts>=1.40.0, <1.41.0",
@@ -779,8 +777,6 @@ setup(
         "omics": ["mypy-boto3-omics>=1.40.0, <1.41.0"],
         "opensearch": ["mypy-boto3-opensearch>=1.40.0, <1.41.0"],
         "opensearchserverless": ["mypy-boto3-opensearchserverless>=1.40.0, <1.41.0"],
-        "opsworks": ["mypy-boto3-opsworks>=1.40.0, <1.41.0"],
-        "opsworkscm": ["mypy-boto3-opsworkscm>=1.40.0, <1.41.0"],
         "organizations": ["mypy-boto3-organizations>=1.40.0, <1.41.0"],
         "osis": ["mypy-boto3-osis>=1.40.0, <1.41.0"],
         "outposts": ["mypy-boto3-outposts>=1.40.0, <1.41.0"],

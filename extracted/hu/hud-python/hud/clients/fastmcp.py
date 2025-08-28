@@ -94,29 +94,21 @@ class FastMCPHUDClient(BaseHUDClient):
                         if "mcp.hud.so" in url:
                             raise RuntimeError(
                                 "Authentication failed for HUD API. "
-                                "Please ensure your HUD_API_KEY environment variable is set correctly. "
+                                "Please ensure your HUD_API_KEY environment variable is set correctly."  # noqa: E501
                                 "You can get an API key at https://app.hud.so"
                             ) from e
                     # Generic 401 error
                     raise RuntimeError(
-                        f"Authentication failed (401 Unauthorized). "
-                        f"Please check your credentials or API key."
+                        "Authentication failed (401 Unauthorized). "
+                        "Please check your credentials or API key."
                     ) from e
                 raise
 
             # Configure validation for output schemas based on client setting
             try:
-                from hud_mcp.client.session import ValidationOptions  # type: ignore[import-not-found]
-
-                if (
-                    hasattr(self._client, "_session_state")
-                    and self._client._session_state.session is not None
-                ):
-                    self._client._session_state.session._validation_options = ValidationOptions(
-                        strict_output_validation=self._strict_validation
-                    )
+                if hasattr(self._client, "_session_state") and self._client._session_state.session is not None:  # noqa: E501
+                    self._client._session_state.session._validate_structured_outputs = self._strict_validation  # noqa: E501
             except ImportError:
-                # ValidationOptions may not be available in some mcp versions
                 pass
 
             logger.info("FastMCP client connected")

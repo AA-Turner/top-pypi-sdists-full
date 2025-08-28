@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-25T21:23:22.204284                                                            #
+# MF version: 2.18.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-28T00:53:38.070847                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,10 +9,10 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.user_decorators.mutable_flow
     import metaflow.flowspec
-    import metaflow.user_decorators.user_flow_decorator
     import metaflow.decorators
+    import metaflow.user_decorators.user_flow_decorator
+    import metaflow.user_decorators.mutable_flow
 
 from ..exception import MetaflowException as MetaflowException
 from ..user_configs.config_parameters import resolve_delayed_evaluator as resolve_delayed_evaluator

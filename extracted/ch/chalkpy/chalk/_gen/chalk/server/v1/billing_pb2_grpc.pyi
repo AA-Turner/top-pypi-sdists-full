@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.billing_pb2 import (
     GetCreditBundlesRequest,
     GetCreditBundlesResponse,
+    GetInstanceUsageRequest,
+    GetInstanceUsageResponse,
     GetNodesAndPodsRequest,
     GetNodesAndPodsResponse,
     GetNodesAndPodsUIRequest,
@@ -80,6 +82,10 @@ class BillingServiceStub:
         GetCreditBundlesResponse,
     ]
     """GetCreditBundles returns the available credit bundles for purchase"""
+    GetInstanceUsage: UnaryUnaryMultiCallable[
+        GetInstanceUsageRequest,
+        GetInstanceUsageResponse,
+    ]
 
 class BillingServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -142,5 +148,11 @@ class BillingServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetCreditBundlesResponse:
         """GetCreditBundles returns the available credit bundles for purchase"""
+    @abstractmethod
+    def GetInstanceUsage(
+        self,
+        request: GetInstanceUsageRequest,
+        context: ServicerContext,
+    ) -> GetInstanceUsageResponse: ...
 
 def add_BillingServiceServicer_to_server(servicer: BillingServiceServicer, server: Server) -> None: ...

@@ -111,7 +111,7 @@ class ThreadListenerRunner:
             if not request.lazy_only:
                 # start the listener function asynchronously
                 def run_ack_function_asynchronously():
-                    nonlocal ack, request, response
+                    nonlocal response
                     try:
                         self.listener_start_handler.handle(
                             request=request,
@@ -160,7 +160,7 @@ class ThreadListenerRunner:
                     self._start_lazy_function(lazy_func, request)
 
             # await for the completion of ack() in the async listener execution
-            while ack.response is None and time.time() - starting_time <= 3:
+            while ack.response is None and time.time() - starting_time <= listener.ack_timeout:
                 time.sleep(0.01)
 
             if response is None and ack.response is None:

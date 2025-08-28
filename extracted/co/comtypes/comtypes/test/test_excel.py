@@ -1,5 +1,3 @@
-# -*- coding: latin-1 -*-
-
 import datetime
 import sys
 import unittest
@@ -26,7 +24,7 @@ except (ImportError, OSError):
     IMPORT_FAILED = True
 
 
-class BaseBindTest(object):
+class BaseBindTest:
     # `dynamic = True/False` must be defined in subclasses!
     dynamic: ClassVar[bool]
 

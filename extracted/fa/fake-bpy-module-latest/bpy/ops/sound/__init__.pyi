@@ -5,7 +5,9 @@ import numpy.typing as npt
 import bpy.stub_internal.rna_enums
 
 def bake_animation(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Update the audio animation cache
 
@@ -66,7 +68,7 @@ def mixdown(
     bitrate: int | None = 192,
     split_channels: bool | None = False,
 ) -> None:
-    """Mix the scene's audio to a sound file
+    """Mix the scenes audio to a sound file
 
         :type execution_context: int | str | None
         :type undo: bool | None
@@ -335,7 +337,7 @@ def open(
         :type sort_method: str | None
         :param cache: Cache, Cache the sound in memory
         :type cache: bool | None
-        :param mono: Mono, Merge all the sound's channels into one
+        :param mono: Mono, Merge all the sounds channels into one
         :type mono: bool | None
     """
 
@@ -447,7 +449,11 @@ def open_mono(
         :type mono: bool | None
     """
 
-def pack(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def pack(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Pack the sound into the current blend file
 
     :type execution_context: int | str | None
@@ -473,7 +479,9 @@ def unpack(
     """
 
 def update_animation_flags(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Update animation flags
 

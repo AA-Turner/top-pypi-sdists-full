@@ -525,7 +525,7 @@ def is_slurm_job() -> bool:
         return True
     return False
 
-def _sleep(t: int) -> int:
+def _sleep(t: Union[float, int]) -> int:
     if args is not None and not args.no_sleep:
         try:
             time.sleep(t)
@@ -10496,21 +10496,37 @@ def initialize_nvidia_logs() -> None:
 def build_gui_url(config: argparse.Namespace) -> str:
     base_url = get_base_url()
     params = collect_params(config)
-    return f"{base_url}?{urlencode(params, doseq=True)}"
+    ret = f"{base_url}?{urlencode(params, doseq=True)}"
+
+    return ret
+
+def get_result_names_for_url(value: List) -> str:
+    d = dict(v.split("=", 1) if "=" in v else (v, "min") for v in value)
+    s = " ".join(f"{k}={v}" for k, v in d.items())
+
+    return s
 
 def collect_params(config: argparse.Namespace) -> dict:
     params = {}
+    user_home = os.path.expanduser("~")
+
     for attr, value in vars(config).items():
         if attr == "run_program":
             params[attr] = global_vars["joined_run_program"]
+        elif attr == "result_names" and value:
+            params[attr] = get_result_names_for_url(value)
         elif attr == "parameter" and value is not None:
             params.update(process_parameters(config.parameter))
+        elif attr == "root_venv_dir":
+            if value is not None and os.path.abspath(value) != os.path.abspath(user_home):
+                params[attr] = value
         elif isinstance(value, bool):
             params[attr] = int(value)
         elif isinstance(value, list):
             params[attr] = value
         elif value is not None:
             params[attr] = value
+
     return params
 
 def process_parameters(parameters: list) -> dict:
@@ -10563,7 +10579,7 @@ def get_base_url() -> str:
 def write_ui_url() -> None:
     url = build_gui_url(args)
     with open(get_current_run_folder("ui_url.txt"), mode="a", encoding="utf-8") as myfile:
-        myfile.write(decode_if_base64(url))
+        myfile.write(url)
 
 def handle_random_steps() -> None:
     if args.parameter and args.continue_previous_job and random_steps <= 0:

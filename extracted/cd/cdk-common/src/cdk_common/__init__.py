@@ -5640,6 +5640,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_E_C2_IMAGE_REFERENCES_ACCESS_POLICY = "AMAZON_E_C2_IMAGE_REFERENCES_ACCESS_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

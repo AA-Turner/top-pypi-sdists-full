@@ -38,7 +38,9 @@ def attribute_set(
     """
 
 def delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected points
 
@@ -47,7 +49,9 @@ def delete(
     """
 
 def duplicate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy selected points
 
@@ -119,7 +123,9 @@ def select_random(
     """
 
 def separate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Separate selected geometry into a new point cloud
 

@@ -2,12 +2,13 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.properties_animviz
 import bl_ui.space_properties
 import bpy.types
 import rna_prop_ui
 
-class COLLECTION_MT_context_menu(bpy.types.Menu):
+class COLLECTION_MT_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -32,7 +33,7 @@ class COLLECTION_MT_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class OBJECT_MT_light_linking_context_menu(bpy.types.Menu):
+class OBJECT_MT_light_linking_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -57,7 +58,7 @@ class OBJECT_MT_light_linking_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class OBJECT_MT_shadow_linking_context_menu(bpy.types.Menu):
+class OBJECT_MT_shadow_linking_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -86,9 +87,9 @@ class OBJECT_PT_animation(
     rna_prop_ui.PropertyPanel,
     ObjectButtonsPanel,
     bl_ui.space_properties.PropertiesAnimationMixin,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
-    """Mix-in class for Animation panels.This class can be used to show a generic 'Animation' panel for IDs shown in
+    """Mix-in class for Animation panels.This class can be used to show a generic Animation panel for IDs shown in
     the properties editor. Specific ID types need specific subclasses.For an example, see DATA_PT_camera_animation in properties_data_camera.py
     """
 
@@ -115,7 +116,7 @@ class OBJECT_PT_animation(
         :rtype: typing.Any
         """
 
-class OBJECT_PT_collections(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_collections(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -144,7 +145,7 @@ class OBJECT_PT_collections(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_context_object(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_context_object(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -174,10 +175,10 @@ class OBJECT_PT_context_object(ObjectButtonsPanel, bpy.types.Panel):
         """
 
 class OBJECT_PT_custom_props(
-    rna_prop_ui.PropertyPanel, ObjectButtonsPanel, bpy.types.Panel
+    rna_prop_ui.PropertyPanel, ObjectButtonsPanel, _bpy_types.Panel
 ):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     COMPAT_ENGINES: typing.Any
@@ -204,7 +205,7 @@ class OBJECT_PT_custom_props(
         :rtype: typing.Any
         """
 
-class OBJECT_PT_delta_transform(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_delta_transform(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -234,7 +235,7 @@ class OBJECT_PT_delta_transform(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_display(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_display(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -264,7 +265,7 @@ class OBJECT_PT_display(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_instancing(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_instancing(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -300,7 +301,7 @@ class OBJECT_PT_instancing(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_instancing_size(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_instancing_size(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_parent_id: typing.Any
@@ -342,7 +343,7 @@ class OBJECT_PT_instancing_size(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_light_linking(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_light_linking(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -372,7 +373,7 @@ class OBJECT_PT_light_linking(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_lineart(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_lineart(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -410,7 +411,7 @@ class OBJECT_PT_lineart(ObjectButtonsPanel, bpy.types.Panel):
         """
 
 class OBJECT_PT_motion_paths(
-    bl_ui.properties_animviz.MotionPathButtonsPanel, bpy.types.Panel
+    bl_ui.properties_animviz.MotionPathButtonsPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -448,7 +449,7 @@ class OBJECT_PT_motion_paths(
         """
 
 class OBJECT_PT_motion_paths_display(
-    bl_ui.properties_animviz.MotionPathButtonsPanel_display, bpy.types.Panel
+    bl_ui.properties_animviz.MotionPathButtonsPanel_display, _bpy_types.Panel
 ):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -486,7 +487,7 @@ class OBJECT_PT_motion_paths_display(
         :param context:
         """
 
-class OBJECT_PT_relations(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_relations(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -515,7 +516,7 @@ class OBJECT_PT_relations(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_shading(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_shading(ObjectButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -552,7 +553,7 @@ class OBJECT_PT_shading(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_shadow_linking(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_shadow_linking(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -582,7 +583,7 @@ class OBJECT_PT_shadow_linking(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_shadow_terminator(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_shadow_terminator(ObjectButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -619,7 +620,7 @@ class OBJECT_PT_shadow_terminator(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_transform(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_transform(ObjectButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -647,7 +648,7 @@ class OBJECT_PT_transform(ObjectButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class OBJECT_PT_visibility(ObjectButtonsPanel, bpy.types.Panel):
+class OBJECT_PT_visibility(ObjectButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any

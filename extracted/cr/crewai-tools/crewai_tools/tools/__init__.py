@@ -27,6 +27,7 @@ from .firecrawl_scrape_website_tool.firecrawl_scrape_website_tool import (
 from .firecrawl_search_tool.firecrawl_search_tool import FirecrawlSearchTool
 from .github_search_tool.github_search_tool import GithubSearchTool
 from .hyperbrowser_load_tool.hyperbrowser_load_tool import HyperbrowserLoadTool
+from .invoke_crewai_automation_tool.invoke_crewai_automation_tool import InvokeCrewAIAutomationTool
 from .json_search_tool.json_search_tool import JSONSearchTool
 from .linkup.linkup_search_tool import LinkupSearchTool
 from .llamaindex_tool.llamaindex_tool import LlamaIndexTool
@@ -39,6 +40,7 @@ from .mongodb_vector_search_tool import (
 from .multion_tool.multion_tool import MultiOnTool
 from .mysql_search_tool.mysql_search_tool import MySQLSearchTool
 from .nl2sql.nl2sql_tool import NL2SQLTool
+from .ocr_tool.ocr_tool import OCRTool
 from .oxylabs_amazon_product_scraper_tool.oxylabs_amazon_product_scraper_tool import (
     OxylabsAmazonProductScraperTool,
 )

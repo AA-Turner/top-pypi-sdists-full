@@ -74,6 +74,9 @@ __all__ = (
     "ClarifyFeatureTypeType",
     "ClarifyTextGranularityType",
     "ClarifyTextLanguageType",
+    "ClusterAutoScalerTypeType",
+    "ClusterAutoScalingModeType",
+    "ClusterAutoScalingStatusType",
     "ClusterEventResourceTypeType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
@@ -818,6 +821,9 @@ ClarifyTextLanguageType = Literal[
     "yo",
     "zh",
 ]
+ClusterAutoScalerTypeType = Literal["Karpenter"]
+ClusterAutoScalingModeType = Literal["Disable", "Enable"]
+ClusterAutoScalingStatusType = Literal["Creating", "Deleting", "Failed", "InService"]
 ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
 ClusterInstanceStatusType = Literal[
     "DeepHealthCheckInProgress",
@@ -2699,8 +2705,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -2833,16 +2837,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "create_hub_content_presigned_urls",

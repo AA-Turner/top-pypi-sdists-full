@@ -116,11 +116,8 @@ class BaseExceptionHandler(IBaseExceptionHandler):
         # Convert the exception into a structured Throwable object
         throwable = await self.destructureException(exception)
 
-        # Convert the request arguments to a string for logging
-        string_args = ', '.join(request.all().keys()) if request.all() else 'No arguments'
-
         # Log the CLI error message with arguments
-        log.error(f"CLI Error: {throwable.message} (Args: {string_args})")
+        log.error(f"CLI Error: {throwable.message} (Args: {repr(request.all())})")
 
         # Output the exception traceback to the console
         console.newLine()

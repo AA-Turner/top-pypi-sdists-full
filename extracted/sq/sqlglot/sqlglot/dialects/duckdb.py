@@ -386,10 +386,12 @@ class DuckDB(Dialect):
             "JSON_EXTRACT_PATH": parser.build_extract_json_with_path(exp.JSONExtract),
             "JSON_EXTRACT_STRING": parser.build_extract_json_with_path(exp.JSONExtractScalar),
             "LIST_CONTAINS": exp.ArrayContains.from_arg_list,
+            "LIST_FILTER": exp.ArrayFilter.from_arg_list,
             "LIST_HAS": exp.ArrayContains.from_arg_list,
             "LIST_HAS_ANY": exp.ArrayOverlaps.from_arg_list,
             "LIST_REVERSE_SORT": _build_sort_array_desc,
             "LIST_SORT": exp.SortArray.from_arg_list,
+            "LIST_TRANSFORM": exp.Transform.from_arg_list,
             "LIST_VALUE": lambda args: exp.Array(expressions=args),
             "MAKE_TIME": exp.TimeFromParts.from_arg_list,
             "MAKE_TIMESTAMP": _build_make_timestamp,
@@ -643,6 +645,9 @@ class DuckDB(Dialect):
             exp.ArrayRemove: remove_from_array_using_filter,
             exp.ArraySort: _array_sort_sql,
             exp.ArraySum: rename_func("LIST_SUM"),
+            exp.ArrayUniqueAgg: lambda self, e: self.func(
+                "LIST", exp.Distinct(expressions=[e.this])
+            ),
             exp.BitwiseXor: rename_func("XOR"),
             exp.CommentColumnConstraint: no_comment_column_constraint_sql,
             exp.CurrentDate: lambda *_: "CURRENT_DATE",
@@ -1117,15 +1122,20 @@ class DuckDB(Dialect):
             return super().unnest_sql(expression)
 
         def ignorenulls_sql(self, expression: exp.IgnoreNulls) -> str:
-            if isinstance(expression.this, self.IGNORE_RESPECT_NULLS_WINDOW_FUNCTIONS):
+            this = expression.this
+
+            if isinstance(this, self.IGNORE_RESPECT_NULLS_WINDOW_FUNCTIONS):
                 # DuckDB should render IGNORE NULLS only for the general-purpose
                 # window functions that accept it e.g. FIRST_VALUE(... IGNORE NULLS) OVER (...)
                 return super().ignorenulls_sql(expression)
 
-            if not isinstance(expression.this, exp.AnyValue):
+            if isinstance(this, exp.First):
+                this = exp.AnyValue(this=this.this)
+
+            if not isinstance(this, exp.AnyValue):
                 self.unsupported("IGNORE NULLS is not supported for non-window functions.")
 
-            return self.sql(expression, "this")
+            return self.sql(this)
 
         def respectnulls_sql(self, expression: exp.RespectNulls) -> str:
             if isinstance(expression.this, self.IGNORE_RESPECT_NULLS_WINDOW_FUNCTIONS):

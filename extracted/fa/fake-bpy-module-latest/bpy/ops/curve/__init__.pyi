@@ -23,7 +23,9 @@ def cyclic_toggle(
     """
 
 def de_select_first(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """(De)select first of visible part of each NURBS
 
@@ -32,7 +34,9 @@ def de_select_first(
     """
 
 def de_select_last(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """(De)select last of visible part of each NURBS
 
@@ -71,7 +75,9 @@ def delete(
     """
 
 def dissolve_verts(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete selected control points, correcting surrounding handles
 
@@ -111,7 +117,9 @@ def draw(
     """
 
 def duplicate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Duplicate selected control points
 
@@ -204,7 +212,9 @@ def hide(
     """
 
 def make_segment(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Join two curves by their selected ends
 
@@ -213,9 +223,11 @@ def make_segment(
     """
 
 def match_texture_space(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Match texture space to object's bounding box
+    """Match texture space to objects bounding box
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -598,7 +610,9 @@ def select_all(
     """
 
 def select_less(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Deselect control points at the boundary of each selection region
 
@@ -607,7 +621,9 @@ def select_less(
     """
 
 def select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all control points linked to the current selection
 
@@ -631,7 +647,9 @@ def select_linked_pick(
     """
 
 def select_more(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select control points at the boundary of each selection region
 
@@ -640,7 +658,9 @@ def select_more(
     """
 
 def select_next(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select control points following already selected ones along the curves
 
@@ -670,7 +690,9 @@ def select_nth(
     """
 
 def select_previous(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select control points preceding already selected ones along the curves
 
@@ -706,7 +728,9 @@ def select_random(
     """
 
 def select_row(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select a row of control points including active one. Successive use on the same point switches between U/V directions
 
@@ -736,7 +760,9 @@ def select_similar(
     """
 
 def separate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Separate selected points from connected unselected points into a new object
 
@@ -745,7 +771,9 @@ def separate(
     """
 
 def shade_flat(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set shading to flat
 
@@ -754,7 +782,9 @@ def shade_flat(
     """
 
 def shade_smooth(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set shading to smooth
 
@@ -763,7 +793,9 @@ def shade_smooth(
     """
 
 def shortest_path_pick(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select shortest path between two selections
 
@@ -772,7 +804,9 @@ def shortest_path_pick(
     """
 
 def smooth(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Flatten angles of selected points
 
@@ -781,7 +815,9 @@ def smooth(
     """
 
 def smooth_radius(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Interpolate radii of selected points
 
@@ -790,7 +826,9 @@ def smooth_radius(
     """
 
 def smooth_tilt(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Interpolate tilt of selected points
 
@@ -799,7 +837,9 @@ def smooth_tilt(
     """
 
 def smooth_weight(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Interpolate weight of selected points
 
@@ -858,7 +898,11 @@ def spline_weight_set(
     :type weight: float | None
     """
 
-def split(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def split(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Split off selected points from connected unselected points
 
     :type execution_context: int | str | None
@@ -881,7 +925,9 @@ def subdivide(
     """
 
 def switch_direction(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Switch direction of selected splines
 
@@ -890,7 +936,9 @@ def switch_direction(
     """
 
 def tilt_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the tilt of selected control points
 

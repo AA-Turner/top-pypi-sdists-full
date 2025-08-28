@@ -5,7 +5,8 @@ from queue import Queue, Empty
 from typing import Dict, Optional, Any
 from matrice.session import Session
 from matrice.deploy.stream.kafka_stream import MatriceKafkaDeployment
-
+from matrice.deploy.aggregator.analytics import AnalyticsSummarizer
+from matrice.deploy.aggregator.latency import LatencyTracker
 
 class ResultsPublisher:
     """
@@ -18,7 +19,8 @@ class ResultsPublisher:
         inference_pipeline_id: str, 
         session: Session, 
         final_results_queue: Queue, 
-        analytics_summarizer: Optional[Any] = None
+        analytics_summarizer: Optional[AnalyticsSummarizer] = None,
+        latency_tracker: Optional[LatencyTracker] = None
     ):
         """
         Initialize the final results streamer.
@@ -28,6 +30,7 @@ class ResultsPublisher:
             session: Session object for authentication
             final_results_queue: Queue containing final aggregated results
             analytics_summarizer: Optional analytics summarizer for forwarding results
+            latency_tracker: Optional latency tracker for performance monitoring
         """
         self.inference_pipeline_id = inference_pipeline_id
         self.session = session
@@ -38,6 +41,8 @@ class ResultsPublisher:
         )
         # Optional analytics summarizer hook
         self.analytics_summarizer = analytics_summarizer
+        # Optional latency tracker hook
+        self.latency_tracker = latency_tracker
         
         # Threading and state management
         self._stop_streaming = threading.Event()
@@ -130,6 +135,26 @@ class ResultsPublisher:
                         except Exception as exc_inner:
                             if self.stats["messages_produced"] % 100 == 1:  # Log occasionally
                                 logging.warning(f"Failed to forward to analytics summarizer: {exc_inner}")
+                    
+                    # Forward to latency tracker for performance monitoring
+                    if self.latency_tracker is not None and hasattr(self.latency_tracker, 'ingest_result'):
+                        try:
+                            # Extract deployment ID from aggregation metadata
+                            deployment_id = None
+                            aggregation_metadata = aggregated_result.get("aggregation_metadata", {})
+                            if aggregation_metadata:
+                                # Use stream key as deployment identifier for tracking
+                                deployment_id = aggregation_metadata.get("stream_key")
+                            
+                            # Forward each deployment result to latency tracker
+                            deployment_results = aggregated_result.get("deployment_results", {})
+                            for dep_id, deployment_result in deployment_results.items():
+                                result_data = deployment_result.get("result", {})
+                                if result_data:
+                                    self.latency_tracker.ingest_result(dep_id, result_data)
+                        except Exception as exc_inner:
+                            if self.stats["messages_produced"] % 100 == 1:  # Log occasionally
+                                logging.warning(f"Failed to forward to latency tracker: {exc_inner}")
                     
                 except Exception as exc:
                     with self._stats_lock:

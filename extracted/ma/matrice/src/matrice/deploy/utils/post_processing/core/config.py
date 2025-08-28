@@ -689,6 +689,7 @@ class ConfigManager:
             'gas_leak_detection': None,
             'license_plate_monitor' : None,
             'dwell' : None,
+            'age_gender_detection': None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -1065,8 +1066,11 @@ class ConfigManager:
     def face_recognition_config_class(self):
         """Register a configuration class for a use case."""
         try:
-            from ..usecases.face_recognition import FaceRecognitionConfig
-            return FaceRecognitionConfig
+            # from ..usecases.face_recognition import FaceRecognitionConfig
+            # return FaceRecognitionConfig
+            from ..face_reg.face_recognition import FaceRecognitionEmbeddingConfig
+            
+            return FaceRecognitionEmbeddingConfig
         except ImportError:
             return None
     
@@ -1140,6 +1144,14 @@ class ConfigManager:
         try:
             from ..usecases.gas_leak_detection import GasLeakDetectionConfig
             return GasLeakDetectionConfig
+        except ImportError:
+            return None
+    
+    def age_gender_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.age_gender_detection import AgeGenderConfig
+            return AgeGenderConfig
         except ImportError:
             return None
     
@@ -2094,19 +2106,20 @@ class ConfigManager:
         
         elif usecase == "face_recognition":
             # Import here to avoid circular import
-            from ..usecases.face_recognition import FaceRecognitionConfig
-
+            from ..face_reg.face_recognition import FaceRecognitionEmbeddingConfig
+            
             # Handle nested configurations
             alert_config = kwargs.pop("alert_config", None)
             if alert_config and isinstance(alert_config, dict):
                 alert_config = AlertConfig(**alert_config)
 
-            config = FaceRecognitionConfig(
+            config = FaceRecognitionEmbeddingConfig(
                 category=category or "security",
                 usecase=usecase,
                 alert_config=alert_config,
                 **kwargs
             )
+            return config
         elif usecase == "drowsy_driver_detection":
             # Import here to avoid circular import
             from ..usecases.drowsy_driver_detection import DrowsyDriverConfig
@@ -2229,6 +2242,22 @@ class ConfigManager:
 
             config = DwellConfig(
                 category=category or "general",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "age_gender_detection":
+            # Import here to avoid circular import
+            from ..usecases.age_gender_detection import AgeGenderConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = AgeGenderConfig(
+                category=category or "age_gender_detection",
                 usecase=usecase,
                 alert_config=alert_config,
                 **kwargs
@@ -2679,8 +2708,8 @@ class ConfigManager:
             return default_config.to_dict()
         elif usecase == "face_recognition":
             # Import here to avoid circular import
-            from ..usecases.face_recognition import FaceRecognitionConfig
-            default_config = FaceRecognitionConfig()
+            from ..face_reg.face_recognition import FaceRecognitionEmbeddingConfig
+            default_config = FaceRecognitionEmbeddingConfig()
             return default_config.to_dict()
         elif usecase == "drowsy_driver_detection":
             # Import here to avoid circular import
@@ -2730,6 +2759,12 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.dwell_detection import DwellConfig
             default_config = DwellConfig()
+            return default_config.to_dict()
+
+        elif usecase == "age_gender_detection":
+            # Import here to avoid circular import
+            from ..usecases.age_gender_detection import AgeGenderConfig
+            default_config = AgeGenderConfig()
             return default_config.to_dict()
         
         #Add all image based usecases here

@@ -37,6 +37,7 @@ from .literals import (
     ErrorCodeType,
     FargateProfileIssueCodeType,
     FargateProfileStatusType,
+    InsightsRefreshStatusType,
     InsightStatusValueType,
     IpFamilyType,
     LogTypeType,
@@ -161,6 +162,8 @@ __all__ = (
     "DescribeIdentityProviderConfigResponseTypeDef",
     "DescribeInsightRequestTypeDef",
     "DescribeInsightResponseTypeDef",
+    "DescribeInsightsRefreshRequestTypeDef",
+    "DescribeInsightsRefreshResponseTypeDef",
     "DescribeNodegroupRequestTypeDef",
     "DescribeNodegroupRequestWaitExtraTypeDef",
     "DescribeNodegroupRequestWaitTypeDef",
@@ -272,6 +275,8 @@ __all__ = (
     "RemotePodNetworkTypeDef",
     "RemotePodNetworkUnionTypeDef",
     "ResponseMetadataTypeDef",
+    "StartInsightsRefreshRequestTypeDef",
+    "StartInsightsRefreshResponseTypeDef",
     "StorageConfigRequestTypeDef",
     "StorageConfigResponseTypeDef",
     "TagResourceRequestTypeDef",
@@ -660,6 +665,9 @@ DescribeInsightRequestTypeDef = TypedDict(
     },
 )
 
+class DescribeInsightsRefreshRequestTypeDef(TypedDict):
+    clusterName: str
+
 class DescribeNodegroupRequestTypeDef(TypedDict):
     clusterName: str
     nodegroupName: str
@@ -848,6 +856,9 @@ class RemoteNodeNetworkTypeDef(TypedDict):
 class RemotePodNetworkTypeDef(TypedDict):
     cidrs: NotRequired[Sequence[str]]
 
+class StartInsightsRefreshRequestTypeDef(TypedDict):
+    clusterName: str
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
@@ -957,6 +968,13 @@ class DescribeAddonConfigurationResponseTypeDef(TypedDict):
     podIdentityConfiguration: List[AddonPodIdentityConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DescribeInsightsRefreshResponseTypeDef(TypedDict):
+    message: str
+    status: InsightsRefreshStatusType
+    startedAt: datetime
+    endedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListAccessEntriesResponseTypeDef(TypedDict):
     accessEntries: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -995,6 +1013,11 @@ class ListUpdatesResponseTypeDef(TypedDict):
     updateIds: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class StartInsightsRefreshResponseTypeDef(TypedDict):
+    message: str
+    status: InsightsRefreshStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateAccessEntryResponseTypeDef(TypedDict):
     accessEntry: AccessEntryTypeDef

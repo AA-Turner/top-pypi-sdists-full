@@ -19,7 +19,7 @@ class MatriceTritonServer:
         dependencies_check("torch")
         import torch
 
-        logging.info("Initializing MatriceTritonServer")
+        logging.info("Initializing MatriceTritonServer (v0)")
         self.action_tracker = action_tracker
         self.action_details = action_tracker.action_details
         self.model_id = self.action_details["_idModelDeploy"]
@@ -103,7 +103,6 @@ class MatriceTritonServer:
             self.action_tracker.download_model(model_file, model_type=model_type)
             logging.info("Model download completed successfully")
             if runtime_framework == "pytorch":
-
                 def compile_torch_model(
                     model_path: str,
                 ):

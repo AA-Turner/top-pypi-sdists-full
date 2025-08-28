@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
 class PHYSICS_PT_rigid_body_constraint(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -43,7 +44,7 @@ class PHYSICS_PT_rigid_body_constraint(
         """
 
 class PHYSICS_PT_rigid_body_constraint_limits(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -82,7 +83,7 @@ class PHYSICS_PT_rigid_body_constraint_limits(
         """
 
 class PHYSICS_PT_rigid_body_constraint_limits_angular(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -121,7 +122,7 @@ class PHYSICS_PT_rigid_body_constraint_limits_angular(
         """
 
 class PHYSICS_PT_rigid_body_constraint_limits_linear(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -160,7 +161,7 @@ class PHYSICS_PT_rigid_body_constraint_limits_linear(
         """
 
 class PHYSICS_PT_rigid_body_constraint_motor(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -199,7 +200,7 @@ class PHYSICS_PT_rigid_body_constraint_motor(
         """
 
 class PHYSICS_PT_rigid_body_constraint_motor_angular(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -244,7 +245,7 @@ class PHYSICS_PT_rigid_body_constraint_motor_angular(
         """
 
 class PHYSICS_PT_rigid_body_constraint_motor_linear(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -289,7 +290,7 @@ class PHYSICS_PT_rigid_body_constraint_motor_linear(
         """
 
 class PHYSICS_PT_rigid_body_constraint_objects(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -328,7 +329,7 @@ class PHYSICS_PT_rigid_body_constraint_objects(
         """
 
 class PHYSICS_PT_rigid_body_constraint_override_iterations(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -373,7 +374,7 @@ class PHYSICS_PT_rigid_body_constraint_override_iterations(
         """
 
 class PHYSICS_PT_rigid_body_constraint_settings(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -412,7 +413,7 @@ class PHYSICS_PT_rigid_body_constraint_settings(
         """
 
 class PHYSICS_PT_rigid_body_constraint_springs(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -451,7 +452,7 @@ class PHYSICS_PT_rigid_body_constraint_springs(
         """
 
 class PHYSICS_PT_rigid_body_constraint_springs_angular(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -490,7 +491,7 @@ class PHYSICS_PT_rigid_body_constraint_springs_angular(
         """
 
 class PHYSICS_PT_rigid_body_constraint_springs_linear(
-    PHYSICS_PT_rigidbody_constraint_panel, bpy.types.Panel
+    PHYSICS_PT_rigidbody_constraint_panel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any

@@ -121,7 +121,9 @@ def create_orientation(
     """
 
 def delete_orientation(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete transformation orientation
 
@@ -250,7 +252,9 @@ def edge_slide(
     """
 
 def from_gizmo(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Transform selected items by mode type
 
@@ -804,7 +808,7 @@ def skin_resize(
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
 ) -> None:
-    """Scale selected vertices' skin radii
+    """Scale selected vertices skin radii
 
     :type execution_context: int | str | None
     :type undo: bool | None

@@ -32,6 +32,23 @@ if typing.TYPE_CHECKING:
 _DB_TIMEOUT_S = 60
 
 
+class UniqueConstraintViolationError(Exception):
+    """Exception raised for unique constraint violation.
+    Attributes:
+        value -- the input value that caused the error
+        message -- explanation of the error
+    """
+
+    def __init__(self, value, message='Unique constraint violation'):
+        self.value = value
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self):
+        return (f'UniqueConstraintViolationError: {self.message} '
+                f'(Value: {self.value})')
+
+
 class SQLAlchemyDialect(enum.Enum):
     SQLITE = 'sqlite'
     POSTGRESQL = 'postgresql'
@@ -87,7 +104,7 @@ def add_column_to_table(
     conn.commit()
 
 
-def add_tables_to_db_sqlalchemy(
+def add_all_tables_to_db_sqlalchemy(
     metadata: sqlalchemy.MetaData,
     engine: sqlalchemy.Engine,
 ):
@@ -101,6 +118,27 @@ def add_tables_to_db_sqlalchemy(
                 pass
             else:
                 raise
+
+
+def add_table_to_db_sqlalchemy(
+    metadata: sqlalchemy.MetaData,
+    engine: sqlalchemy.Engine,
+    table_name: str,
+):
+    """Add a specific table to the database."""
+    try:
+        table = metadata.tables[table_name]
+    except KeyError as e:
+        raise e
+
+    try:
+        table.create(bind=engine, checkfirst=True)
+    except (sqlalchemy_exc.OperationalError,
+            sqlalchemy_exc.ProgrammingError) as e:
+        if 'already exists' in str(e):
+            pass
+        else:
+            raise
 
 
 def add_column_to_table_sqlalchemy(

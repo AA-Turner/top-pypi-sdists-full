@@ -224,11 +224,10 @@ class Chain:
     def push_viewedge_back(self, viewedge: ViewEdge, orientation: bool) -> None:
         """Adds a ViewEdge at the end of the Chain.
 
-                :param viewedge: The ViewEdge that must be added.
-                :type viewedge: ViewEdge
-                :param orientation: The orientation with which the ViewEdge must be
-        processed.
-                :type orientation: bool
+        :param viewedge: The ViewEdge that must be added.
+        :type viewedge: ViewEdge
+        :param orientation: The orientation with which the ViewEdge must be processed.
+        :type orientation: bool
         """
 
     def push_viewedge_front(self, viewedge: ViewEdge, orientation: bool) -> None:
@@ -328,7 +327,7 @@ class Curve:
     """
 
     is_empty: bool
-    """ True if the Curve doesn't have any Vertex yet.
+    """ True if the Curve doesnt have any Vertex yet.
 
     :type: bool
     """
@@ -377,7 +376,7 @@ class Curve:
 
 class CurvePoint:
     """Class hierarchy: `Interface0D` > `CurvePoint`Class to represent a point of a curve. A CurvePoint can be any point
-    of a 1D curve (it doesn't have to be a vertex of the curve). Any
+    of a 1D curve (it doesnt have to be a vertex of the curve). Any
     `Interface1D` is built upon ViewEdges, themselves built upon
     FEdges. Therefore, a curve is basically a polyline made of a list of
     `SVertex` objects. Thus, a CurvePoint is built by linearly
@@ -595,7 +594,7 @@ class FEdgeSharp:
     edge of the input mesh. It can be a silhouette, a crease or a border.
     If it is a crease edge, then it is bordered by two faces of the mesh.
     Face a lies on its right whereas Face b lies on its left. If it is a
-    border edge, then it doesn't have any face on its right, and thus Face
+    border edge, then it doesnt have any face on its right, and thus Face
     a is None.
     """
 
@@ -866,21 +865,20 @@ class, the .object property refers to a `StrokeVertex` object.
 
     def __init__(self, brother: typing_extensions.Self) -> None:
         """Construct a nested Interface0DIterator using either the copy constructor
-        or the constructor that takes an he argument of a Function0D.
+        or the constructor that takes an argument of a Function0D.
 
                 :param brother: An Interface0DIterator object.
                 :type brother: typing_extensions.Self
         """
 
     def __init__(
-        self,
-        it: CurvePointIterator | SVertexIterator | StrokeVertexIterator | typing.Any,
+        self, it: CurvePointIterator | SVertexIterator | StrokeVertexIterator
     ) -> None:
         """Construct a nested Interface0DIterator using either the copy constructor
-        or the constructor that takes an he argument of a Function0D.
+        or the constructor that takes an argument of a Function0D.
 
                 :param it: An iterator object to be nested.
-                :type it: CurvePointIterator | SVertexIterator | StrokeVertexIterator | typing.Any
+                :type it: CurvePointIterator | SVertexIterator | StrokeVertexIterator
         """
 
 class Interface1D:
@@ -1398,15 +1396,15 @@ class Operators:
         point and the two new chains are processed in the same way. The
         recursivity level is controlled through a predicate 1D that expresses
         a stopping condition on the chain that is about to be processed.The user can also specify a 0D predicate to make a first selection on the points
-        that can potentially be split. A point that doesn't verify the 0D
-        predicate won't be candidate in realizing the min.
+        that can potentially be split. A point that doesnt verify the 0D
+        predicate wont be candidate in realizing the min.
 
                 :param func: The Unary Function evaluated at each point of the chain.
         The splitting point is the point minimizing this function.
                 :type func: UnaryFunction0DDouble
                 :param pred_1d: The Unary Predicate expressing the recursivity stopping
         condition. This predicate is evaluated for each curve before it
-        actually gets split. If pred_1d(chain) is true, the curve won't be
+        actually gets split. If pred_1d(chain) is true, the curve wont be
         split anymore.
                 :type pred_1d: UnaryPredicate1D
                 :param sampling: The resolution used to sample the chain for the
@@ -1429,8 +1427,8 @@ class Operators:
         point and the two new chains are processed in the same way. The
         recursivity level is controlled through a predicate 1D that expresses
         a stopping condition on the chain that is about to be processed.The user can also specify a 0D predicate to make a first selection on the points
-        that can potentially be split. A point that doesn't verify the 0D
-        predicate won't be candidate in realizing the min.
+        that can potentially be split. A point that doesnt verify the 0D
+        predicate wont be candidate in realizing the min.
 
                 :param func: The Unary Function evaluated at each point of the chain.
         The splitting point is the point minimizing this function.
@@ -1443,7 +1441,7 @@ class Operators:
                 :type pred_0d: UnaryPredicate0D
                 :param pred_1d: The Unary Predicate expressing the recursivity stopping
         condition. This predicate is evaluated for each curve before it
-        actually gets split. If pred_1d(chain) is true, the curve won't be
+        actually gets split. If pred_1d(chain) is true, the curve wont be
         split anymore.
                 :type pred_1d: UnaryPredicate1D
                 :param sampling: The resolution used to sample the chain for the
@@ -1683,7 +1681,7 @@ ViewVertex, and None otherwise.
         | mathutils.Vector
         | tuple[float, float, float],
     ) -> None:
-        """Adds a normal to the SVertex's set of normals. If the same normal
+        """Adds a normal to the SVertexs set of normals. If the same normal
         is already in the set, nothing changes.
 
                 :param normal: A three-dimensional vector.
@@ -1749,8 +1747,8 @@ class SVertexIterator:
 class Stroke:
     """Class hierarchy: `Interface1D` > `Stroke`Class to define a stroke. A stroke is made of a set of 2D vertices
     (`StrokeVertex`), regularly spaced out. This set of vertices
-    defines the stroke's backbone geometry. Each of these stroke vertices
-    defines the stroke's shape and appearance at this vertex position.
+    defines the strokes backbone geometry. Each of these stroke vertices
+    defines the strokes shape and appearance at this vertex position.
     """
 
     id: Id
@@ -2124,7 +2122,7 @@ class StrokeVertex:
 
     stroke_length: float
     """ Stroke length (it is only a value retained by the StrokeVertex,
-and it won't change the real stroke length).
+and it wont change the real stroke length).
 
     :type: float
     """
@@ -2327,7 +2325,7 @@ class UnaryFunction0D:
     `Interface0DIterator`. A unary function will be used by
     invoking __call__() on an Interface0DIterator. In Python, several
     different subclasses of UnaryFunction0D are used depending on the
-    types of functors' return values. For example, you would inherit from
+    types of functors return values. For example, you would inherit from
     a `UnaryFunction0DDouble` if you wish to define a function that
     returns a double value. Available UnaryFunction0D subclasses are:
     """
@@ -2423,7 +2421,7 @@ class UnaryFunction1D:
     """Base class for Unary Functions (functors) working on
     `Interface1D`. A unary function will be used by invoking
     __call__() on an Interface1D. In Python, several different subclasses
-    of UnaryFunction1D are used depending on the types of functors' return
+    of UnaryFunction1D are used depending on the types of functors return
     values. For example, you would inherit from a
     `UnaryFunction1DDouble` if you wish to define a function that
     returns a double value. Available UnaryFunction1D subclasses are:
@@ -2820,9 +2818,9 @@ of the "begin" ViewEdge.
 
                 :param begin: The ViewEdge from where to start the iteration.
                 :type begin: None | ViewEdge | None
-                :param orientation: If true, we'll look for the next ViewEdge among
+                :param orientation: If true, well look for the next ViewEdge among
         the ViewEdges that surround the ending ViewVertex of begin. If
-        false, we'll search over the ViewEdges surrounding the ending
+        false, well search over the ViewEdges surrounding the ending
         ViewVertex of begin.
                 :type orientation: bool
         """

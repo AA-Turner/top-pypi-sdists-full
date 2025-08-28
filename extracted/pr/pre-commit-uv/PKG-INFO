@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pre-commit-uv
-Version: 4.1.4
+Version: 4.1.5
 Summary: Run pre-commit with uv
 Project-URL: Bug Tracker, https://github.com/tox-dev/pre-commit-uv/issues
 Project-URL: Changelog, https://github.com/tox-dev/pre-commit-uv/releases

@@ -1,13 +1,107 @@
-from typing import Any
+from typing import Any, List
 from orionis.console.contracts.cli_request import ICLIRequest
 from orionis.console.exceptions.cli_orionis_value_error import CLIOrionisValueError
 
 class CLIRequest(ICLIRequest):
 
+    @classmethod
+    def fromList(cls, args: List[str]) -> 'CLIRequest':
+        """
+        Create a CLIRequest instance from a list of command line arguments.
+
+        This class method provides a convenient way to construct a CLIRequest object
+        directly from a list of command line arguments, such as those typically
+        received from sys.argv. It parses the arguments according to common CLI
+        conventions and extracts the command name and associated parameters.
+
+        Parameters
+        ----------
+        args : list
+            A list of command line arguments where the first element is expected
+            to be the command name, and subsequent elements are command arguments
+            in the format '--key=value', '--flag', or 'value'. Empty lists are
+            handled gracefully with fallback behavior.
+
+        Returns
+        -------
+        CLIRequest
+            A new CLIRequest instance initialized with the parsed command name
+            and arguments dictionary extracted from the input list.
+
+        Examples
+        --------
+        >>> args = ['migrate', '--database=production', '--force', 'users']
+        >>> request = CLIRequest.fromList(args)
+        >>> request.command()
+        'migrate'
+        >>> request.argument('database')
+        'production'
+        >>> request.argument('force')
+        'force'
+
+        Notes
+        -----
+        The parsing logic follows these conventions:
+        - First argument is always treated as the command name
+        - Arguments with '=' are split into key-value pairs
+        - Arguments starting with '--' have the prefix removed
+        - Flag arguments (--flag) are stored with the flag name as both key and value
+        - Regular arguments without '=' are stored with the argument as both key and value
+        - Empty or single-element lists result in default command names and empty arguments
+        """
+
+        # Validate that args is a list
+        if not isinstance(args, list):
+            raise CLIOrionisValueError(
+                f"Failed to create CLIRequest from list: expected list, got {type(args).__module__}.{type(args).__name__}."
+            )
+
+        # Extract command name with defensive programming for edge cases
+        # Use fallback command name for empty lists or malformed input
+        command = args[0] if args and len(args) > 0 else "__unknown__"
+
+        # Initialize command arguments dictionary for storing parsed parameters
+        command_args = {}
+
+        # Process command arguments if any exist beyond the command name
+        if args and len(args) > 1:
+
+            # Iterate over each argument provided after the command name
+            for arg in args[1:]:
+
+                # Handle arguments in key=value format
+                if '=' in arg:
+
+                    # Handle key=value format arguments
+                    key, value = arg.split('=', 1)  # Split only on first '=' to preserve values with '='
+
+                    # Normalize key by removing common CLI prefixes
+                    if key.startswith('--'):
+                        key = key[2:]  # Remove double-dash prefix
+
+                    command_args[key] = value
+
+                else:
+
+                    # Handle flag-style arguments and standalone values
+                    if arg.startswith('--'):
+
+                        # Extract flag name by removing prefix and store as flag=flag
+                        flag_name = arg[2:]
+                        command_args[flag_name] = flag_name
+
+                    else:
+
+                        # For regular arguments without '=', store as arg=arg
+                        command_args[arg] = arg
+
+        # Create and return a new CLIRequest instance with parsed command and arguments
+        return cls(command, command_args)
+
     def __init__(
         self,
-        command: str,
-        args: dict
+        command: str = "__unknown__",
+        args: dict = {}
     ):
         """
         Initialize a CLI request object with command line arguments.

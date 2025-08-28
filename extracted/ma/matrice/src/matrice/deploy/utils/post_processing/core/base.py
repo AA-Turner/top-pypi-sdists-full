@@ -23,6 +23,7 @@ class ResultFormat(Enum):
     CLASSIFICATION = "classification"
     INSTANCE_SEGMENTATION = "instance_segmentation"
     ACTIVITY_RECOGNITION = "activity_recognition"
+    FACE_RECOGNITION = "face_recognition"
     UNKNOWN = "unknown"
 
 
@@ -591,9 +592,9 @@ class BaseProcessor(ABC):
             "start_time": start_time,
             "end_time": end_time,
             "camera_info": camera_info or {
-                "camera_name": "TODO",
-                "camera_group": "TODO", 
-                "location": "TODO"
+                "camera_name": "No Camera Name",
+                "camera_group": "No Camera Group", 
+                "location": "No Location"
             },
             "level_settings": {
                 "low": 1,
@@ -618,9 +619,9 @@ class BaseProcessor(ABC):
             "input_timestamp": timestamp,
             "reset_timestamp": timestamp,
             "camera_info": camera_info or {
-                "camera_name": "TODO",
-                "camera_group": "TODO",
-                "location": "TODO"
+                "camera_name": "No Camera Name",
+                "camera_group": "No Camera Group",
+                "location": "No Location"
             },
             "statistics": statistics,
             "alerts": alerts or [],

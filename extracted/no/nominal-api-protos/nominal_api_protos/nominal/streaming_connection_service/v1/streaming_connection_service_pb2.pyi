@@ -20,6 +20,7 @@ class StreamingConnectionErrorType(int, metaclass=_enum_type_wrapper.EnumTypeWra
     STREAMING_CONNECTION_ERROR_TYPE_UNSPECIFIED: _ClassVar[StreamingConnectionErrorType]
     STREAMING_CONNECTION_ERROR_TYPE_CONNECTION_NOT_FOUND: _ClassVar[StreamingConnectionErrorType]
     STREAMING_CONNECTION_ERROR_TYPE_WORKFLOW_NOT_FOUND: _ClassVar[StreamingConnectionErrorType]
+    STREAMING_CONNECTION_ERROR_TYPE_STREAMING_CONNECTION_ALREADY_RUNNING: _ClassVar[StreamingConnectionErrorType]
 
 class StreamingConnectionStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -29,6 +30,7 @@ class StreamingConnectionStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrappe
 STREAMING_CONNECTION_ERROR_TYPE_UNSPECIFIED: StreamingConnectionErrorType
 STREAMING_CONNECTION_ERROR_TYPE_CONNECTION_NOT_FOUND: StreamingConnectionErrorType
 STREAMING_CONNECTION_ERROR_TYPE_WORKFLOW_NOT_FOUND: StreamingConnectionErrorType
+STREAMING_CONNECTION_ERROR_TYPE_STREAMING_CONNECTION_ALREADY_RUNNING: StreamingConnectionErrorType
 STREAMING_CONNECTION_STATUS_UNSPECIFIED: StreamingConnectionStatus
 CONNECTED: StreamingConnectionStatus
 DISCONNECTED: StreamingConnectionStatus

@@ -22,5 +22,5 @@ from . import utils as utils
 context: bpy.types.Context
 
 data: bpy.types.BlendData
-""" Access to Blender's internal data
+""" Access to Blenders internal data
 """

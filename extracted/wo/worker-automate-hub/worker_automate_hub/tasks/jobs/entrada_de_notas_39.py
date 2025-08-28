@@ -713,7 +713,16 @@ async def entrada_de_notas_39(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         pyautogui.write(nota["valorNota"])
         await worker_sleep(3)
 
-        await emsys.incluir_registro()
+        try:
+            retorno = await emsys.incluir_registro()
+            if retorno.sucesso == True:
+                        return RpaRetornoProcessoDTO(
+                            sucesso=retorno.sucesso,
+                            retorno=retorno.retorno,
+                            status=retorno.status,
+                        )
+        except:
+            console.print("A Nota fiscal ainda não foi incluída, continuando o processo...")
         await worker_sleep(25)
 
         console.print(
@@ -775,8 +784,16 @@ async def entrada_de_notas_39(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                         status=RpaHistoricoStatusEnum.Falha,
                         tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                     )
-                
-                await emsys.incluir_registro()
+                try:
+                    retorno = await emsys.incluir_registro()
+                    if retorno.sucesso == True:
+                        return RpaRetornoProcessoDTO(
+                            sucesso=retorno.sucesso,
+                            retorno=retorno.retorno,
+                            status=retorno.status,
+                        )
+                except:
+                    console.print("A Nota fiscal ainda não foi incluída, continuando o processo...")
                 await worker_sleep(25)
 
                 console.print("Verificando a existencia de POP-UP de Itens que Ultrapassam a Variação Máxima de Custo ...\n")

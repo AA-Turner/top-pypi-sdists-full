@@ -46,57 +46,57 @@ import numpy.typing as npt
 import bpy.types
 
 animation_playback_post: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on ending animation playback
+""" on ending animation playback. Accepts two arguments: The scene data-block and the dependency graph being updated
 """
 
 animation_playback_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on starting animation playback
+""" on starting animation playback. Accepts two arguments: The scene data-block and the dependency graph being updated
 """
 
 annotation_post: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on drawing an annotation (after)
+""" on drawing an annotation (after). Accepts two arguments: the annotation data-block and dependency graph
 """
 
 annotation_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on drawing an annotation (before)
+""" on drawing an annotation (before). Accepts two arguments: the annotation data-block and dependency graph
 """
 
 blend_import_post: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on linking or appending data (after), get a single BlendImportContext parameter
+""" on linking or appending data (after). Accepts one argument: a BlendImportContext
 """
 
 blend_import_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on linking or appending data (before), get a single BlendImportContext parameter
+""" on linking or appending data (before). Accepts one argument: a BlendImportContext
 """
 
 composite_cancel: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on a compositing background job (cancel)
+""" on a compositing background job (cancel). Accepts one argument: the scene data-block
 """
 
 composite_post: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on a compositing background job (after)
+""" on a compositing background job (after). Accepts one argument: the scene data-block
 """
 
 composite_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on a compositing background job (before)
+""" on a compositing background job (before). Accepts one argument: the scene data-block
 """
 
 depsgraph_update_post: list[
     collections.abc.Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]
 ]
-""" on depsgraph update (post)
+""" on depsgraph update (post). Accepts two arguments: The scene data-block and the dependency graph being updated
 """
 
 depsgraph_update_pre: list[collections.abc.Callable[[bpy.types.Scene, None], None]]
-""" on depsgraph update (pre)
+""" on depsgraph update (pre). Accepts two arguments: The scene data-block and the dependency graph being updated
 """
 
 frame_change_post: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" Called after frame change for playback and rendering, after the data has been evaluated for the new frame.
+""" Called after frame change for playback and rendering, after the data has been evaluated for the new frame. Accepts two arguments: The scene data-block and the dependency graph being updated
 """
 
 frame_change_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" Called after frame change for playback and rendering, before any data is evaluated for the new frame. This makes it possible to change data and relations (for example swap an object to another mesh) for the new frame. Note that this handler is not to be used as 'before the frame changes' event. The dependency graph is not available in this handler, as data and relations may have been altered and the dependency graph has not yet been updated for that.
+""" Called after frame change for playback and rendering, before any data is evaluated for the new frame. This makes it possible to change data and relations (for example swap an object to another mesh) for the new frame. Note that this handler is not to be used as before the frame changes event. The dependency graph is not available in this handler, as data and relations may have been altered and the dependency graph has not yet been updated for that. Accepts two arguments: The scene data-block and the dependency graph being updated
 """
 
 load_factory_preferences_post: list[collections.abc.Callable[[bpy.types.Scene], None]]
@@ -120,15 +120,15 @@ load_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
 """
 
 object_bake_cancel: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on canceling a bake job; will be called in the main thread
+""" on canceling a bake job; will be called in the main thread. Accepts one argument: the object data-block being baked
 """
 
 object_bake_complete: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on completing a bake job; will be called in the main thread
+""" on completing a bake job; will be called in the main thread. Accepts one argument: the object data-block being baked
 """
 
 object_bake_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" before starting a bake job
+""" before starting a bake job. Accepts one argument: the object data-block being baked
 """
 
 persistent: typing.Any
@@ -144,15 +144,15 @@ redo_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
 """
 
 render_cancel: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on canceling a render job
+""" on canceling a render job. Accepts one argument: the scene data-block being rendered
 """
 
 render_complete: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on completion of render job
+""" on completion of render job. Accepts one argument: the scene data-block being rendered
 """
 
 render_init: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on initialization of a render job
+""" on initialization of a render job. Accepts one argument: the scene data-block being rendered
 """
 
 render_post: list[collections.abc.Callable[[bpy.types.Scene], None]]

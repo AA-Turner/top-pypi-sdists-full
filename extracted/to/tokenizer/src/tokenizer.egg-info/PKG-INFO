@@ -1,10 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tokenizer
-Version: 3.4.5
+Version: 3.5.0
 Summary: A tokenizer for Icelandic text
 Author-email: "Miðeind ehf." <mideind@mideind.is>
 License: MIT
-Project-URL: Repository, https://github.com/mideind/Tokenizer
+Project-URL: repository, https://github.com/mideind/Tokenizer
+Project-URL: homepage, https://mideind.is
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -20,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -30,6 +32,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
+Dynamic: license-file
 
 -----------------------------------------
 Tokenizer: A tokenizer for Icelandic text
@@ -60,8 +63,23 @@ Tokenizer is an independent spinoff from the `Greynir project <https://greynir.i
 The `Greynir natural language parser for Icelandic <https://github.com/mideind/GreynirEngine>`_
 uses Tokenizer on its input.
 
-Note that Tokenizer is licensed under the *MIT* license
-while GreynirEngine is licensed under *GPLv3*.
+Tokenizer is licensed under the MIT license.
+
+Performance
+-----------
+
+Tokenization of 1 MB of a wide selection of texts from the Icelandic Gigaword Corpus
+using a 64-bit 2.6 GHz Intel Core i9.
+
++---------------+--------------+
+|               |  Time (sec)  |
++===============+==============+
+| CPython 3.12  |     25.27    |
++---------------+--------------+
+| PyPy 3.11     |      8.08    |
++---------------+--------------+
+
+Running tokenization with PyPy is about 3x faster than with CPython.
 
 
 Deep vs. shallow tokenization
@@ -646,7 +664,7 @@ defined within the ``TOK`` class:
 | S_END         |  11002  | End of sentence     |                           |
 +---------------+---------+---------------------+---------------------------+
 
-(*) The token types marked with an asterisk are reserved for the Greynir package
+(*) The token types marked with an asterisk are reserved for the GreynirEngine package
 and not currently returned by the tokenizer.
 
 To obtain a descriptive text for a token kind, use
@@ -842,6 +860,7 @@ can be found in the file ``test/toktest_normal_gold_expected.txt``.
 Changelog
 ---------
 
+* Version 3.4.6: *
 * Version 3.4.5: Compatibility with Python 3.13. Now requires Python 3.9 or later.
 * Version 3.4.4: Better handling of abbreviations
 * Version 3.4.3: Various minor fixes. Now requires Python 3.8 or later.
@@ -883,7 +902,7 @@ Changelog
   that should not start a new sentence even if the following word is capitalized.
 * Version 2.0.5: Fixed bug where single uppercase letters were erroneously
   being recognized as abbreviations, causing prepositions such as 'Í' and 'Á'
-  at the beginning of sentences to be misunderstood in GreynirPackage.
+  at the beginning of sentences to be misunderstood in GreynirEngine.
 * Version 2.0.4: Added imperfect abbreviations (*amk.*, *osfrv.*); recognized
   *klukkan hálf tvö* as a ``TOK.TIME``.
 * Version 2.0.3: Fixed bug in ``detokenize()`` where abbreviations, domains
@@ -932,3 +951,26 @@ Changelog
 * Version 1.0.4: Added ``TOK.DATEABS``, ``TOK.TIMESTAMPABS``,
   ``TOK.MEASUREMENT``.
 
+MIT License
+-----------
+
+Copyright (C) 2016-2025 `Miðeind ehf. <https://mideind.is>`_
+Original author: Vilhjálmur Þorsteinsson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

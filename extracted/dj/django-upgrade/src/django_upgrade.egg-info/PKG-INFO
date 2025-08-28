@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-upgrade
-Version: 1.26.0
+Version: 1.27.0
 Summary: Automatically upgrade your Django project code.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT

@@ -54,6 +54,7 @@ def face_split(
     face: bmesh.types.BMFace,
     vert_a: bmesh.types.BMVert,
     vert_b: bmesh.types.BMVert,
+    *,
     coords: collections.abc.Sequence[collections.abc.Sequence[float]] = (),
     use_exist: bool = True,
     example: bmesh.types.BMEdge | None = None,

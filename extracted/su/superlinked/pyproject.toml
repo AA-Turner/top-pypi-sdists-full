@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superlinked"
-version = "35.1.1"  # The version will be dynamically updated
+version = "36.0.0"  # The version will be dynamically updated
 description = "The Superlinked vector computing library"
 authors = ["Superlinked Release <release@superlinked.com>"]
 readme = "PYPI_README.md"
@@ -55,7 +55,7 @@ redisvl = { version = "^0.8.0", optional = true }
 topk-sdk = { version = ">=0.3.7,<0.5.0", optional = true }
 certifi = ">=2024.7.4,<2026.0.0" # Requests' transitive dep due to: CVE-2024-39689
 asgi-correlation-id = "^4.3.4"
-modal = "==1.1.1"
+modal = "==1.1.3"
 nest-asyncio = "^1.6.0"
 aiofiles = "^24.1.0"
 torch = "^2.8.0" # Adding torch as direct dependency for fixing CVE-2025-3730
@@ -94,7 +94,7 @@ matplotlib-stubs = ">=0.2,<0.4"
 networkx-stubs = "^0.0.1"
 pdoc3 = ">=0.10,<0.12"
 pyflakes = "~3.2.0"
-typing-extensions = "4.14.1"
+typing-extensions = "4.15.0"
 data-science-types = "~0.2.23"
 build = ">=1.0.3,<1.4.0"
 in-place = "~1.0.0"
@@ -105,7 +105,7 @@ wheel = ">=0.42,<0.46"
 pylint = "^3.3.8"
 python-semantic-release = ">=8.7,<10.4"
 mdformat-gfm = ">=0.3.5,<0.5.0"
-moto = { version = "5.1.10", extras = ["all"] }
+moto = { version = "5.1.11", extras = ["all"] }
 pylint-pydantic = "^0.3.2"
 nbqa = "^1.8.4"
 black = {extras = ["jupyter"], version = ">=24.2,<26.0"}

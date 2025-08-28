@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bl_ui.space_properties
 import bpy.types
 
-class MATERIAL_PT_freestyle_line(MaterialFreestyleButtonsPanel, bpy.types.Panel):
+class MATERIAL_PT_freestyle_line(MaterialFreestyleButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -47,7 +48,7 @@ class MaterialFreestyleButtonsPanel:
         :param context:
         """
 
-class RENDER_MT_lineset_context_menu(bpy.types.Menu):
+class RENDER_MT_lineset_context_menu(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -72,7 +73,7 @@ class RENDER_MT_lineset_context_menu(bpy.types.Menu):
         :param _context:
         """
 
-class RENDER_PT_freestyle(RenderFreestyleButtonsPanel, bpy.types.Panel):
+class RENDER_PT_freestyle(RenderFreestyleButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -121,7 +122,7 @@ class RenderFreestyleButtonsPanel:
         :param context:
         """
 
-class VIEWLAYER_PT_freestyle(ViewLayerFreestyleButtonsPanel, bpy.types.Panel):
+class VIEWLAYER_PT_freestyle(ViewLayerFreestyleButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -160,9 +161,9 @@ class VIEWLAYER_PT_freestyle(ViewLayerFreestyleButtonsPanel, bpy.types.Panel):
 class VIEWLAYER_PT_freestyle_animation(
     bl_ui.space_properties.PropertiesAnimationMixin,
     ViewLayerFreestyleButtonsPanel,
-    bpy.types.Panel,
+    _bpy_types.Panel,
 ):
-    """Mix-in class for Animation panels.This class can be used to show a generic 'Animation' panel for IDs shown in
+    """Mix-in class for Animation panels.This class can be used to show a generic Animation panel for IDs shown in
     the properties editor. Specific ID types need specific subclasses.For an example, see DATA_PT_camera_animation in properties_data_camera.py
     """
 
@@ -191,7 +192,7 @@ class VIEWLAYER_PT_freestyle_animation(
         """
 
 class VIEWLAYER_PT_freestyle_edge_detection(
-    ViewLayerFreestyleButtonsPanel, bpy.types.Panel
+    ViewLayerFreestyleButtonsPanel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -224,7 +225,7 @@ class VIEWLAYER_PT_freestyle_edge_detection(
         """
 
 class VIEWLAYER_PT_freestyle_lineset(
-    ViewLayerFreestyleEditorButtonsPanel, bpy.types.Panel
+    ViewLayerFreestyleEditorButtonsPanel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -264,7 +265,7 @@ class VIEWLAYER_PT_freestyle_lineset(
         """
 
 class VIEWLAYER_PT_freestyle_lineset_collection(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -304,7 +305,7 @@ class VIEWLAYER_PT_freestyle_lineset_collection(
         """
 
 class VIEWLAYER_PT_freestyle_lineset_edgetype(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -351,7 +352,7 @@ class VIEWLAYER_PT_freestyle_lineset_edgetype(
         """
 
 class VIEWLAYER_PT_freestyle_lineset_facemarks(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -391,7 +392,7 @@ class VIEWLAYER_PT_freestyle_lineset_facemarks(
         """
 
 class VIEWLAYER_PT_freestyle_lineset_visibilty(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -430,7 +431,7 @@ class VIEWLAYER_PT_freestyle_lineset_visibilty(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_alpha(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -470,7 +471,7 @@ class VIEWLAYER_PT_freestyle_linestyle_alpha(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_color(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -510,7 +511,7 @@ class VIEWLAYER_PT_freestyle_linestyle_color(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_geometry(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -550,7 +551,7 @@ class VIEWLAYER_PT_freestyle_linestyle_geometry(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_strokes(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -583,7 +584,7 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_strokes_chaining(
-    ViewLayerFreestyleLinestyleStrokesSubPanel, bpy.types.Panel
+    ViewLayerFreestyleLinestyleStrokesSubPanel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -622,7 +623,7 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_chaining(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_strokes_dashedline(
-    ViewLayerFreestyleLinestyleStrokesSubPanel, bpy.types.Panel
+    ViewLayerFreestyleLinestyleStrokesSubPanel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -662,7 +663,7 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_dashedline(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_strokes_selection(
-    ViewLayerFreestyleLinestyleStrokesSubPanel, bpy.types.Panel
+    ViewLayerFreestyleLinestyleStrokesSubPanel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -696,7 +697,7 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_selection(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_strokes_sorting(
-    ViewLayerFreestyleLinestyleStrokesSubPanel, bpy.types.Panel
+    ViewLayerFreestyleLinestyleStrokesSubPanel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -736,7 +737,7 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_sorting(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_strokes_splitting(
-    ViewLayerFreestyleLinestyleStrokesSubPanel, bpy.types.Panel
+    ViewLayerFreestyleLinestyleStrokesSubPanel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -770,7 +771,7 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_splitting(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_strokes_splitting_pattern(
-    ViewLayerFreestyleLinestyleStrokesSubPanel, bpy.types.Panel
+    ViewLayerFreestyleLinestyleStrokesSubPanel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -810,7 +811,7 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_splitting_pattern(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_texture(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -843,7 +844,7 @@ class VIEWLAYER_PT_freestyle_linestyle_texture(
         """
 
 class VIEWLAYER_PT_freestyle_linestyle_thickness(
-    ViewLayerFreestyleLineStyle, bpy.types.Panel
+    ViewLayerFreestyleLineStyle, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -883,7 +884,7 @@ class VIEWLAYER_PT_freestyle_linestyle_thickness(
         """
 
 class VIEWLAYER_PT_freestyle_style_modules(
-    ViewLayerFreestyleButtonsPanel, bpy.types.Panel
+    ViewLayerFreestyleButtonsPanel, _bpy_types.Panel
 ):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -922,7 +923,7 @@ class VIEWLAYER_PT_freestyle_style_modules(
         :param context:
         """
 
-class VIEWLAYER_UL_linesets(bpy.types.UIList):
+class VIEWLAYER_UL_linesets(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 

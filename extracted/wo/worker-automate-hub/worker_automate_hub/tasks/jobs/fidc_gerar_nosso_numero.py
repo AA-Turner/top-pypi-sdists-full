@@ -220,10 +220,12 @@ async def gerar_nosso_numero(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
         else: #Banco do Brasil Fidc
             code.type_keys("4")
         pyautogui.hotkey("tab")
-
+        
+        await worker_sleep(3)
         button_ok = main_window.child_window(class_name="TBitBtn", found_index=0)
         button_ok.click()
-
+        pyautogui.click(855, 740)
+        
         await worker_sleep(80)
         boleto_argenta = None
         max_trys = 5

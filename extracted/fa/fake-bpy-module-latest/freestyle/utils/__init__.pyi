@@ -37,11 +37,11 @@ class StrokeCollector:
         """
 
 def angle_x_normal(it) -> None:
-    """unsigned angle between a Point's normal and the X axis, in radians"""
+    """unsigned angle between a Points normal and the X axis, in radians"""
 
 def bound(lower, x, higher) -> None: ...
 def bounding_box(stroke) -> None:
-    """Returns the maximum and minimum coordinates (the bounding box) of the stroke's vertices"""
+    """Returns the maximum and minimum coordinates (the bounding box) of the strokes vertices"""
 
 def curvature_from_stroke_vertex(svert) -> None: ...
 def find_matching_vertex(id, it) -> None:
@@ -116,7 +116,7 @@ def iter_distance_from_object(stroke, location, range_min, range_max, normfac) -
     """
 
 def iter_material_value(stroke, func, attribute) -> None:
-    """Yields a specific material attribute from the vertex' underlying material."""
+    """Yields a specific material attribute from the vertex underlying material."""
 
 def iter_t2d_along_stroke(stroke) -> None:
     """Yields the progress along the stroke."""
@@ -135,7 +135,7 @@ def simplify(points, tolerance) -> None:
     """Simplifies a set of points"""
 
 def stroke_curvature(it) -> None:
-    """Compute the 2D curvature at the stroke vertex pointed by the iterator 'it'.
+    """Compute the 2D curvature at the stroke vertex pointed by the iterator it.
     K = 1 / R
     where R is the radius of the circle going through the current vertex and its neighbors
 
@@ -143,7 +143,7 @@ def stroke_curvature(it) -> None:
 
 def stroke_normal(stroke) -> None:
     """Compute the 2D normal at the stroke vertex pointed by the iterator
-    'it'.  It is noted that Normal2DF0D computes normals based on
+    it.  It is noted that Normal2DF0D computes normals based on
     underlying FEdges instead, which is inappropriate for strokes when
     they have already been modified by stroke geometry modifiers.The returned normals are dynamic: they update when the
     vertex position (and therefore the vertex normal) changes.

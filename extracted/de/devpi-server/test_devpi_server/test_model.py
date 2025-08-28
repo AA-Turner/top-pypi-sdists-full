@@ -131,20 +131,19 @@ def test_get_mirror_whitelist_info_private_package(mapp, monkeypatch, testapp):
     with mapp.xom.keyfs.read_transaction():
         with monkeypatch.context() as m:
             # make sure we get an error if data is fetched
-            m.setattr(mapp.xom, 'httpget', None)
+            m.setattr(mapp.xom.http, "get", None)
             stage = mapp.xom.model.getstage(api.stagename)
             info = stage.get_mirror_whitelist_info("pkg1")
             assert info["has_mirror_base"] is unknown
             assert info['blocked_by_mirror_whitelist'] == "root/pypi"
     mapp.use("root/pypi")
-    mapp.xom.httpget.mockresponse(
-        "https://pypi.org/simple/", text='<a href="pkg1"></a>')
-    mapp.xom.httpget.mock_simple("pkg1", text="")
+    mapp.xom.http.mockresponse("https://pypi.org/simple/", text='<a href="pkg1"></a>')
+    mapp.xom.http.mock_simple("pkg1", text="")
     mapp.get_simple("pkg1")
     with mapp.xom.keyfs.read_transaction():
         with monkeypatch.context() as m:
             # make sure we get an error if data is fetched
-            m.setattr(mapp.xom, 'httpget', None)
+            m.setattr(mapp.xom.http, "get", None)
             pypistage = mapp.xom.model.getstage("root/pypi")
             # expire the project data, otherwise we wouldn't fetch data
             # by accident
@@ -611,21 +610,25 @@ class TestStage:
             'someproject-1.0.zip',
             'someproject-1.1-py2.py3-none-any.whl']
 
-    def test_whitelist_intersection_two_mirrors(self, httpget, stage, user):
+    def test_whitelist_intersection_two_mirrors(self, http, stage, user):
         mirror1 = user.create_stage("mirror1", **udict(
             mirror_url="http://pypi.org/simple", type="mirror"))
         mirror2 = user.create_stage("mirror2", **udict(
             mirror_url="http://example.com/simple", type="mirror"))
-        httpget.mockresponse(
-            "http://pypi.org/simple/", text='<a href="someproject"></a>')
-        httpget.mock_simple(
-            "someproject", "<a href='someproject-1.1.zip' /a>",
-            remoteurl=mirror1.mirror_url)
-        httpget.mockresponse(
-            "http://example.com/simple/", text='<a href="someproject"></a>')
-        httpget.mock_simple(
-            "someproject", "<a href='someproject-1.1-py2.py3-none-any.whl' /a>",
-            remoteurl=mirror2.mirror_url)
+        http.mockresponse("http://pypi.org/simple/", text='<a href="someproject"></a>')
+        http.mock_simple(
+            "someproject",
+            "<a href='someproject-1.1.zip' /a>",
+            remoteurl=mirror1.mirror_url,
+        )
+        http.mockresponse(
+            "http://example.com/simple/", text='<a href="someproject"></a>'
+        )
+        http.mock_simple(
+            "someproject",
+            "<a href='someproject-1.1-py2.py3-none-any.whl' /a>",
+            remoteurl=mirror2.mirror_url,
+        )
         stage.modify(
             bases=(mirror1.name, mirror2.name),
             mirror_whitelist='*')
@@ -691,21 +694,25 @@ class TestStage:
             'someproject-1.1-py2.py3-none-any.whl',
             'someproject-1.1.zip']
 
-    def test_whitelist_union_two_mirrors(self, httpget, stage, user):
+    def test_whitelist_union_two_mirrors(self, http, stage, user):
         mirror1 = user.create_stage("mirror1", **udict(
             mirror_url="http://pypi.org/simple", type="mirror"))
         mirror2 = user.create_stage("mirror2", **udict(
             mirror_url="http://example.com/simple", type="mirror"))
-        httpget.mockresponse(
-            "http://pypi.org/simple/", text='<a href="someproject"></a>')
-        httpget.mock_simple(
-            "someproject", "<a href='someproject-1.1.zip' /a>",
-            remoteurl=mirror1.mirror_url)
-        httpget.mockresponse(
-            "http://example.com/simple/", text='<a href="someproject"></a>')
-        httpget.mock_simple(
-            "someproject", "<a href='someproject-1.1-py2.py3-none-any.whl' /a>",
-            remoteurl=mirror2.mirror_url)
+        http.mockresponse("http://pypi.org/simple/", text='<a href="someproject"></a>')
+        http.mock_simple(
+            "someproject",
+            "<a href='someproject-1.1.zip' /a>",
+            remoteurl=mirror1.mirror_url,
+        )
+        http.mockresponse(
+            "http://example.com/simple/", text='<a href="someproject"></a>'
+        )
+        http.mock_simple(
+            "someproject",
+            "<a href='someproject-1.1-py2.py3-none-any.whl' /a>",
+            remoteurl=mirror2.mirror_url,
+        )
         stage.modify(
             bases=(mirror1.name, mirror2.name),
             mirror_whitelist='*')
@@ -1461,29 +1468,6 @@ class TestUsers:
         assert userconfig["modified"] == strftime("%Y-%m-%dT%H:%M:%SZ", modification_time2)
         assert "dev" in userconfig["indexes"]
 
-    def test_migrate_hash(self, caplog, model):
-        from devpi_server.auth import newsalt, getpwhash
-        user = model.create_user("user", "password", email="some@email.com")
-        userconfig = user.get(credentials=True)
-        assert 'pwsalt' not in userconfig
-        assert 'pwhash' in userconfig
-        salt = newsalt()
-        hash = getpwhash("password", salt)
-        with user.key.update() as userconfig:
-            # modify directly, because the modify method doesn't allow this
-            userconfig["pwsalt"] = salt
-            userconfig["pwhash"] = hash
-        userconfig = user.get(credentials=True)
-        assert userconfig['pwsalt'] == salt
-        assert userconfig['pwhash'] == hash
-        # now validate and check for migration
-        assert user.validate("password")
-        (rec,) = caplog.getrecords(".*modified user .*")
-        assert "pwsalt=None" in rec.getMessage()
-        userconfig = user.get(credentials=True)
-        assert 'pwsalt' not in userconfig
-        assert userconfig['pwhash'].startswith("$argon2")
-
     def test_create_with_hash(self, model):
         user = model.get_user("user")
         assert not user
@@ -1514,23 +1498,6 @@ class TestUsers:
         monkeypatch.setattr(getpass, "getpass", lambda x: "123")
         run_passwd(model, "root")
         assert model.get_user("root").validate("123")
-
-    def test_server_passwd_with_old_salt_hash(self, model, monkeypatch):
-        from devpi_server.auth import newsalt, getpwhash
-        secret = "hello"
-        new_secret = "123"
-        salt = newsalt()
-        hash = getpwhash(secret, salt)
-        user = model.get_user("root")
-        with user.key.update() as userconfig:
-            userconfig['pwsalt'] = salt
-            userconfig['pwhash'] = hash
-        userconfig = user.get(credentials=True)
-        assert userconfig['pwsalt'] is not None
-        assert userconfig['pwhash'] is not None
-        monkeypatch.setattr(getpass, "getpass", lambda x: new_secret)
-        run_passwd(model, "root")
-        assert model.get_user("root").validate(new_secret)
 
     def test_server_email(self, model):
         email_address = "root_" + str(id) + "@mydomain"

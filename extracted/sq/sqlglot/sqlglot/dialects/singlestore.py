@@ -8,10 +8,23 @@ from sqlglot.dialects.dialect import (
     json_extract_segments,
     json_path_key_only_name,
     rename_func,
+    bool_xor_sql,
+    count_if_to_sum,
 )
 from sqlglot.dialects.mysql import MySQL
+from sqlglot.expressions import DataType
 from sqlglot.generator import unsupported_args
 from sqlglot.helper import seq_get
+
+
+def cast_to_time6(expression: t.Optional[exp.Expression]) -> exp.Cast:
+    return exp.Cast(
+        this=expression,
+        to=exp.DataType.build(
+            exp.DataType.Type.TIME,
+            expressions=[exp.DataTypeParam(this=exp.Literal.number(6))],
+        ),
+    )
 
 
 class SingleStore(MySQL):
@@ -56,20 +69,48 @@ class SingleStore(MySQL):
             "TO_CHAR": build_formatted_time(exp.ToChar, "singlestore"),
             "STR_TO_DATE": build_formatted_time(exp.StrToDate, "mysql"),
             "DATE_FORMAT": build_formatted_time(exp.TimeToStr, "mysql"),
+            # The first argument of following functions is converted to TIME(6)
+            # This is needed because exp.TimeToStr is converted to DATE_FORMAT
+            # which interprets the first argument as DATETIME and fails to parse
+            # string literals like '12:05:47' without a date part.
             "TIME_FORMAT": lambda args: exp.TimeToStr(
-                # The first argument is converted to TIME(6)
-                # This is needed because exp.TimeToStr is converted to DATE_FORMAT
-                # which interprets the first argument as DATETIME and fails to parse
-                # string literals like '12:05:47' without a date part.
-                this=exp.Cast(
-                    this=seq_get(args, 0),
-                    to=exp.DataType.build(
-                        exp.DataType.Type.TIME,
-                        expressions=[exp.DataTypeParam(this=exp.Literal.number(6))],
-                    ),
-                ),
+                this=cast_to_time6(seq_get(args, 0)),
                 format=MySQL.format_time(seq_get(args, 1)),
             ),
+            "HOUR": lambda args: exp.cast(
+                exp.TimeToStr(
+                    this=cast_to_time6(seq_get(args, 0)),
+                    format=MySQL.format_time(exp.Literal.string("%k")),
+                ),
+                DataType.Type.INT,
+            ),
+            "MICROSECOND": lambda args: exp.cast(
+                exp.TimeToStr(
+                    this=cast_to_time6(seq_get(args, 0)),
+                    format=MySQL.format_time(exp.Literal.string("%f")),
+                ),
+                DataType.Type.INT,
+            ),
+            "SECOND": lambda args: exp.cast(
+                exp.TimeToStr(
+                    this=cast_to_time6(seq_get(args, 0)),
+                    format=MySQL.format_time(exp.Literal.string("%s")),
+                ),
+                DataType.Type.INT,
+            ),
+            "MINUTE": lambda args: exp.cast(
+                exp.TimeToStr(
+                    this=cast_to_time6(seq_get(args, 0)),
+                    format=MySQL.format_time(exp.Literal.string("%i")),
+                ),
+                DataType.Type.INT,
+            ),
+            "MONTHNAME": lambda args: exp.TimeToStr(
+                this=seq_get(args, 0),
+                format=MySQL.format_time(exp.Literal.string("%M")),
+            ),
+            "WEEKDAY": lambda args: exp.paren(exp.DayOfWeek(this=seq_get(args, 0)) + 5, copy=False)
+            % 7,
             "UNIX_TIMESTAMP": exp.StrToUnix.from_arg_list,
             "FROM_UNIXTIME": build_formatted_time(exp.UnixToTime, "mysql"),
             "BSON_EXTRACT_BSON": build_json_extract_path(exp.JSONBExtract),
@@ -92,7 +133,46 @@ class SingleStore(MySQL):
             "JSON_EXTRACT_BIGINT": build_json_extract_path(
                 exp.JSONExtractScalar, json_type="BIGINT"
             ),
+            "JSON_ARRAY_CONTAINS_STRING": lambda args: exp.JSONArrayContains(
+                this=seq_get(args, 1),
+                expression=seq_get(args, 0),
+                json_type="STRING",
+            ),
+            "JSON_ARRAY_CONTAINS_DOUBLE": lambda args: exp.JSONArrayContains(
+                this=seq_get(args, 1),
+                expression=seq_get(args, 0),
+                json_type="DOUBLE",
+            ),
+            "JSON_ARRAY_CONTAINS_JSON": lambda args: exp.JSONArrayContains(
+                this=seq_get(args, 1),
+                expression=seq_get(args, 0),
+                json_type="JSON",
+            ),
             "DATE": exp.Date.from_arg_list,
+            "DAYNAME": lambda args: exp.TimeToStr(
+                this=seq_get(args, 0),
+                format=MySQL.format_time(exp.Literal.string("%W")),
+            ),
+            "APPROX_COUNT_DISTINCT": exp.Hll.from_arg_list,
+            "APPROX_PERCENTILE": lambda args, dialect: exp.ApproxQuantile(
+                this=seq_get(args, 0),
+                quantile=seq_get(args, 1),
+                error_tolerance=seq_get(args, 2),
+            ),
+            "VARIANCE": exp.VariancePop.from_arg_list,
+            "INSTR": exp.Contains.from_arg_list,
+            "REGEXP_MATCH": lambda args: exp.RegexpExtractAll(
+                this=seq_get(args, 0),
+                expression=seq_get(args, 1),
+                parameters=seq_get(args, 2),
+            ),
+            "REGEXP_SUBSTR": lambda args: exp.RegexpExtract(
+                this=seq_get(args, 0),
+                expression=seq_get(args, 1),
+                position=seq_get(args, 2),
+                occurrence=seq_get(args, 3),
+                parameters=seq_get(args, 4),
+            ),
         }
 
         CAST_COLUMN_OPERATORS = {TokenType.COLON_GT, TokenType.NCOLON_GT}
@@ -128,7 +208,9 @@ class SingleStore(MySQL):
 
         TRANSFORMS = {
             **MySQL.Generator.TRANSFORMS,
-            exp.TsOrDsToDate: lambda self, e: self.func("TO_DATE", e.this, self.format_time(e)),
+            exp.TsOrDsToDate: lambda self, e: self.func("TO_DATE", e.this, self.format_time(e))
+            if e.args.get("format")
+            else self.func("DATE", e.this),
             exp.StrToTime: lambda self, e: self.func("TO_TIMESTAMP", e.this, self.format_time(e)),
             exp.ToChar: lambda self, e: self.func("TO_CHAR", e.this, self.format_time(e)),
             exp.StrToDate: lambda self, e: self.func(
@@ -195,15 +277,61 @@ class SingleStore(MySQL):
             exp.JSONPathKey: json_path_key_only_name,
             exp.JSONPathSubscript: lambda self, e: self.json_path_part(e.this),
             exp.JSONPathRoot: lambda *_: "",
+            exp.DayOfWeekIso: lambda self, e: f"(({self.func('DAYOFWEEK', e.this)} % 7) + 1)",
+            exp.DayOfMonth: rename_func("DAY"),
+            exp.Hll: rename_func("APPROX_COUNT_DISTINCT"),
+            exp.ApproxDistinct: rename_func("APPROX_COUNT_DISTINCT"),
+            exp.CountIf: count_if_to_sum,
+            exp.LogicalOr: lambda self, e: f"MAX(ABS({self.sql(e, 'this')}))",
+            exp.LogicalAnd: lambda self, e: f"MIN(ABS({self.sql(e, 'this')}))",
+            exp.ApproxQuantile: unsupported_args("accuracy", "weight")(
+                lambda self, e: self.func(
+                    "APPROX_PERCENTILE",
+                    e.this,
+                    e.args.get("quantile"),
+                    e.args.get("error_tolerance"),
+                )
+            ),
+            exp.Variance: rename_func("VAR_SAMP"),
+            exp.VariancePop: rename_func("VAR_POP"),
+            exp.Xor: bool_xor_sql,
+            exp.RegexpLike: lambda self, e: self.binary(e, "RLIKE"),
+            exp.Repeat: lambda self, e: self.func(
+                "LPAD",
+                exp.Literal.string(""),
+                exp.Mul(this=self.func("LENGTH", e.this), expression=e.args.get("times")),
+                e.this,
+            ),
+            exp.IsAscii: lambda self, e: f"({self.sql(e, 'this')} RLIKE '^[\x00-\x7f]*$')",
+            exp.MD5Digest: lambda self, e: self.func("UNHEX", self.func("MD5", e.this)),
+            exp.Chr: rename_func("CHAR"),
+            exp.Contains: rename_func("INSTR"),
+            exp.RegexpExtractAll: unsupported_args("position", "occurrence", "group")(
+                lambda self, e: self.func(
+                    "REGEXP_MATCH",
+                    e.this,
+                    e.expression,
+                    e.args.get("parameters"),
+                )
+            ),
+            exp.RegexpExtract: unsupported_args("group")(
+                lambda self, e: self.func(
+                    "REGEXP_SUBSTR",
+                    e.this,
+                    e.expression,
+                    e.args.get("position"),
+                    e.args.get("occurrence"),
+                    e.args.get("parameters"),
+                )
+            ),
+            exp.StartsWith: lambda self, e: self.func(
+                "REGEXP_INSTR", e.this, self.func("CONCAT", exp.Literal.string("^"), e.expression)
+            ),
+            exp.FromBase: lambda self, e: self.func(
+                "CONV", e.this, e.expression, exp.Literal.number(10)
+            ),
         }
         TRANSFORMS.pop(exp.JSONExtractScalar)
-        TRANSFORMS.pop(exp.JSONPathFilter)
-        TRANSFORMS.pop(exp.JSONPathRecursive)
-        TRANSFORMS.pop(exp.JSONPathScript)
-        TRANSFORMS.pop(exp.JSONPathSelector)
-        TRANSFORMS.pop(exp.JSONPathSlice)
-        TRANSFORMS.pop(exp.JSONPathUnion)
-        TRANSFORMS.pop(exp.JSONPathWildcard)
 
         # https://docs.singlestore.com/cloud/reference/sql-reference/restricted-keywords/list-of-restricted-keywords/
         RESERVED_KEYWORDS = {
@@ -1286,3 +1414,21 @@ class SingleStore(MySQL):
                 res = exp.Cast(this=res, to=returning)
 
             return self.sql(res)
+
+        def all_sql(self, expression: exp.All) -> str:
+            self.unsupported("ALL subquery predicate is not supported in SingleStore")
+            return super().all_sql(expression)
+
+        def jsonarraycontains_sql(self, expression: exp.JSONArrayContains) -> str:
+            json_type = expression.text("json_type").upper()
+
+            if json_type:
+                return self.func(
+                    f"JSON_ARRAY_CONTAINS_{json_type}", expression.expression, expression.this
+                )
+
+            return self.func(
+                "JSON_ARRAY_CONTAINS_JSON",
+                expression.expression,
+                self.func("TO_JSON", expression.this),
+            )

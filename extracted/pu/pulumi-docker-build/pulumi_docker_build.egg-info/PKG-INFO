@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_docker_build
-Version: 0.0.12
+Version: 0.0.13
 Summary: A Pulumi provider for building modern Docker images with buildx and BuildKit.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.com

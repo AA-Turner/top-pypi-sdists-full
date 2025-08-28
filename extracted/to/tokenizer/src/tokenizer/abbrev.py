@@ -1,42 +1,42 @@
 """
 
-    Abbreviations module for tokenization of Icelandic text
+Abbreviations module for tokenization of Icelandic text
 
-    Copyright (C) 2016-2024 Miðeind ehf.
-    Original author: Vilhjálmur Þorsteinsson
+Copyright (C) 2016-2025 Miðeind ehf.
+Original author: Vilhjálmur Þorsteinsson
 
-    This software is licensed under the MIT License:
+This software is licensed under the MIT License:
 
-        Permission is hereby granted, free of charge, to any person
-        obtaining a copy of this software and associated documentation
-        files (the "Software"), to deal in the Software without restriction,
-        including without limitation the rights to use, copy, modify, merge,
-        publish, distribute, sublicense, and/or sell copies of the Software,
-        and to permit persons to whom the Software is furnished to do so,
-        subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation
+    files (the "Software"), to deal in the Software without restriction,
+    including without limitation the rights to use, copy, modify, merge,
+    publish, distribute, sublicense, and/or sell copies of the Software,
+    and to permit persons to whom the Software is furnished to do so,
+    subject to the following conditions:
 
-        The above copyright notice and this permission notice shall be
-        included in all copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
 
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-        IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-        CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-        TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-        SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-    This module reads the definition of abbreviations from the file
-    Abbrev.conf, assumed to be located in the same directory (or installation
-    resource library) as this Python source file.
+This module reads the definition of abbreviations from the file
+Abbrev.conf, assumed to be located in the same directory (or installation
+resource library) as this Python source file.
 
 """
 
 from typing import Generic, Iterator, Optional, TypeVar
 
 from threading import Lock
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 import importlib.resources as importlib_resources
 
 from .definitions import BIN_Tuple
@@ -51,23 +51,30 @@ _T = TypeVar("_T")
 
 class OrderedSet(Generic[_T]):
     """Shim class to provide an ordered set API on top
-    of an OrderedDict. This is necessary to make abbreviation
+    of a dictionary. This is necessary to make abbreviation
     lookups predictable and repeatable, which they would not be
     if a standard Python set() was used."""
 
     def __init__(self) -> None:
-        self._dict: dict[_T, None] = OrderedDict()
+        # Insertions are ordered in Python 3.7+ dicts
+        self._dict: dict[_T, None] = {}
 
     def add(self, item: _T) -> None:
         """Add an item at the end of the ordered set"""
-        if item not in self._dict:
-            self._dict[item] = None
+        # For plain dicts in Python 3.7+, direct assignment works:
+        # * If item is new, it is added at the end.
+        # * If item already exists, its value is updated (to None again),
+        #   and the order remains unchanged.
+        self._dict[item] = None
 
     def __contains__(self, item: _T) -> bool:
         return item in self._dict
 
     def __iter__(self) -> Iterator[_T]:
         return self._dict.__iter__()
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({list(self._dict.keys())})"
 
 
 class Abbreviations:
@@ -134,7 +141,7 @@ class Abbreviations:
             # This logic is not fully present in Tokenizer as information
             # about person names is needed to make it work. The full implementation,
             # using the NAME_FINISHERS set, is found in bintokenizer.py in
-            # GreynirPackage.
+            # GreynirEngine.
             name_finisher = True
             abbrev = abbrev[0:-1]
             if not abbrev.endswith("."):
@@ -303,7 +310,7 @@ class Abbreviations:
         Abbreviations.NOT_ABBREVIATIONS.add(s[1:-1])
 
     @staticmethod
-    def initialize():
+    def initialize() -> None:
         """Read the abbreviations config file"""
         with Abbreviations._lock:
             if len(Abbreviations.DICT):
@@ -325,7 +332,7 @@ class Abbreviations:
                     # Blank line: ignore
                     continue
                 if s[0] == "[":
-                    # Section header (we are expecting [abbreviations]/[not_abbreviations])
+                    # Section header (we expect [abbreviations]/[not_abbreviations])
                     if s not in {"[abbreviations]", "[not_abbreviations]"}:
                         raise ConfigError("Wrong section header")
                     section = s

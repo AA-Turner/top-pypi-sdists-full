@@ -79,7 +79,7 @@ def pgettext(msgid: str | None, msgctxt: None | str | None = None) -> None:
     """
 
 def pgettext_data(msgid: str | None, msgctxt: None | str | None = None) -> None:
-    """Try to translate the given msgid (with optional msgctxt), if new data name's translation is enabled.
+    """Try to translate the given msgid (with optional msgctxt), if new data names translation is enabled.
 
     :param msgid: The string to translate.
     :type msgid: str | None
@@ -89,7 +89,7 @@ def pgettext_data(msgid: str | None, msgctxt: None | str | None = None) -> None:
     """
 
 def pgettext_iface(msgid: str | None, msgctxt: None | str | None = None) -> None:
-    """Try to translate the given msgid (with optional msgctxt), if labels' translation is enabled.
+    """Try to translate the given msgid (with optional msgctxt), if labels translation is enabled.
 
     :param msgid: The string to translate.
     :type msgid: str | None
@@ -109,7 +109,7 @@ def pgettext_n(msgid: str | None, msgctxt: None | str | None = None) -> None:
     """
 
 def pgettext_rpt(msgid: str | None, msgctxt: None | str | None = None) -> None:
-    """Try to translate the given msgid (with optional msgctxt), if reports' translation is enabled.
+    """Try to translate the given msgid (with optional msgctxt), if reports translation is enabled.
 
     :param msgid: The string to translate.
     :type msgid: str | None
@@ -119,7 +119,7 @@ def pgettext_rpt(msgid: str | None, msgctxt: None | str | None = None) -> None:
     """
 
 def pgettext_tip(msgid: str | None, msgctxt: None | str | None = None) -> None:
-    """Try to translate the given msgid (with optional msgctxt), if tooltips' translation is enabled.
+    """Try to translate the given msgid (with optional msgctxt), if tooltips translation is enabled.
 
     :param msgid: The string to translate.
     :type msgid: str | None
@@ -131,7 +131,7 @@ def pgettext_tip(msgid: str | None, msgctxt: None | str | None = None) -> None:
 def register(
     module_name: str | None, translations_dict: dict[str, dict[str, str]] | None
 ) -> None:
-    """Registers an addon's UI translations.
+    """Registers an addons UI translations.
 
         :param module_name: The name identifying the addon.
         :type module_name: str | None
@@ -141,18 +141,18 @@ def register(
     """
 
 def unregister(module_name: str | None) -> None:
-    """Unregisters an addon's UI translations.
+    """Unregisters an addons UI translations.
 
     :param module_name: The name identifying the addon.
     :type module_name: str | None
     """
 
 contexts: typing.Any
-""" Constant value bpy.app.translations.contexts(default_real=None, default='*', operator_default='Operator', ui_events_keymaps='UI_Events_KeyMaps', plural='Plural', id_action='Action', id_armature='Armature', id_brush='Brush', id_cachefile='CacheFile', id_camera='Camera', id_collection='Collection', id_curves='Curves', id_curve='Curve', id_fs_linestyle='FreestyleLineStyle', id_gpencil='GPencil', id_id='ID', id_image='Image', id_lattice='Lattice', id_library='Library', id_light='Light', id_lightprobe='LightProbe', id_mask='Mask', id_material='Material', id_mesh='Mesh', id_metaball='Metaball', id_movieclip='MovieClip', id_nodetree='NodeTree', id_object='Object', id_paintcurve='PaintCurve', id_palette='Palette', id_particlesettings='ParticleSettings', id_pointcloud='PointCloud', id_scene='Scene', id_screen='Screen', id_sequence='Sequence', id_shapekey='Key', id_simulation='Simulation', id_sound='Sound', id_speaker='Speaker', id_text='Text', id_texture='Texture', id_vfont='VFont', id_volume='Volume', id_windowmanager='WindowManager', id_workspace='WorkSpace', id_world='World', editor_filebrowser='File browser', editor_python_console='Python console', editor_preferences='Preferences', editor_view3d='View3D', amount='Amount', color='Color', constraint='Constraint', modifier='Modifier', navigation='Navigation', render_layer='Render Layer', time='Time', unit='Unit')
+""" Constant value bpy.app.translations.contexts(default_real=None, default=*, operator_default=Operator, ui_events_keymaps=UI_Events_KeyMaps, plural=Plural, id_action=Action, id_armature=Armature, id_brush=Brush, id_cachefile=CacheFile, id_camera=Camera, id_collection=Collection, id_curves=Curves, id_curve=Curve, id_fs_linestyle=FreestyleLineStyle, id_gpencil=GPencil, id_id=ID, id_image=Image, id_lattice=Lattice, id_library=Library, id_light=Light, id_lightprobe=LightProbe, id_mask=Mask, id_material=Material, id_mesh=Mesh, id_metaball=Metaball, id_movieclip=MovieClip, id_nodetree=NodeTree, id_object=Object, id_paintcurve=PaintCurve, id_palette=Palette, id_particlesettings=ParticleSettings, id_pointcloud=PointCloud, id_scene=Scene, id_screen=Screen, id_sequence=Sequence, id_shapekey=Key, id_simulation=Simulation, id_sound=Sound, id_speaker=Speaker, id_text=Text, id_texture=Texture, id_vfont=VFont, id_volume=Volume, id_windowmanager=WindowManager, id_workspace=WorkSpace, id_world=World, editor_filebrowser=File browser, editor_python_console=Python console, editor_preferences=Preferences, editor_view3d=View3D, amount=Amount, color=Color, constraint=Constraint, modifier=Modifier, navigation=Navigation, render_layer=Render Layer, time=Time, unit=Unit)
 """
 
 contexts_C_to_py: typing.Any
-""" A readonly dict mapping contexts' C-identifiers to their py-identifiers.
+""" A readonly dict mapping contexts C-identifiers to their py-identifiers.
 """
 
 locale: typing.Any

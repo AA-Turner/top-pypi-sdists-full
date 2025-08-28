@@ -216,7 +216,7 @@ class InferenceWorker:
             self.logger.debug(
                 f"Using cached MODEL result for key={message.get('message_key')} ref_hash={message.get('stream_info', {}).get('reference_input_hash') or message.get('input_hash')}"
             )
-            # Recompute post-processing on top of cached MODEL result only
+            # Extract the model result from cached data
             stream_key = message.get("message_key")
             # Create stream_info with input_settings for frame number extraction (match old structure)
             input_stream = message.get("input_stream", {})
@@ -252,7 +252,6 @@ class InferenceWorker:
             )
 
             # Store result for similar frame reuse
-            stream_key = message.get("message_key")
             if stream_key:
                 self.last_inference_results[stream_key] = model_result
             
@@ -337,7 +336,7 @@ class InferenceWorker:
             # Update frame cache for SSIM comparison
             await self._update_frame_cache(message)
             
-            # Perform inference
+            # Perform inference with detailed timing
             start_time = asyncio.get_event_loop().time()
             
             input_content = message.get("input_content")
@@ -374,6 +373,16 @@ class InferenceWorker:
                 timeout=self.process_timeout
             )
             
+            # Extract timing data from model result (inference worker only does model inference now)
+            timing_metadata = {}
+            if isinstance(model_result, dict) and "timing_metadata" in model_result:
+                timing_metadata = model_result.get("timing_metadata", {})
+            
+            model_inference_time = timing_metadata.get("model_inference_time_sec", 0.0)
+            # No post-processing time in inference worker anymore
+            post_processing_time = 0.0
+            inference_total_time = timing_metadata.get("total_time_sec", model_inference_time)
+            
             # Cache MODEL result only if we have input_hash
             if input_hash:
                 cache_data = {
@@ -389,8 +398,19 @@ class InferenceWorker:
             # Store result for similar frame reuse
             self.last_inference_results[message_key] = model_result
             
-            # Create result message with only model result
-            result_message = self._create_result_message(message, model_result)
+            # Calculate worker timing
+            total_worker_time = asyncio.get_event_loop().time() - start_time
+            
+            # Create result message with only model result and timing data
+            result_message = self._create_result_message(
+                message, 
+                model_result, 
+                None,  # no post-processing result from inference worker
+                model_inference_time,
+                0.0,  # no post-processing time in inference worker
+                inference_total_time,
+                total_worker_time
+            )
             
             # Add to output queue
             try:
@@ -417,8 +437,10 @@ class InferenceWorker:
             
         except asyncio.TimeoutError:
             self.logger.error(f"Inference timeout in worker {self.worker_id}")
+            self.messages_failed += 1
         except Exception as exc:
             self.logger.error(f"Inference error in worker {self.worker_id}: {str(exc)}")
+            self.messages_failed += 1
     
     async def _update_frame_cache(self, message: Dict[str, Any]) -> None:
         """Update frame cache for SSIM comparison."""
@@ -651,8 +673,9 @@ class InferenceWorker:
             )
             
             # Create result message for video chunk (only model result)
+            total_chunk_time = asyncio.get_event_loop().time() - start_time
             result_message = self._create_video_chunk_result_message(
-                video_chunk, original_message, model_result
+                video_chunk, original_message, model_result, None, total_chunk_time
             )
             
             # Add to output queue
@@ -688,9 +711,23 @@ class InferenceWorker:
         self,
         original_message: Dict[str, Any],
         model_result: Any,
+        post_processing_result: Optional[Dict[str, Any]] = None,
+        model_inference_time: float = 0.0,
+        post_processing_time: float = 0.0,
+        inference_total_time: float = 0.0,
+        total_worker_time: float = 0.0
     ) -> Dict[str, Any]:
         """Create a result message from inference results."""
         self.global_counter += 1
+        
+        # Create inference timing data
+        inference_timing = {
+            "model_inference_time_sec": model_inference_time,
+            "inference_total_time_sec": inference_total_time,
+            "total_worker_time_sec": total_worker_time,
+            "inference_timestamp": datetime.now(timezone.utc),
+        }
+        
         return {
             "message_key": original_message.get("message_key"),
             "input_stream": original_message.get("input_stream"),
@@ -704,6 +741,14 @@ class InferenceWorker:
             "input_content": original_message.get("input_content"),
             "input_hash": original_message.get("input_hash"), # self.global_counter fallback
             "global_counter": original_message.get("global_counter", self.global_counter),
+            # Add timing data for latency tracking
+            "inference_timing": inference_timing,
+            # Backward compatibility
+            "server_timing": {
+                "model_inference_time_sec": model_inference_time,
+                "inference_total_time_sec": inference_total_time,
+                "total_worker_time_sec": total_worker_time,
+            }
         }
 
     def _create_video_chunk_result_message(
@@ -711,6 +756,8 @@ class InferenceWorker:
         video_chunk: Dict[str, Any],
         original_message: Dict[str, Any],
         model_result: Any,
+        post_processing_result: Optional[Dict[str, Any]] = None,
+        total_chunk_time: float = 0.0
     ) -> Dict[str, Any]:
         """Create a result message for a video chunk."""
         # Create modified input stream to reflect video chunk
@@ -722,6 +769,13 @@ class InferenceWorker:
             "end_frame": video_chunk.get("frame_count", 1) - 1,
         })
         
+        # Get server timing from original message and add video chunk timing
+        server_timing = original_message.get("server_timing", {}).copy()
+        server_timing.update({
+            "video_chunk_inference_time_sec": total_chunk_time,
+            "inference_timestamp": datetime.now(timezone.utc),
+        })
+        
         return {
             "message_key": original_message.get("message_key"),
             "input_stream": input_stream,
@@ -731,6 +785,7 @@ class InferenceWorker:
             "inference_worker_id": self.worker_id,
             "original_timestamp": original_message.get("timestamp"),
             "consumer_worker_id": original_message.get("consumer_worker_id"),
+            "server_timing": server_timing,
             "stream_info": original_message.get("stream_info"),
             "input_content": original_message.get("input_content"),
             "input_hash": original_message.get("input_hash"),

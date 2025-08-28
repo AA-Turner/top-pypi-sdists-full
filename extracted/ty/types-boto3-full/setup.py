@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.40.18",
+    version="1.40.19",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
@@ -297,8 +297,6 @@ setup(
         "types_boto3_omics",
         "types_boto3_opensearch",
         "types_boto3_opensearchserverless",
-        "types_boto3_opsworks",
-        "types_boto3_opsworkscm",
         "types_boto3_organizations",
         "types_boto3_osis",
         "types_boto3_outposts",
@@ -434,7 +432,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.40.18 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.40.19 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -741,8 +739,6 @@ setup(
         "types_boto3_omics": ["py.typed", "*.pyi"],
         "types_boto3_opensearch": ["py.typed", "*.pyi"],
         "types_boto3_opensearchserverless": ["py.typed", "*.pyi"],
-        "types_boto3_opsworks": ["py.typed", "*.pyi"],
-        "types_boto3_opsworkscm": ["py.typed", "*.pyi"],
         "types_boto3_organizations": ["py.typed", "*.pyi"],
         "types_boto3_osis": ["py.typed", "*.pyi"],
         "types_boto3_outposts": ["py.typed", "*.pyi"],

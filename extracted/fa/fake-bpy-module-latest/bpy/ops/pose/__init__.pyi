@@ -248,7 +248,9 @@ def constraint_add_with_targets(
     """
 
 def constraints_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear all constraints from the selected bones
 
@@ -257,7 +259,9 @@ def constraints_clear(
     """
 
 def constraints_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy constraints to other selected bones
 
@@ -265,7 +269,11 @@ def constraints_copy(
     :type undo: bool | None
     """
 
-def copy(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def copy(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Copy the current pose of the selected bones to the internal clipboard
 
     :type execution_context: int | str | None
@@ -318,7 +326,9 @@ def ik_add(
     """
 
 def ik_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove all IK Constraints from selected bones
 
@@ -327,7 +337,9 @@ def ik_clear(
     """
 
 def loc_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset locations of selected bones to their default values
 
@@ -392,16 +404,20 @@ def paths_clear(
     """
 
 def paths_range_update(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Update frame range for motion paths from the Scene's current frame range
+    """Update frame range for motion paths from the Scenes current frame range
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
 def paths_update(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Recalculate paths for bones that already have them
 
@@ -438,7 +454,7 @@ def propagate(
     To Last Keyframe -- Propagate pose to the last keyframe only (i.e. making action cyclic).
 
     BEFORE_FRAME
-    Before Frame -- Propagate pose to all keyframes between current frame and 'Frame' property.
+    Before Frame -- Propagate pose to all keyframes between current frame and Frame property.
 
     BEFORE_END
     Before Last Keyframe -- Propagate pose to all keyframes from current frame until no more are found.
@@ -449,7 +465,7 @@ def propagate(
     SELECTED_MARKERS
     On Selected Markers -- Propagate pose to all keyframes occurring on frames with Scene Markers after the current frame.
         :type mode: typing.Literal['NEXT_KEY','LAST_KEY','BEFORE_FRAME','BEFORE_END','SELECTED_KEYS','SELECTED_MARKERS'] | None
-        :param end_frame: End Frame, Frame to stop propagating frames to (for 'Before Frame' mode)
+        :param end_frame: End Frame, Frame to stop propagating frames to (for Before Frame mode)
         :type end_frame: float | None
     """
 
@@ -512,7 +528,9 @@ def push(
     """
 
 def quaternions_flip(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Flip quaternion values to achieve desired rotations, while maintaining the same orientations
 
@@ -594,7 +612,9 @@ def reveal(
     """
 
 def rot_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset rotations of selected bones to their default values
 
@@ -618,7 +638,9 @@ def rotation_mode_set(
     """
 
 def scale_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset scaling of selected bones to their default values
 
@@ -654,7 +676,9 @@ def select_all(
     """
 
 def select_constraint_target(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select bones used as targets for the currently selected bones
 
@@ -729,7 +753,9 @@ def select_hierarchy(
     """
 
 def select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all bones linked by parent/child connections to the current selection
 
@@ -771,7 +797,9 @@ def select_mirror(
     """
 
 def select_parent(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select bones that are parents of the currently selected bones
 
@@ -780,7 +808,9 @@ def select_parent(
     """
 
 def selection_set_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new empty Selection Set
 
@@ -789,7 +819,9 @@ def selection_set_add(
     """
 
 def selection_set_add_and_assign(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new Selection Set with the currently selected bones
 
@@ -798,7 +830,9 @@ def selection_set_add_and_assign(
     """
 
 def selection_set_assign(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add selected bones to Selection Set
 
@@ -807,7 +841,9 @@ def selection_set_assign(
     """
 
 def selection_set_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the selected Selection Set(s) to the clipboard
 
@@ -816,7 +852,9 @@ def selection_set_copy(
     """
 
 def selection_set_delete_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove all Selection Sets from this Armature
 
@@ -825,7 +863,9 @@ def selection_set_delete_all(
     """
 
 def selection_set_deselect(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove Selection Set bones from current selection
 
@@ -849,7 +889,9 @@ def selection_set_move(
     """
 
 def selection_set_paste(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add new Selection Set(s) from the clipboard
 
@@ -858,7 +900,9 @@ def selection_set_paste(
     """
 
 def selection_set_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove a Selection Set from this Armature
 
@@ -867,7 +911,9 @@ def selection_set_remove(
     """
 
 def selection_set_remove_bones(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the selected bones from all Selection Sets
 
@@ -891,7 +937,9 @@ def selection_set_select(
     """
 
 def selection_set_unassign(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected bones from Selection Set
 
@@ -900,7 +948,9 @@ def selection_set_unassign(
     """
 
 def transforms_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset location, rotation, and scaling of selected bones to their default values
 
@@ -924,7 +974,9 @@ def user_transforms_clear(
     """
 
 def visual_transform_apply(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Apply final constrained position of pose bones to their transform
 

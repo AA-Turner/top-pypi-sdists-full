@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clarifai
-Version: 11.7.3
+Version: 11.7.4
 Home-page: https://github.com/Clarifai/clarifai-python
 Author: Clarifai
 Author-email: support@clarifai.com
@@ -19,8 +19,8 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: clarifai-grpc>=11.7.5
-Requires-Dist: clarifai-protocol>=0.0.27
+Requires-Dist: clarifai-grpc>=11.7.9
+Requires-Dist: clarifai-protocol>=0.0.30
 Requires-Dist: numpy>=1.22.0
 Requires-Dist: tqdm>=4.65.0
 Requires-Dist: PyYAML>=6.0.1

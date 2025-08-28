@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class SPREADSHEET_OT_toggle_pin(bpy.types.Operator):
+class SPREADSHEET_OT_toggle_pin(_bpy_types.Operator):
     """Turn on or off pinning"""
 
     bl_idname: typing.Any

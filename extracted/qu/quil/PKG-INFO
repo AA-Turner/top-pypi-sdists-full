@@ -1,13 +1,14 @@
 Metadata-Version: 2.4
 Name: quil
-Version: 0.16.0
+Version: 0.17.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Operating System :: OS Independent
-Requires-Dist: numpy>=1.21
+Requires-Dist: numpy>=1.26
 Requires-Dist: ruff>=0.3.7 ; extra == 'dev'
 Requires-Dist: maturin>=1.2.3 ; extra == 'dev'
 Requires-Dist: mypy>=1.13.0 ; extra == 'dev'
@@ -16,12 +17,10 @@ Requires-Dist: pdoc>=14.1.0 ; extra == 'dev'
 Requires-Dist: syrupy>=3.0.6 ; extra == 'dev'
 Provides-Extra: dev
 Summary: A Python package for building and parsing Quil programs.
-Keywords: pyquil,SDK,Rigetti,Quil,Quantum
 Author-email: Rigetti Computing <softapps@rigetti.com>
 License: Apache-2.0
-Requires-Python: >=3.8
+Requires-Python: >=3.9, <3.13
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Source Code, https://github.com/rigetti/quil-rs
 
 # Quil
 

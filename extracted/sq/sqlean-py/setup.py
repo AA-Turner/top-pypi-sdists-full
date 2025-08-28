@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 PACKAGE_NAME = "sqlean"
 SQLEAN_VERSION = "0.27.2"
-VERSION = "3.49.1"
+VERSION = "3.50.4"
 
 SHORT_DESCRIPTION = "sqlite3 with extensions"
 LONG_DESCRIPTION = Path("README.md").read_text()
@@ -132,11 +132,11 @@ class Builder(build_ext):
         ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-define.c"))
         ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-fileio.c"))
         ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-fuzzy.c"))
-        if sys.platform != "win32":
-            ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-ipaddr.c"))
+        ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-ipaddr.c"))
         ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-regexp.c"))
         ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-stats.c"))
         ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-text.c"))
+        ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-time.c"))
         ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-unicode.c"))
         ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-uuid.c"))
         ext.sources.append(os.path.join(self.amalgamation_root, "sqlean-vsv.c"))
@@ -177,7 +177,6 @@ def get_setup_args():
             "Intended Audience :: Developers",
             "License :: OSI Approved :: zlib/libpng License",
             "Operating System :: MacOS :: MacOS X",
-            "Operating System :: Microsoft :: Windows",
             "Operating System :: POSIX",
             "Programming Language :: C",
             "Programming Language :: Python",

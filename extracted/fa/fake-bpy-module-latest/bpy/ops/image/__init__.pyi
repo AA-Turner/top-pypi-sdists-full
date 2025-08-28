@@ -7,7 +7,9 @@ import bpy.types
 import mathutils
 
 def add_render_slot(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a new render slot
 
@@ -31,7 +33,9 @@ def change_frame(
     """
 
 def clear_render_border(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the boundaries of the render region and disable render region
 
@@ -40,7 +44,9 @@ def clear_render_border(
     """
 
 def clear_render_slot(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear the currently selected render slot
 
@@ -49,7 +55,9 @@ def clear_render_slot(
     """
 
 def clipboard_copy(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the image to the clipboard
 
@@ -58,7 +66,9 @@ def clipboard_copy(
     """
 
 def clipboard_paste(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Paste new image from the clipboard
 
@@ -74,8 +84,6 @@ def convert_to_mesh_plane(
     interpolation: typing.Literal["Linear", "Closest", "Cubic", "Smart"]
     | None = "Linear",
     extension: typing.Literal["CLIP", "EXTEND", "REPEAT"] | None = "CLIP",
-    alpha_mode: typing.Literal["STRAIGHT", "PREMUL", "CHANNEL_PACKED", "NONE"]
-    | None = "STRAIGHT",
     use_auto_refresh: bool | None = True,
     relative: bool | None = True,
     shader: typing.Literal["PRINCIPLED", "SHADELESS", "EMISSION"] | None = "PRINCIPLED",
@@ -117,20 +125,6 @@ def convert_to_mesh_plane(
     REPEAT
     Repeat -- Cause the image to repeat horizontally and vertically.
         :type extension: typing.Literal['CLIP','EXTEND','REPEAT'] | None
-        :param alpha_mode: Alpha Mode, Representation of alpha in the image file, to convert to and from when saving and loading the image
-
-    STRAIGHT
-    Straight -- Store RGB and alpha channels separately with alpha acting as a mask, also known as unassociated alpha. Commonly used by image editing applications and file formats like PNG..
-
-    PREMUL
-    Premultiplied -- Store RGB channels with alpha multiplied in, also known as associated alpha. The natural format for renders and used by file formats like OpenEXR..
-
-    CHANNEL_PACKED
-    Channel Packed -- Different images are packed in the RGB and alpha channels, and they should not affect each other. Channel packing is commonly used by game engines to save memory..
-
-    NONE
-    None -- Ignore alpha channel from the file and make image fully opaque.
-        :type alpha_mode: typing.Literal['STRAIGHT','PREMUL','CHANNEL_PACKED','NONE'] | None
         :param use_auto_refresh: Auto Refresh, Always refresh image on frame changes
         :type use_auto_refresh: bool | None
         :param relative: Relative Paths, Use relative file paths
@@ -352,8 +346,6 @@ def import_as_mesh_planes(
     interpolation: typing.Literal["Linear", "Closest", "Cubic", "Smart"]
     | None = "Linear",
     extension: typing.Literal["CLIP", "EXTEND", "REPEAT"] | None = "CLIP",
-    alpha_mode: typing.Literal["STRAIGHT", "PREMUL", "CHANNEL_PACKED", "NONE"]
-    | None = "STRAIGHT",
     use_auto_refresh: bool | None = True,
     relative: bool | None = True,
     shader: typing.Literal["PRINCIPLED", "SHADELESS", "EMISSION"] | None = "PRINCIPLED",
@@ -427,20 +419,6 @@ def import_as_mesh_planes(
     REPEAT
     Repeat -- Cause the image to repeat horizontally and vertically.
         :type extension: typing.Literal['CLIP','EXTEND','REPEAT'] | None
-        :param alpha_mode: Alpha Mode, Representation of alpha in the image file, to convert to and from when saving and loading the image
-
-    STRAIGHT
-    Straight -- Store RGB and alpha channels separately with alpha acting as a mask, also known as unassociated alpha. Commonly used by image editing applications and file formats like PNG..
-
-    PREMUL
-    Premultiplied -- Store RGB channels with alpha multiplied in, also known as associated alpha. The natural format for renders and used by file formats like OpenEXR..
-
-    CHANNEL_PACKED
-    Channel Packed -- Different images are packed in the RGB and alpha channels, and they should not affect each other. Channel packing is commonly used by game engines to save memory..
-
-    NONE
-    None -- Ignore alpha channel from the file and make image fully opaque.
-        :type alpha_mode: typing.Literal['STRAIGHT','PREMUL','CHANNEL_PACKED','NONE'] | None
         :param use_auto_refresh: Auto Refresh, Always refresh image on frame changes
         :type use_auto_refresh: bool | None
         :param relative: Relative Paths, Use relative file paths
@@ -507,7 +485,7 @@ def import_as_mesh_planes(
         :type image_sequence: bool | None
         :param offset: Offset Planes, Offset planes from each other. If disabled, multiple planes will be created at the same location
         :type offset: bool | None
-        :param offset_axis: Offset Direction, How planes are oriented relative to each others' local axis
+        :param offset_axis: Offset Direction, How planes are oriented relative to each others local axis
 
     +X
     +X -- Side by Side to the Left.
@@ -553,7 +531,7 @@ def import_as_mesh_planes(
     Face Camera -- Facing camera.
 
     CAM_AX
-    Camera's Main Axis -- Facing the camera's dominant axis.
+    Cameras Main Axis -- Facing the cameras dominant axis.
         :type align_axis: typing.Literal['+X','+Y','+Z','-X','-Y','-Z','CAM','CAM_AX'] | None
         :param prev_align_axis: prev_align_axis
 
@@ -579,7 +557,7 @@ def import_as_mesh_planes(
     Face Camera -- Facing camera.
 
     CAM_AX
-    Camera's Main Axis -- Facing the camera's dominant axis.
+    Cameras Main Axis -- Facing the cameras dominant axis.
 
     NONE
     Undocumented.
@@ -624,7 +602,7 @@ def invert(
     invert_b: bool | None = False,
     invert_a: bool | None = False,
 ) -> None:
-    """Invert image's channels
+    """Invert images channels
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -639,9 +617,11 @@ def invert(
     """
 
 def match_movie_length(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Set image's user's length to the one of this video
+    """Set images users length to the one of this video
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -833,7 +813,11 @@ def open_images(
     :type use_udim_detection: bool | None
     """
 
-def pack(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def pack(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Pack an image as embedded data into the .blend file
 
     :type execution_context: int | str | None
@@ -841,7 +825,9 @@ def pack(execution_context: int | str | None = None, undo: bool | None = None) -
     """
 
 def project_apply(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Project edited image back onto the object
 
@@ -850,7 +836,9 @@ def project_apply(
     """
 
 def project_edit(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Edit a snapshot of the 3D Viewport in an external image editor
 
@@ -859,16 +847,20 @@ def project_edit(
     """
 
 def read_viewlayers(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Read all the current scene's view layers from cache, as needed
+    """Read all the current scenes view layers from cache, as needed
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
 def reload(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reload current image from disk
 
@@ -877,7 +869,9 @@ def reload(
     """
 
 def remove_render_slot(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the current render slot
 
@@ -1028,7 +1022,7 @@ def resize(
     :type undo: bool | None
     :param size: Size
     :type size: collections.abc.Iterable[int] | None
-    :param all_udims: All UDIM Tiles, Scale all the image's UDIM tiles
+    :param all_udims: All UDIM Tiles, Scale all the images UDIM tiles
     :type all_udims: bool | None
     """
 
@@ -1101,7 +1095,11 @@ def sample_line(
     :type cursor: int | None
     """
 
-def save(execution_context: int | str | None = None, undo: bool | None = None) -> None:
+def save(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
     """Save the image with current name and settings
 
     :type execution_context: int | str | None
@@ -1109,7 +1107,9 @@ def save(execution_context: int | str | None = None, undo: bool | None = None) -
     """
 
 def save_all_modified(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Save all modified images
 
@@ -1226,7 +1226,9 @@ def save_as(
     """
 
 def save_sequence(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Save a sequence of images
 
@@ -1309,7 +1311,9 @@ def tile_fill(
     """
 
 def tile_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Removes a tile from the image
 
@@ -1351,7 +1355,9 @@ def view_all(
     """
 
 def view_center_cursor(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Center the view so that the cursor is in the middle of the view
 
@@ -1375,7 +1381,9 @@ def view_cursor_center(
     """
 
 def view_ndof(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Use a 3D mouse device to pan/zoom the view
 
@@ -1399,7 +1407,9 @@ def view_pan(
     """
 
 def view_selected(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """View all selected UVs
 

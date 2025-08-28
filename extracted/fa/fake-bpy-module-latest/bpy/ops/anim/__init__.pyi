@@ -94,7 +94,9 @@ def channels_bake(
     """
 
 def channels_clean_empty(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete all empty animation data containers from visible data-blocks
 
@@ -139,7 +141,9 @@ def channels_collapse(
     """
 
 def channels_delete(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Delete all selected animation channels
 
@@ -181,9 +185,11 @@ def channels_expand(
     """
 
 def channels_fcurves_enable(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Clear 'disabled' tag from all F-Curves to get broken F-Curves working again
+    """Clear disabled tag from all F-Curves to get broken F-Curves working again
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -220,7 +226,9 @@ def channels_move(
     """
 
 def channels_rename(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Rename animation channel under mouse
 
@@ -289,7 +297,9 @@ def channels_select_box(
     """
 
 def channels_select_filter(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Start entering text which filters the set of channels shown to only include those with matching names
 
@@ -352,7 +362,9 @@ def channels_setting_toggle(
     """
 
 def channels_ungroup(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove selected F-Curves from their current groups
 
@@ -394,7 +406,9 @@ def clear_useless_actions(
     """
 
 def convert_legacy_action(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Convert a legacy Action to a layered Action on the active object
 
@@ -403,7 +417,9 @@ def convert_legacy_action(
     """
 
 def copy_driver_button(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the driver for the highlighted button
 
@@ -412,7 +428,9 @@ def copy_driver_button(
     """
 
 def driver_button_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add driver for the property under the cursor
 
@@ -421,7 +439,9 @@ def driver_button_add(
     """
 
 def driver_button_edit(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Edit the drivers for the connected property represented by the highlighted button
 
@@ -445,7 +465,9 @@ def driver_button_remove(
     """
 
 def end_frame_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set the current frame as the preview or scene end frame
 
@@ -476,6 +498,21 @@ def keyframe_clear_v3d(
     confirm: bool | None = True,
 ) -> None:
     """Remove all keyframe animation for selected objects
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param confirm: Confirm, Prompt for confirmation
+    :type confirm: bool | None
+    """
+
+def keyframe_clear_vse(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    confirm: bool | None = True,
+) -> None:
+    """Remove all keyframe animation for selected strips
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -520,7 +557,7 @@ def keyframe_delete_by_name(
     *,
     type: str = "",
 ) -> None:
-    """Alternate access to 'Delete Keyframe' for keymaps to use
+    """Alternate access to Delete Keyframe for keymaps to use
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -536,6 +573,21 @@ def keyframe_delete_v3d(
     confirm: bool | None = True,
 ) -> None:
     """Remove keyframes on current frame for selected objects and bones
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param confirm: Confirm, Prompt for confirmation
+    :type confirm: bool | None
+    """
+
+def keyframe_delete_vse(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    confirm: bool | None = True,
+) -> None:
+    """Remove keyframes on current frame for selected strips
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -580,7 +632,7 @@ def keyframe_insert_by_name(
     *,
     type: str = "",
 ) -> None:
-    """Alternate access to 'Insert Keyframe' for keymaps to use
+    """Alternate access to Insert Keyframe for keymaps to use
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -622,7 +674,9 @@ def keying_set_active_set(
     """
 
 def keying_set_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add a new (empty) keying set to the active Scene
 
@@ -655,7 +709,9 @@ def keying_set_export(
     """
 
 def keying_set_path_add(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Add empty path to active keying set
 
@@ -664,7 +720,9 @@ def keying_set_path_add(
     """
 
 def keying_set_path_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove active Path from active keying set
 
@@ -673,7 +731,9 @@ def keying_set_path_remove(
     """
 
 def keying_set_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove the active keying set
 
@@ -697,7 +757,9 @@ def keyingset_button_add(
     """
 
 def keyingset_button_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove current UI-active property from current keying set
 
@@ -706,7 +768,9 @@ def keyingset_button_remove(
     """
 
 def merge_animation(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Merge the animation of the selected objects into the action of the active object. Actions are not deleted by this, but might end up with zero users
 
@@ -715,7 +779,9 @@ def merge_animation(
     """
 
 def paste_driver_button(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Paste the driver in the internal clipboard to the highlighted button
 
@@ -724,7 +790,9 @@ def paste_driver_button(
     """
 
 def previewrange_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Clear preview range
 
@@ -760,7 +828,9 @@ def previewrange_set(
     """
 
 def scene_range_frame(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset the horizontal view to the current scene frame range, taking the preview range into account if it is active
 
@@ -769,16 +839,20 @@ def scene_range_frame(
     """
 
 def separate_slots(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Move all slots of the action on the active object into newly created, separate actions. All users of those slots will be reassigned to the new actions. The current action won't be deleted but will be empty and might end up having zero users
+    """Move all slots of the action on the active object into newly created, separate actions. All users of those slots will be reassigned to the new actions. The current action wont be deleted but will be empty and might end up having zero users
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
 def slot_channels_move_to_new_action(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Move the selected slots into a newly created action
 
@@ -787,7 +861,9 @@ def slot_channels_move_to_new_action(
     """
 
 def slot_new_for_id(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Create a new action slot for this data-block, to hold its animation
 
@@ -796,7 +872,9 @@ def slot_new_for_id(
     """
 
 def slot_unassign_from_constraint(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Un-assign the action slot from this constraint
 
@@ -805,7 +883,9 @@ def slot_unassign_from_constraint(
     """
 
 def slot_unassign_from_id(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Un-assign the action slot, effectively making this data-block non-animated
 
@@ -814,7 +894,9 @@ def slot_unassign_from_id(
     """
 
 def slot_unassign_from_nla_strip(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Un-assign the action slot from this NLA strip, effectively making it non-animated
 
@@ -823,7 +905,9 @@ def slot_unassign_from_nla_strip(
     """
 
 def start_frame_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Set the current frame as the preview or scene start frame
 

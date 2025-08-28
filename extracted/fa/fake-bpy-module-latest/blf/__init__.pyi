@@ -33,13 +33,11 @@ def aspect(fontid: int, aspect: float) -> None:
     :type aspect: float
     """
 
-def bind_imbuf(fontid: int, image, display_name: None | str | None = None) -> None:
-    """Context manager to draw text into an image buffer instead of the GPU's context.
+def bind_imbuf(fontid: int, image) -> None:
+    """Context manager to draw text into an image buffer instead of the GPUs context.
 
     :param fontid: The id of the typeface as returned by `blf.load`, for default font use 0.
     :type fontid: int
-    :param display_name: The color management display name to use or None.
-    :type display_name: None | str | None
     :return: The BLF ImBuf context manager.
     """
 
@@ -125,7 +123,7 @@ def load(filepath: bytes | str) -> int:
 
     :param filepath: the filepath of the font.
     :type filepath: bytes | str
-    :return: the new font's fontid or -1 if there was an error.
+    :return: the new fonts fontid or -1 if there was an error.
     :rtype: int
     """
 

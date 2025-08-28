@@ -101,7 +101,7 @@ def program_point_size_set(enable: bool) -> None:
 
 def scissor_get() -> tuple[int, int, int, int]:
     """Retrieve the scissors of the active framebuffer.
-    Note: Only valid between 'scissor_set' and a framebuffer rebind.
+    Note: Only valid between scissor_set and a framebuffer rebind.
 
         :return: The scissor of the active framebuffer as a tuple
     (x, y, xsize, ysize).

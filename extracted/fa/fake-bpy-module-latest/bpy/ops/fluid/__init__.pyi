@@ -4,7 +4,9 @@ import typing_extensions
 import numpy.typing as npt
 
 def bake_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Bake Entire Fluid Simulation
 
@@ -13,7 +15,9 @@ def bake_all(
     """
 
 def bake_data(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Bake Fluid Data
 
@@ -22,7 +26,9 @@ def bake_data(
     """
 
 def bake_guides(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Bake Fluid Guiding
 
@@ -31,7 +37,9 @@ def bake_guides(
     """
 
 def bake_mesh(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Bake Fluid Mesh
 
@@ -40,7 +48,9 @@ def bake_mesh(
     """
 
 def bake_noise(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Bake Fluid Noise
 
@@ -49,7 +59,9 @@ def bake_noise(
     """
 
 def bake_particles(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Bake Fluid Particles
 
@@ -58,7 +70,9 @@ def bake_particles(
     """
 
 def free_all(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Free Entire Fluid Simulation
 
@@ -67,7 +81,9 @@ def free_all(
     """
 
 def free_data(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Free Fluid Data
 
@@ -76,7 +92,9 @@ def free_data(
     """
 
 def free_guides(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Free Fluid Guiding
 
@@ -85,7 +103,9 @@ def free_guides(
     """
 
 def free_mesh(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Free Fluid Mesh
 
@@ -94,7 +114,9 @@ def free_mesh(
     """
 
 def free_noise(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Free Fluid Noise
 
@@ -103,7 +125,9 @@ def free_noise(
     """
 
 def free_particles(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Free Fluid Particles
 
@@ -112,7 +136,9 @@ def free_particles(
     """
 
 def pause_bake(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Pause Bake
 

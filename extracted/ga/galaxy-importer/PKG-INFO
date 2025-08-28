@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: galaxy_importer
-Version: 0.4.32
+Version: 0.4.33
 Summary: Galaxy content importer
 Home-page: https://github.com/ansible/galaxy-importer
 Author: Red Hat, Inc.
@@ -13,7 +13,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ansible-core
 Requires-Dist: ansible-builder<4.0,>=1.2.0
-Requires-Dist: ansible-lint<=25.8,>=6.2.2
+Requires-Dist: ansible-lint<=25.8.2,>=6.2.2
 Requires-Dist: attrs<23,>=21.4.0
 Requires-Dist: nh3<3,>=0.2.18
 Requires-Dist: flake8<7,>=5.0.0
@@ -37,7 +37,7 @@ Dynamic: license-file
 
 ``galaxy-importer`` requires the following other Ansible projects:
 
-* ``ansible-lint`` up to [25.8.x](https://github.com/ansible/ansible-lint/tree/v25.8.2/docs)
+* ``ansible-lint`` up to [25.8.2](https://github.com/ansible/ansible-lint/tree/v25.8.2/docs)
 * ``ansible-core`` up to [2.16](https://docs.ansible.com/ansible-core/2.16/index.html)
 
 If you are installing from source, see ``setup.cfg`` in the repository for the matching requirements.
@@ -81,6 +81,7 @@ View log output in terminal, and view the importer result in the written file `i
  * `contents`
 * `contents`
 * `requires_ansible`
+* `patterns`
 
 
 ### Configuration

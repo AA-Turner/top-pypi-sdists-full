@@ -6,7 +6,7 @@ import pytest
 import xarray as xr
 
 import xclim.indices as xci
-from xclim import atmos, core, set_options
+from xclim import atmos, convert, core, set_options
 from xclim.core.calendar import build_climatology_bounds, percentile_doy
 from xclim.core.units import convert_units_to
 
@@ -320,6 +320,15 @@ class TestMaxPrIntensity:
         out = atmos.max_pr_intensity(pr, window=2, freq="YS")
         np.testing.assert_array_almost_equal(out.isel(time=0), [8.5 * 3600, 3600])
 
+    def test_indexing(self, pr_hr_series):
+        pr = pr_hr_series(np.zeros(366 * 24))
+        pr[20:30] += np.arange(10)
+
+        out1 = atmos.max_pr_intensity(pr, window=2, freq="YS")
+        out2 = atmos.max_pr_intensity(pr, window=2, freq="YS", doy_bounds=[200, 1])
+        np.testing.assert_array_almost_equal(out1.isel(time=0), [8.5 * 3600])
+        np.testing.assert_array_almost_equal(out2.isel(time=0), [2.5 * 3600])
+
 
 class TestMax1Day:
     # testing of wet_day and daily_pr_intensity, both are related
@@ -389,6 +398,14 @@ class TestMaxNDay:
         assert np.allclose(rx3, out1.values[0, 0, 0])
         assert np.isnan(out1.values[0, 1, 0])
         assert np.isnan(out1.values[0, -1, -1])
+
+    def test_indexing(self, open_dataset):
+        pr = open_dataset(self.nc_file).pr
+        out1 = atmos.max_n_day_precipitation_amount(pr, window=7, freq="YS")
+        out2 = atmos.max_n_day_precipitation_amount(pr, window=7, freq="YS", month=[6, 7, 8])
+
+        np.testing.assert_allclose(out1.values[0, 0, 0], 55.48, atol=1e-2)
+        np.testing.assert_allclose(out2.values[0, 0, 0], 50.57, atol=1e-2)
 
 
 class TestMaxConsecWetDays:
@@ -477,7 +494,7 @@ class TestSnowfallDate:
                 xr.open_dataset(nimbus.fetch(cls.tasmin_file), engine="h5netcdf"),
             )
         )
-        return atmos.snowfall_approximation(dnr.pr, tas=dnr.tasmin, thresh="-0.5 degC", method="binary")
+        return convert.snowfall_approximation(dnr.pr, tas=dnr.tasmin, thresh="-0.5 degC", method="binary")
 
     def test_first_snowfall(self, nimbus):
         with set_options(check_missing="skip"):
@@ -630,12 +647,14 @@ def test_dry_spell_total_length_indexer(pr_series):
         pr,
         window=7,
         op="sum",
-        thresh="3 mm",
+        thresh="3.1 mm",
         freq="MS",
     )
     np.testing.assert_allclose(out, [np.nan] + [0] * 11)
 
-    out = atmos.dry_spell_total_length(pr, window=7, op="sum", thresh="3 mm", freq="MS", date_bounds=("01-10", "12-31"))
+    out = atmos.dry_spell_total_length(
+        pr, window=7, op="sum", thresh="3.1 mm", freq="MS", date_bounds=("01-10", "12-31")
+    )
     np.testing.assert_allclose(out, [9] + [0] * 11)
 
 
@@ -645,12 +664,14 @@ def test_dry_spell_max_length_indexer(pr_series):
         pr,
         window=7,
         op="sum",
-        thresh="3 mm",
+        thresh="3.1 mm",
         freq="MS",
     )
     np.testing.assert_allclose(out, [np.nan] + [0] * 11)
 
-    out = atmos.dry_spell_total_length(pr, window=7, op="sum", thresh="3 mm", freq="MS", date_bounds=("01-10", "12-31"))
+    out = atmos.dry_spell_total_length(
+        pr, window=7, op="sum", thresh="3.1 mm", freq="MS", date_bounds=("01-10", "12-31")
+    )
     np.testing.assert_allclose(out, [9] + [0] * 11)
 
 
@@ -683,7 +704,7 @@ class TestSnowfallMeteoSwiss:
                 xr.open_dataset(nimbus.fetch(cls.tasmin_file), engine="h5netcdf"),
             )
         )
-        return atmos.snowfall_approximation(dnr.pr, tas=dnr.tasmin, thresh="-0.5 degC", method="binary")
+        return convert.snowfall_approximation(dnr.pr, tas=dnr.tasmin, thresh="-0.5 degC", method="binary")
 
     def test_snowfall_frequency(self, nimbus):
         prsn = self.get_snowfall(nimbus)

@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import rna_prop_ui
 
-class BONE_PT_collections(BoneButtonsPanel, bpy.types.Panel):
+class BONE_PT_collections(BoneButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_parent_id: typing.Any
@@ -41,7 +42,7 @@ class BONE_PT_collections(BoneButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class BONE_PT_context_bone(BoneButtonsPanel, bpy.types.Panel):
+class BONE_PT_context_bone(BoneButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -70,7 +71,7 @@ class BONE_PT_context_bone(BoneButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class BONE_PT_curved(BoneButtonsPanel, bpy.types.Panel):
+class BONE_PT_curved(BoneButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -100,10 +101,10 @@ class BONE_PT_curved(BoneButtonsPanel, bpy.types.Panel):
         """
 
 class BONE_PT_custom_props(
-    rna_prop_ui.PropertyPanel, BoneButtonsPanel, bpy.types.Panel
+    rna_prop_ui.PropertyPanel, BoneButtonsPanel, _bpy_types.Panel
 ):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     bl_context: typing.Any
@@ -135,7 +136,7 @@ class BONE_PT_custom_props(
         :param context:
         """
 
-class BONE_PT_deform(BoneButtonsPanel, bpy.types.Panel):
+class BONE_PT_deform(BoneButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -170,7 +171,7 @@ class BONE_PT_deform(BoneButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class BONE_PT_display(BoneButtonsPanel, bpy.types.Panel):
+class BONE_PT_display(BoneButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -227,7 +228,7 @@ class BONE_PT_display(BoneButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class BONE_PT_display_custom_shape(BoneButtonsPanel, bpy.types.Panel):
+class BONE_PT_display_custom_shape(BoneButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_parent_id: typing.Any
@@ -263,7 +264,7 @@ class BONE_PT_display_custom_shape(BoneButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class BONE_PT_inverse_kinematics(BoneButtonsPanel, bpy.types.Panel):
+class BONE_PT_inverse_kinematics(BoneButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -299,7 +300,7 @@ class BONE_PT_inverse_kinematics(BoneButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class BONE_PT_relations(BoneButtonsPanel, bpy.types.Panel):
+class BONE_PT_relations(BoneButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -328,7 +329,7 @@ class BONE_PT_relations(BoneButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class BONE_PT_transform(BoneButtonsPanel, bpy.types.Panel):
+class BONE_PT_transform(BoneButtonsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any

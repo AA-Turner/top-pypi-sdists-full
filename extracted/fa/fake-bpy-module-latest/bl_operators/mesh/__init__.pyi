@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class MeshMirrorUV(bpy.types.Operator):
+class MeshMirrorUV(_bpy_types.Operator):
     """Copy mirror UV coordinates on the X axis based on a mirrored mesh"""
 
     bl_idname: typing.Any
@@ -47,7 +48,7 @@ class MeshMirrorUV(bpy.types.Operator):
         :param context:
         """
 
-class MeshSelectNext(bpy.types.Operator):
+class MeshSelectNext(_bpy_types.Operator):
     """Select the next element (using selection order)"""
 
     bl_idname: typing.Any
@@ -83,7 +84,7 @@ class MeshSelectNext(bpy.types.Operator):
         :param context:
         """
 
-class MeshSelectPrev(bpy.types.Operator):
+class MeshSelectPrev(_bpy_types.Operator):
     """Select the previous element (using selection order)"""
 
     bl_idname: typing.Any

@@ -55,7 +55,7 @@ APP_NAME_TO_USECASE = {
     "License Plate Recognition" : "license_plate_monitor",
     "cell_microscopy_segmentation": "cell_microscopy_segmentation",
     "Dwell Detection": "dwell",
-    
+    "age_gender_detection": "age_gender_detection",
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -115,6 +115,7 @@ APP_NAME_TO_CATEGORY = {
     "License Plate Recognition" : "license_plate_monitor",
     "cell_microscopy_segmentation" : "healthcare",
     "Dwell Detection": "general",
+    "age_gender_detection": "age_gender_detection"
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

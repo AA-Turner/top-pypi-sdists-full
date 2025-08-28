@@ -2,18 +2,22 @@ from __future__ import annotations
 
 import collections
 import collections.abc
+import dataclasses
 import inspect
 import json
 from datetime import timedelta
 from typing import Any, Callable, ClassVar, Collection, Dict, Mapping, Optional, Sequence, Union, cast
 
+import google.protobuf.message
 import pyarrow as pa
-from google.protobuf import duration_pb2
+from google.protobuf import duration_pb2, empty_pb2
+from pydantic import BaseModel
 from typing_extensions import assert_never
 
 from chalk import DataFrame
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as arrow_pb
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
+from chalk._gen.chalk.graph.v1 import graph_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as pb
 from chalk._gen.chalk.graph.v1.graph_pb2 import CronFilterWithFeatureArgs
 from chalk._gen.chalk.graph.v2 import sources_pb2 as sources_pb
@@ -32,6 +36,11 @@ from chalk.features import (
     unwrap_feature,
 )
 from chalk.features._encoding.converter import PrimitiveFeatureConverter
+from chalk.features._encoding.protobuf import (
+    convert_proto_message_type_to_pyarrow_type,
+    serialize_message_file_descriptor,
+)
+from chalk.features._encoding.pyarrow import rich_to_pyarrow
 from chalk.features._encoding.rich import TRich
 from chalk.features._encoding.serialized_rich_type import SerializedRichType
 from chalk.features.pseudofeatures import PSEUDONAMESPACE
@@ -1112,12 +1121,40 @@ class ToProtoConverter:
                 #       until we absolutely must need the Arrow type to be serialized.
                 maybe_type = None
 
-            return pb.StreamResolverParam(
-                message=pb.StreamResolverParamMessage(
-                    name=p.name,
-                    arrow_type=maybe_type,
-                )
+            message = pb.StreamResolverParamMessage(
+                name=p.name,
+                arrow_type=maybe_type,
             )
+            try:
+                if issubclass(p.typ, google.protobuf.message.Message):
+                    message.proto.CopyFrom(
+                        graph_pb2.FunctionGlobalCapturedProto(
+                            name=p.typ.__name__,
+                            module=p.typ.__module__,
+                            pa_dtype=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(
+                                convert_proto_message_type_to_pyarrow_type(p.typ.DESCRIPTOR)
+                            ),
+                            serialized_fd=serialize_message_file_descriptor(p.typ.DESCRIPTOR.file),
+                            full_name=p.typ.DESCRIPTOR.full_name,
+                        )
+                    )
+                elif issubclass(p.typ, BaseModel) or dataclasses.is_dataclass(p.typ):
+                    pa_dtype = rich_to_pyarrow(p.typ, p.typ.__name__, False, True)
+                    message.struct.CopyFrom(
+                        graph_pb2.FunctionGlobalCapturedStruct(
+                            name=p.typ.__name__,
+                            module=p.typ.__module__,
+                            pa_dtype=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(pa_dtype),
+                        )
+                    )
+                else:
+                    message.empty.CopyFrom(empty_pb2.Empty())  # pyright: ignore
+            except:
+                # TODO: Stream message types are often more expressive than we can
+                #       currently serialize. But we don't want to block `chalk apply`
+                #       until we absolutely must need the Arrow type to be serialized.
+                _logger.warning(f"Failed to convert captured message type for stream resolver param {p}", exc_info=True)
+            return pb.StreamResolverParam(message=message)
         elif isinstance(p, StreamResolverParamMessageWindow):
             try:
                 maybe_type = ToProtoConverter.convert_rich_type_to_protobuf(p.typ)
@@ -1195,13 +1232,26 @@ class ToProtoConverter:
             if mode is None:
                 raise ValueError(f"Unknown window mode: {r.mode}")
 
+        feature_expressions: dict[str, graph_pb2.FeatureExpression] = {}
+        for feat, expr in (r.feature_expressions or {}).items():
+            expr_proto = cls.convert_underscore(expr)
+            feature_expressions[str(feat)] = graph_pb2.FeatureExpression(underscore_expr=expr_proto)
+
+        # convert_proto_message_type_to_pyarrow_type(global_value.DESCRIPTOR)
+        explicit_schema_proto: arrow_pb.ArrowType | None = None
+        if r.message is not None:
+            if issubclass(r.message, google.protobuf.message.Message):
+                message_pa_dtype = convert_proto_message_type_to_pyarrow_type(r.message.DESCRIPTOR)
+                explicit_schema_proto = PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(message_pa_dtype)
+            else:
+                explicit_schema_proto = ToProtoConverter.convert_rich_type_to_protobuf(r.message)
         return pb.StreamResolver(
             fqn=r.fqn,
             params=[ToProtoConverter.convert_stream_resolver_param(p) for p in r.signature.params],
             outputs=ToProtoConverter.convert_resolver_outputs(r.output.features)
             if r.output and r.output.features
             else [],
-            explicit_schema=(ToProtoConverter.convert_rich_type_to_protobuf(r.message) if r.message else None),
+            explicit_schema=explicit_schema_proto,
             keys=(
                 [
                     pb.StreamKey(key=k, feature=ToProtoConverter.create_feature_reference(ensure_feature(v)))
@@ -1226,6 +1276,7 @@ class ToProtoConverter:
                 source_line=r.source_line,
                 captured_globals=r.function_captured_globals,
             ),
+            feature_expressions=feature_expressions,
         )
 
     @staticmethod

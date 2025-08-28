@@ -4,6 +4,7 @@ Implementation of the database layer for PyPI Package serving and
 toxresult storage.
 
 """
+from __future__ import annotations
 
 import asyncio
 import time
@@ -14,6 +15,7 @@ from devpi_common.metadata import BasenameMeta
 from devpi_common.metadata import is_archive_of_project
 from devpi_common.metadata import parse_version
 from devpi_common.validation import normalize_name
+from devpi_common.types import cached_property
 from functools import partial
 from html.parser import HTMLParser
 from .config import hookimpl
@@ -28,7 +30,6 @@ from .readonly import ensure_deeply_readonly
 from .log import threadlog
 from .vendor._pip import HTMLPage
 from .views import SIMPLE_API_V1_JSON
-from .views import make_uuid_headers
 from pyramid.authentication import b64encode
 import json
 import threading
@@ -185,6 +186,84 @@ def parse_index_v1_json(disturl, text):
     return result
 
 
+class HTTPClient:
+    def __init__(self, http, get_extra_headers, update_auth_candidates):
+        self.http = http
+        self.get_extra_headers = get_extra_headers
+        self.update_auth_candidates = update_auth_candidates
+
+    async def async_get(
+        self, url, *, allow_redirects, timeout=None, extra_headers=None
+    ):
+        extra_headers = self.get_extra_headers(extra_headers)
+        response, text = await self.http.async_get(
+            url=URL(url).url,
+            allow_redirects=allow_redirects,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        # if we get an auth problem, see if we can try an alternative credential
+        # to access the resource
+        if response.status_code in (401, 403) and self.update_auth_candidates(
+            response.headers.get("WWW-Authenticate", ""),
+        ):
+            return await self.async_get(
+                url,
+                allow_redirects=allow_redirects,
+                timeout=timeout,
+                extra_headers=extra_headers,
+            )
+        return response, text
+
+    def get(self, url, *, allow_redirects, timeout=None, extra_headers=None):
+        extra_headers = self.get_extra_headers(extra_headers)
+        response = self.http.get(
+            url=URL(url).url,
+            allow_redirects=allow_redirects,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        # if we get an auth problem, see if we can try an alternative credential
+        # to access the resource
+        if response.status_code in (401, 403) and self.update_auth_candidates(
+            response.headers.get("WWW-Authenticate", ""),
+        ):
+            return self.get(
+                url,
+                allow_redirects=allow_redirects,
+                timeout=timeout,
+                extra_headers=extra_headers,
+            )
+        return response
+
+    def stream(
+        self, cstack, method, url, *, allow_redirects, timeout=None, extra_headers=None
+    ):
+        extra_headers = self.get_extra_headers(extra_headers)
+        response = self.http.stream(
+            cstack,
+            method,
+            URL(url).url,
+            allow_redirects=allow_redirects,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        # if we get an auth problem, see if we can try an alternative credential
+        # to access the resource
+        if response.status_code in (401, 403) and self.update_auth_candidates(
+            response.headers.get("WWW-Authenticate", ""),
+        ):
+            return self.stream(
+                cstack,
+                method,
+                url,
+                allow_redirects=allow_redirects,
+                timeout=timeout,
+                extra_headers=extra_headers,
+            )
+        return response
+
+
 class MirrorStage(BaseStage):
     def __init__(self, xom, username, index, ixconfig, customizer_cls):
         super().__init__(
@@ -201,11 +280,30 @@ class MirrorStage(BaseStage):
         # used to log about stale projects only once
         self._offline_logging = set()
 
+    @cached_property
+    def http(self):
+        if self.xom.is_replica():
+            (uuid, primary_uuid) = self.xom.config.nodeinfo.make_uuid_headers()
+            get_extra_headers = self.xom.replica_thread.http.get_extra_headers
+        else:
+
+            def get_extra_headers(extra_headers):
+                # make a copy of extra_headers
+                extra_headers = {} if extra_headers is None else dict(extra_headers)
+                auth = self.mirror_url_authorization_header
+                if auth:
+                    extra_headers["Authorization"] = auth
+                return extra_headers
+
+        return HTTPClient(
+            self.xom.http, get_extra_headers, self._update_auth_candidates
+        )
+
     def _get_extra_headers(self, extra_headers):
         # make a copy of extra_headers
         extra_headers = {} if extra_headers is None else dict(extra_headers)
         if self.xom.is_replica():
-            (uuid, primary_uuid) = make_uuid_headers(self.xom.config.nodeinfo)
+            (uuid, primary_uuid) = self.xom.config.nodeinfo.make_uuid_headers()
             rt = self.xom.replica_thread
             token = rt.auth_serializer.dumps(uuid)
             extra_headers[rt.H_REPLICA_UUID] = uuid
@@ -217,6 +315,11 @@ class MirrorStage(BaseStage):
         return extra_headers
 
     async def async_httpget(self, url, allow_redirects, timeout=None, extra_headers=None):
+        warnings.warn(
+            "The async_httpget method is deprecated, use http.async_get instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         extra_headers = self._get_extra_headers(extra_headers)
         response, text = await self.xom.async_httpget(
             url=URL(url).url, allow_redirects=allow_redirects, timeout=timeout,
@@ -231,6 +334,11 @@ class MirrorStage(BaseStage):
         return response, text
 
     def httpget(self, url, allow_redirects, timeout=None, extra_headers=None):
+        warnings.warn(
+            "The httpget method is deprecated, use http.get instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         extra_headers = self._get_extra_headers(extra_headers)
         response = self.xom.httpget(
             url=URL(url).url, allow_redirects=allow_redirects, timeout=timeout,
@@ -264,6 +372,10 @@ class MirrorStage(BaseStage):
     def cache_expiry(self):
         return self.ixconfig.get(
             'mirror_cache_expiry', self.xom.config.mirror_cache_expiry)
+
+    @property
+    def ignore_serial_header(self):
+        return self.ixconfig.get("mirror_ignore_serial_header", False)
 
     @property
     def mirror_url(self):
@@ -305,15 +417,18 @@ class MirrorStage(BaseStage):
         return self.ixconfig.get('mirror_use_external_urls', False)
 
     def get_possible_indexconfig_keys(self):
-        return tuple(dict(self.get_default_config_items())) + (
+        return (
+            *(k for k, v in self.get_default_config_items()),
             "custom_data",
             "description",
             "mirror_cache_expiry",
+            "mirror_ignore_serial_header",
             "mirror_no_project_list",
             "mirror_url",
             "mirror_use_external_urls",
             "mirror_web_url_fmt",
-            "title")
+            "title",
+        )
 
     def get_default_config_items(self):
         return [("volatile", True)]
@@ -333,6 +448,8 @@ class MirrorStage(BaseStage):
                 raise self.InvalidIndexconfig([
                     "'mirror_cache_expiry' option must be an integer"]) from e
             return value
+        if key == "mirror_ignore_serial_header":
+            return ensure_boolean(value)
         if key == "mirror_no_project_list":
             return ensure_boolean(value)
         if key == "mirror_use_external_urls":
@@ -358,7 +475,7 @@ class MirrorStage(BaseStage):
     def del_project(self, project):
         if not self.is_project_cached(project):
             raise KeyError("project not found")
-        (is_expired, links, cache_serial) = self._load_cache_links(project)
+        (is_expired, links, cache_serial, etag) = self._load_cache_links(project)
         if links is not None:
             entries = (self._entry_from_href(x[1]) for x in links)
             entries = (x for x in entries if x.file_exists())
@@ -379,7 +496,7 @@ class MirrorStage(BaseStage):
         # since this is a mirror, we only have the simple links and no
         # metadata, so only delete the files and keep the simple links
         # for the possibility to re-download a release
-        (is_expired, links, cache_serial) = self._load_cache_links(project)
+        (is_expired, links, cache_serial, etag) = self._load_cache_links(project)
         if links is not None:
             entries = list(self._entry_from_href(x[1]) for x in links)
             entries = list(x for x in entries if x.version == version and x.file_exists())
@@ -393,7 +510,7 @@ class MirrorStage(BaseStage):
         if not entry.file_exists():
             raise self.NotFound("entry has no file data %r" % entry)
         entry.delete()
-        (is_expired, links, cache_serial) = self._load_cache_links(project)
+        (is_expired, links, cache_serial, etag) = self._load_cache_links(project)
         if links is not None:
             has_links = any(self._is_file_cached(x) for x in links)
         else:
@@ -427,45 +544,71 @@ class MirrorStage(BaseStage):
         return self.xom.setdefault_singleton(
             self.name, "project_retrieve_times", factory=ProjectUpdateCache)
 
-    def _get_remote_projects(self):
+    async def _get_remote_projects(self, projects_future: asyncio.Future) -> None:
         headers = {"Accept": SIMPLE_API_ACCEPT}
         etag = self.cache_projectnames.get_etag()
         if etag is not None:
             headers["If-None-Match"] = etag
-        response = self.httpget(
+        threadlog.debug(
+            "fetching remote projects from %r with etag %r", self.mirror_url, etag
+        )
+        (response, text) = await self.http.async_get(
             self.mirror_url_without_auth,
             allow_redirects=True,
             extra_headers=headers,
-            timeout=self.projects_timeout,
         )
         if response.status_code == 304:
-            return (self.cache_projectnames.get(), etag)
-        elif response.status_code != 200:
+            raise self.UpstreamNotModified(
+                f"{response.status_code} status on GET {self.mirror_url!r}", etag=etag
+            )
+        if response.status_code != 200:
             raise self.UpstreamError(
                 "URL %r returned %s %s",
                 self.mirror_url, response.status_code, response.reason)
+        parser: ProjectHTMLParser | ProjectJSONv1Parser
         if response.headers.get('content-type') == SIMPLE_API_V1_JSON:
             parser = ProjectJSONv1Parser(response.url)
-            parser.feed(response.json())
+            parser.feed(json.loads(text))
         else:
             parser = ProjectHTMLParser(response.url)
-            parser.feed(response.text)
-        return (
-            {normalize_name(x): x for x in parser.projects},
-            response.headers.get("ETag"))
+            parser.feed(text)
+        projects_future.set_result(
+            (
+                {normalize_name(x): x for x in parser.projects},
+                response.headers.get("ETag"),
+            )
+        )
 
     def _stale_list_projects_perstage(self):
         return {normalize_name(x): x for x in self.key_projects.get()}
 
     def _update_projects(self):
+        projects_future = self.xom.create_future()
         try:
-            (projects, etag) = self._get_remote_projects()
-        except self.UpstreamError as e:
+            self.xom.run_coroutine_threadsafe(
+                self._get_remote_projects(projects_future),
+                timeout=self.projects_timeout,
+            )
+        except asyncio.TimeoutError:
             threadlog.warn(
-                "upstream error (%s): using stale projects list" % e)
+                "serving stale projects for %r, getting data timed out after %s seconds",
+                self.index,
+                self.projects_timeout,
+            )
             return self._stale_list_projects_perstage()
+        except self.UpstreamNotModified as e:
+            # the etag might have changed
+            self.cache_projectnames.mark_current(e.etag)
+            return self._stale_list_projects_perstage()
+        except self.UpstreamError as e:
+            threadlog.warn("upstream error (%s): using stale projects list", e)
+            return self._stale_list_projects_perstage()
+        (projects, etag) = projects_future.result()
         old = self.cache_projectnames.get()
-        if not self.cache_projectnames.exists() or old != projects:
+        if self.cache_projectnames.exists() and old == projects:
+            # mark current without updating contents
+            self.cache_projectnames.mark_current(etag)
+        else:
             self.cache_projectnames.set(projects, etag)
 
             # trigger an initial-load event on primary
@@ -481,9 +624,6 @@ class MirrorStage(BaseStage):
                 if k.get() in (0, 1):
                     with self.keyfs.write_transaction(allow_restart=True):
                         k.set(2)
-        else:
-            # mark current without updating contents
-            self.cache_projectnames.mark_current(etag)
         return projects
 
     def _list_projects_perstage(self):
@@ -526,9 +666,12 @@ class MirrorStage(BaseStage):
         assert isinstance(serial, int)
         assert project == normalize_name(project), project
         data = {
-            "serial": serial, "links": links,
+            "etag": etag,
+            "links": links,
             "requires_python": requires_python,
-            "yanked": yanked}
+            "serial": serial,
+            "yanked": yanked,
+        }
         key = self.key_projsimplelinks(project)
         old = key.get()
         if old != data:
@@ -548,12 +691,13 @@ class MirrorStage(BaseStage):
         self.keyfs.tx.on_commit_success(on_commit)
 
     def _load_cache_links(self, project):
-        is_expired, links_with_data, serial = True, None, -1
+        (is_expired, links_with_data, serial, etag) = (True, None, -1, None)
 
         cache = self.key_projsimplelinks(project).get()
         if cache:
             is_expired = self.cache_retrieve_times.is_expired(project, self.cache_expiry)
             serial = cache["serial"]
+            etag = cache.get("etag", None)
             links_with_data = join_links_data(
                 cache["links"],
                 cache.get("requires_python", []),
@@ -562,7 +706,7 @@ class MirrorStage(BaseStage):
                 links_with_data = ensure_deeply_readonly(list(
                     filter(self._is_file_cached, links_with_data)))
 
-        return is_expired, links_with_data, serial
+        return (is_expired, links_with_data, serial, etag)
 
     def _entry_from_href(self, href):
         # extract relpath from href by cutting of the hash
@@ -580,17 +724,20 @@ class MirrorStage(BaseStage):
         self.key_projsimplelinks(project).set({})
         threadlog.debug("cleared cache for %s", project)
 
-    async def _async_fetch_releaselinks(self, newlinks_future, project, cache_serial, _key_from_link):
+    async def _async_fetch_releaselinks(
+        self, newlinks_future, project, cache_serial, etag, _key_from_link
+    ):
         # get the simple page for the project
         url = self.mirror_url.joinpath(project).asdir()
         get_url = self.mirror_url_without_auth.joinpath(project).asdir()
         threadlog.debug("reading index %r", url)
         headers = {"Accept": SIMPLE_API_ACCEPT}
-        etag = self.cache_retrieve_times.get_etag(project)
+        etag = self.cache_retrieve_times.get_etag(project) or etag
         if etag is not None:
             headers["If-None-Match"] = etag
-        (response, text) = await self.async_httpget(
-            get_url, allow_redirects=True, extra_headers=headers)
+        (response, text) = await self.http.async_get(
+            get_url, allow_redirects=True, extra_headers=headers
+        )
         if response.status_code == 304:
             raise self.UpstreamNotModified(
                 "%s status on GET %r" % (response.status_code, url),
@@ -621,10 +768,14 @@ class MirrorStage(BaseStage):
             serial = -1
 
         if serial < cache_serial:
-            raise self.UpstreamError(
-                "serial mismatch on GET %r, "
-                "cache_serial %s is newer than returned serial %s" % (
-                    url, cache_serial, serial))
+            if not self.ignore_serial_header:
+                msg = (
+                    f"serial mismatch on GET {url!r}, "
+                    f"cache_serial {cache_serial} is newer than returned serial {serial}"
+                )
+                raise self.UpstreamError(msg)
+            # reset serial, so when switching back we get correct data
+            serial = -1
 
         threadlog.debug("%s: got response with serial %s", project, serial)
 
@@ -674,7 +825,9 @@ class MirrorStage(BaseStage):
                                 devpi_serial)
                 # XXX raise TransactionRestart to get a consistent clean view
                 self.keyfs.restart_read_transaction()
-                is_expired, links, cache_serial = self._load_cache_links(project)
+                (is_expired, links, cache_serial, etag) = self._load_cache_links(
+                    project
+                )
             if links is not None:
                 self.keyfs.tx.on_commit_success(partial(
                     self.cache_retrieve_times.refresh, project, info["etag"]))
@@ -711,7 +864,7 @@ class MirrorStage(BaseStage):
         with self.keyfs.write_transaction():
             self.keyfs.tx.on_finished(lock.release)
             # fetch current links
-            (is_expired, links, cache_serial) = self._load_cache_links(project)
+            (is_expired, links, cache_serial, etag) = self._load_cache_links(project)
             if links is None or set(links) != set(newlinks):
                 # we got changes, so store them
                 self._update_simplelinks(project, info, links, newlinks)
@@ -732,7 +885,7 @@ class MirrorStage(BaseStage):
         lock = self.cache_retrieve_times.acquire(project, self.timeout)
         if lock is not None:
             self.keyfs.tx.on_finished(lock.release)
-        is_expired, links, cache_serial = self._load_cache_links(project)
+        (is_expired, links, cache_serial, etag) = self._load_cache_links(project)
         if not is_expired and lock is not None:
             lock.release()
 
@@ -778,8 +931,10 @@ class MirrorStage(BaseStage):
         try:
             self.xom.run_coroutine_threadsafe(
                 self._async_fetch_releaselinks(
-                    newlinks_future, project, cache_serial, _key_from_link),
-                timeout=self.timeout)
+                    newlinks_future, project, cache_serial, etag, _key_from_link
+                ),
+                timeout=self.timeout,
+            )
         except asyncio.TimeoutError:
             if not self.xom.is_replica():
                 # we process the future in the background
@@ -836,6 +991,7 @@ class MirrorStage(BaseStage):
             if project in self._stale_list_projects_perstage():
                 return True
             return unknown
+        # recheck full project list while abiding to expiration etc
         # use the internal method to avoid a copy
         return project in self._list_projects_perstage()
 

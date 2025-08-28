@@ -16,6 +16,51 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 
+class AnimateableProperty:
+    """An AnimateableProperty object stores an array of float values for animating sound properties (e.g. pan, volume, pitch-scale)"""
+
+    animated: typing.Any
+    """ Whether the property is animated."""
+
+    count: typing.Any
+    """ The count of floats for a property."""
+
+    def read(self, position: float) -> None:
+        """Reads the properties value at the given position.
+
+        :param position: The position in the animation in frames.
+        :type position: float
+        :return: A numpy array of values representing the properties value.
+        """
+
+    def readSingle(self, position: float) -> float:
+        """Reads the properties value at the given position, assuming there is exactly one value.
+
+        :param position: The position in the animation in frames.
+        :type position: float
+        :return: The value at that position.
+        :rtype: float
+        """
+
+    def write(self, data, position: int) -> None:
+        """Writes the properties value.If position is also given, the property is marked animated and
+        the values are written starting at position.
+
+                :param data: numpy array of float32 values.
+                :param position: The starting position in frames.
+                :type position: int
+        """
+
+    def writeConstantRange(self, data, position_start: int, position_end: int) -> None:
+        """Fills the properties frame range with a constant value and marks it animated.
+
+        :param data: numpy array of float values representing the constant value.
+        :param position_start: The start position in frames.
+        :type position_start: int
+        :param position_end: The end position in frames.
+        :type position_end: int
+        """
+
 class Device:
     """Device objects represent an audio output backend like OpenAL or SDL, but might also represent a file output or RAM buffer output."""
 
@@ -33,13 +78,13 @@ This factor is a scaling factor for the velocity vectors in doppler calculation.
     """ The native sample format of the device."""
 
     listener_location: typing.Any
-    """ The listeners's location in 3D space, a 3D tuple of floats."""
+    """ The listenerss location in 3D space, a 3D tuple of floats."""
 
     listener_orientation: typing.Any
-    """ The listener's orientation in 3D space as quaternion, a 4 float tuple."""
+    """ The listeners orientation in 3D space as quaternion, a 4 float tuple."""
 
     listener_velocity: typing.Any
-    """ The listener's velocity in 3D space, a 3D tuple of floats."""
+    """ The listeners velocity in 3D space, a 3D tuple of floats."""
 
     rate: typing.Any
     """ The sampling rate of the device in Hz."""
@@ -52,7 +97,7 @@ The speed of sound in air is typically 343.3 m/s."""
     """ The overall volume of the device."""
 
     def lock(self) -> None:
-        """Locks the device so that it's guaranteed, that no samples are
+        """Locks the device so that its guaranteed, that no samples are
         read from the streams until `unlock` is called.
         This is useful if you want to do start/stop/pause/resume some
         sounds at the same time.
@@ -118,7 +163,7 @@ class DynamicMusic:
         :type end: int
         :param transition: The transition sound.
         :type transition: Sound
-        :return: false if the ini or end scenes don't exist, true othrwise.
+        :return: false if the ini or end scenes dont exist, true otherwise.
         :rtype: bool
         """
 
@@ -144,7 +189,7 @@ class DynamicMusic:
         """
 
 class HRTF:
-    """An HRTF object represents a set of head related transfer functions as impulse responses. It's used for binaural sound"""
+    """An HRTF object represents a set of head related transfer functions as impulse responses. Its used for binaural sound"""
 
     def loadLeftHrtfSet(self, extension: str, directory) -> typing_extensions.Self:
         """Loads all HRTFs from a directory.
@@ -188,7 +233,7 @@ class Handle:
     """ This factor is used for distance based attenuation of the source.:attr:`Device.distance_model`"""
 
     cone_angle_inner: typing.Any
-    """ The opening angle of the inner cone of the source. If the cone values of a source are set there are two (audible) cones with the apex at the `location` of the source and with infinite height, heading in the direction of the source's `orientation`.
+    """ The opening angle of the inner cone of the source. If the cone values of a source are set there are two (audible) cones with the apex at the `location` of the source and with infinite height, heading in the direction of the sources `orientation`.
 In the inner cone the volume is normal. Outside the outer cone the volume will be `cone_volume_outer` and in the area between the volume will be interpolated linearly."""
 
     cone_angle_outer: typing.Any
@@ -210,13 +255,13 @@ At this distance the volume will be exactly `volume`.:attr:`Device.distance_mode
 This can be used to seek the sound to some position and start playback again."""
 
     location: typing.Any
-    """ The source's location in 3D space, a 3D tuple of floats."""
+    """ The sources location in 3D space, a 3D tuple of floats."""
 
     loop_count: typing.Any
     """ The (remaining) loop count of the sound. A negative value indicates infinity."""
 
     orientation: typing.Any
-    """ The source's orientation in 3D space as quaternion, a 4 float tuple."""
+    """ The sources orientation in 3D space as quaternion, a 4 float tuple."""
 
     pitch: typing.Any
     """ The pitch of the sound."""
@@ -225,13 +270,13 @@ This can be used to seek the sound to some position and start playback again."""
     """ The playback position of the sound in seconds."""
 
     relative: typing.Any
-    """ Whether the source's location, velocity and orientation is relative or absolute to the listener."""
+    """ Whether the sources location, velocity and orientation is relative or absolute to the listener."""
 
     status: typing.Any
     """ Whether the sound is playing, paused or stopped (=invalid)."""
 
     velocity: typing.Any
-    """ The source's velocity in 3D space, a 3D tuple of floats."""
+    """ The sources velocity in 3D space, a 3D tuple of floats."""
 
     volume: typing.Any
     """ The volume of the sound."""
@@ -286,7 +331,7 @@ class PlaybackManager:
 
         :param catKey: the key of the category.
         :type catKey: int
-        :return: The volume of the cateogry.
+        :return: The volume of the category.
         :rtype: float
         """
 
@@ -305,7 +350,7 @@ class PlaybackManager:
                 :param sound: The sound to play.
                 :type sound: Sound
                 :param catKey: the key of the category in which the sound will be added,
-        if it doesn't exist, a new one will be created.
+        if it doesnt exist, a new one will be created.
                 :type catKey: int
                 :return: The playback handle with which playback can be controlled with.
                 :rtype: Handle
@@ -354,7 +399,7 @@ class Sequence:
 This factor is a scaling factor for the velocity vectors in doppler calculation. So a value bigger than 1 will exaggerate the effect as it raises the velocity."""
 
     fps: typing.Any
-    """ The listeners's location in 3D space, a 3D tuple of floats."""
+    """ The listenerss location in 3D space, a 3D tuple of floats."""
 
     muted: typing.Any
     """ Whether the whole sequence is muted."""
@@ -386,7 +431,7 @@ class SequenceEntry:
     """ This factor is used for distance based attenuation of the source.:attr:`Device.distance_model`"""
 
     cone_angle_inner: typing.Any
-    """ The opening angle of the inner cone of the source. If the cone values of a source are set there are two (audible) cones with the apex at the `location` of the source and with infinite height, heading in the direction of the source's `orientation`.
+    """ The opening angle of the inner cone of the source. If the cone values of a source are set there are two (audible) cones with the apex at the `location` of the source and with infinite height, heading in the direction of the sources `orientation`.
 In the inner cone the volume is normal. Outside the outer cone the volume will be `cone_volume_outer` and in the area between the volume will be interpolated linearly."""
 
     cone_angle_outer: typing.Any
@@ -407,7 +452,7 @@ At this distance the volume will be exactly `volume`.:attr:`Device.distance_mode
     """ Whether the entry is muted."""
 
     relative: typing.Any
-    """ Whether the source's location, velocity and orientation is relative or absolute to the listener."""
+    """ Whether the sources location, velocity and orientation is relative or absolute to the listener."""
 
     sound: typing.Any
     """ The sound the entry is representing and will be played in the sequence."""
@@ -428,7 +473,7 @@ class Sound:
     """Sound objects are immutable and represent a sound that can be played simultaneously multiple times. They are called factories because they create reader objects internally that are used for playback."""
 
     length: typing.Any
-    """ The length attribute returns the duration of the sound in seconds."""
+    """ The sample specification of the sound as a tuple with rate and channel count."""
 
     specs: typing.Any
     """ The sample specification of the sound as a tuple with rate and channel count."""
@@ -468,8 +513,8 @@ class Sound:
 
                 :param frequency: The frequency of the sawtooth wave in Hz.
                 :type frequency: float
-                :param rate: The sampling rate in Hz. It's recommended to set this
-        value to the playback device's samling rate to avoid resamping.
+                :param rate: The sampling rate in Hz. Its recommended to set this
+        value to the playback devices sampling rate to avoid resampling.
                 :type rate: int
                 :return: The created `Sound` object.
                 :rtype: typing_extensions.Self
@@ -479,8 +524,8 @@ class Sound:
     def silence(cls, rate: int = 48000) -> typing_extensions.Self:
         """Creates a silence sound which plays simple silence.
 
-                :param rate: The sampling rate in Hz. It's recommended to set this
-        value to the playback device's samling rate to avoid resamping.
+                :param rate: The sampling rate in Hz. Its recommended to set this
+        value to the playback devices sampling rate to avoid resampling.
                 :type rate: int
                 :return: The created `Sound` object.
                 :rtype: typing_extensions.Self
@@ -492,8 +537,8 @@ class Sound:
 
                 :param frequency: The frequency of the sine wave in Hz.
                 :type frequency: float
-                :param rate: The sampling rate in Hz. It's recommended to set this
-        value to the playback device's samling rate to avoid resamping.
+                :param rate: The sampling rate in Hz. Its recommended to set this
+        value to the playback devices sampling rate to avoid resampling.
                 :type rate: int
                 :return: The created `Sound` object.
                 :rtype: typing_extensions.Self
@@ -505,8 +550,8 @@ class Sound:
 
                 :param frequency: The frequency of the square wave in Hz.
                 :type frequency: float
-                :param rate: The sampling rate in Hz. It's recommended to set this
-        value to the playback device's samling rate to avoid resamping.
+                :param rate: The sampling rate in Hz. Its recommended to set this
+        value to the playback devices sampling rate to avoid resampling.
                 :type rate: int
                 :return: The created `Sound` object.
                 :rtype: typing_extensions.Self
@@ -518,8 +563,8 @@ class Sound:
 
                 :param frequency: The frequency of the triangle wave in Hz.
                 :type frequency: float
-                :param rate: The sampling rate in Hz. It's recommended to set this
-        value to the playback device's samling rate to avoid resamping.
+                :param rate: The sampling rate in Hz. Its recommended to set this
+        value to the playback devices sampling rate to avoid resampling.
                 :type rate: int
                 :return: The created `Sound` object.
                 :rtype: typing_extensions.Self
@@ -591,7 +636,7 @@ class Sound:
         """
 
     def delay(self, time: float) -> typing_extensions.Self:
-        """Delays by playing adding silence in front of the other sound's data.
+        """Delays by playing adding silence in front of the other sounds data.
 
         :param time: How many seconds of silence should be added before the sound.
         :type time: float
@@ -602,7 +647,7 @@ class Sound:
     def envelope(
         self, attack: float, release: float, threshold: float, arthreshold: float
     ) -> typing_extensions.Self:
-        """Delays by playing adding silence in front of the other sound's data.
+        """Delays by playing adding silence in front of the other sounds data.
 
         :param attack: The attack factor.
         :type attack: float
@@ -642,11 +687,11 @@ class Sound:
 
     def filter(self, b: list[float], a: list[float] = (1)) -> typing_extensions.Self:
         """Filters a sound with the supplied IIR filter coefficients.
-        Without the second parameter you'll get a FIR filter.If the first value of the a sequence is 0,
+        Without the second parameter youll get a FIR filter.If the first value of the a sequence is 0,
         it will be set to 1 automatically.
         If the first value of the a sequence is neither 0 nor 1, all
         filter coefficients will be scaled by this value so that it is 1
-        in the end, you don't have to scale yourself.
+        in the end, you dont have to scale yourself.
 
                 :param b: The nominator filter coefficients.
                 :type b: list[float]
@@ -869,6 +914,14 @@ AP_PANNING: typing.Any
 
 AP_PITCH: typing.Any
 """ Constant value 2
+"""
+
+AP_PITCH_SCALE: typing.Any
+""" Constant value 6
+"""
+
+AP_TIME_STRETCH: typing.Any
+""" Constant value 5
 """
 
 AP_VOLUME: typing.Any

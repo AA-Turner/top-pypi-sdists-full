@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class WM_OT_blend_strings_utf8_validate(bpy.types.Operator):
+class WM_OT_blend_strings_utf8_validate(_bpy_types.Operator):
     """Check and fix all strings in current .blend file to be valid UTF-8 Unicode (needed for some old, 2.4x area files)"""
 
     bl_idname: typing.Any
@@ -40,8 +41,8 @@ class WM_OT_blend_strings_utf8_validate(bpy.types.Operator):
         :param done_items:
         """
 
-class WM_OT_previews_batch_clear(bpy.types.Operator):
-    """Clear selected .blend file's previews"""
+class WM_OT_previews_batch_clear(_bpy_types.Operator):
+    """Clear selected .blend files previews"""
 
     bl_idname: typing.Any
     bl_label: typing.Any
@@ -76,8 +77,8 @@ class WM_OT_previews_batch_clear(bpy.types.Operator):
         :param _event:
         """
 
-class WM_OT_previews_batch_generate(bpy.types.Operator):
-    """Generate selected .blend file's previews"""
+class WM_OT_previews_batch_generate(_bpy_types.Operator):
+    """Generate selected .blend files previews"""
 
     bl_idname: typing.Any
     bl_label: typing.Any

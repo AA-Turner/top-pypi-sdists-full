@@ -265,8 +265,9 @@ def test_get_updated(pypistage):
 class TestExtPYPIDB:
     def test_parse_pep691(self, pypistage):
         pypistage.mock_simple_projects(["devpi"])
-        pypistage.xom.httpget.mockresponse(
-            URL(pypistage.mirror_url).joinpath("devpi").asdir().url, code=200,
+        pypistage.xom.http.mockresponse(
+            URL(pypistage.mirror_url).joinpath("devpi").asdir().url,
+            code=200,
             content_type="application/vnd.pypi.simple.v1+json",
             text="""{
                 "meta": {"api-version": "1.0"},
@@ -278,7 +279,8 @@ class TestExtPYPIDB:
                             "sha256":"b89846ad42cfee0e44934ef77f28ad44e90b7e744041ace91047dd4c7892cc5e"},
                         "requires-python":null,
                         "url":"https://files.pythonhosted.org/packages/40/b6/45e98504eba446c8e97ce946760893072cdf3bf6cdd18c296394a55621f9/devpi-0.9.tar.gz",
-                        "yanked":false}]}""")
+                        "yanked":false}]}""",
+        )
         (link,) = pypistage.get_releaselinks("devpi")
         assert (
             link.best_available_hash_spec
@@ -289,8 +291,9 @@ class TestExtPYPIDB:
 
     def test_parse_pep691_data(self, pypistage):
         pypistage.mock_simple_projects(["devpi"])
-        pypistage.xom.httpget.mockresponse(
-            URL(pypistage.mirror_url).joinpath("devpi").asdir().url, code=200,
+        pypistage.xom.http.mockresponse(
+            URL(pypistage.mirror_url).joinpath("devpi").asdir().url,
+            code=200,
             content_type="application/vnd.pypi.simple.v1+json",
             text="""{
                 "meta": {"api-version": "1.0"},
@@ -302,7 +305,8 @@ class TestExtPYPIDB:
                             "sha256":"b89846ad42cfee0e44934ef77f28ad44e90b7e744041ace91047dd4c7892cc5e"},
                         "requires-python": ">=3.6",
                         "url":"https://files.pythonhosted.org/packages/40/b6/45e98504eba446c8e97ce946760893072cdf3bf6cdd18c296394a55621f9/devpi-0.9.tar.gz",
-                        "yanked": "brownbag"}]}""")
+                        "yanked": "brownbag"}]}""",
+        )
         links = pypistage.get_releaselinks("devpi")
         link, = links
         assert (
@@ -314,8 +318,9 @@ class TestExtPYPIDB:
 
     def test_parse_pep691_md5(self, pypistage):
         pypistage.mock_simple_projects(["devpi"])
-        pypistage.xom.httpget.mockresponse(
-            URL(pypistage.mirror_url).joinpath("devpi").asdir().url, code=200,
+        pypistage.xom.http.mockresponse(
+            URL(pypistage.mirror_url).joinpath("devpi").asdir().url,
+            code=200,
             content_type="application/vnd.pypi.simple.v1+json",
             text="""{
                 "meta": {"api-version": "1.0"},
@@ -327,7 +332,8 @@ class TestExtPYPIDB:
                             "md5":"dbb53f3699703c028483658773628452"},
                         "requires-python":null,
                         "url":"https://files.pythonhosted.org/packages/40/b6/45e98504eba446c8e97ce946760893072cdf3bf6cdd18c296394a55621f9/devpi-0.9.tar.gz",
-                        "yanked":false}]}""")
+                        "yanked":false}]}""",
+        )
         (link,) = pypistage.get_releaselinks("devpi")
         assert link.best_available_hash_spec == "md5=dbb53f3699703c028483658773628452"
         assert link.yanked is None
@@ -456,18 +462,37 @@ class TestExtPYPIDB:
         (link,) = ret
         assert link.yanked == "brownbag"
 
+    @pytest.mark.notransaction
     def test_get_releaselinks_cache_refresh_on_lower_serial(self, pypistage, caplog):
         pypistage.mock_simple("pytest", text='''
                 <a href="../../pkg/pytest-1.0.zip#md5={md5}" />
                 <a rel="download" href="https://download.com/index.html" />
             ''', pypiserial=10)
 
-        ret = pypistage.get_releaselinks("pytest")
-        assert len(ret) == 1
+        with pypistage.keyfs.read_transaction():
+            assert "mirror_ignore_serial_header" not in pypistage.get()
+            assert pypistage.key_projsimplelinks("pytest").get() == {}
+            assert len(pypistage.get_releaselinks("pytest")) == 1
+            assert pypistage.key_projsimplelinks("pytest").get()["serial"] == 10
         pypistage.mock_simple("pytest", text="", pypiserial=9)
-        (link,) = pypistage.get_releaselinks("pytest")
+        with pypistage.keyfs.read_transaction():
+            assert "mirror_ignore_serial_header" not in pypistage.get()
+            assert pypistage.key_projsimplelinks("pytest").get()["serial"] == 10
+            assert len(pypistage.get_releaselinks("pytest")) == 1
+            assert pypistage.key_projsimplelinks("pytest").get()["serial"] == 10
         recs = caplog.getrecords(".*serving stale links.*")
         assert len(recs) >= 1
+        with pypistage.keyfs.write_transaction():
+            assert "mirror_ignore_serial_header" not in pypistage.get()
+            assert (
+                pypistage.modify(mirror_ignore_serial_header=True)[
+                    "mirror_ignore_serial_header"
+                ]
+                is True
+            )
+            assert pypistage.key_projsimplelinks("pytest").get()["serial"] == 10
+            assert len(pypistage.get_releaselinks("pytest")) == 0
+            assert pypistage.key_projsimplelinks("pytest").get()["serial"] == -1
 
     def test_get_releaselinks_cache_no_fresh_write(self, pypistage):
         pypistage.mock_simple("pytest", text='''
@@ -514,16 +539,22 @@ class TestExtPYPIDB:
         recs = caplog.getrecords("serving stale.*pytest.*")
         assert len(recs) >= 1
 
-    def test_basic_auth_mirror(self, pypistage):
+    @pytest.mark.asyncio
+    async def test_basic_auth_mirror(self, pypistage):
         pypistage.ixconfig["mirror_url"] = "https://foo:bar@example.com/simple/"
-        pypistage.xom.httpget.mockresponse(
-            pypistage.mirror_url_without_auth, code=200, text="""
+        pypistage.xom.http.mockresponse(
+            pypistage.mirror_url_without_auth,
+            code=200,
+            text="""
             <html><head><title>Simple Index</title>
             <meta name="api-version" value="2" /></head>
             <body>
                 <a href="https://example.com/simple/pkg">Pkg</a><br/>
-            </body></html>""")
-        assert pypistage._get_remote_projects() == (dict(pkg='Pkg'), None)
+            </body></html>""",
+        )
+        projects_future = pypistage.xom.create_future()
+        await pypistage._get_remote_projects(projects_future)
+        assert projects_future.result() == (dict(pkg="Pkg"), None)
 
     def test_pypi_mirror_redirect_to_canonical_issue139(self, pypistage):
         # GET https://pypi.org/simple/Hello_World
@@ -531,11 +562,12 @@ class TestExtPYPIDB:
         # https://pypi.org/simple/hello-world because of the
         # new pypi normalization code
         pypistage.mock_simple_projects(["Hello_World"])
-        pypistage.xom.httpget.mock_simple(
+        pypistage.xom.http.mock_simple(
             "Hello_World",
             '<a href="Hello_World-1.0.tar.gz" /a>',
             code=200,
-            url="https://pypi.org/simple/hello-world/")
+            url="https://pypi.org/simple/hello-world/",
+        )
         l = pypistage.get_releaselinks("Hello_World")
         assert len(l) == 1
 
@@ -545,25 +577,25 @@ class TestExtPYPIDB:
         assert pypistage.has_project_perstage("foo")
 
     @pytest.mark.notransaction
-    def test_requires_python_caching(self, pypistage):
+    def test_requires_python_caching(self, monkeypatch, pypistage):
         pypistage.mock_simple("foo", text='<a href="foo-1.0.tar.gz" data-requires-python="&lt;3"></a>')
         with pypistage.keyfs.read_transaction():
             (link,) = pypistage.get_releaselinks("foo")
         assert link.require_python == '<3'
         # make sure we get the cached data, if not throw an error
-        pypistage.httpget = None
+        monkeypatch.setattr(pypistage, "http", None)
         with pypistage.keyfs.read_transaction():
             (link,) = pypistage.get_releaselinks("foo")
         assert link.require_python == '<3'
 
     @pytest.mark.notransaction
-    def test_yanked_caching(self, pypistage):
+    def test_yanked_caching(self, monkeypatch, pypistage):
         pypistage.mock_simple("foo", text='<a href="foo-1.0.tar.gz" data-yanked=""></a>')
         with pypistage.keyfs.read_transaction():
             (link,) = pypistage.get_releaselinks("foo")
         assert link.yanked == ""
         # make sure we get the cached data, if not throw an error
-        pypistage.httpget = None
+        monkeypatch.setattr(pypistage, "http", None)
         with pypistage.keyfs.read_transaction():
             (link,) = pypistage.get_releaselinks("foo")
         assert link.yanked == ""
@@ -626,15 +658,20 @@ class TestExtPYPIDB:
             pypistage.get_simplelinks_perstage("foo")
             # call twice
             pypistage.get_simplelinks_perstage("foo")
-        call = pypistage.xom.httpget.call_log.pop()
-        assert 'If-None-Match' not in call['extra_headers']
+        # the second call has the etag from the persistent cache info in the transaction
+        call2 = pypistage.xom.http.call_log.pop()
+        assert call2["url"] == "https://pypi.org/simple/foo/"
+        assert call2["extra_headers"]["If-None-Match"] == '"foo"'
+        call1 = pypistage.xom.http.call_log.pop()
+        assert call1["url"] == "https://pypi.org/simple/foo/"
+        assert "If-None-Match" not in call1["extra_headers"]
         assert pypistage.cache_retrieve_times.get_etag("foo") == '"foo"'
         pypistage.cache_retrieve_times.expire("foo", etag='"foo"')
         with pypistage.keyfs.read_transaction():
             pypistage.get_simplelinks_perstage("foo")
             # call twice
             pypistage.get_simplelinks_perstage("foo")
-        call = pypistage.xom.httpget.call_log.pop()
+        call = pypistage.xom.http.call_log.pop()
         assert pypistage.cache_retrieve_times.get_etag("foo") == '"foo"'
         assert call['extra_headers']['If-None-Match'] == '"foo"'
         pypistage.mock_simple(
@@ -645,9 +682,14 @@ class TestExtPYPIDB:
             pypistage.get_simplelinks_perstage("foo")
             # call twice
             pypistage.get_simplelinks_perstage("foo")
-        call = pypistage.xom.httpget.call_log.pop()
+        call = pypistage.xom.http.call_log.pop()
         assert call['extra_headers']['If-None-Match'] == '"foo"'
         assert pypistage.cache_retrieve_times.get_etag("foo") == '"bar"'
+        del pypistage.cache_retrieve_times._project2time["foo"]
+        with pypistage.keyfs.read_transaction():
+            pypistage.get_simplelinks_perstage("foo")
+        call = pypistage.xom.http.call_log.pop()
+        assert call["extra_headers"]["If-None-Match"] == '"foo"'
 
     @pytest.mark.notransaction
     def test_stale_nocache(self, pypistage, testapp):
@@ -678,17 +720,23 @@ class TestExtPYPIDB:
 
 
 class TestMirrorStageprojects:
-    def test_get_remote_projects(self, pypistage):
-        pypistage.xom.httpget.mockresponse(
-            pypistage.mirror_url, code=200, text="""
+    @pytest.mark.asyncio
+    async def test_get_remote_projects(self, pypistage):
+        pypistage.xom.http.mockresponse(
+            pypistage.mirror_url,
+            code=200,
+            text="""
             <html><head><title>Simple Index</title>
             <meta name="api-version" value="2" /></head>
             <body>
                 <a href='devpi-server'>devpi-server</a><br/>
                 <a href='django'>Django</a><br/>
                 <a href='ploy-ansible/'>ploy_ansible</a><br/>
-            </body></html>""")
-        (projects, etag) = pypistage._get_remote_projects()
+            </body></html>""",
+        )
+        projects_future = pypistage.xom.create_future()
+        await pypistage._get_remote_projects(projects_future)
+        (projects, etag) = projects_future.result()
         assert projects == {
             "ploy-ansible": "ploy_ansible",
             "devpi-server": "devpi-server",
@@ -699,9 +747,11 @@ class TestMirrorStageprojects:
             "devpi-server": "devpi-server",
             "django": "Django"}
 
-    def test_get_remote_projects_pep691_json(self, pypistage):
-        pypistage.xom.httpget.mockresponse(
-            pypistage.mirror_url, code=200,
+    @pytest.mark.asyncio
+    async def test_get_remote_projects_pep691_json(self, pypistage):
+        pypistage.xom.http.mockresponse(
+            pypistage.mirror_url,
+            code=200,
             content_type="application/vnd.pypi.simple.v1+json",
             text="""{
                 "meta": {"api-version": "1.0"},
@@ -709,8 +759,11 @@ class TestMirrorStageprojects:
                     {"name": "devpi-server"},
                     {"name": "Django"},
                     {"name": "ploy_ansible"}
-                ]}""")
-        (projects, etag) = pypistage._get_remote_projects()
+                ]}""",
+        )
+        projects_future = pypistage.xom.create_future()
+        await pypistage._get_remote_projects(projects_future)
+        (projects, etag) = projects_future.result()
         assert projects == {
             "ploy-ansible": "ploy_ansible",
             "devpi-server": "devpi-server",
@@ -721,68 +774,85 @@ class TestMirrorStageprojects:
             "devpi-server": "devpi-server",
             "django": "Django"}
 
-    def test_get_remote_projects_doctype(self, pypistage):
-        pypistage.xom.httpget.mockresponse(
-            pypistage.mirror_url, code=200, text="""
+    @pytest.mark.asyncio
+    async def test_get_remote_projects_doctype(self, pypistage):
+        pypistage.xom.http.mockresponse(
+            pypistage.mirror_url,
+            code=200,
+            text="""
             <!DOCTYPE html>
             <html><head><title>Simple Index</title>
             <meta name="api-version" value="2" /></head>
             <body>
                 <a href='devpi-server'>devpi-server</a><br/>
-            </body></html>""")
-        (projects, etag) = pypistage._get_remote_projects()
+            </body></html>""",
+        )
+        projects_future = pypistage.xom.create_future()
+        await pypistage._get_remote_projects(projects_future)
+        (projects, etag) = projects_future.result()
         assert projects == {"devpi-server": "devpi-server"}
 
-    def test_get_remote_projects_etag(self, pypistage):
+    @pytest.mark.asyncio
+    async def test_get_remote_projects_etag(self, pypistage):
         orig_etag = '"foo"'
         changed_etag = '"bar"'
-        pypistage.xom.httpget.add(
-            pypistage.mirror_url, status_code=200, text="""
+        pypistage.xom.http.add(
+            pypistage.mirror_url,
+            status_code=200,
+            text="""
             <html><head><title>Simple Index</title>
             <meta name="api-version" value="2" /></head>
             <body>
                 <a href='devpi-server'>devpi-server</a><br/>
                 <a href='django'>Django</a><br/>
                 <a href='ploy-ansible/'>ploy_ansible</a><br/>
-            </body></html>""", headers={"ETag": orig_etag})
-        pypistage.xom.httpget.add(
-            pypistage.mirror_url, status_code=304,
-            text="", headers={"ETag": orig_etag})
-        pypistage.xom.httpget.add(
-            pypistage.mirror_url, status_code=200, text="""
+            </body></html>""",
+            headers={"ETag": orig_etag},
+        )
+        pypistage.xom.http.add(
+            pypistage.mirror_url, status_code=304, text="", headers={"ETag": orig_etag}
+        )
+        pypistage.xom.http.add(
+            pypistage.mirror_url,
+            status_code=200,
+            text="""
             <html><head><title>Simple Index</title>
             <meta name="api-version" value="2" /></head>
             <body>
                 <a href='devpi-server'>devpi-server</a><br/>
                 <a href='django'>Django</a><br/>
                 <a href='ploy/'>ploy</a><br/>
-            </body></html>""", headers={"ETag": changed_etag})
-        (projects, etag) = pypistage._get_remote_projects()
-        pypistage.cache_projectnames.set(projects, etag)
+            </body></html>""",
+            headers={"ETag": changed_etag},
+        )
+        projects_future = pypistage.xom.create_future()
+        await pypistage._get_remote_projects(projects_future)
+        (projects, etag) = projects_future.result()
+        pypistage.cache_projectnames.mark_current(etag)
         assert etag == orig_etag
         assert projects == {
             "ploy-ansible": "ploy_ansible",
             "devpi-server": "devpi-server",
             "django": "Django"}
-        call = pypistage.xom.httpget.call_log.pop()
+        call = pypistage.xom.http.call_log.pop()
         assert 'If-None-Match' not in call['extra_headers']
-        (projects, etag) = pypistage._get_remote_projects()
-        pypistage.cache_projectnames.set(projects, etag)
+        projects_future = pypistage.xom.create_future()
+        with pytest.raises(pypistage.UpstreamNotModified) as e:
+            await pypistage._get_remote_projects(projects_future)
+        pypistage.cache_projectnames.mark_current(e.value.etag)
         assert etag == orig_etag
-        assert projects == {
-            "ploy-ansible": "ploy_ansible",
-            "devpi-server": "devpi-server",
-            "django": "Django"}
-        call = pypistage.xom.httpget.call_log.pop()
+        call = pypistage.xom.http.call_log.pop()
         assert call['extra_headers']['If-None-Match'] == orig_etag
-        (projects, etag) = pypistage._get_remote_projects()
-        pypistage.cache_projectnames.set(projects, etag)
+        projects_future = pypistage.xom.create_future()
+        await pypistage._get_remote_projects(projects_future)
+        (projects, etag) = projects_future.result()
+        pypistage.cache_projectnames.mark_current(etag)
         assert etag == changed_etag
         assert projects == {
             "ploy": "ploy",
             "devpi-server": "devpi-server",
             "django": "Django"}
-        (call,) = pypistage.xom.httpget.call_log
+        (call,) = pypistage.xom.http.call_log
         assert call['extra_headers']['If-None-Match'] == orig_etag
 
     def test_no_mirror_access_for_invalid_packages(self, pypistage):
@@ -801,18 +871,18 @@ class TestMirrorStageprojects:
                 name, text="", status_code=500, add_to_projects=False)
 
         assert set(pypistage.list_projects_perstage()) == VALID
-        call = pypistage.xom.httpget.call_log.pop()
+        call = pypistage.xom.http.call_log.pop()
         assert call['url'] == pypistage.mirror_url
 
         for p in VALID:
             pypistage.get_simplelinks_perstage(p)
-            call = pypistage.xom.httpget.call_log.pop()
+            call = pypistage.xom.http.call_log.pop()
             assert call['url'] == pypistage.mirror_url.joinpath(p).asdir()
         for p in INVALID:
             with pytest.raises(pypistage.UpstreamNotFoundError):
                 pypistage.get_simplelinks_perstage(p)
             # make sure there was no http fetch
-            assert len(pypistage.xom.httpget.call_log) == 0
+            assert len(pypistage.xom.http.call_log) == 0
 
     @pytest.mark.notransaction
     def test_single_project_access_updates_projects(self, pypistage):
@@ -833,11 +903,14 @@ class TestMirrorStageprojects:
                 "proj1": "proj1", "proj2": "proj2", "django": "Django"}
 
     def test_name_cache_expiration_updated_when_no_names_changed(self, pypistage):
-        pypistage.xom.httpget.mockresponse(
-            pypistage.mirror_url, code=200, text="""
+        pypistage.xom.http.mockresponse(
+            pypistage.mirror_url,
+            code=200,
+            text="""
             <body>
                 <a href='django'>Django</a><br/>
-            </body>""")
+            </body>""",
+        )
         pypistage.ixconfig['mirror_cache_expiry'] = 0
         projectnames = pypistage.cache_projectnames
         assert not projectnames.exists()
@@ -856,11 +929,11 @@ class TestMirrorStageprojects:
         import asyncio
         # release files should be updated in background in case of timeout
         pypistage.timeout = 0.1
-        orig_async_httpget = pypistage.async_httpget
+        orig_async_get = pypistage.http.async_get
 
-        async def sleeping_async_httpget(*args, **kw):
+        async def sleeping_async_get(*args, **kw):
             await asyncio.sleep(0.2)
-            return await orig_async_httpget(*args, **kw)
+            return await orig_async_get(*args, **kw)
 
         # first we need some releases in the db
         pypistage.mock_simple("pkg", text='<a href="pkg-1.0.zip"</a>')
@@ -873,7 +946,7 @@ class TestMirrorStageprojects:
         # now expire the cache, add a version on the mirror and fetch again with a timeout
         pypistage.cache_retrieve_times.expire("pkg")
         pypistage.mock_simple("pkg", text='<a href="pkg-1.0.zip"</a><a href="pkg-2.0.zip"</a>')
-        pypistage.async_httpget = sleeping_async_httpget
+        pypistage.http.async_get = sleeping_async_get
         serial = pypistage.keyfs.get_current_serial()
         # we should get stale results
         with pypistage.keyfs.read_transaction():
@@ -994,7 +1067,7 @@ class TestMirrorStageprojects:
         assert not [x for x in msgs if "/:bar" in x and "mockresponse" not in x]
         assert [x for x in msgs if "/:***" in x]
 
-    def test_auth_mirror_plugin(self, httpget, makemapp, maketestapp, makexom):
+    def test_auth_mirror_plugin(self, http, makemapp, maketestapp, makexom):
         from devpi_server.config import hookimpl
         plugin_calls = []
 
@@ -1008,15 +1081,18 @@ class TestMirrorStageprojects:
         xom = makexom(plugins=[plugin])
         testapp = maketestapp(xom)
         mapp = makemapp(testapp)
-        httpget.add('https://pypi.org/simple/', status_code=401, headers={
-            'WWW-Authenticate': 'Basic realm=pypi'})
-        httpget.add('https://pypi.org/simple/', text='')
+        http.add(
+            "https://pypi.org/simple/",
+            status_code=401,
+            headers={"WWW-Authenticate": "Basic realm=pypi"},
+        )
+        http.add("https://pypi.org/simple/", text="")
         mapp.getpkglist(indexname="root/pypi")
         ((call_url, call_header),) = plugin_calls
         assert call_header == 'Basic realm=pypi'
         assert call_url.hostname == 'pypi.org'
         assert len(plugin_calls) == 1
-        (call1, call2) = httpget.call_log
+        (call1, call2) = http.call_log
         assert 'Authorization' not in call1['extra_headers']
         assert call2['extra_headers']['Authorization'] == 'Bearer token'
 
@@ -1029,6 +1105,21 @@ class TestMirrorStageprojects:
             assert pypistage.name not in pypistage.xom._stagecache
 
 
+@pytest.mark.nomocking
+def test_requests_http_get_negative_status_code(xom, monkeypatch):
+    l = []
+
+    def r(*_a, **_k):
+        l.append(1)
+        raise httpx.RequestError(message="fail")
+
+    monkeypatch.setattr(xom._http.client, "get", r)
+    r = xom.http.get("http://notexists.qwe", allow_redirects=False)
+    assert r.status_code == -1
+    assert l
+
+
+@pytest.mark.filterwarnings("ignore:The httpget")
 @pytest.mark.nomocking
 def test_requests_httpget_negative_status_code(xom, monkeypatch):
     l = []
@@ -1044,6 +1135,18 @@ def test_requests_httpget_negative_status_code(xom, monkeypatch):
 
 
 @pytest.mark.nomocking
+def test_requests_http_get_timeout(xom, monkeypatch):
+    def http_get(_url, **kw):
+        assert kw["timeout"] == 1.2
+        raise requests.exceptions.Timeout
+
+    monkeypatch.setattr(xom._http.client, "get", http_get)
+    r = xom.http.get("http://notexists.qwe", allow_redirects=False, timeout=1.2)
+    assert r.status_code == -1
+
+
+@pytest.mark.filterwarnings("ignore:The httpget")
+@pytest.mark.nomocking
 def test_requests_httpget_timeout(xom, monkeypatch):
     def httpget(url, **kw):
         assert kw["timeout"] == 1.2
@@ -1055,6 +1158,18 @@ def test_requests_httpget_timeout(xom, monkeypatch):
     assert r.status_code == -1
 
 
+@pytest.mark.nomocking
+@pytest.mark.parametrize("exc", [OSError, requests.exceptions.ConnectionError])
+def test_requests_http_get_error(exc, xom, monkeypatch):
+    def http_get(_url, **_kw):
+        raise exc()
+
+    monkeypatch.setattr(xom._http.client, "get", http_get)
+    r = xom.http.get("http://notexists.qwe", allow_redirects=False)
+    assert r.status_code == -1
+
+
+@pytest.mark.filterwarnings("ignore:The httpget")
 @pytest.mark.nomocking
 @pytest.mark.parametrize("exc", [
     OSError,
@@ -1068,6 +1183,59 @@ def test_requests_httpget_error(exc, xom, monkeypatch):
     assert r.status_code == -1
 
 
+@pytest.mark.nomocking
+@pytest.mark.notransaction
+def test_http_user_agent(monkeypatch, server_version, simpypi, xom):
+    from .simpypi import SimPyPIRequestHandler
+    import contextlib
+
+    def do_POST(self):
+        simpypi = self.server.simpypi
+        simpypi.requests.append((self.path, self.headers))
+        self.send_response(200)
+        self.end_headers()
+
+    monkeypatch.setattr(SimPyPIRequestHandler, "do_POST", do_POST, raising=False)
+    simpypi.add_release("pkg", pkgver="pkg-1.0.zip")
+    xom.http.get(simpypi.simpleurl, allow_redirects=False)
+    ((_, headers), *_) = simpypi.requests
+    assert headers["User-Agent"].startswith(f"devpi-server/{server_version}")
+    simpypi.requests.clear()
+    xom.http.post(simpypi.simpleurl)
+    ((_, headers), *_) = simpypi.requests
+    assert headers["User-Agent"] == f"devpi-server/{server_version}"
+    simpypi.requests.clear()
+    with contextlib.ExitStack() as cstack:
+        xom.http.stream(cstack, "GET", simpypi.simpleurl, allow_redirects=False).read()
+    ((_, headers), *_) = simpypi.requests
+    assert headers["User-Agent"] == f"devpi-server/{server_version}"
+    simpypi.requests.clear()
+
+
+@pytest.mark.asyncio
+@pytest.mark.nomocking
+@pytest.mark.parametrize("exc", [OSError(), httpx.RequestError(message="fail")])
+async def test_async_get_error(exc, xom, monkeypatch):
+    async def async_get(_self, _url, **_kw):
+        raise exc
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", async_get)
+    r = await xom.http.async_get("http://notexists.qwe", allow_redirects=False)
+    assert r.status_code == -1
+
+
+@pytest.mark.asyncio
+@pytest.mark.nomocking
+@pytest.mark.notransaction
+async def test_http_async_user_agent(server_version, simpypi, xom):
+    simpypi.add_release("pkg", pkgver="pkg-1.0.zip")
+    await xom.http.async_get(simpypi.simpleurl, allow_redirects=False)
+    ((_, headers), *_) = simpypi.requests
+    assert headers["User-Agent"] == f"devpi-server/{server_version}"
+    simpypi.requests.clear()
+
+
+@pytest.mark.filterwarnings("ignore:The async_httpget")
 @pytest.mark.asyncio
 @pytest.mark.nomocking
 @pytest.mark.parametrize("exc", [
@@ -1095,7 +1263,7 @@ async def test_get_simplelinks_perstage_when_http_error(exc, pypistage, monkeypa
     links = [("key", "href", "req_py", "yanked")]
 
     def mock_load_cache_links(project):
-        return (True, links, 42)
+        return (True, links, 42, '"foo"')
 
     monkeypatch.setattr(pypistage, "_load_cache_links", mock_load_cache_links)
 

@@ -10,7 +10,7 @@ import xarray
 
 from xclim.core import Quantified
 from xclim.core.bootstrapping import percentile_bootstrap
-from xclim.core.calendar import resample_doy
+from xclim.core.calendar import resample_doy, select_time
 from xclim.core.units import (
     convert_units_to,
     declare_units,
@@ -20,7 +20,7 @@ from xclim.core.units import (
     to_agg_units,
 )
 from xclim.indices import run_length as rl
-from xclim.indices._conversion import rain_approximation, snowfall_approximation
+from xclim.indices.converters import rain_approximation, snowfall_approximation
 from xclim.indices.generic import compare, select_resample_op, threshold_count
 
 # Frequencies : YS: year start, QS-DEC: seasons starting in december, MS: month start
@@ -150,7 +150,7 @@ def cold_spell_duration_index(
         freq=freq,
     )
 
-    return to_agg_units(out, tasmin, "count")
+    return to_agg_units(out, tasmin, "count", deffreq="D")
 
 
 @declare_units(
@@ -215,7 +215,7 @@ def cold_and_dry_days(
 
     cold_and_dry = cast(xarray.DataArray, np.logical_and(tg25, pr25))
     resampled = cold_and_dry.resample(time=freq).sum(dim="time")
-    out = to_agg_units(resampled, tas, "count")
+    out = to_agg_units(resampled, tas, "count", deffreq="D")
     return out
 
 
@@ -281,7 +281,7 @@ def warm_and_dry_days(
 
     warm_and_dry = cast(xarray.DataArray, np.logical_and(tg75, pr25))
     resampled = warm_and_dry.resample(time=freq).sum(dim="time")
-    out = to_agg_units(resampled, tas, "count")
+    out = to_agg_units(resampled, tas, "count", deffreq="D")
     return out
 
 
@@ -347,7 +347,7 @@ def warm_and_wet_days(
 
     warm_and_wet = cast(xarray.DataArray, np.logical_and(tg75, pr75))
     resampled = warm_and_wet.resample(time=freq).sum(dim="time")
-    out = to_agg_units(resampled, tas, "count")
+    out = to_agg_units(resampled, tas, "count", deffreq="D")
     return out
 
 
@@ -413,7 +413,7 @@ def cold_and_wet_days(
 
     cold_and_wet = cast(xarray.DataArray, np.logical_and(tg25, pr75))
     resampled = cold_and_wet.resample(time=freq).sum(dim="time")
-    out = to_agg_units(resampled, tas, "count")
+    out = to_agg_units(resampled, tas, "count", deffreq="D")
     return out
 
 
@@ -507,7 +507,7 @@ def multiday_temperature_swing(
             freq=freq,
         )
 
-    return to_agg_units(out, tasmin, "count")
+    return to_agg_units(out, tasmin, "count", deffreq="D")
 
 
 @declare_units(tasmax="[temperature]", tasmin="[temperature]")
@@ -791,7 +791,7 @@ def heat_wave_max_length(
         window=window,
         freq=freq,
     )
-    return to_agg_units(out, tasmax, "count")
+    return to_agg_units(out, tasmax, "count", deffreq="D")
 
 
 @declare_units(
@@ -859,7 +859,7 @@ def heat_wave_total_length(
         freq=freq,
     )
 
-    return to_agg_units(out, tasmin, "count")
+    return to_agg_units(out, tasmin, "count", deffreq="D")
 
 
 @declare_units(
@@ -1060,12 +1060,13 @@ def rain_on_frozen_ground_days(
     pr: xarray.DataArray,
     tas: xarray.DataArray,
     thresh: Quantified = "1 mm/d",
+    window: int = 7,
     freq: str = "YS",
 ) -> xarray.DataArray:
     """
     Number of rain on frozen ground events.
 
-    Number of days with rain above a threshold after a series of seven days below freezing temperature.
+    Number of days with rain above a threshold after a series of consecutive days below freezing temperature.
     Precipitation is assumed to be rain when the temperature is above 0℃.
 
     Parameters
@@ -1076,6 +1077,8 @@ def rain_on_frozen_ground_days(
         Mean daily temperature.
     thresh : Quantified
         Precipitation threshold to consider a day as a rain event.
+    window : int
+        Minimum number of days below freezing temperature needed to consider the ground frozen.
     freq : str
         Resampling frequency.
 
@@ -1099,21 +1102,21 @@ def rain_on_frozen_ground_days(
 
        TG_{i} ≤ 0℃
 
-    is true for continuous periods where :math:`i ≥ 7`
+    is true for continuous periods where :math:`i ≥ window`
     """
     t = convert_units_to(thresh, pr, context="hydro")
     frz = convert_units_to("0 C", tas)
 
     def _func(x, axis):
         """Check that temperature conditions are below 0 for seven days and above after."""
-        frozen = x == np.array([0, 0, 0, 0, 0, 0, 0, 1], bool)
+        frozen = x == np.array([0] * window + [1], bool)
         return frozen.all(axis=axis)
 
     tcond = (tas > frz).rolling(time=8).reduce(_func)
     pcond = pr > t
 
     out = (tcond * pcond * 1).resample(time=freq).sum(dim="time")
-    return to_agg_units(out, tas, "count")
+    return to_agg_units(out, tas, "count", deffreq="D")
 
 
 @declare_units(
@@ -1165,7 +1168,7 @@ def high_precip_low_temp(
 
     cond = (pr >= pr_thresh) * (tas < tas_thresh) * 1
     out = cond.resample(time=freq).sum(dim="time")
-    return to_agg_units(out, pr, "count")
+    return to_agg_units(out, pr, "count", deffreq="D")
 
 
 @declare_units(pr="[precipitation]", pr_per="[precipitation]", thresh="[precipitation]")
@@ -1227,7 +1230,7 @@ def days_over_precip_thresh(
 
     # Compute the days when precip is both over the wet day threshold and the percentile threshold.
     out = threshold_count(pr, op, tp, freq, constrain=(">", ">="))
-    return to_agg_units(out, pr, "count")
+    return to_agg_units(out, pr, "count", deffreq="D")
 
 
 @declare_units(pr="[precipitation]", pr_per="[precipitation]", thresh="[precipitation]")
@@ -1348,7 +1351,7 @@ def tg90p(
 
     # Identify the days over the 90th percentile
     out = threshold_count(tas, op, thresh, freq, constrain=(">", ">="))
-    return to_agg_units(out, tas, "count")
+    return to_agg_units(out, tas, "count", deffreq="D")
 
 
 @declare_units(tas="[temperature]", tas_per="[temperature]")
@@ -1407,7 +1410,7 @@ def tg10p(
 
     # Identify the days below the 10th percentile
     out = threshold_count(tas, op, thresh, freq, constrain=("<", "<="))
-    return to_agg_units(out, tas, "count")
+    return to_agg_units(out, tas, "count", deffreq="D")
 
 
 @declare_units(tasmin="[temperature]", tasmin_per="[temperature]")
@@ -1466,7 +1469,7 @@ def tn90p(
 
     # Identify the days with min temp above 90th percentile.
     out = threshold_count(tasmin, op, thresh, freq, constrain=(">", ">="))
-    return to_agg_units(out, tasmin, "count")
+    return to_agg_units(out, tasmin, "count", deffreq="D")
 
 
 @declare_units(tasmin="[temperature]", tasmin_per="[temperature]")
@@ -1525,7 +1528,7 @@ def tn10p(
 
     # Identify the days below the 10th percentile
     out = threshold_count(tasmin, op, thresh, freq, constrain=("<", "<="))
-    return to_agg_units(out, tasmin, "count")
+    return to_agg_units(out, tasmin, "count", deffreq="D")
 
 
 @declare_units(tasmax="[temperature]", tasmax_per="[temperature]")
@@ -1584,7 +1587,7 @@ def tx90p(
 
     # Identify the days with max temp above 90th percentile.
     out = threshold_count(tasmax, op, thresh, freq, constrain=(">", ">="))
-    return to_agg_units(out, tasmax, "count")
+    return to_agg_units(out, tasmax, "count", deffreq="D")
 
 
 @declare_units(tasmax="[temperature]", tasmax_per="[temperature]")
@@ -1643,7 +1646,7 @@ def tx10p(
 
     # Identify the days below the 10th percentile
     out = threshold_count(tasmax, op, thresh, freq, constrain=("<", "<="))
-    return to_agg_units(out, tasmax, "count")
+    return to_agg_units(out, tasmax, "count", deffreq="D")
 
 
 @declare_units(
@@ -1708,7 +1711,7 @@ def tx_tn_days_above(
     constrain = (">", ">=")
     events = (compare(tasmin, op, thresh_tasmin, constrain) & compare(tasmax, op, thresh_tasmax, constrain)) * 1
     out = events.resample(time=freq).sum(dim="time")
-    return to_agg_units(out, tasmin, "count")
+    return to_agg_units(out, tasmin, "count", deffreq="D")
 
 
 @declare_units(tasmax="[temperature]", tasmax_per="[temperature]")
@@ -1787,7 +1790,7 @@ def warm_spell_duration_index(
         freq=freq,
     )
 
-    return to_agg_units(out, tasmax, "count")
+    return to_agg_units(out, tasmax, "count", deffreq="D")
 
 
 @declare_units(pr="[precipitation]", prsn="[precipitation]", tas="[temperature]")
@@ -1834,6 +1837,7 @@ def blowing_snow(
     sfcWind_thresh: Quantified = "15 km/h",  # noqa
     window: int = 3,
     freq: str = "YS-JUL",
+    **indexer,
 ) -> xarray.DataArray:
     """
     Blowing snow days.
@@ -1854,6 +1858,10 @@ def blowing_snow(
         Period over which snow is accumulated before comparing against threshold.
     freq : str
         Resampling frequency.
+    **indexer : {dim: indexer}, optional
+        Indexing parameters to compute the indicator on a temporal subset of the data.
+        The subset is taken after summing the snowfall over the window.
+        It accepts the same arguments as :py:func:`xclim.indices.generic.select_time`.
 
     Returns
     -------
@@ -1865,12 +1873,14 @@ def blowing_snow(
 
     # Net snow accumulation over the last `window` days
     snow = snd.diff(dim="time").rolling(time=window, center=False).sum()
+    snow = select_time(snow, **indexer)
+    sfcWind = select_time(sfcWind, **indexer)
 
     # Blowing snow conditions
     cond = (snow >= snd_thresh) * (sfcWind >= sfcWind_thresh) * 1
 
     out = cond.resample(time=freq).sum(dim="time")
-    out = out.assign_attrs(units=to_agg_units(out, snd, "count"))
+    out = out.assign_attrs(units=to_agg_units(out, snd, "count", deffreq="D"))
     return out
 
 

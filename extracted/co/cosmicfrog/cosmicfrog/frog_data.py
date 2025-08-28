@@ -245,6 +245,76 @@ class FrogModel:
         df = self.read_sql("SELECT current_schema()")
         return df.iloc[0, 0]
 
+    def copy_table_or_view_to_model(self, name: str = None, destination_model_name: str = None,):
+        self.log.info("copy object '%s' to model '%s'", name, destination_model_name)
+
+        # The name of the view must be distinct from the name of any other relation 
+        # (table, sequence, index, view, materialized view, or foreign table) in the same schema.
+        try:
+            destination_model = FrogModel(destination_model_name) # Connect to the destination model specified
+        except Exception as e:
+            self.log.warning("Destination model does not exist:", e)
+            return { "success": False, "message": "Destination model does not exist."}
+        
+
+        try:
+            source_conn = self.engine.connect()
+            dest_conn = destination_model.engine.connect()
+
+            inspector = inspect(self.engine)
+            destination_inspector = inspect(destination_model.engine)
+
+            if name in inspector.get_table_names():
+                self.log.info("object '%s' is a table", name)
+
+                df = pd.read_sql_table(name, source_conn)
+
+                if name in inspect(destination_model.engine).get_table_names():
+                    df.to_sql(name, dest_conn, index=False, if_exists='append')
+                    self.log.info(f"Data appended to the existing table '{name}' in the destination model.")
+                    return { "success": True, "message": f"Data appended to the existing table '{name}' in the destination model."}
+                else:
+                    df.to_sql(name, dest_conn, index=False)
+                    self.log.info(f"Table '{name}' created and data copied to the destination model.")
+                    return { "success": True, "message": f"Table '{name}' created and data copied to the destination model."}
+
+            elif name in inspector.get_view_names():
+                self.log.info("object '%s' is a view", name)
+                if name in destination_inspector.get_view_names():
+                    self.log.info(f"View '{name}' already exists in the destination model.")
+                    return { "success": False, "message": f"View '{name}' already exists in the destination model."}
+
+                view_def = self.get_view_definition(name)
+                
+                if not view_def:
+                    return { "success": False, "message": f"View '{name}' definition not found."}
+                
+                create_view_query = f'CREATE VIEW {name} AS {view_def}'
+
+                with destination_model.begin() as connection:
+                    connection.execute(text(create_view_query))
+                    self.log.info(f"View '{name}' created.")
+
+                return { "success": True, "message": f"View '{name}' created."}
+
+            else:
+                self.log.warning("Invalid table/view type; object '%s'", name)
+                return { "success": False, "message": f"Invalid table/view type; object '{name}'."}
+        except Exception as e:
+            self.log.exception(f"An error occurred: {e}")
+            return { "success": False, "message": f"An error occurred: {e}"}
+            
+    def get_view_definition(self, view_name: str = None):
+        """Return view definition"""
+        if not view_name:
+            return None
+        
+        df = self.read_sql(f"SELECT definition FROM pg_views where viewname ='{view_name}'")
+        if df:
+            return df.iloc[0, 0]
+
+        return None
+
     def get_anura_master_table_mappings(self):
         """Return a dictionary of Anura table mappings"""
         return AnuraSchema.get_anura_master_table_mappings(self.anura_version)

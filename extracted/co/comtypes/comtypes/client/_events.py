@@ -64,7 +64,7 @@ _CloseHandle.restype = BOOL
 _ReceiverType = _UnionT[COMObject, IUnknown]
 
 
-class _AdviseConnection(object):
+class _AdviseConnection:
     cp: Optional[IConnectionPoint]
     cookie: Optional[int]
     receiver: Optional[_ReceiverType]
@@ -104,7 +104,7 @@ class _AdviseConnection(object):
             if self.cookie is not None:
                 assert self.cp is not None
                 self.cp.Unadvise(self.cookie)
-        except (COMError, WindowsError):
+        except (OSError, COMError):
             # Are we sure we want to ignore errors here?
             pass
 
@@ -209,7 +209,7 @@ class _SinkMethodFinder(_MethodFinder):
     """
 
     def __init__(self, inst: COMObject, sink: Any) -> None:
-        super(_SinkMethodFinder, self).__init__(inst)
+        super().__init__(inst)
         self.sink = sink
 
     def find_method(self, fq_name: str, mthname: str) -> Callable[..., Any]:
@@ -229,7 +229,7 @@ class _SinkMethodFinder(_MethodFinder):
 
     def _find_method(self, fq_name: str, mthname: str) -> Callable[..., Any]:
         try:
-            return super(_SinkMethodFinder, self).find_method(fq_name, mthname)
+            return super().find_method(fq_name, mthname)
         except AttributeError:
             try:
                 return getattr(self.sink, fq_name)
@@ -283,7 +283,7 @@ def GetEvents(
     return _AdviseConnection(source, interface, rcv)
 
 
-class EventDumper(object):
+class EventDumper:
     """Universal sink for COM events."""
 
     def __getattr__(self, name: str) -> Callable[..., Any]:
@@ -381,7 +381,7 @@ def PumpEvents(timeout: Any) -> None:
                 handles,
                 byref(ctypes.c_ulong()),
             )
-        except WindowsError as details:
+        except OSError as details:
             if details.winerror != hresult.RPC_S_CALLPENDING:  # timeout expired
                 raise
         else:

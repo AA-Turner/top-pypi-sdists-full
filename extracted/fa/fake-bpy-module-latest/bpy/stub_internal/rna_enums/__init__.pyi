@@ -426,7 +426,7 @@ type CurveNormalModeItems = typing.Literal[
     "FREE",  # Free.Use the stored custom normal attribute as the final normals.
 ]
 type CurvesHandleTypeItems = typing.Literal[
-    "FREE",  # Free.The handle can be moved anywhere, and doesn't influence the point's other handle.
+    "FREE",  # Free.The handle can be moved anywhere, and does not influence the point's other handle.
     "AUTO",  # Auto.The location is automatically calculated to be smooth.
     "VECTOR",  # Vector.The location is calculated to point to the next/previous control point.
     "ALIGN",  # Align.The location is constrained to point in the opposite direction as the other handle.
@@ -724,7 +724,7 @@ type EventValueItems = typing.Literal[
     "RELEASE",  # Release.
     "CLICK",  # Click.
     "DOUBLE_CLICK",  # Double Click.
-    "CLICK_DRAG",  # Click Drag.
+    "CLICK_DRAG",  # Drag.
     "NOTHING",  # Nothing.
 ]
 type ExrCodecItems = typing.Literal[
@@ -824,6 +824,8 @@ type IconItems = typing.Literal[
     "SELECT_DIFFERENCE",  # SELECT_DIFFERENCE.
     "SNAP_OFF",  # SNAP_OFF.
     "SNAP_ON",  # SNAP_ON.
+    "PLAYHEAD_SNAP_OFF",  # PLAYHEAD_SNAP_OFF.
+    "PLAYHEAD_SNAP_ON",  # PLAYHEAD_SNAP_ON.
     "UNLOCKED",  # UNLOCKED.
     "LOCKED",  # LOCKED.
     "VIS_SEL_11",  # VIS_SEL_11.
@@ -1327,6 +1329,10 @@ type IconItems = typing.Literal[
     "CENTER_ONLY",  # CENTER_ONLY.
     "CURSOR",  # CURSOR.
     "EDGESEL",  # EDGESEL.
+    "EDGE_BEVEL",  # EDGE_BEVEL.
+    "EDGE_CREASE",  # EDGE_CREASE.
+    "EDGE_SEAM",  # EDGE_SEAM.
+    "EDGE_SHARP",  # EDGE_SHARP.
     "FACE_CORNER",  # FACE_CORNER.
     "FACESEL",  # FACESEL.
     "INVERSESQUARECURVE",  # INVERSESQUARECURVE.
@@ -1350,6 +1356,7 @@ type IconItems = typing.Literal[
     "SMOOTHCURVE",  # SMOOTHCURVE.
     "SPHERECURVE",  # SPHERECURVE.
     "VERTEXSEL",  # VERTEXSEL.
+    "VERTEX_CREASE",  # VERTEX_CREASE.
     "SNAP_EDGE",  # SNAP_EDGE.
     "SNAP_FACE_CENTER",  # SNAP_FACE_CENTER.
     "SNAP_FACE_NEAREST",  # SNAP_FACE_NEAREST.
@@ -1837,21 +1844,21 @@ type ImageGeneratedTypeItems = typing.Literal[
     "UV_GRID",  # UV Grid.Generated grid to test UV mappings.
     "COLOR_GRID",  # Color Grid.Generated improved UV grid to test UV mappings.
 ]
-type ImageTypeItems = typing.Literal[
-    "BMP",  # BMP.Output image in bitmap format.
-    "IRIS",  # Iris.Output image in SGI IRIS format.
-    "PNG",  # PNG.Output image in PNG format.
-    "JPEG",  # JPEG.Output image in JPEG format.
-    "JPEG2000",  # JPEG 2000.Output image in JPEG 2000 format.
-    "TARGA",  # Targa.Output image in Targa format.
-    "TARGA_RAW",  # Targa Raw.Output image in uncompressed Targa format.
-    "CINEON",  # Cineon.Output image in Cineon format.
-    "DPX",  # DPX.Output image in DPX format.
-    "OPEN_EXR_MULTILAYER",  # OpenEXR MultiLayer.Output image in multilayer OpenEXR format.
-    "OPEN_EXR",  # OpenEXR.Output image in OpenEXR format.
-    "HDR",  # Radiance HDR.Output image in Radiance HDR format.
-    "TIFF",  # TIFF.Output image in TIFF format.
-    "WEBP",  # WebP.Output image in WebP format.
+type ImageTypeAllItems = typing.Literal[
+    "JPEG",  # JPEG (.jpg).Output image in JPEG format.
+    "OPEN_EXR",  # OpenEXR (.exr).Output image in OpenEXR format.
+    "PNG",  # PNG (.png).Output image in PNG format.
+    "WEBP",  # WebP (.webp).Output image in WebP format.
+    "BMP",  # Bitmap (.bmp).Output image in bitmap format.
+    "CINEON",  # Cineon (.cin).Output image in Cineon format.
+    "DPX",  # DPX (.dpx).Output image in DPX format.
+    "IRIS",  # Iris (.rgb).Output image in SGI IRIS format.
+    "JPEG2000",  # JPEG 2000 (.jp2).Output image in JPEG 2000 format.
+    "HDR",  # Radiance HDR (.hdr).Output image in Radiance HDR format.
+    "TARGA",  # Targa (.tga).Output image in Targa format.
+    "TARGA_RAW",  # Targa Raw (.tga).Output image in uncompressed Targa format.
+    "TIFF",  # TIFF (.tif).Output image in TIFF format.
+    "OPEN_EXR_MULTILAYER",  # OpenEXR MultiLayer (.exr).Output image in multilayer OpenEXR format.
     "FFMPEG",  # FFmpeg Video.
 ]
 type KeyblockTypeItems = typing.Literal[
@@ -2183,6 +2190,7 @@ type NodeSocketDataTypeItems = typing.Literal[
     "STRING",  # String.
     "MENU",  # Menu.
     "RGBA",  # Color.
+    "SHADER",  # Shader.
     "OBJECT",  # Object.
     "IMAGE",  # Image.
     "GEOMETRY",  # Geometry.
@@ -2198,10 +2206,11 @@ type NodeSocketInOutItems = typing.Literal[
 ]
 type NodeSocketStructureTypeItems = typing.Literal[
     "AUTO",  # Auto.Automatically detect a good structure type based on how the socket is used.
-    "SINGLE",  # Single.Socket expects a single value.
     "DYNAMIC",  # Dynamic.Socket can work with different kinds of structures.
     "FIELD",  # Field.Socket expects a field.
     "GRID",  # Grid.Socket expects a grid.
+    "LIST",  # List.Socket expects a list.
+    "SINGLE",  # Single.Socket expects a single value.
 ]
 type NodeSocketTypeItems = typing.Literal[
     "CUSTOM",  # Custom.
@@ -2236,7 +2245,7 @@ type NodeVecMathItems = typing.Literal[
     "MULTIPLY_ADD",  # Multiply Add.A * B + C.
     "CROSS_PRODUCT",  # Cross Product.A cross B.
     "PROJECT",  # Project.Project A onto B.
-    "REFLECT",  # Reflect.Reflect A around the normal B. B doesn't need to be normalized..
+    "REFLECT",  # Reflect.Reflect A around the normal B. B does not need to be normalized..
     "REFRACT",  # Refract.For a given incident vector A, surface normal B and ratio of indices of refraction, Ior, refract returns the refraction vector, R.
     "FACEFORWARD",  # Faceforward.Orients a vector A to point away from a surface B as defined by its normal C. Returns (dot(B, C) < 0) ? A : -A.
     "DOT_PRODUCT",  # Dot Product.A dot B.
@@ -2574,8 +2583,8 @@ type PropertySubtypeItems = typing.Literal[
     "WAVELENGTH",  # Wavelength.
     "COLOR_TEMPERATURE",  # Color Temperature.
     "FREQUENCY",  # Frequency.
-    "COLOR",  # Linear Color.Color in the linear space.
-    "TRANSLATION",  # Translation.Color in the gamma corrected space.
+    "COLOR",  # Linear Color.Color in the scene linear working color space.
+    "TRANSLATION",  # Translation.
     "DIRECTION",  # Direction.
     "VELOCITY",  # Velocity.
     "ACCELERATION",  # Acceleration.
@@ -2585,14 +2594,14 @@ type PropertySubtypeItems = typing.Literal[
     "AXISANGLE",  # Axis-Angle.Angle and axis to rotate around.
     "XYZ",  # XYZ.
     "XYZ_LENGTH",  # XYZ Length.
-    "COLOR_GAMMA",  # Gamma-Corrected Color.
+    "COLOR_GAMMA",  # sRGB Color.Color in sRGB color space (mainly for user interface colors).
     "COORDINATES",  # Coordinates.
     "LAYER",  # Layer.
     "LAYER_MEMBER",  # Layer Member.
 ]
 type PropertySubtypeNumberArrayItems = typing.Literal[
-    "COLOR",  # Linear Color.Color in the linear space.
-    "TRANSLATION",  # Translation.Color in the gamma corrected space.
+    "COLOR",  # Linear Color.Color in the scene linear working color space.
+    "TRANSLATION",  # Translation.
     "DIRECTION",  # Direction.
     "VELOCITY",  # Velocity.
     "ACCELERATION",  # Acceleration.
@@ -2602,7 +2611,7 @@ type PropertySubtypeNumberArrayItems = typing.Literal[
     "AXISANGLE",  # Axis-Angle.Angle and axis to rotate around.
     "XYZ",  # XYZ.
     "XYZ_LENGTH",  # XYZ Length.
-    "COLOR_GAMMA",  # Gamma-Corrected Color.
+    "COLOR_GAMMA",  # sRGB Color.Color in sRGB color space (mainly for user interface colors).
     "COORDINATES",  # Coordinates.
     "LAYER",  # Layer.
     "LAYER_MEMBER",  # Layer Member.
@@ -2894,6 +2903,12 @@ type StripModifierTypeItems = typing.Literal[
     "TONEMAP",  # Tone Map.
     "WHITE_BALANCE",  # White Balance.
     "SOUND_EQUALIZER",  # Sound Equalizer.
+]
+type StripScaleMethodItems = typing.Literal[
+    "FIT",  # Scale to Fit.Fits the image bounds inside the canvas, avoiding crops while maintaining aspect ratio.
+    "FILL",  # Scale to Fill.Fills the canvas edge-to-edge, cropping if needed, while maintaining aspect ratio.
+    "STRETCH",  # Stretch to Fill.Stretches image bounds to the canvas without preserving aspect ratio.
+    "ORIGINAL",  # Use Original Size.Display image at its original size.
 ]
 type StripSoundModifierTypeItems = typing.Literal[
     "SOUND_EQUALIZER",  # Sound Equalizer.

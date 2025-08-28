@@ -73,7 +73,9 @@ def add_vertex_slide(
     """
 
 def copy_splines(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Copy the selected splines to the internal clipboard
 
@@ -82,7 +84,9 @@ def copy_splines(
     """
 
 def cyclic_toggle(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Toggle cyclic for selected splines
 
@@ -106,7 +110,9 @@ def delete(
     """
 
 def duplicate(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Duplicate selected control points and segments between them
 
@@ -133,7 +139,9 @@ def duplicate_move(
     """
 
 def feather_weight_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset the feather weight to zero
 
@@ -218,7 +226,9 @@ def layer_new(
     """
 
 def layer_remove(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove mask layer
 
@@ -242,7 +252,9 @@ def new(
     """
 
 def normals_make_consistent(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Recalculate the direction of selected handles
 
@@ -251,25 +263,31 @@ def normals_make_consistent(
     """
 
 def parent_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Clear the mask's parenting
+    """Clear the masks parenting
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
 def parent_set(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
-    """Set the mask's parenting
+    """Set the masks parenting
 
     :type execution_context: int | str | None
     :type undo: bool | None
     """
 
 def paste_splines(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Paste splines from the internal clipboard
 
@@ -482,7 +500,9 @@ def select_lasso(
     """
 
 def select_less(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Deselect spline points at the boundary of each selection region
 
@@ -491,7 +511,9 @@ def select_less(
     """
 
 def select_linked(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select all curve points linked to already selected ones
 
@@ -515,7 +537,9 @@ def select_linked_pick(
     """
 
 def select_more(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Select more spline points connected to initial selection
 
@@ -524,7 +548,9 @@ def select_more(
     """
 
 def shape_key_clear(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Remove mask shape keyframe for active mask layer at the current frame
 
@@ -533,7 +559,9 @@ def shape_key_clear(
     """
 
 def shape_key_feather_reset(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Reset feather weights on all selected points animation values
 
@@ -542,7 +570,9 @@ def shape_key_feather_reset(
     """
 
 def shape_key_insert(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Insert mask shape keyframe for active mask layer at the current frame
 
@@ -587,7 +617,9 @@ def slide_point(
     """
 
 def slide_spline_curvature(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Slide a point on the spline to define its curvature
 
@@ -596,7 +628,9 @@ def slide_spline_curvature(
     """
 
 def switch_direction(
-    execution_context: int | str | None = None, undo: bool | None = None
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
 ) -> None:
     """Switch direction of selected splines
 

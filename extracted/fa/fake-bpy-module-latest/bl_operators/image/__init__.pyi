@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class EditExternally(bpy.types.Operator):
+class EditExternally(_bpy_types.Operator):
     """Edit image in an external application"""
 
     bl_idname: typing.Any
@@ -40,7 +41,7 @@ class EditExternally(bpy.types.Operator):
         :param _event:
         """
 
-class IMAGE_FH_drop_handler(bpy.types.FileHandler):
+class IMAGE_FH_drop_handler(_bpy_types.FileHandler):
     bl_file_extensions: typing.Any
     bl_idname: typing.Any
     bl_import_operator: typing.Any
@@ -69,7 +70,7 @@ class IMAGE_FH_drop_handler(bpy.types.FileHandler):
         :param context:
         """
 
-class IMAGE_OT_open_images(bpy.types.Operator):
+class IMAGE_OT_open_images(_bpy_types.Operator):
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -103,7 +104,7 @@ class IMAGE_OT_open_images(bpy.types.Operator):
         :param context:
         """
 
-class ProjectApply(bpy.types.Operator):
+class ProjectApply(_bpy_types.Operator):
     """Project edited image back onto the object"""
 
     bl_idname: typing.Any
@@ -132,7 +133,7 @@ class ProjectApply(bpy.types.Operator):
         :param _context:
         """
 
-class ProjectEdit(bpy.types.Operator):
+class ProjectEdit(_bpy_types.Operator):
     """Edit a snapshot of the 3D Viewport in an external image editor"""
 
     bl_idname: typing.Any

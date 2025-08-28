@@ -2365,7 +2365,8 @@ effects_real_my = {'5107584321108051014': '👍', '5159385139981059251': '❤', 
 
 
 themes_ = ['🐥', '⛄', '💎', '👨\u200d🏫', '🌷', '💜', '🎄', '🎮']
-extra_prompt = 'hyper-realistic image, iphone photo, ultra-realistic photography, cinematic photo, uhd motion capture, high-contrast image, 8k camera, atmospheric light'
+# extra_prompt = 'hyper-realistic image, iphone photo, ultra-realistic photography, cinematic photo, uhd motion capture, high-contrast image, 8k camera, atmospheric light'
+extra_prompt = 'photorealistic, 8K, 50mm f/2.8, shallow DOF, cinematic, atmospheric light, HDR'
 short_description = f"""👩🏽‍💻 Web3ᵀᴼᴺ-@tg-#neuro apps for⋅ᯅ⋅creators
 
 Start: t.me/FereyDemoBot
@@ -5087,181 +5088,7 @@ async def outsource_generate(lst, path='link_path'):
                                 try:
                                     print(f"{provider_name}: {api_key}")
 
-                                    if provider_name == 'prodia':
-                                        url = 'https://api.prodia.com/v1/sdxl/generate'
-                                        payload = {"prompt": item['prompt']}
-                                        headers = {"accept": "application/json", "content-type": "application/json",
-                                                   "X-Prodia-Key": api_key}
-
-                                        async with aiohttp.ClientSession() as session:
-                                            async with session.post(url, json=payload, headers=headers) as response:
-                                                res = await response.json()
-                                                job_id = res['job']
-
-                                            attempts = 5
-                                            url = f'https://api.prodia.com/v1/job/{job_id}'
-                                            await asyncio.sleep(1)
-                                            while attempts > 0:
-                                                async with session.get(url, headers=headers) as response:
-                                                    res = await response.json()
-                                                    status = res['status']
-                                                    if status.lower() == 'succeeded':
-                                                        result.append({'type': item['type'], 'answer': res['imageUrl']})
-                                                        return result
-                                                attempts -= 1
-                                                await asyncio.sleep(3)
-                                    elif provider_name == 'monster':
-                                        url = 'https://api.monsterapi.ai/v1/generate/sdxl-base'
-                                        payload = {"enhance": False, "optimize": False, "safe_filter": True,
-                                                   "prompt": item['prompt']}
-                                        headers = {"accept": "application/json", "content-type": "application/json",
-                                                   "authorization": f'Bearer {api_key}'}
-
-                                        async with aiohttp.ClientSession() as session:
-                                            async with session.post(url, json=payload, headers=headers) as response:
-                                                res = await response.json()
-                                                job_id = res['process_id']
-
-                                            attempts = 5
-                                            url = f'https://api.monsterapi.ai/v1/status/{job_id}'
-                                            await asyncio.sleep(2)
-
-                                            while attempts > 0:
-                                                async with session.get(url, headers=headers) as response:
-                                                    res = await response.json()
-                                                    status = res['status']
-                                                    if status.lower() == 'completed':
-                                                        result.append({'type': item['type'],
-                                                                       'answer': res['result']['output'][0]})
-                                                        return result
-                                                attempts -= 1
-                                                await asyncio.sleep(3)
-                                    elif provider_name == 'stablehorde':
-                                        url = 'https://stablehorde.net/api/v2/generate/async'
-                                        payload = {
-                                            "prompt": item['prompt'],
-                                            "params": {
-                                                "width": 512,
-                                                "height": 512,
-                                                "cfg_scale": 10,
-                                                "sampler_name": "k_euler_a"  # k_euler, k_lms, k_dpmpp_sde
-                                            }
-                                        }
-                                        headers = {
-                                            "Content-Type": "application/json",
-                                            "apikey": api_key
-                                        }
-
-                                        async with aiohttp.ClientSession() as session:
-                                            async with session.post(url, json=payload, headers=headers) as response:
-                                                res = await response.json()
-                                                job_id = res.get("id")
-                                                if not job_id:
-                                                    print("no job id")
-                                                    return result
-
-                                                print(f"Job ID: {job_id}")
-
-                                            attempts = 7
-                                            status_url = f'https://stablehorde.net/api/v2/generate/status/{job_id}'
-                                            await asyncio.sleep(3)
-
-                                            while attempts > 0:
-                                                async with session.get(status_url, headers=headers) as response:
-                                                    res = await response.json()
-                                                    print(f"Staus: {res}")
-
-                                                    queue_position = res.get("queue_position", "unknown")
-                                                    wait_time = res.get("wait_time", "unknown")
-                                                    print(f"Queue {queue_position=}: {wait_time=} sec.")
-
-                                                    if "generations" in res and res["generations"]:
-                                                        r_img = res["generations"][0]["img"]
-                                                        if str(r_img).lower().endswith('.png'):
-                                                            r_img = f"{r_img}.png"
-
-                                                        print(f"ready{r_img}")
-                                                        result.append({'type': item['type'], 'answer': r_img})
-                                                        return result
-
-                                                attempts -= 1
-                                                print(f"Try {7 - attempts} fail, waiit 4 sec...")
-                                                await asyncio.sleep(4)
-
-                                            print("err")
-                                    elif provider_name == 'fusionbrain':
-                                        # continue
-                                        api_key = provider_keys[0]["API_KEY"]
-                                        secret_key = provider_keys[0]["SECRET_KEY"]
-
-                                        url_ = 'https://api-key.fusionbrain.ai/key/api/v1/'
-                                        headers = {
-                                            'X-Key': f'Key {api_key}',
-                                            'X-Secret': f'Secret {secret_key}',
-                                        }
-
-                                        # models res=[{'id': 4, 'name': 'Kandinsky', 'version': 3.1,}]
-                                        # async with aiohttp.ClientSession() as session:
-                                        #     async with session.get(url + 'models', headers=headers) as response:
-                                        #         res = await response.json()
-                                        #         print(f"models {res=}")
-                                        #         model_id = res[0]['id']
-
-                                        model_id = 4
-                                        payload = {
-                                            "type": "GENERATE",
-                                            "numImages": 1,
-                                            # "width": 1024,
-                                            # "height": 1024,
-                                            "width": 512,
-                                            "height": 512,
-                                            "generateParams": {"query": item['prompt']}
-                                        }
-                                        data = FormData()
-                                        data.add_field('model_id', str(model_id))
-                                        data.add_field('params', json.dumps(payload), content_type='application/json')
-                                        async with aiohttp.ClientSession() as session:
-                                            u_ = url_ + 'text2image/run'
-                                            async with session.post(u_, headers=headers, data=data) as response:
-                                                res = await response.json()
-                                                if 'uuid' not in res:
-                                                    print("no'uuid'", res)
-                                                    return result
-                                                job_id = res['uuid']
-
-                                        attempts = 15
-                                        status_url = url_ + f'text2image/status/{job_id}'
-                                        await asyncio.sleep(10)
-
-                                        while attempts > 0:
-                                            async with aiohttp.ClientSession() as session:
-                                                async with session.get(status_url, headers=headers) as response:
-                                                    res = await response.json()
-                                                    if res['status'].lower() == 'done':
-                                                        base64_img = res['images'][0]
-                                                        result.append({'type': item['type'], 'answer': base64_img})
-                                                        return result
-                                            attempts -= 1
-                                            await asyncio.sleep(3)
-                                    elif provider_name == 'huggingface':
-                                        url = 'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2'
-                                        payload = {"inputs": item['prompt']}
-                                        headers = {"Authorization": f"Bearer {api_key}",
-                                                   "Content-Type": "application/json"}
-
-                                        async with aiohttp.ClientSession() as session:
-                                            async with session.post(url, json=payload, headers=headers) as response:
-                                                if response.status == 200:
-                                                    buffer = io.BytesIO()
-                                                    async for chunk in response.content.iter_chunked(1024):
-                                                        buffer.write(chunk)
-
-                                                    buffer.seek(0)
-                                                    encoded_image = base64.b64encode(buffer.read()).decode()
-
-                                                    result.append({'type': item['type'], 'answer': encoded_image})
-                                                    return result
-                                    elif provider_name == 'proxyapi':
+                                    if provider_name == 'proxyapi':
                                         base_url = "https://api.proxyapi.ru/openai/v1"
                                         client = AsyncOpenAI(api_key=api_key,
                                                              base_url=base_url)
@@ -5288,6 +5115,154 @@ async def outsource_generate(lst, path='link_path'):
                                         for it in res.data:
                                             result.append({'type': item['type'], 'answer': it.b64_json})
                                             return result
+                                    # elif provider_name == 'prodia':
+                                    #     url = 'https://api.prodia.com/v1/sdxl/generate'
+                                    #     payload = {"prompt": item['prompt']}
+                                    #     headers = {"accept": "application/json", "content-type": "application/json",
+                                    #                "X-Prodia-Key": api_key}
+                                    #
+                                    #     async with aiohttp.ClientSession() as session:
+                                    #         async with session.post(url, json=payload, headers=headers) as response:
+                                    #             res = await response.json()
+                                    #             job_id = res['job']
+                                    #
+                                    #         attempts = 5
+                                    #         url = f'https://api.prodia.com/v1/job/{job_id}'
+                                    #         await asyncio.sleep(1)
+                                    #         while attempts > 0:
+                                    #             async with session.get(url, headers=headers) as response:
+                                    #                 res = await response.json()
+                                    #                 status = res['status']
+                                    #                 if status.lower() == 'succeeded':
+                                    #                     result.append({'type': item['type'], 'answer': res['imageUrl']})
+                                    #                     return result
+                                    #             attempts -= 1
+                                    #             await asyncio.sleep(3)
+                                    # elif provider_name == 'stablehorde':
+                                    #     url = 'https://stablehorde.net/api/v2/generate/async'
+                                    #     payload = {
+                                    #         "prompt": item['prompt'],
+                                    #         "params": {
+                                    #             "width": 512,
+                                    #             "height": 512,
+                                    #             "cfg_scale": 10,
+                                    #             "sampler_name": "k_euler_a"  # k_euler, k_lms, k_dpmpp_sde
+                                    #         }
+                                    #     }
+                                    #     headers = {
+                                    #         "Content-Type": "application/json",
+                                    #         "apikey": api_key
+                                    #     }
+                                    #
+                                    #     async with aiohttp.ClientSession() as session:
+                                    #         async with session.post(url, json=payload, headers=headers) as response:
+                                    #             res = await response.json()
+                                    #             job_id = res.get("id")
+                                    #             if not job_id:
+                                    #                 print("no job id")
+                                    #                 return result
+                                    #
+                                    #             print(f"Job ID: {job_id}")
+                                    #
+                                    #         attempts = 7
+                                    #         status_url = f'https://stablehorde.net/api/v2/generate/status/{job_id}'
+                                    #         await asyncio.sleep(3)
+                                    #
+                                    #         while attempts > 0:
+                                    #             async with session.get(status_url, headers=headers) as response:
+                                    #                 res = await response.json()
+                                    #                 print(f"Staus: {res}")
+                                    #
+                                    #                 queue_position = res.get("queue_position", "unknown")
+                                    #                 wait_time = res.get("wait_time", "unknown")
+                                    #                 print(f"Queue {queue_position=}: {wait_time=} sec.")
+                                    #
+                                    #                 if "generations" in res and res["generations"]:
+                                    #                     r_img = res["generations"][0]["img"]
+                                    #                     if str(r_img).lower().endswith('.png'):
+                                    #                         r_img = f"{r_img}.png"
+                                    #
+                                    #                     print(f"ready{r_img}")
+                                    #                     result.append({'type': item['type'], 'answer': r_img})
+                                    #                     return result
+                                    #
+                                    #             attempts -= 1
+                                    #             print(f"Try {7 - attempts} fail, waiit 4 sec...")
+                                    #             await asyncio.sleep(4)
+                                    #
+                                    #         print("err")
+                                    # elif provider_name == 'fusionbrain':
+                                    #     # continue
+                                    #     api_key = provider_keys[0]["API_KEY"]
+                                    #     secret_key = provider_keys[0]["SECRET_KEY"]
+                                    #
+                                    #     url_ = 'https://api-key.fusionbrain.ai/key/api/v1/'
+                                    #     headers = {
+                                    #         'X-Key': f'Key {api_key}',
+                                    #         'X-Secret': f'Secret {secret_key}',
+                                    #     }
+                                    #
+                                    #     # models res=[{'id': 4, 'name': 'Kandinsky', 'version': 3.1,}]
+                                    #     # async with aiohttp.ClientSession() as session:
+                                    #     #     async with session.get(url + 'models', headers=headers) as response:
+                                    #     #         res = await response.json()
+                                    #     #         print(f"models {res=}")
+                                    #     #         model_id = res[0]['id']
+                                    #
+                                    #     model_id = 4
+                                    #     payload = {
+                                    #         "type": "GENERATE",
+                                    #         "numImages": 1,
+                                    #         # "width": 1024,
+                                    #         # "height": 1024,
+                                    #         "width": 512,
+                                    #         "height": 512,
+                                    #         "generateParams": {"query": item['prompt']}
+                                    #     }
+                                    #     data = FormData()
+                                    #     data.add_field('model_id', str(model_id))
+                                    #     data.add_field('params', json.dumps(payload), content_type='application/json')
+                                    #     async with aiohttp.ClientSession() as session:
+                                    #         u_ = url_ + 'text2image/run'
+                                    #         async with session.post(u_, headers=headers, data=data) as response:
+                                    #             res = await response.json()
+                                    #             if 'uuid' not in res:
+                                    #                 print("no'uuid'", res)
+                                    #                 return result
+                                    #             job_id = res['uuid']
+                                    #
+                                    #     attempts = 15
+                                    #     status_url = url_ + f'text2image/status/{job_id}'
+                                    #     await asyncio.sleep(10)
+                                    #
+                                    #     while attempts > 0:
+                                    #         async with aiohttp.ClientSession() as session:
+                                    #             async with session.get(status_url, headers=headers) as response:
+                                    #                 res = await response.json()
+                                    #                 if res['status'].lower() == 'done':
+                                    #                     base64_img = res['images'][0]
+                                    #                     result.append({'type': item['type'], 'answer': base64_img})
+                                    #                     return result
+                                    #         attempts -= 1
+                                    #         await asyncio.sleep(3)
+                                    # elif provider_name == 'huggingface':
+                                    #     url = 'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2'
+                                    #     payload = {"inputs": item['prompt']}
+                                    #     headers = {"Authorization": f"Bearer {api_key}",
+                                    #                "Content-Type": "application/json"}
+                                    #
+                                    #     async with aiohttp.ClientSession() as session:
+                                    #         async with session.post(url, json=payload, headers=headers) as response:
+                                    #             if response.status == 200:
+                                    #                 buffer = io.BytesIO()
+                                    #                 async for chunk in response.content.iter_chunked(1024):
+                                    #                     buffer.write(chunk)
+                                    #
+                                    #                 buffer.seek(0)
+                                    #                 encoded_image = base64.b64encode(buffer.read()).decode()
+                                    #
+                                    #                 result.append({'type': item['type'], 'answer': encoded_image})
+                                    #                 return result
                                 except Exception as e:
                                     logger.info(log_ % f"{api_key} " + str(e))
                                     await asyncio.sleep(round(random.uniform(3, 4), 2))
@@ -17205,7 +17180,7 @@ async def return_file_link(bot, chat_id, FILE_NAME, KEYS_JSON, MSG_VID, MSG_TYPE
             if MSG_TYPE in ['document', 'web'] and not FILE_NAME.lower().endswith(
                     ('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.webp', '.webm', '.mp3')): return result
 
-            res = await get_link_for_media(bot, MSG_VID, FILE_NAME, KEYS_JSON)
+            res = await get_link_for_media(bot, MSG_VID, FILE_NAME, KEYS_JSON, False)
             if res:
                 result = res
     except Exception as e:
@@ -17297,7 +17272,7 @@ async def jpg_video_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
         clip_convert = img.crop((left_x, left_y, right_x, right_y))
         clip_convert.save(destination3, quality=20)
 
-        res = await get_link_for_media(bot, chat_id, destination3, KEYS_JSON)
+        res = await get_link_for_media(bot, chat_id, destination3, KEYS_JSON, False)
         if res:
             result = res
     except Exception as e:
@@ -17367,7 +17342,7 @@ async def jpg_photo_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
         clip_convert = img.crop((left_x, left_y, right_x, right_y))
         clip_convert.save(file_finish, quality=20)
 
-        res = await get_link_for_media(bot, chat_id, file_finish, KEYS_JSON)
+        res = await get_link_for_media(bot, chat_id, file_finish, KEYS_JSON, False)
         result = result if res is None else res
         if os.path.exists(file_name): os.remove(file_name)
         if os.path.exists(file_finish): os.remove(file_finish)
@@ -17609,7 +17584,19 @@ async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_typ
                 file_link2 = await jpg_video_preview(bot, MSG_VID, KEYS_JSON, file_link, BOT_TID, msg_type, file_id,
                                                      MEDIA_D, BOT_TOKEN)
             else:
-                file_link2 = await jpg_photo_preview(bot, MSG_VID, KEYS_JSON, file_link, BOT_TID, msg_type, MEDIA_D)
+                file_link2 = ''
+                try:
+                    if os.path.exists(FILE_NAME):
+                        with Image.open(FILE_NAME) as img:
+                            w_, h_ = img.size
+                        print(f"17595 {w_=}, {h_=}")
+                        if w_ <= 1024 and h_ <= 1024:
+                            file_link2 = file_link
+                except Exception as e:
+                    logger.info(log_ % str(e))
+
+                if not file_link2:
+                    file_link2 = await jpg_photo_preview(bot, MSG_VID, KEYS_JSON, file_link, BOT_TID, msg_type, MEDIA_D)
             file_json = None
 
         tmp_json = {

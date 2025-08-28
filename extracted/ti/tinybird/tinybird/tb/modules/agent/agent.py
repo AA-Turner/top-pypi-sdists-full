@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import shlex
 import subprocess
 import sys
@@ -47,9 +48,15 @@ from tinybird.tb.modules.agent.tools.deploy_check import deploy_check
 from tinybird.tb.modules.agent.tools.diff_resource import diff_resource
 from tinybird.tb.modules.agent.tools.get_endpoint_stats import get_endpoint_stats
 from tinybird.tb.modules.agent.tools.get_openapi_definition import get_openapi_definition
-from tinybird.tb.modules.agent.tools.plan import plan
+from tinybird.tb.modules.agent.tools.plan import complete_plan, plan
 from tinybird.tb.modules.agent.tools.secret import create_or_update_secrets
-from tinybird.tb.modules.agent.utils import AgentRunCancelled, TinybirdAgentContext, show_confirmation, show_input
+from tinybird.tb.modules.agent.utils import (
+    AgentRunCancelled,
+    SubAgentRunCancelled,
+    TinybirdAgentContext,
+    show_confirmation,
+    show_input,
+)
 from tinybird.tb.modules.build_common import process as build_process
 from tinybird.tb.modules.common import (
     _analyze,
@@ -89,6 +96,7 @@ class TinybirdAgent:
         self.dangerously_skip_permissions = dangerously_skip_permissions or prompt_mode
         self.project = project
         self.thinking_animation = ThinkingAnimation()
+        self.confirmed_plan_id: Optional[str] = None
         if prompt_mode:
             self.messages: list[ModelMessage] = get_last_messages_from_last_user_prompt()
         else:
@@ -109,6 +117,7 @@ class TinybirdAgent:
                     takes_ctx=True,
                 ),
                 Tool(plan, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
+                Tool(complete_plan, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
                 Tool(build, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
                 Tool(deploy, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
                 Tool(deploy_check, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
@@ -204,8 +213,11 @@ class TinybirdAgent:
             Returns:
                 str: The result of the command.
             """
-            result = self.command_agent.run(task, deps=ctx.deps, usage=ctx.usage)
-            return f"Result: {result.output}\nDo not repeat in your response the result again, because it is already displayed in the terminal."
+            try:
+                result = self.command_agent.run(task, deps=ctx.deps, usage=ctx.usage)
+                return f"Result: {result.output}\nDo not repeat in your response the result again, because it is already displayed in the terminal."
+            except SubAgentRunCancelled as e:
+                return f"User does not want to continue with the proposed solution. Reason: {e}"
 
         @self.agent.tool
         def explore_data(ctx: RunContext[TinybirdAgentContext], task: str) -> str:
@@ -297,6 +309,18 @@ class TinybirdAgent:
     def add_message(self, message: ModelMessage) -> None:
         self.messages.append(message)
 
+    def start_plan(self, plan) -> str:
+        self.confirmed_plan_id = hashlib.sha256(plan.encode()).hexdigest()[:16]
+        return self.confirmed_plan_id
+
+    def cancel_plan(self) -> Optional[str]:
+        plan_id = self.confirmed_plan_id
+        self.confirmed_plan_id = None
+        return plan_id
+
+    def get_plan(self) -> Optional[str]:
+        return self.confirmed_plan_id
+
     def _build_agent_deps(self, config: dict[str, Any], run_id: Optional[str] = None) -> TinybirdAgentContext:
         project = self.project
         folder = self.project.folder
@@ -336,6 +360,9 @@ class TinybirdAgent:
             local_host=local_client.host,
             local_token=local_client.token,
             run_id=run_id,
+            get_plan=self.get_plan,
+            start_plan=self.start_plan,
+            cancel_plan=self.cancel_plan,
         )
 
     def run(self, user_prompt: str, config: dict[str, Any]) -> None:
@@ -389,8 +416,8 @@ class TinybirdAgent:
             ai_credits_limits = limits_data.get("limits", {}).get("ai_credits", {})
             current_ai_credits = ai_credits_limits.get("quantity") or 0
             ai_credits = ai_credits_limits.get("max") or 0
-            remaining_credits = max(ai_credits - current_ai_credits, 0)
-            current_ai_credits = min(ai_credits, current_ai_credits)
+            remaining_credits = round(max(ai_credits - current_ai_credits, 0), 2)
+            current_ai_credits = round(min(ai_credits, current_ai_credits), 2)
             if not ai_credits:
                 return
             warning_threshold = ai_credits * 0.8
@@ -569,6 +596,7 @@ def run_agent(
                         ]
                     )
                 )
+                agent.cancel_plan()
                 continue
             except KeyboardInterrupt:
                 click.echo(FeedbackManager.info(message="Goodbye!"))

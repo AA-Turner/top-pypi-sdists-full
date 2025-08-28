@@ -73,7 +73,7 @@ def display_name_from_filepath(name: str) -> str:
 
 def display_name_to_filepath(name: str) -> str:
     """Performs the reverse of display_name using literal versions of characters
-    which aren't supported in a filepath.
+    which arent supported in a filepath.
 
         :param name: The display name to convert.
         :type name: str

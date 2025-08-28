@@ -1801,7 +1801,7 @@ class LinePlot(Panel):
     title_x: Optional[str] = None
     title_y: Optional[str] = None
     ignore_outliers: Optional[bool] = None
-    groupby: Optional[str] = None
+    groupby: Optional[Union[str, Config]] = None
     groupby_aggfunc: Optional[GroupAgg] = None
     groupby_rangefunc: Optional[GroupArea] = None
     smoothing_factor: Optional[float] = None
@@ -1815,6 +1815,7 @@ class LinePlot(Panel):
     legend_template: Optional[str] = None
     aggregate: Optional[bool] = None
     xaxis_expression: Optional[str] = None
+    xaxis_format: Optional[str] = None
     legend_fields: Optional[LList[str]] = None
 
     def _to_model(self):
@@ -1832,7 +1833,7 @@ class LinePlot(Panel):
                 x_axis_title=self.title_x,
                 y_axis_title=self.title_y,
                 ignore_outliers=self.ignore_outliers,
-                group_by=self.groupby,
+                group_by=_metric_to_backend_groupby(self.groupby),
                 group_agg=self.groupby_aggfunc,
                 group_area=self.groupby_rangefunc,
                 smoothing_weight=self.smoothing_factor,
@@ -1844,8 +1845,9 @@ class LinePlot(Panel):
                 font_size=self.font_size,
                 legend_position=self.legend_position,
                 legend_template=self.legend_template,
-                aggregate=self.aggregate,
+                aggregate=True if self.groupby else self.aggregate,
                 x_expression=self.xaxis_expression,
+                x_axis_format=self.xaxis_format,
                 legend_fields=self.legend_fields,
             ),
             id=self._id,
@@ -1865,7 +1867,7 @@ class LinePlot(Panel):
             title_x=model.config.x_axis_title,
             title_y=model.config.y_axis_title,
             ignore_outliers=model.config.ignore_outliers,
-            groupby=model.config.group_by,
+            groupby=_metric_to_frontend_groupby(model.config.group_by),
             groupby_aggfunc=model.config.group_agg,
             groupby_rangefunc=model.config.group_area,
             smoothing_factor=model.config.smoothing_weight,
@@ -1879,6 +1881,7 @@ class LinePlot(Panel):
             legend_template=model.config.legend_template,
             aggregate=model.config.aggregate,
             xaxis_expression=model.config.x_expression,
+            xaxis_format=model.config.x_axis_format,
             layout=Layout._from_model(model.layout),
             legend_fields=model.config.legend_fields,
         )
@@ -2020,6 +2023,7 @@ class BarPlot(Panel):
             Options include "small", "medium", "large", "auto", or `None`.
         line_titles (Optional[dict]): The titles of the lines. The keys are the line names and the values are the titles.
         line_colors (Optional[dict]): The colors of the lines. The keys are the line names and the values are the colors.
+        aggregate (Optional[bool]): If set to `True`, aggregate the data.
     """
 
     title: Optional[str] = None
@@ -2028,7 +2032,7 @@ class BarPlot(Panel):
     range_x: Range = Field(default_factory=lambda: (None, None))
     title_x: Optional[str] = None
     title_y: Optional[str] = None
-    groupby: Optional[str] = None
+    groupby: Optional[Union[str, Config]] = None
     groupby_aggfunc: Optional[GroupAgg] = None
     groupby_rangefunc: Optional[GroupArea] = None
     max_runs_to_show: Optional[int] = None
@@ -2038,6 +2042,7 @@ class BarPlot(Panel):
     font_size: Optional[FontSize] = None
     line_titles: Optional[dict] = None
     line_colors: Optional[dict] = None
+    aggregate: Optional[bool] = None
 
     def _to_model(self):
         return internal.BarPlot(
@@ -2049,7 +2054,7 @@ class BarPlot(Panel):
                 x_axis_max=self.range_x[1],
                 x_axis_title=self.title_x,
                 y_axis_title=self.title_y,
-                group_by=self.groupby,
+                group_by=_metric_to_backend_groupby(self.groupby),
                 group_agg=self.groupby_aggfunc,
                 group_area=self.groupby_rangefunc,
                 limit=self.max_runs_to_show,
@@ -2059,6 +2064,7 @@ class BarPlot(Panel):
                 font_size=self.font_size,
                 override_series_titles=self.line_titles,
                 override_colors=self.line_colors,
+                aggregate=True if self.groupby else self.aggregate,
             ),
             layout=self.layout._to_model(),
             id=self._id,
@@ -2073,7 +2079,7 @@ class BarPlot(Panel):
             range_x=(model.config.x_axis_min, model.config.x_axis_max),
             title_x=model.config.x_axis_title,
             title_y=model.config.y_axis_title,
-            groupby=model.config.group_by,
+            groupby=_metric_to_frontend_groupby(model.config.group_by),
             groupby_aggfunc=model.config.group_agg,
             groupby_rangefunc=model.config.group_area,
             max_runs_to_show=model.config.limit,
@@ -2083,6 +2089,7 @@ class BarPlot(Panel):
             font_size=model.config.font_size,
             line_titles=model.config.override_series_titles,
             line_colors=model.config.override_colors,
+            aggregate=model.config.aggregate,
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
@@ -2342,16 +2349,19 @@ class MediaBrowser(Panel):
     A panel that displays media files in a grid layout.
 
     Attributes:
+        title (Optional[str]): The title of the panel.
         num_columns (Optional[int]): The number of columns in the grid.
         media_keys (LList[str]): A list of media keys that correspond to the media files.
     """
 
+    title: Optional[str] = None
     num_columns: Optional[int] = None
     media_keys: LList[str] = Field(default_factory=list)
 
     def _to_model(self):
         return internal.MediaBrowser(
             config=internal.MediaBrowserConfig(
+                chart_title=self.title,
                 column_count=self.num_columns,
                 media_keys=self.media_keys,
             ),
@@ -2362,6 +2372,7 @@ class MediaBrowser(Panel):
     @classmethod
     def _from_model(cls, model: internal.MediaBrowser):
         obj = cls(
+            title=model.config.chart_title,
             num_columns=model.config.column_count,
             media_keys=model.config.media_keys,
             layout=Layout._from_model(model.layout),
@@ -3171,7 +3182,9 @@ class Report(Base):
             successful by the backend, ``False`` otherwise.
         """
         if self.id == "":
-            raise AttributeError("Cannot delete a report that has not been saved or does not have an id.")
+            raise AttributeError(
+                "Cannot delete a report that has not been saved or does not have an id."
+            )
 
         response = _get_api().client.execute(
             gql.delete_view,
@@ -3187,7 +3200,9 @@ class Report(Base):
         if success:
             wandb.termlog(f"Deleted report: {self.id}")
         else:
-            wandb.termwarn("Failed to delete report – backend returned unsuccessful status.")
+            wandb.termwarn(
+                "Failed to delete report – backend returned unsuccessful status."
+            )
 
         return success
 
@@ -3244,7 +3259,69 @@ def _url_to_viewspec(url):
         gql.view_report, variable_values={"reportId": report_id}
     )
     viewspec = r["view"]
+
+    # The spec field is a JSON string, we need to parse it, strip refs, and re-serialize
+    if "spec" in viewspec and isinstance(viewspec["spec"], str):
+        import json
+
+        spec_dict = json.loads(viewspec["spec"])
+        _strip_refs(spec_dict)
+        viewspec["spec"] = json.dumps(spec_dict)
+
+    # Also strip refs from other fields in viewspec
+    _strip_refs(viewspec)
+
     return viewspec
+
+
+def _strip_refs(obj):
+    """
+    Recursively remove ref objects from the viewspec in place.
+
+    These are temporary values from the frontend that should not be persisted.
+    This function modifies the input object in place.
+
+    Args:
+        obj: The object to process (dict, list, or any other type)
+    """
+    if isinstance(obj, dict):
+        # Helper function to check if a value is a valid ref object
+        def is_valid_ref(value):
+            """Check if value is a ref object with viewID, type, and id properties"""
+            if isinstance(value, dict):
+                return (
+                    "viewID" in value
+                    and isinstance(value.get("viewID"), str)
+                    and "type" in value
+                    and isinstance(value.get("type"), str)
+                    and "id" in value
+                    and isinstance(value.get("id"), str)
+                )
+            elif isinstance(value, list):
+                # For lists, check if all items are valid ref objects
+                return all(is_valid_ref(item) for item in value) if value else False
+            return False
+
+        # Collect keys to remove (can't modify dict while iterating)
+        keys_to_remove = []
+        for key, value in obj.items():
+            if (key == "ref" or key.endswith(("Ref", "Refs"))) and is_valid_ref(value):
+                keys_to_remove.append(key)
+
+        # Remove the collected keys
+        for key in keys_to_remove:
+            del obj[key]
+
+        # Recursively process remaining values
+        for value in obj.values():
+            _strip_refs(value)
+
+    elif isinstance(obj, list):
+        # Process each item in the list
+        for item in obj:
+            _strip_refs(item)
+
+    # For other types (strings, numbers, etc.), no action needed
 
 
 def _url_to_report_id(url):
@@ -3252,15 +3329,15 @@ def _url_to_report_id(url):
     path = parse_result.path
 
     _, entity, project, _, name = path.split("/")
-    
+
     # Use rfind to find the last occurrence of '--'
     separator_position = name.rfind("--")
     if separator_position == -1:
         raise ValueError("Attempted to parse invalid View ID: no separator found")
-    
+
     # Split at the last '--'
-    title = name[:separator_position]
-    report_id = name[separator_position + 2:] # +2 to skip the '--'
+    # title = name[:separator_position]  # Not used, commenting out to fix ruff warning
+    report_id = name[separator_position + 2 :]  # +2 to skip the '--'
 
     # Add correct base64 padding: calculate the number of '=' needed
     pad = (4 - (len(report_id) % 4)) % 4
@@ -3601,6 +3678,63 @@ def _metric_to_frontend_panel_grid(x: str):
         name = x.replace("config:", "").replace(".value", "")
         return Config(name)
     return _metric_to_frontend(x)
+
+
+def _metric_to_backend_groupby(val: Optional[Union[str, "Config"]]) -> Optional[str]:
+    """
+    Normalise a group-by key so the backend always receives the form
+        <first_segment>.value[.<rest>]
+
+    Accepts
+    --------
+    1. wr.Config("epochs")              ➔ "epochs.value"
+    2. "config.epochs" / "config.a.b"   ➔ "epochs.value" / "a.value.b"
+    3. "epochs" / "a.b"                 ➔ "epochs.value" / "a.value.b"
+
+    Anything that is already in the correct format
+    ("epochs.value", "a.value.b", …) is returned unchanged.
+    """
+    if val is None:
+        return None
+
+    # 1) unwrap wr.Config
+    if isinstance(val, Config):
+        val = val.name
+
+    # 2) drop an explicit "config." prefix for uniform handling
+    if val.startswith("config."):
+        val = val.split("config.", 1)[1]
+
+    segments = val.split(".")
+
+    # 3) if we already have ".value" immediately after the first segment, keep it
+    if len(segments) >= 2 and segments[1] == "value":
+        return val
+
+    first, *rest = segments
+    rest_path = "." + ".".join(rest) if rest else ""
+    return f"{first}.value{rest_path}"
+
+
+def _metric_to_frontend_groupby(val: Optional[str]):
+    """
+    Convert the backend form back into a user-friendly object.
+        "epochs.value"   ➔ Config("epochs")
+        "a.value.b"      ➔ Config("a.b")
+    Anything that isn’t a config path (doesn’t have '.value' as the second
+    token) is returned unchanged.
+    """
+    if val is None or not isinstance(val, str):
+        return val
+
+    parts = val.split(".")
+    if len(parts) < 2 or parts[1] != "value":
+        return val  # not a config key, just return as-is
+
+    first = parts[0]
+    rest = parts[2:]
+    path = first + ("." + ".".join(rest) if rest else "")
+    return Config(path)
 
 
 def _get_rs_by_name(runsets, name):

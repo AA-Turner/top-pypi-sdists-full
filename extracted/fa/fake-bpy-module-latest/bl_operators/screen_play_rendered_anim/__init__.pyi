@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class PlayRenderedAnim(bpy.types.Operator):
+class PlayRenderedAnim(_bpy_types.Operator):
     """Play back rendered frames/movies using an external player"""
 
     bl_idname: typing.Any

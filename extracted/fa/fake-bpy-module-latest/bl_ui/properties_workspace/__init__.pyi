@@ -2,10 +2,11 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import rna_prop_ui
 
-class WORKSPACE_PT_addons(WorkSpaceButtonsPanel, bpy.types.Panel):
+class WORKSPACE_PT_addons(WorkSpaceButtonsPanel, _bpy_types.Panel):
     addon_map: typing.Any
     bl_category: typing.Any
     bl_label: typing.Any
@@ -43,10 +44,10 @@ class WORKSPACE_PT_addons(WorkSpaceButtonsPanel, bpy.types.Panel):
         """
 
 class WORKSPACE_PT_custom_props(
-    rna_prop_ui.PropertyPanel, WorkSpaceButtonsPanel, bpy.types.Panel
+    rna_prop_ui.PropertyPanel, WorkSpaceButtonsPanel, _bpy_types.Panel
 ):
     """The subclass should have its own poll function
-    and the variable '_context_path' MUST be set.
+    and the variable _context_path MUST be set.
     """
 
     bl_category: typing.Any
@@ -73,7 +74,7 @@ class WORKSPACE_PT_custom_props(
         :rtype: typing.Any
         """
 
-class WORKSPACE_PT_main(WorkSpaceButtonsPanel, bpy.types.Panel):
+class WORKSPACE_PT_main(WorkSpaceButtonsPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -102,7 +103,7 @@ class WORKSPACE_PT_main(WorkSpaceButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class WORKSPACE_UL_addons_items(bpy.types.UIList):
+class WORKSPACE_UL_addons_items(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 

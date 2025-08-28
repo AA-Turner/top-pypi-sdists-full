@@ -161,12 +161,14 @@ class KafkaConsumerWorker:
         
         while self.is_running and not self._stop_event.is_set():
             try:
-                # Single-message consume
+                # Single-message consume with timing
+                consume_start_time = asyncio.get_event_loop().time()
                 try:
                     message = await self.kafka_deployment.async_consume_message(timeout=60)
                 except Exception as exc:
                     self.logger.error(f"Error consuming message: {str(exc)}")
                     message = None
+                consume_time = asyncio.get_event_loop().time() - consume_start_time
 
                 if not message:
                     await asyncio.sleep(0.1)
@@ -174,13 +176,20 @@ class KafkaConsumerWorker:
 
                 try:
                     processed_message = self._process_kafka_message(message)
+                    
+                    # Add consumption timing to the message
+                    processed_message["server_timing"] = {
+                        "kafka_consume_time_sec": consume_time,
+                        "consumer_timestamp": datetime.now(timezone.utc),
+                    }
+                    
                     try:
                         key_dbg = processed_message.get("message_key")
                         strat_dbg = processed_message.get("transmission_strategy")
                         hash_dbg = processed_message.get("input_hash")
                         size_dbg = len(processed_message.get("input_content") or b"")
                         self.logger.debug(
-                            f"Consumed key={key_dbg} strat={strat_dbg} hash={'set' if hash_dbg else 'none'} bytes={size_dbg} in_q={self.input_queue.qsize()}"
+                            f"Consumed key={key_dbg} strat={strat_dbg} hash={'set' if hash_dbg else 'none'} bytes={size_dbg} consume_ms={int(consume_time*1000)} in_q={self.input_queue.qsize()}"
                         )
                     except Exception:
                         pass

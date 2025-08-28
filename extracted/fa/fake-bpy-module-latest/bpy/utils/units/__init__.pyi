@@ -12,6 +12,7 @@ def to_string(
     unit_system: str | None,
     unit_category: str | None,
     value: float | None,
+    *,
     precision: int | None = 3,
     split_unit: bool | None = False,
     compatible_unit: bool | None = False,
@@ -29,7 +30,7 @@ def to_string(
         :type precision: int | None
         :param split_unit: Whether to use several units if needed (1m1cm), or always only one (1.01m).
         :type split_unit: bool | None
-        :param compatible_unit: Whether to use keyboard-friendly units (1m2) or nicer UTF8 ones (1m²).
+        :param compatible_unit: Whether to use keyboard-friendly units (1m2) or nicer UTF8 ones (1m).
         :type compatible_unit: bool | None
         :return: The converted string.
         :rtype: str
@@ -39,6 +40,7 @@ def to_value(
     unit_system: str | None,
     unit_category: str | None,
     str_input: str | None,
+    *,
     str_ref_unit: None | str | None = None,
 ) -> float:
     """Convert a given input string into a float value.
@@ -57,9 +59,9 @@ def to_value(
     """
 
 categories: typing.Any
-""" Constant value bpy.utils.units.categories(NONE='NONE', LENGTH='LENGTH', AREA='AREA', VOLUME='VOLUME', MASS='MASS', ROTATION='ROTATION', TIME='TIME', TIME_ABSOLUTE='TIME_ABSOLUTE', VELOCITY='VELOCITY', ACCELERATION='ACCELERATION', CAMERA='CAMERA', POWER='POWER', TEMPERATURE='TEMPERATURE', WAVELENGTH='WAVELENGTH', COLOR_TEMPERATURE='COLOR_TEMPERATURE', FREQUENCY='FREQUENCY')
+""" Constant value bpy.utils.units.categories(NONE=NONE, LENGTH=LENGTH, AREA=AREA, VOLUME=VOLUME, MASS=MASS, ROTATION=ROTATION, TIME=TIME, TIME_ABSOLUTE=TIME_ABSOLUTE, VELOCITY=VELOCITY, ACCELERATION=ACCELERATION, CAMERA=CAMERA, POWER=POWER, TEMPERATURE=TEMPERATURE, WAVELENGTH=WAVELENGTH, COLOR_TEMPERATURE=COLOR_TEMPERATURE, FREQUENCY=FREQUENCY)
 """
 
 systems: typing.Any
-""" Constant value bpy.utils.units.systems(NONE='NONE', METRIC='METRIC', IMPERIAL='IMPERIAL')
+""" Constant value bpy.utils.units.systems(NONE=NONE, METRIC=METRIC, IMPERIAL=IMPERIAL)
 """

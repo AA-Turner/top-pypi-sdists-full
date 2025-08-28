@@ -2,9 +2,10 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
-class RandomizeLocRotSize(bpy.types.Operator):
+class RandomizeLocRotSize(_bpy_types.Operator):
     """Randomize objects location, rotation, and scale"""
 
     bl_idname: typing.Any

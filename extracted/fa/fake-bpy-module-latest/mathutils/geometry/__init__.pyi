@@ -1,5 +1,5 @@
 """
-The Blender geometry module
+The Blender geometry module.
 
 """
 
@@ -13,6 +13,7 @@ def area_tri(
     v1: collections.abc.Sequence[float] | mathutils.Vector,
     v2: collections.abc.Sequence[float] | mathutils.Vector,
     v3: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> float:
     """Returns the area size of the 2D or 3D triangle defined.
 
@@ -33,6 +34,7 @@ def barycentric_transform(
     tri_b1: collections.abc.Sequence[float] | mathutils.Vector,
     tri_b2: collections.abc.Sequence[float] | mathutils.Vector,
     tri_b3: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> mathutils.Vector:
     """Return a transformed point, the transformation is defined by 2 triangles.
 
@@ -56,6 +58,7 @@ def barycentric_transform(
 
 def box_fit_2d(
     points: collections.abc.Sequence[collections.abc.Sequence[float]],
+    /,
 ) -> float:
     """Returns an angle that best fits the points to an axis aligned rectangle
 
@@ -65,7 +68,10 @@ def box_fit_2d(
     :rtype: float
     """
 
-def box_pack_2d(boxes: list[list[float]]) -> tuple[float, float]:
+def box_pack_2d(
+    boxes: list[list[float]],
+    /,
+) -> tuple[float, float]:
     """Returns a tuple with the width and height of the packed bounding box.
 
     :param boxes: list of boxes, each box is a list where the first 4 items are [X, Y, width, height, ...] other items are ignored. The X & Y values in this list are modified to set the packed positions.
@@ -79,6 +85,7 @@ def closest_point_on_tri(
     tri_p1: collections.abc.Sequence[float] | mathutils.Vector,
     tri_p2: collections.abc.Sequence[float] | mathutils.Vector,
     tri_p3: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> mathutils.Vector:
     """Takes 4 vectors: one is the point and the next 3 define the triangle.
 
@@ -113,7 +120,8 @@ def delaunay_2d_cdt(
     faces: collections.abc.Sequence[collections.abc.Sequence[int]],
     output_type: int,
     epsilon: float,
-    need_ids=True,
+    need_ids: bool = True,
+    /,
 ) -> tuple[
     list[mathutils.Vector],
     list[tuple[int, int]],
@@ -139,13 +147,14 @@ def delaunay_2d_cdt(
         :type vert_coords: collections.abc.Sequence[collections.abc.Sequence[float] | mathutils.Vector]
         :param edges: Edges, as pairs of indices in vert_coords
         :type edges: collections.abc.Sequence[collections.abc.Sequence[int, int]]
-        :param faces: Faces, each sublist is a face, as indices in vert_coords (CCW oriented)
+        :param faces: Faces, each sublist is a face, as indices in vert_coords (CCW oriented).
         :type faces: collections.abc.Sequence[collections.abc.Sequence[int]]
         :param output_type: What output looks like. 0 => triangles with convex hull. 1 => triangles inside constraints. 2 => the input constraints, intersected. 3 => like 2 but detect holes and omit them from output. 4 => like 2 but with extra edges to make valid BMesh faces. 5 => like 4 but detect holes and omit them from output.
         :type output_type: int
         :param epsilon: For nearness tests; should not be zero
         :type epsilon: float
         :param need_ids: are the orig output arrays needed?
+        :type need_ids: bool
         :return: Output tuple, (vert_coords, edges, faces, orig_verts, orig_edges, orig_faces)
         :rtype: tuple[list[mathutils.Vector], list[tuple[int, int]], list[list[int]], list[list[int]], list[list[int]], list[list[int]]]
     """
@@ -154,6 +163,7 @@ def distance_point_to_plane(
     pt: collections.abc.Sequence[float] | mathutils.Vector,
     plane_co: collections.abc.Sequence[float] | mathutils.Vector,
     plane_no: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> float:
     """Returns the signed distance between a point and a plane    (negative when below the normal).
 
@@ -172,6 +182,7 @@ def interpolate_bezier(
     handle2: collections.abc.Sequence[float] | mathutils.Vector,
     knot2: collections.abc.Sequence[float] | mathutils.Vector,
     resolution: int,
+    /,
 ) -> list[mathutils.Vector]:
     """Interpolate a bezier spline segment.
 
@@ -194,6 +205,7 @@ def intersect_line_line(
     v2: collections.abc.Sequence[float] | mathutils.Vector,
     v3: collections.abc.Sequence[float] | mathutils.Vector,
     v4: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> None | tuple[mathutils.Vector, mathutils.Vector]:
     """Returns a tuple with the points on each line respectively closest to the other.
 
@@ -214,6 +226,7 @@ def intersect_line_line_2d(
     lineA_p2: collections.abc.Sequence[float] | mathutils.Vector,
     lineB_p1: collections.abc.Sequence[float] | mathutils.Vector,
     lineB_p2: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> None | mathutils.Vector:
     """Takes 2 segments (defined by 4 vectors) and returns a vector for their point of intersection or None.
 
@@ -234,7 +247,8 @@ def intersect_line_plane(
     line_b: collections.abc.Sequence[float] | mathutils.Vector,
     plane_co: collections.abc.Sequence[float] | mathutils.Vector,
     plane_no: collections.abc.Sequence[float] | mathutils.Vector,
-    no_flip=False,
+    no_flip: bool = False,
+    /,
 ) -> None | mathutils.Vector:
     """Calculate the intersection between a line (as 2 vectors) and a plane.
     Returns a vector for the intersection or None.
@@ -247,6 +261,8 @@ def intersect_line_plane(
         :type plane_co: collections.abc.Sequence[float] | mathutils.Vector
         :param plane_no: The direction the plane is facing
         :type plane_no: collections.abc.Sequence[float] | mathutils.Vector
+        :param no_flip: Not implemented
+        :type no_flip: bool
         :return: The point of intersection or None when not found
         :rtype: None | mathutils.Vector
     """
@@ -256,7 +272,8 @@ def intersect_line_sphere(
     line_b: collections.abc.Sequence[float] | mathutils.Vector,
     sphere_co: collections.abc.Sequence[float] | mathutils.Vector,
     sphere_radius: float,
-    clip=True,
+    clip: bool = True,
+    /,
 ) -> tuple[mathutils.Vector | None, mathutils.Vector | None]:
     """Takes a line (as 2 points) and a sphere (as a point and a radius) and
     returns the intersection
@@ -269,6 +286,8 @@ def intersect_line_sphere(
         :type sphere_co: collections.abc.Sequence[float] | mathutils.Vector
         :param sphere_radius: Radius of the sphere
         :type sphere_radius: float
+        :param clip: When False, dont restrict the intersection to the area of the sphere.
+        :type clip: bool
         :return: The intersection points as a pair of vectors or None when there is no intersection
         :rtype: tuple[mathutils.Vector | None, mathutils.Vector | None]
     """
@@ -278,7 +297,8 @@ def intersect_line_sphere_2d(
     line_b: collections.abc.Sequence[float] | mathutils.Vector,
     sphere_co: collections.abc.Sequence[float] | mathutils.Vector,
     sphere_radius: float,
-    clip=True,
+    clip: bool = True,
+    /,
 ) -> tuple[mathutils.Vector | None, mathutils.Vector | None]:
     """Takes a line (as 2 points) and a sphere (as a point and a radius) and
     returns the intersection
@@ -291,6 +311,8 @@ def intersect_line_sphere_2d(
         :type sphere_co: collections.abc.Sequence[float] | mathutils.Vector
         :param sphere_radius: Radius of the sphere
         :type sphere_radius: float
+        :param clip: When False, dont restrict the intersection to the area of the sphere.
+        :type clip: bool
         :return: The intersection points as a pair of vectors or None when there is no intersection
         :rtype: tuple[mathutils.Vector | None, mathutils.Vector | None]
     """
@@ -300,6 +322,7 @@ def intersect_plane_plane(
     plane_a_no: collections.abc.Sequence[float] | mathutils.Vector,
     plane_b_co: collections.abc.Sequence[float] | mathutils.Vector,
     plane_b_no: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> tuple[None, None] | tuple[mathutils.Vector, mathutils.Vector]:
     """Return the intersection between two planes
 
@@ -311,7 +334,7 @@ def intersect_plane_plane(
     :type plane_b_co: collections.abc.Sequence[float] | mathutils.Vector
     :param plane_b_no: Normal of the second plane
     :type plane_b_no: collections.abc.Sequence[float] | mathutils.Vector
-    :return: The line of the intersection represented as a point and a vector or None if the intersection can't be calculated
+    :return: The line of the intersection represented as a point and a vector or None if the intersection cant be calculated
     :rtype: tuple[None, None] | tuple[mathutils.Vector, mathutils.Vector]
     """
 
@@ -319,6 +342,7 @@ def intersect_point_line(
     pt: collections.abc.Sequence[float] | mathutils.Vector,
     line_p1: collections.abc.Sequence[float] | mathutils.Vector,
     line_p2,
+    /,
 ) -> tuple[mathutils.Vector, float]:
     """Takes a point and a line and returns a tuple with the closest point on the line and its distance from the first point of the line as a percentage of the length of the line.
 
@@ -335,6 +359,7 @@ def intersect_point_quad_2d(
     quad_p2: collections.abc.Sequence[float] | mathutils.Vector,
     quad_p3: collections.abc.Sequence[float] | mathutils.Vector,
     quad_p4: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> int:
     """Takes 5 vectors (using only the x and y coordinates): one is the point and the next 4 define the quad,
     only the x and y are used from the vectors. Returns 1 if the point is within the quad, otherwise 0.
@@ -358,6 +383,7 @@ def intersect_point_tri(
     tri_p1: collections.abc.Sequence[float] | mathutils.Vector,
     tri_p2: collections.abc.Sequence[float] | mathutils.Vector,
     tri_p3: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> None | mathutils.Vector:
     """Takes 4 vectors: one is the point and the next 3 define the triangle. Projects the point onto the triangle plane and checks if it is within the triangle.
 
@@ -378,6 +404,7 @@ def intersect_point_tri_2d(
     tri_p1: collections.abc.Sequence[float] | mathutils.Vector,
     tri_p2: collections.abc.Sequence[float] | mathutils.Vector,
     tri_p3: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> int:
     """Takes 4 vectors (using only the x and y coordinates): one is the point and the next 3 define the triangle. Returns 1 if the point is within the triangle, otherwise 0.
 
@@ -399,6 +426,7 @@ def intersect_ray_tri(
     ray: collections.abc.Sequence[float] | mathutils.Vector,
     orig: collections.abc.Sequence[float] | mathutils.Vector,
     clip: bool = True,
+    /,
 ) -> None | mathutils.Vector:
     """Returns the intersection between a ray and a triangle, if possible, returns None otherwise.
 
@@ -412,7 +440,7 @@ def intersect_ray_tri(
     :type ray: collections.abc.Sequence[float] | mathutils.Vector
     :param orig: Origin
     :type orig: collections.abc.Sequence[float] | mathutils.Vector
-    :param clip: When False, don't restrict the intersection to the area of the triangle, use the infinite plane defined by the triangle.
+    :param clip: When False, dont restrict the intersection to the area of the triangle, use the infinite plane defined by the triangle.
     :type clip: bool
     :return: The point of intersection or None if no intersection is found
     :rtype: None | mathutils.Vector
@@ -423,6 +451,7 @@ def intersect_sphere_sphere_2d(
     radius_a: float,
     p_b: collections.abc.Sequence[float] | mathutils.Vector,
     radius_b: float,
+    /,
 ) -> tuple[None, None] | tuple[mathutils.Vector, mathutils.Vector]:
     """Returns 2 points on between intersecting circles.
 
@@ -438,14 +467,22 @@ def intersect_sphere_sphere_2d(
     :rtype: tuple[None, None] | tuple[mathutils.Vector, mathutils.Vector]
     """
 
-def intersect_tri_tri_2d(tri_a1, tri_a2, tri_a3, tri_b1, tri_b2, tri_b3) -> bool:
+def intersect_tri_tri_2d(
+    tri_a1,
+    tri_a2,
+    tri_a3,
+    tri_b1,
+    tri_b2,
+    tri_b3,
+    /,
+) -> bool:
     """Check if two 2D triangles intersect.
 
     :rtype: bool
     """
 
 def normal(
-    vectors: collections.abc.Sequence[collections.abc.Sequence[float]],
+    *vectors: collections.abc.Sequence[collections.abc.Sequence[float]],
 ) -> mathutils.Vector:
     """Returns the normal of a 3D polygon.
 
@@ -458,6 +495,7 @@ def points_in_planes(
     planes: list[collections.abc.Sequence[float] | mathutils.Vector],
     epsilon_coplanar: float = 0.0001,
     epsilon_isect: float = 1e-06,
+    /,
 ) -> tuple[list[mathutils.Vector], list[int]]:
     """Returns a list of points inside all planes given and a list of index values for the planes used.
 
@@ -471,7 +509,10 @@ def points_in_planes(
     :rtype: tuple[list[mathutils.Vector], list[int]]
     """
 
-def tessellate_polygon(polylines) -> list[tuple[int, int, int]]:
+def tessellate_polygon(
+    polylines,
+    /,
+) -> list[tuple[int, int, int]]:
     """Takes a list of polylines (each point a pair or triplet of numbers) and returns the point indices for a polyline filled with triangles. Does not handle degenerate geometry (such as zero-length lines due to consecutive identical points).
 
     :param polylines: Polygons where each polygon is a sequence of 2D or 3D points.
@@ -483,6 +524,7 @@ def volume_tetrahedron(
     v2: collections.abc.Sequence[float] | mathutils.Vector,
     v3: collections.abc.Sequence[float] | mathutils.Vector,
     v4: collections.abc.Sequence[float] | mathutils.Vector,
+    /,
 ) -> float:
     """Return the volume formed by a tetrahedron (points can be in any order).
 

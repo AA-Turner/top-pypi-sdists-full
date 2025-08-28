@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 
 class ObjectModeOperator:
@@ -12,7 +13,7 @@ class ObjectModeOperator:
         :param context:
         """
 
-class QuickExplode(ObjectModeOperator, bpy.types.Operator):
+class QuickExplode(ObjectModeOperator, _bpy_types.Operator):
     """Make selected objects explode"""
 
     bl_idname: typing.Any
@@ -48,7 +49,7 @@ class QuickExplode(ObjectModeOperator, bpy.types.Operator):
         :param _event:
         """
 
-class QuickFur(ObjectModeOperator, bpy.types.Operator):
+class QuickFur(ObjectModeOperator, _bpy_types.Operator):
     """Add a fur setup to the selected objects"""
 
     bl_idname: typing.Any
@@ -77,7 +78,7 @@ class QuickFur(ObjectModeOperator, bpy.types.Operator):
         :param context:
         """
 
-class QuickLiquid(bpy.types.Operator):
+class QuickLiquid(_bpy_types.Operator):
     """Make selected objects liquid"""
 
     bl_idname: typing.Any
@@ -106,7 +107,7 @@ class QuickLiquid(bpy.types.Operator):
         :param context:
         """
 
-class QuickSmoke(ObjectModeOperator, bpy.types.Operator):
+class QuickSmoke(ObjectModeOperator, _bpy_types.Operator):
     """Use selected objects as smoke emitters"""
 
     bl_idname: typing.Any

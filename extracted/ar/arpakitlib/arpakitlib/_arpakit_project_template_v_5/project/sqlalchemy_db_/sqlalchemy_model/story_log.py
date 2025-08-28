@@ -75,6 +75,8 @@ class StoryLogDBM(SimpleDBM):
         value = make_none_if_blank(value.strip())
         return value
 
+    # ---SDP---
+
     @property
     def sdp_allowed_levels(self) -> list[str]:
         return self.Levels.values_list()
